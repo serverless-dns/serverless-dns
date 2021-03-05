@@ -1,0 +1,19 @@
+{
+  "name": "@serverless-dns/free-user",
+  "version": "1.0.0",
+  "description": "",
+  "main": "FreeUser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/serverless-dns/free-user.git"
+  },
+  "bugs": {
+    "url": "https://github.com/serverless-dns/free-user/issues"
+  },
+  "homepage": "https://github.com/serverless-dns/free-user#readme"
+}
