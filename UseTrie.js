@@ -5,6 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
+// this is a much modified code based on S Hanov's succinct-trie: stevehanov.ca/blog/?id=120
+
 var CreateError = require('@serverless-dns/error')
 var BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
 
