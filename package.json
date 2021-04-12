@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/dns-blocker",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "rethink-dns dns packet blocker",
   "main": "dnsblocker.js",
   "scripts": {
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/dns-blocker/issues"
   },
-  "homepage": "https://github.com/serverless-dns/dns-blocker#readme"
+  "homepage": "https://github.com/serverless-dns/dns-blocker#readme",
+  "files": [
+    "dnsblocker.js"
+  ]
 }

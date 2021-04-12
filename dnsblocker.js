@@ -11,14 +11,14 @@ var DnsParser = require('@serverless-dns/dns-parser')
 
 
 class DNSResolver {
-	constructor(){
+	constructor() {
 
 	}
 
 	async RethinkModule(commonContext, thisRequest, event) {
-		if(thisRequest.IsDnsBlock == false){
+		if (thisRequest.IsDnsBlock == false) {
 			await this.ResolveDns(thisRequest)
-		}		
+		}
 	}
 
 	async ResolveDns(thisRequest) {
@@ -43,33 +43,35 @@ class DNSResolver {
 	}
 }
 
-class DNSCnameBlock{
-	constructor(){
+class DNSCnameBlock {
+	constructor() {
 
 	}
 
 	async RethinkModule(commonContext, thisRequest, event) {
-		if(thisRequest.IsDnsBlock == false){
+		if (thisRequest.IsDnsBlock == false) {
 			await this.CheckResponseCnameDnsBlock(thisRequest, commonContext, event)
-		}		
+		}
 	}
 
 	async CheckResponseCnameDnsBlock(thisRequest, commonContext, event) {
 		try {
-			let tmpReq = await thisRequest.httpResponse.clone();
-			try {
-				thisRequest.DecodedDnsPacket = await dnsPacketDecode(await tmpReq.arrayBuffer())
-			}
-			catch (e) {
-				thisRequest.StopProcessing = true
-				thisRequest.IsException = true
-				thisRequest.IsDnsParseException = true
-				thisRequest.exception = e
-				thisRequest.exceptionFrom = "dnsblocker.js DnsWork CheckResponseCnameDnsBlock"
-				return
-			}
-			if(checkCnameDnsBlock.call(this, thisRequest, commonContext, event) == true){
-				thisRequest.DnsBlockResponse()
+			if (thisRequest.UserConfig.data.isValidFlag) {
+				let tmpReq = await thisRequest.httpResponse.clone();
+				try {
+					thisRequest.DecodedDnsPacket = await dnsPacketDecode(await tmpReq.arrayBuffer())
+				}
+				catch (e) {
+					thisRequest.StopProcessing = true
+					thisRequest.IsException = true
+					thisRequest.IsDnsParseException = true
+					thisRequest.exception = e
+					thisRequest.exceptionFrom = "dnsblocker.js DnsWork CheckResponseCnameDnsBlock"
+					return
+				}
+				if (checkCnameDnsBlock.call(this, thisRequest, commonContext, event) == true) {
+					thisRequest.DnsBlockResponse()
+				}
 			}
 		}
 		catch (e) {
@@ -80,8 +82,8 @@ class DNSCnameBlock{
 		}
 	}
 }
-class DNSBlock{
-	constructor(){
+class DNSBlock {
+	constructor() {
 
 	}
 
@@ -91,8 +93,10 @@ class DNSBlock{
 
 	async CheckDnsBlock(thisRequest, commonContext) {
 		try {
-			if(checkDnsRequestBlock.call(this, thisRequest, commonContext) == true){
-				thisRequest.DnsBlockResponse()
+			if (thisRequest.UserConfig.data.isValidFlag) {
+				if (checkDnsRequestBlock.call(this, thisRequest, commonContext) == true) {
+					thisRequest.DnsBlockResponse()
+				}
 			}
 		}
 		catch (e) {
@@ -108,7 +112,7 @@ class DNSWork {
 	constructor() {
 
 	}
-	
+
 	async Decode(arrayBuffer) {
 		try {
 			return dnsPacketDecode(arrayBuffer)
@@ -128,8 +132,8 @@ class DNSWork {
 }
 
 
-function dnsPacketDecode(arrayBuffer){
-	return DnsParser.decode(DnsParser.getBuff().from(new Uint8Array(arrayBuffer)))
+function dnsPacketDecode(arrayBuffer) {
+	return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)))
 }
 
 async function forwardDnsMessage(request) {
