@@ -2004,15 +2004,25 @@ function encodeToBinary(s) {
 }
 
 function userFlagConvertB64ToUint(b64Flag) {
-    try {
-        let splitFlag = b64Flag.split(':')
+    try {        
         let response = {}
         response.isValidFlag = true
         response.userBlocklistFlagUint = ""
         response.flagVersion = 0
+        //added to check if UserFlag is empty for changing dns request flow
+        response.isEmptyFlag = false
+        b64Flag = b64Flag.trim()
+
+        if(b64Flag == ""){
+            response.isValidFlag = false
+            response.isEmptyFlag = true
+            return response
+        }
+        let splitFlag = b64Flag.split(':')
         if (splitFlag.length == 0) {
             response.isValidFlag = false
-            return
+            response.isEmptyFlag = true
+            return response
         }
         else if (splitFlag.length == 1) {
             response.userBlocklistFlagUint = Base64ToUint(splitFlag[0]) || ""
