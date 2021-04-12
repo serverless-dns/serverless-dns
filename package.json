@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/free-user",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "FreeUser.js",
   "scripts": {

@@ -28,11 +28,13 @@ class UserOperation {
                 thisRequest.UserConfig.data.IsServiceListEnabled = false
                 thisRequest.UserConfig.data.userServiceListUint = ""
                 thisRequest.UserConfig.data.isValidFlag = true
+                thisRequest.UserConfig.data.isEmptyFlag = false
 
                 let response = commonContext.BlockListFilter.Blocklist.userB64FlagProcess(thisRequest.UserId)
                 thisRequest.UserConfig.data.userBlocklistFlagUint = response.userBlocklistFlagUint
                 thisRequest.UserConfig.data.isValidFlag = response.isValidFlag
                 thisRequest.UserConfig.data.flagVersion = response.flagVersion
+                thisRequest.UserConfig.data.isEmptyFlag = response.isEmptyFlag
 
                 if(thisRequest.UserConfig.data.isValidFlag){
                     thisRequest.UserConfig.data.userServiceListUint = commonContext.BlockListFilter.Blocklist.flagIntersection(thisRequest.UserConfig.data.userBlocklistFlagUint,commonContext.GlobalContext.wildcardUint)
@@ -41,7 +43,7 @@ class UserOperation {
                     }
                 }
                 else{
-                    if(commonContext.GlobalContext.CFmember.onInvalidFlagStopProcessing == true){
+                    if(thisRequest.UserConfig.data.isEmptyFlag == false && commonContext.GlobalContext.CFmember.onInvalidFlagStopProcessing == true){
                         thisRequest.StopProcessing = true
                         thisRequest.IsInvalidFlagBlock = true
                     }
