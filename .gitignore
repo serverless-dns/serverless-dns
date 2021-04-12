@@ -1,0 +1,4 @@
+# Ignoring directories
+dist/
+node_modules/
+worker/
