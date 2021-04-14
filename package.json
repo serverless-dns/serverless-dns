@@ -21,7 +21,7 @@
     "@serverless-dns/blocklist-wrapper": "^1.0.2",
     "@serverless-dns/cache-wrapper": "^1.0.0",
     "@serverless-dns/command-control": "^1.0.0",
-    "@serverless-dns/count-min-sketch": "^1.0.0",
+    "@serverless-dns/count-min-sketch": "^1.0.1",
     "@serverless-dns/dns-blocker": "^1.0.3",
     "@serverless-dns/dns-parser": "^1.0.1",
     "@serverless-dns/error": "^1.0.0",
