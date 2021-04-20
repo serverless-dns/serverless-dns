@@ -38,6 +38,9 @@ class CommandControl {
 			else if (command == "showlog") {
 				thisRequest.httpResponse = showLog.call(this, commonContext)
 			}
+			else if (command == "dntouint") {
+				thisRequest.httpResponse = domainNameToUint.call(this, QueryString, commonContext)
+			}
 			else if (command == "config" || command == "configure") {
 				let B64UserFlag = ""
 				if (pathSplit.length >= 3) {
@@ -102,6 +105,31 @@ function domainNameToList(QueryString, commonContext) {
 	response.headers.set('Access-Control-Allow-Headers', '*')
 	return response
 }
+
+function domainNameToUint(QueryString, commonContext) {
+	let DomainName = QueryString.get("dn") || ""
+	let returndata = {}
+	returndata.domainName = DomainName
+	returndata.list = {}
+	var searchResult = commonContext.BlockListFilter.Blocklist.hadDomainName(DomainName)
+	if (searchResult) {
+		let list
+		let listDetail = {}
+		for (let entry of searchResult) {			
+			returndata.list[entry[0]] = entry[1]
+		}
+	}
+	else {
+		returndata.list = false
+	}
+
+	let response = new Response(JSON.stringify(returndata))
+	response.headers.set('Content-Type', 'application/json')
+	response.headers.set('Access-Control-Allow-Origin', '*')
+	response.headers.set('Access-Control-Allow-Headers', '*')
+	return response
+}
+
 function listToB64(QueryString, commonContext) {
 	let list = QueryString.get("list") || []
 	let flagVersion = parseInt(QueryString.get("flagversion")) || 0
