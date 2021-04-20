@@ -198,7 +198,7 @@ function checkDomainNameUserFlagIntersection(thisRequest, commonContext, DomainN
 			thisRequest.responseBlocklistUintarr = commonContext.BlockListFilter.Blocklist.flagIntersection(thisRequest.UserConfig.data.userBlocklistFlagUint, domainNameBlocklistUintArr)
 			if (thisRequest.responseBlocklistUintarr != false) {
 				thisRequest.responseBlocklistTag = commonContext.BlockListFilter.Blocklist.getTag(thisRequest.responseBlocklistUintarr)
-				thisRequest.responseB64flag = commonContext.BlockListFilter.Blocklist.getB64Flag(thisRequest.responseBlocklistTag, commonContext.BlockListFilter.blocklistFileTag, thisRequest.UserConfig.data.flagVersion)
+				thisRequest.responseB64flag = commonContext.BlockListFilter.Blocklist.getB64FlagFromUint16(thisRequest.responseBlocklistUintarr, thisRequest.UserConfig.data.flagVersion)
 				return true
 			}
 		}
@@ -218,14 +218,14 @@ function checkDomainNameWildCardUserFlagIntersection(thisRequest, commonContext,
 				thisRequest.responseBlocklistUintarr = commonContext.BlockListFilter.Blocklist.flagIntersection(thisRequest.UserConfig.data.userBlocklistFlagUint, wildCardIntersectBlocklistUintarr)
 				if (thisRequest.responseBlocklistUintarr != false) {
 					thisRequest.responseBlocklistTag = commonContext.BlockListFilter.Blocklist.getTag(thisRequest.responseBlocklistUintarr)
-					thisRequest.responseB64flag = commonContext.BlockListFilter.Blocklist.getB64Flag(thisRequest.responseBlocklistTag, commonContext.BlockListFilter.blocklistFileTag, thisRequest.UserConfig.data.flagVersion)
+					thisRequest.responseB64flag = commonContext.BlockListFilter.Blocklist.getB64FlagFromUint16(thisRequest.responseBlocklistUintarr, thisRequest.UserConfig.data.flagVersion)
 					return true
 				}
 			}
 		}
 	}
 	catch (e) {
-		CreateError.CreateError("dnsblocker.js checkDomainNameUserFlagIntersection", e)
+		CreateError.CreateError("dnsblocker.js checkDomainNameWildCardUserFlagIntersection", e)
 	}
 	return false
 }
