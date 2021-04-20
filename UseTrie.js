@@ -1916,10 +1916,10 @@ class BlocklistWrap {
         return userFlagConvertB64ToUint(b64Flag)
     }
 
-    getBucketId(uid){
-        return ORD[uid[uid.length-1]]
+    getBucketId(uid) {
+        return ORD[uid[uid.length - 1]]
     }
-    
+
     flagIntersection(flag1, flag2) {
         try {
             let flag1Header = flag1[0]
@@ -1996,6 +1996,24 @@ class BlocklistWrap {
 
     }
 
+    getB64FlagFromUint16(arr, flagVersion) {
+        try {
+            if (flagVersion == 0) {
+                return encodeURIComponent(Buffer.from(arr).toString('base64'))
+            }
+            else if (flagVersion == 1) {
+                return "1:" + encodeURI(btoa(encodeUint16arrToBinary(arr)).replace(/\//g, '_').replace(/\+/g, '-'))
+            }
+        }
+        catch (e) {
+            CreateError.CreateError("UserTrie.js BlocklistWrap usrTagToFlag", e)
+        }
+    }
+
+}
+
+function encodeUint16arrToBinary(arr) {
+    return String.fromCharCode(...new Uint8Array(arr.buffer));
 }
 
 function encodeToBinary(s) {
@@ -2007,7 +2025,7 @@ function encodeToBinary(s) {
 }
 
 function userFlagConvertB64ToUint(b64Flag) {
-    try {        
+    try {
         let response = {}
         response.isValidFlag = true
         response.userBlocklistFlagUint = ""
@@ -2016,7 +2034,7 @@ function userFlagConvertB64ToUint(b64Flag) {
         response.isEmptyFlag = false
         b64Flag = b64Flag.trim()
 
-        if(b64Flag == ""){
+        if (b64Flag == "") {
             response.isValidFlag = false
             response.isEmptyFlag = true
             return response

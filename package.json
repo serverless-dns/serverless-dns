@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/blocklist-wrapper",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "rethink-dns blocklist wrapper for trie",
   "main": "UseTrie.js",
   "scripts": {
