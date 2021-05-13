@@ -16,11 +16,11 @@ jobs:
         with: 
           apiToken: ${{ secrets.CF_API_TOKEN }}
           wranglerVersion: '1.10.0'
-          preCommands: |
-            echo "**PreCommands Start**"
+          postCommands: |
+            echo "**PostCommands Start**"
             if [ -z $(echo "${{ secrets.CF_AWS_ACCESSID }}" | xargs) ]; then echo "0" | wrangler secret put CF_AWS_ACCESSID; else echo "${{ secrets.CF_AWS_ACCESSID }}" | wrangler secret put CF_AWS_ACCESSID; fi;
             if [ -z $(echo "${{ secrets.CF_AWS_SECRET_KEY }}" | xargs) ]; then echo "0" | wrangler secret put CF_AWS_SECRET_KEY; else echo "${{ secrets.CF_AWS_SECRET_KEY }}" | wrangler secret put CF_AWS_SECRET_KEY; fi;
             if [ -z $(echo "${{ secrets.CF_AWS_REGION }}" | xargs) ]; then echo "0" | wrangler secret put CF_AWS_REGION; else echo "${{ secrets.CF_AWS_REGION }}" | wrangler secret put CF_AWS_REGION; fi;
-            echo "**PreCommands End**"
+            echo "**PostCommands End**"
         env:
           CF_ACCOUNT_ID: ${{secrets.CF_ACCOUNT_ID}}
