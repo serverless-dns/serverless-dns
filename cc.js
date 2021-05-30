@@ -48,6 +48,9 @@ class CommandControl {
 				}
 				thisRequest.httpResponse = configRedirect.call(this, B64UserFlag, reqUrl.origin, commonContext)
 			}
+			else if(QueryString.has("dns")){
+				thisRequest.StopProcessing = false
+			}
 			else {
 				thisRequest.httpResponse = new Response(JSON.stringify("bad request"))
 				thisRequest.httpResponse.headers.set('Content-Type', 'application/json')
