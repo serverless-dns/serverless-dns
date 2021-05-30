@@ -53,5 +53,5 @@ async function proxyRequest(event) {
 		return res
 	}
 	
-	return thisRequest.httpResponse
+	return thisRequest.DnsResponse()
 }
