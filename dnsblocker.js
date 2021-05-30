@@ -23,7 +23,7 @@ class DNSResolver {
 
 	async ResolveDns(thisRequest) {
 		try {
-			let res = await forwardDnsMessage(thisRequest.httpRequest)
+			let res = await forwardDnsMessage(thisRequest)
 
 			thisRequest.httpResponse = new Response(res.body, res)
 			thisRequest.httpResponse.headers.set('Content-Type', 'application/dns-message')
@@ -136,18 +136,46 @@ function dnsPacketDecode(arrayBuffer) {
 	return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)))
 }
 
-async function forwardDnsMessage(request) {
-	let u = new URL(request.url)
-	u.hostname = "cloudflare-dns.com"
-	u.pathname = "dns-query"
+async function forwardDnsMessage(thisRequest) {
+	let u = new URL(thisRequest.httpRequest.url)
+	u.hostname = thisRequest.dnsResolverDomainName
+	u.pathname = thisRequest.dnsResolverPathName
 
-	request = new Request(u.href, request)
-	request.headers.set('accept', 'application/dns-message')
-	request.headers.set('content-type', 'application/dns-message')
-	request.headers.set('Origin', u.origin)
-
-
-	return await fetch(request)
+	let NewRequest
+	if(thisRequest.httpRequest.method === 'GET'){
+		NewRequest = new Request(u.href, {
+			method: 'GET',
+			headers: {
+				'crossDomain': 'true',
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
+				'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
+				'Content-Type': 'application/dns-message',
+				'accept': 'application/dns-message'
+			}
+		})
+	}
+	else if(thisRequest.httpRequest.method === 'POST'){
+		let buf = await thisRequest.httpRequest.arrayBuffer()
+		NewRequest = new Request(u.href, {
+			method: 'POST',
+			headers: {
+				'crossDomain': 'true',
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
+				'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
+				'Content-Type': 'application/dns-message',
+				'accept': 'application/dns-message',
+				'content-length': buf.byteLength
+			},
+			body: buf
+		})
+	}
+	else{
+		NewRequest = new Request(u.href)
+	}
+	
+	return await fetch(NewRequest)
 }
 
 function checkCnameDnsBlock(thisRequest, commonContext, event) {
@@ -197,9 +225,15 @@ function checkDomainNameUserFlagIntersection(thisRequest, commonContext, DomainN
 			let domainNameBlocklistUintArr = thisRequest.DomainNameInfo.data.searchResult.get(DomainName)
 			thisRequest.responseBlocklistUintarr = commonContext.BlockListFilter.Blocklist.flagIntersection(thisRequest.UserConfig.data.userBlocklistFlagUint, domainNameBlocklistUintArr)
 			if (thisRequest.responseBlocklistUintarr != false) {
-				thisRequest.responseBlocklistTag = commonContext.BlockListFilter.Blocklist.getTag(thisRequest.responseBlocklistUintarr)
+				thisRequest.responseBlocklistTag = commonContext.BlockListFilter.Blocklist.getTag(thisRequest.responseBlocklistUintarr)				
 				thisRequest.responseB64flag = commonContext.BlockListFilter.Blocklist.getB64FlagFromUint16(thisRequest.responseBlocklistUintarr, thisRequest.UserConfig.data.flagVersion)
 				return true
+			}
+			else{
+				thisRequest.IsDomainInBlockListNotBlocked = true
+				thisRequest.responseB64flagDomainInBlockListNotBlocked = commonContext.BlockListFilter.Blocklist.getB64FlagFromUint16(domainNameBlocklistUintArr, thisRequest.UserConfig.data.flagVersion)
+				thisRequest.responseBlocklistTagDomainInBlockListNotBlocked = commonContext.BlockListFilter.Blocklist.getTag(domainNameBlocklistUintArr)
+				console.log(thisRequest.responseBlocklistTagDomainInBlockListNotBlocked)
 			}
 		}
 	}
