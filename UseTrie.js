@@ -2002,7 +2002,7 @@ class BlocklistWrap {
                 return encodeURIComponent(Buffer.from(arr).toString('base64'))
             }
             else if (flagVersion == 1) {
-                return "1:" + encodeURI(btoa(encodeUint16arrToBinary(arr)).replace(/\//g, '_').replace(/\+/g, '-'))
+                return "1:" + encodeURI(btoa(encodeUint16arrToBinary(arr.buffer)).replace(/\//g, '_').replace(/\+/g, '-'))
             }
         }
         catch (e) {
@@ -2012,8 +2012,8 @@ class BlocklistWrap {
 
 }
 
-function encodeUint16arrToBinary(arr) {
-    return String.fromCharCode(...new Uint8Array(arr.buffer));
+function encodeUint16arrToBinary(buf) {
+    return String.fromCharCode(...new Uint8Array(buf));
 }
 
 function encodeToBinary(s) {

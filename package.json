@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/blocklist-wrapper",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "rethink-dns blocklist wrapper for trie",
   "main": "UseTrie.js",
   "scripts": {
@@ -15,5 +15,6 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/blocklist-wrapper/issues"
   },
-  "homepage": "https://github.com/serverless-dns/blocklist-wrapper#readme"
+  "homepage": "https://github.com/serverless-dns/blocklist-wrapper#readme",
+  "dependencies": {}
 }
