@@ -1,16 +1,15 @@
-###Rethink Serverless Dns Resolver
-This is free, open source rethink serverless DOH dns resolver with custom blocklist that can be hosted on cloudflare. This initiative is to provide first level of anti-censorship and data privacy to every persons on earth.
-1. Hosting
+This is free, open source rethink serverless DOH resolver with custom blocklist that can be hosted on cloudflare. This initiative is to provide first level of anti-censorship and data privacy to every persons on earth.
+1. #### Hosting
     * Rethink serverless can be hosted to cloudflare(user will be liable for cloudflare billing).
     * click below button to deploy
-            [![Deploy Rethink Dns to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns)
-2. Configure
+            <br><br>[![Deploy Rethink Dns to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns)
+2. #### Configure
     * Once the hosting is successful, lets consider rethink serverless dns is hosted to example.com.
     * To configure your dns level blocking vist to example.com/configure which will take to configuration page, which currently contains 171 blocklists with 5Million too block domains in catogery like notracking, dating, gambling, privacy, porn, cryptojacking, security ...
     * Navigate through and select your blocklists.
     * Once selected you can find your domain name 'example.com' followed by configuration token on screen like this 'https://example.com/1:AIAA7g==' copy it and add to your dns DOH client.
     * Now your own trusted dns resolver with custom blocking is up and running.
-3. Change Resolver
+3. #### Change Resolver
     * By default dns request are resolved by cloudflare 'cloudflare-dns.com'.
     * To change resolver login to your cloudflare dash board
         * click on worker
