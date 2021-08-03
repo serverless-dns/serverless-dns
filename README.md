@@ -21,8 +21,8 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
             CF_DNS_RESOLVER_DOMAIN_NAME = example.dns.resolver.com
             Cf_DNS_RESOLVER_PATH_NAME = dns-query/resolve
 4. For Developers
-    * Flow
-        The flow of rethink dns is based on plugin module, current [free user flow](https://github.com/serverless-dns/free-user) is below
+    * Flow <br>
+        &emsp;The flow of rethink dns is based on plugin module, current [free user flow](https://github.com/serverless-dns/free-user) is below
         ```javascript
             var Modules = []
             Modules[0] = require('@serverless-dns/globalcontext').SharedContext
@@ -35,30 +35,30 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
             Modules[7] =  require('./UserLog.js').Log
         ``` 
         There are 8 plugins currently loaded by rethink dns out of which SharedContext, SingleRequest, UserOperation, DNSResolver are mandatory plugins.
-        * [SharedContext](https://github.com/serverless-dns/globalcontext)
-            This plugin loads all global variables and methods once and used accross all plugins for multiple dns requestes.
-            Loads environment variable.
-            Initialize local cache.
+        * [SharedContext](https://github.com/serverless-dns/globalcontext)<br>
+            This plugin loads all global variables and methods once and used accross all plugins for multiple dns requestes.<br>
+            Loads environment variable.<br>
+            Initialize local cache.<br>
             Downloads blocklist filter from aws s3.
-        * [CommandControl](https://github.com/serverless-dns/command-control)
+        * [CommandControl](https://github.com/serverless-dns/command-control)<br>
             This is optional plugin used to provide command to rethink serverless dns using GET request.
-        * [SingleRequest](https://github.com/serverless-dns/single-request)
-            This plugin loads requested domain name, user details from cache if exist.
+        * [SingleRequest](https://github.com/serverless-dns/single-request)<br>
+            This plugin loads requested domain name, user details from cache if exist.<br>
             Check requested domain name exists in blocklist and cache domain name if not exist in cache. 
-        * [UserOperation](https://github.com/serverless-dns/free-user)
-            This plugin loads current user details if not found in cache.
+        * [UserOperation](https://github.com/serverless-dns/free-user)<br>
+            This plugin loads current user details if not found in cache.<br>
             eg. dns resolve 'google.com' request to rethink serverless cloudflare resolver 'https://example.com/1:AIAA7g==' configuration string '1:AIAA7g==' is treated as user id and loads selected blocklists files for configuration string and cache it under user id.
-        * [DNSBlock](https://github.com/serverless-dns/dns-blocker)
+        * [DNSBlock](https://github.com/serverless-dns/dns-blocker)<br>
             This is optional plugin used to check whether requested domain should be blocked or processed further.            
-        * [DNSResolver](https://github.com/serverless-dns/dns-blocker)
+        * [DNSResolver](https://github.com/serverless-dns/dns-blocker)<br>
             This plugin forward dns request to upstream resolver based on environment variable 'CF_DNS_RESOLVER_DOMAIN_NAME' & Cf_DNS_RESOLVER_PATH_NAME if not blocked by DNSBlock plugin.
-        * [DNSCnameBlock](https://github.com/serverless-dns/dns-blocker)
+        * [DNSCnameBlock](https://github.com/serverless-dns/dns-blocker)<br>
             This is optional plugin used to check whether dns resolved response contains cname and cname has blocked domain name, if cname has blocked domain name then request is blocked.
-        * [Log](https://github.com/serverless-dns/free-user)
-            This is optional plugin used to collect logs about all dns request, stored logs will be processed based on configurable wait time at environment variable CF_DNSLOG_WAIT_TIME as milliseconds, currently its 10000 milliseconds. Normal cloudflare plan can wait upto 30seconds set accordingly.
-            This plugin is partially developed till log collection,
+        * [Log](https://github.com/serverless-dns/free-user)<br>
+            This is optional plugin used to collect logs about all dns request, stored logs will be processed based on configurable wait time at environment variable CF_DNSLOG_WAIT_TIME as milliseconds, currently its 10000 milliseconds. Normal cloudflare plan can wait upto 30seconds set accordingly.<br>
+            This plugin is partially developed till log collection.<br>
             Further can implement it to pass dns logs to their personal data stores for thread analytics or usage analytics and further more.
-    * Custom Plugin
+    * Custom Plugin<br>
         Custom plugins can be developed by adding following function to class
         ```javascript
             class CustomPlugin {
@@ -79,17 +79,17 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
             }
             module.exports.CustomPlugin = CustomPlugin
         ```
-        RethinkModule(commonContext, thisRequest, event) is entry point for every plugin.
-        Inside RethinkModule method your custom logic can be build for your dns resolver.
-        Three parameters are passed to RethinkModule where 
-            commonContext contains all global information.
-            thisRequest contains details about current request.
-            event is worker parameter passed for the current request.
-        To stop execution of plugins set thisRequest.StopProcessing = true and return, no further plugins will be executed.
-        By stop processing we have interruped process, make sure you generate proper return response.
-        Once your custom plugin is created publish it to npm or directly point it to module file.
-        Make sure Modules array index is incremented properly.
-        example if published to npm as @your-plugin/plugin
+        * RethinkModule(commonContext, thisRequest, event) is entry point for every plugin.<br>
+        * Inside RethinkModule method your custom logic can be build for your dns resolver.<br>
+        * Three parameters are passed to RethinkModule<br> 
+            * commonContext contains all global information.<br>
+            * thisRequest contains details about current request.<br>
+            * event is worker parameter passed for the current request.<br>
+        * To stop execution of plugins set thisRequest.StopProcessing = true and return, no further plugins will be executed.<br>
+        * By stop processing we have interruped process, make sure you generate proper return response.<br>
+        * Once your custom plugin is created publish it to npm or directly point it to module file.<br>
+        * Make sure Modules array index is incremented properly.<br>
+        * example if published to npm as @your-plugin/plugin<br>
         ```javascript
             var Modules = []
             Modules[0] = require('@serverless-dns/globalcontext').SharedContext
@@ -102,5 +102,5 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
             Modules[7] = require('@your-plugin/plugin').CustomPlugin
             Modules[8] =  require('./UserLog.js').Log
         ``` 
-        in above example custom created plugin will executed after DNSCnameBlock plugin.
-        Publish to cloudflare with updated plugin which will reflect to all your pointed devices.
+        * In above example custom created plugin will executed after DNSCnameBlock plugin.<br>
+        * Publish to cloudflare with updated plugin which will reflect to all your pointed devices.
