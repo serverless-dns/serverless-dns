@@ -9,8 +9,8 @@
 var Cache = require('@serverless-dns/lfu-cache').LfuCache
 
 class LocalCache {
-  constructor(cacheName, size, lfuUpdateCount, cmslen, cmswidht, cmsheight, cacheDataRemoveCount, sleepTime = 1000) {
-    this.localCache = new Cache(cacheName, size, lfuUpdateCount, cmslen, cmswidht, cmsheight)
+  constructor(cacheName, size, cacheDataRemoveCount, sleepTime = 100) {
+    this.localCache = new Cache(cacheName, size)
     this.cacheDataHold = []
     this.block = false
     this.cacheDataRemoveCount = cacheDataRemoveCount

@@ -1,1 +1,1 @@
-# cache-wrapper
+This repository is a wrapper to any [lfu cache](https://github.com/serverless-dns/lfu-cache) implementation, it exposes only get and put operation to implemented module.
