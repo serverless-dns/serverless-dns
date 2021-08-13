@@ -1,8 +1,8 @@
 {
-  "name": "@serverless-dns/dns-blocker",
-  "version": "1.0.6",
+  "name": "@serverless-dns/dns-operation",
+  "version": "1.0.0",
   "description": "rethink-dns dns packet blocker",
-  "main": "dnsblocker.js",
+  "main": "dnsOperation.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,8 +15,5 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/dns-blocker/issues"
   },
-  "homepage": "https://github.com/serverless-dns/dns-blocker#readme",
-  "files": [
-    "dnsblocker.js"
-  ]
+  "homepage": "https://github.com/serverless-dns/dns-blocker#readme"
 }
