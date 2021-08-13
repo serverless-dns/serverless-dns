@@ -1,8 +1,8 @@
 name: Build
 on:
   push:
-    branches:
-      - main
+  pull_request:
+  repository_dispatch:
 jobs:
   deploy:
     runs-on: ubuntu-latest
