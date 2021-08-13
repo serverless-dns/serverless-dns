@@ -1,6 +1,6 @@
-var SharedContext = require('@serverless-dns/globalcontext').SharedContext
-var SingleRequest = require('@serverless-dns/single-request').SingleRequest
-var Modules = require("@serverless-dns/free-user").Modules
+var CurrentRequest = require('./currentRequest.js').CurrentRequest
+var RethinkPlugin = require("./plugin.js").RethinkPlugin
+var BlocklistWrapper = require('@serverless-dns/blocklist-wrapper').BlocklistWrapper
 
 addEventListener('fetch', event => {
 	event.respondWith(handleRequest(event))
@@ -11,10 +11,9 @@ async function handleRequest(event) {
 }
 
 
-let commonContext = new SharedContext()
-
+let blocklistFilter = new BlocklistWrapper()
 async function proxyRequest(event) {
-	let thisRequest = new SingleRequest()
+	let currentRequest = new CurrentRequest()	
 	let res
 	try {
 		if (event.request.method === "OPTIONS") {
@@ -24,20 +23,39 @@ async function proxyRequest(event) {
 			res.headers.set('Access-Control-Allow-Headers', '*')
 			return res
 		}
-		let Caller
-		for (let i = 0; i <= Modules.length - 1; i++) {
-			Caller = new Modules[i]()
-			await Caller.RethinkModule(commonContext, thisRequest, event)
-			if (thisRequest.StopProcessing) {
-				if (thisRequest.IsException) {
-					thisRequest.DnsExceptionResponse()
-				}
-				else if (thisRequest.IsInvalidFlagBlock == true) {
-					thisRequest.CustomResponse("Invalid Flag", "User Invalid Flag Block")
-				}
+		if(blocklistFilter.isBlocklistUnderConstruction == false && blocklistFilter.isBlocklistLoaded == false){
+			await blocklistFilter.initBlocklistConstruction()
+		}		
+		let retryCount = 0;
+		let retryLimit = 300;
+		while (blocklistFilter.isBlocklistUnderConstruction == true) {
+			if (retryCount >= retryLimit) {
 				break
 			}
+			await sleep(20)
+			if (blocklistFilter.isBlocklistLoadException == true) {
+				break
+			}
+			retryCount++
 		}
+		if (blocklistFilter.isBlocklistLoaded == true) {
+			let plugin = new RethinkPlugin(blocklistFilter, event)
+			await plugin.executePlugin(currentRequest)
+		}
+		else if (blocklistFilter.isException == true) {
+			currentRequest.stopProcessing = true
+			currentRequest.isException = true
+			currentRequest.exceptionStack = blocklistFilter.exceptionStack
+			currentRequest.exceptionFrom = blocklistFilter.exceptionFrom
+			currentRequest.dnsExceptionResponse()
+		}
+		else {
+			currentRequest.stopProcessing = true
+			currentRequest.exceptionFrom = "Blocklist Not yet loaded"
+			currentRequest.customResponse({ errorFrom: "index.js proxyRequest", errorReason: "Problem in loading blocklistFilter - Waiting Timeout" })
+		}
+
+		return currentRequest.httpResponse
 	}
 	catch (e) {
 		//thisRequest.exception = e
@@ -52,6 +70,10 @@ async function proxyRequest(event) {
 		res.headers.delete('cf-ray')
 		return res
 	}
-	
-	return thisRequest.DnsResponse()
 }
+
+const sleep = ms => {
+	return new Promise(resolve => {
+		setTimeout(resolve, ms);
+	});
+};

@@ -18,16 +18,13 @@
   },
   "homepage": "https://github.com/serverless-dns/serverless-dns#readme",
   "dependencies": {
-    "@serverless-dns/blocklist-wrapper": "^1.0.5",
-    "@serverless-dns/cache-wrapper": "^1.0.0",
+    "@serverless-dns/blocklist-wrapper": "^1.0.6",
+    "@serverless-dns/cache-wrapper": "^1.0.1",
     "@serverless-dns/command-control": "^1.0.5",
     "@serverless-dns/count-min-sketch": "^1.0.1",
-    "@serverless-dns/dns-blocker": "^1.0.6",
+    "@serverless-dns/dns-operation": "^1.0.0",
     "@serverless-dns/dns-parser": "^1.0.1",
-    "@serverless-dns/error": "^1.0.0",
-    "@serverless-dns/free-user": "^1.0.1",
-    "@serverless-dns/globalcontext": "^1.0.3",
-    "@serverless-dns/lfu-cache": "^1.0.0",
-    "@serverless-dns/single-request": "^1.0.8"
+    "@serverless-dns/basic": "^1.0.0",
+    "@serverless-dns/lfu-cache": "^1.0.1"
   }
 }
