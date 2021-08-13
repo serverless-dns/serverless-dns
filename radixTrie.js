@@ -8,7 +8,7 @@
 
 // this is a much modified code based on S Hanov's succinct-trie: stevehanov.ca/blog/?id=120
 
-var CreateError = require('@serverless-dns/error')
+
 var BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
 
 var config = { inspect: false, utf16: true, useBinarySearch: true, debug: false, selectsearch: true, fastPos: true, compress: true, unroll: false, useBuffer: true, write16: true, valueNode: true, base32: false, storeMeta: /*not supported yet*/false, allLists: false, fetch: true, fm: false };
@@ -1780,38 +1780,10 @@ var makeFile = function (bin) {
     return window.URL.createObjectURL(data);
 };
 
-function Base64ToUint(b64Flag) {
-    let buff = Buffer.from(decodeURIComponent(b64Flag), 'base64');
-    str = buff.toString('utf-8')
-    //singlerequest.flow.push(str)
-    var uint = []
-    for (var i = 0; i < str.length; i++) {
-        uint[i] = DEC16(str[i])
-    }
-    return uint
-}
-
-function Base64ToUint_v1(b64Flag) {
-    let str = decodeURI(b64Flag)
-    str = decodeFromBinary(atob(str.replace(/_/g, '/').replace(/-/g, '+')))
-    //singlerequest.flow.push(str)
-    var uint = []
-    for (var i = 0; i < str.length; i++) {
-        uint[i] = DEC16(str[i])
-    }
-    return uint
-}
-
-function decodeFromBinary(b) {
-    const bytes = new Uint8Array(b.length);
-    for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = b.charCodeAt(i);
-    }
-    return String.fromCharCode(...new Uint16Array(bytes.buffer));
-}
 
 
-function custom_tagtoflag(fl, blocklistFileTag) {
+
+function customTagToFlag(fl, blocklistFileTag) {
     var res = CHR16(0)
     //initialize()
     //console.log(blocklistFileTag)
@@ -1849,215 +1821,57 @@ function custom_tagtoflag(fl, blocklistFileTag) {
 
 var tag, fl;
 
-class BlocklistWrap {
-    constructor() {
-        this.t
-        this.ft
-    }
 
-    async build(tdBuffer, rdBuffer, blocklistFileTag, blocklistBasicConfig) {
-        try {
-            // DELIM shouldn't be a valid base32 char
-            // in key:value pair, key cannot be anything that coerces to boolean false
-            tag = {}
-            fl = []
-            for (let fileuname in blocklistFileTag) {
-                if (!blocklistFileTag.hasOwnProperty(fileuname)) continue;
-                //fl.push(t);
-                fl[blocklistFileTag[fileuname].value] = fileuname
-                // reverse the value since it is prepended to
-                // the front of key when not encoded with base32
-                const v = DELIM + blocklistFileTag[fileuname].uname;
-                tag[fileuname] = v.split("").reverse().join("")
-            }
-            //console.log(tag)
-            initialize();
-
-            this.t = new Trie()
-            this.t.setupFlags(fl)
-
-            // fixme: find a way to serialize nodeCount? probably along
-            // with config and other metadata
-            //console.log("Loading Trie From Buffer")
-            //nodeCount = blocklistBasicConfig.nodecount
-
-            //td = await s3fetch(tname);
-            //rd = await s3fetch(rname);			
-            let td = new bufferView[W](tdBuffer);
-            let rd = new bufferView[W](rdBuffer);
-
-            //console.log(td)
-            //console.log(rd)
-            // directoryData, bitData, numBits, l1Size, l2Size, valueDirData
-            //rd = new RankDirectory(rd, td, nodeCount * 2 + 1, L1, L2, null);
-
-            rd = new RankDirectory(rd, td, blocklistBasicConfig.nodecount * 2 + 1, L1, L2, null);
-            this.ft = new FrozenTrie(td, rd, blocklistBasicConfig.nodecount)
-
-
-            config.useBuffer = true;
-            config.valueNode = true;
-        }
-        catch (e) {
-            CreateError.CreateError("UserTrie.js BlocklistWrap build", e)
-        }
-    }
-
-    hadDomainName(domainName) {
-        let enc = new TextEncoder()
-        return this.ft.lookup(enc.encode(domainName).reverse())
-    }
-
-    getTag(uintFlag) {
-        return this.t.flagsToTag(uintFlag)
-    }
-
-    userB64FlagProcess(b64Flag) {
-        return userFlagConvertB64ToUint(b64Flag)
-    }
-
-    getBucketId(uid) {
-        return ORD[uid[uid.length - 1]]
-    }
-
-    flagIntersection(flag1, flag2) {
-        try {
-            let flag1Header = flag1[0]
-            let flag2Header = flag2[0]
-            let intersectHeader = flag1Header & flag2Header
-            if (intersectHeader == 0) {
-                console.log("first return")
-                return false
-            }
-            let flag1Length = flag1.length - 1
-            let flag2Length = flag2.length - 1
-            let intersectBody = new Array()
-            let tmpInterectHeader = intersectHeader
-            let maskHeaderForBodyEmpty = 1
-            let tmpBodyIntersect
-            for (; tmpInterectHeader != 0;) {
-                if ((flag1Header & 1) == 1) {
-                    if ((tmpInterectHeader & 1) == 1) {
-                        tmpBodyIntersect = flag1[flag1Length] & flag2[flag2Length]
-                        console.log(flag1[flag1Length] + " :&: " + flag2[flag2Length] + " -- " + tmpBodyIntersect)
-                        if (tmpBodyIntersect == 0) {
-                            intersectHeader = intersectHeader ^ maskHeaderForBodyEmpty
-                        }
-                        else {
-                            intersectBody.push(tmpBodyIntersect)
-                        }
-
-                    }
-                    flag1Length = flag1Length - 1
-                }
-                if ((flag2Header & 1) == 1) {
-                    flag2Length = flag2Length - 1
-                }
-                flag1Header = flag1Header >>> 1
-                tmpInterectHeader = tmpInterectHeader >>> 1
-                flag2Header = flag2Header >>> 1
-                maskHeaderForBodyEmpty = maskHeaderForBodyEmpty * 2
-            }
-            console.log(intersectBody)
-            if (intersectHeader == 0) {
-                console.log("Second Return")
-                return false
-            }
-            let intersectFlag = new Uint16Array(intersectBody.length + 1)
-            let count = 0
-            intersectFlag[count++] = intersectHeader
-            let bodyData
-            while ((bodyData = intersectBody.pop()) != undefined) {
-                intersectFlag[count++] = bodyData
-            }
-            return intersectFlag
-        }
-        catch (e) {
-            CreateError.CreateError("UserTrie.js BlocklistWrap flagIntersection", e)
-        }
-    }
-
-    customTagToFlag(tagList, BlocklistFileTag) {
-        return custom_tagtoflag(tagList, BlocklistFileTag)
-    }
-
-    getB64Flag(tagList, BlocklistFileTag, flagVersion) {
-        try {
-            if (flagVersion == 0) {
-                return encodeURIComponent(Buffer.from(custom_tagtoflag(tagList, BlocklistFileTag)).toString('base64'))
-            }
-            else if (flagVersion == 1) {
-                return "1:" + encodeURI(btoa(encodeToBinary(custom_tagtoflag(tagList, BlocklistFileTag))).replace(/\//g, '_').replace(/\+/g, '-'))
-            }
-        }
-        catch (e) {
-            CreateError.CreateError("UserTrie.js BlocklistWrap usrTagToFlag", e)
-        }
-
-    }
-
-    getB64FlagFromUint16(arr, flagVersion) {
-        try {
-            if (flagVersion == 0) {
-                return encodeURIComponent(Buffer.from(arr).toString('base64'))
-            }
-            else if (flagVersion == 1) {
-                return "1:" + encodeURI(btoa(encodeUint16arrToBinary(arr.buffer)).replace(/\//g, '_').replace(/\+/g, '-'))
-            }
-        }
-        catch (e) {
-            CreateError.CreateError("UserTrie.js BlocklistWrap usrTagToFlag", e)
-        }
-    }
-
-}
-
-function encodeUint16arrToBinary(buf) {
-    return String.fromCharCode(...new Uint8Array(buf));
-}
-
-function encodeToBinary(s) {
-    const codeUnits = new Uint16Array(s.length);
-    for (let i = 0; i < codeUnits.length; i++) {
-        codeUnits[i] = s.charCodeAt(i);
-    }
-    return String.fromCharCode(...new Uint8Array(codeUnits.buffer));
-}
-
-function userFlagConvertB64ToUint(b64Flag) {
+async function createBlocklistFilter(tdBuffer, rdBuffer, blocklistFileTag, blocklistBasicConfig) {
     try {
-        let response = {}
-        response.isValidFlag = true
-        response.userBlocklistFlagUint = ""
-        response.flagVersion = 0
-        //added to check if UserFlag is empty for changing dns request flow
-        response.isEmptyFlag = false
-        b64Flag = b64Flag.trim()
+        // DELIM shouldn't be a valid base32 char
+        // in key:value pair, key cannot be anything that coerces to boolean false
+        tag = {}
+        fl = []
+        for (let fileuname in blocklistFileTag) {
+            if (!blocklistFileTag.hasOwnProperty(fileuname)) continue;
+            //fl.push(t);
+            fl[blocklistFileTag[fileuname].value] = fileuname
+            // reverse the value since it is prepended to
+            // the front of key when not encoded with base32
+            const v = DELIM + blocklistFileTag[fileuname].uname;
+            tag[fileuname] = v.split("").reverse().join("")
+        }
+        //console.log(tag)
+        initialize();
 
-        if (b64Flag == "") {
-            response.isValidFlag = false
-            response.isEmptyFlag = true
-            return response
-        }
-        let splitFlag = b64Flag.split(':')
-        if (splitFlag.length == 0) {
-            response.isValidFlag = false
-            response.isEmptyFlag = true
-            return response
-        }
-        else if (splitFlag.length == 1) {
-            response.userBlocklistFlagUint = Base64ToUint(splitFlag[0]) || ""
-            response.flagVersion = 0
-        }
-        else {
-            response.userBlocklistFlagUint = Base64ToUint_v1(splitFlag[1]) || ""
-            response.flagVersion = splitFlag[0] || 0
-        }
-        return response
+        t = new Trie()
+        t.setupFlags(fl)
+
+        // fixme: find a way to serialize nodeCount? probably along
+        // with config and other metadata
+        //console.log("Loading Trie From Buffer")
+        //nodeCount = blocklistBasicConfig.nodecount
+
+        //td = await s3fetch(tname);
+        //rd = await s3fetch(rname);			
+        let td = new bufferView[W](tdBuffer);
+        let rd = new bufferView[W](rdBuffer);
+
+        //console.log(td)
+        //console.log(rd)
+        // directoryData, bitData, numBits, l1Size, l2Size, valueDirData
+        //rd = new RankDirectory(rd, td, nodeCount * 2 + 1, L1, L2, null);
+
+        rd = new RankDirectory(rd, td, blocklistBasicConfig.nodecount * 2 + 1, L1, L2, null);
+        ft = new FrozenTrie(td, rd, blocklistBasicConfig.nodecount)
+
+
+        config.useBuffer = true;
+        config.valueNode = true;
+
+        return { t: t, ft: ft }
     }
     catch (e) {
-        CreateError.CreateError("UserTrie.js BlocklistWrap userB64FlagProcess userFlagConvertB64ToUint", e)
+        throw e
     }
 }
 
-module.exports.BlocklistWrap = BlocklistWrap;
+
+module.exports.createBlocklistFilter = createBlocklistFilter
+module.exports.customTagToFlag = customTagToFlag
