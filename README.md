@@ -19,46 +19,31 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
         * under 'Environment Variables' click on 'Edit variables'
         * if your new DOH resolver url is 'example.dns.resolver.com/dns-query/resolve'
         * change below variables and click on save button
-            CF_DNS_RESOLVER_DOMAIN_NAME = example.dns.resolver.com
-            Cf_DNS_RESOLVER_PATH_NAME = dns-query/resolve
+            CF_DNS_RESOLVER_URL = example.dns.resolver.com/dns-query/resolve
+            
 4. For Developers
     * Flow <br>
-        &emsp;The flow of rethink dns is based on plugin module, current [free user flow](https://github.com/serverless-dns/free-user) is below
+        &emsp;The flow of rethink dns is based on plugin module, current [plugin flow](https://github.com/serverless-dns/serverless-dns/blob/main/plugin.js#L19) as below
         ```javascript
-            var Modules = []
-            Modules[0] = require('@serverless-dns/globalcontext').SharedContext
-            Modules[1] = require('@serverless-dns/command-control').CommandControl
-            Modules[2] = require('@serverless-dns/single-request').SingleRequest
-            Modules[3] = require("./UserOperation.js").UserOperation
-            Modules[4] = require('@serverless-dns/dns-blocker').DNSBlock
-            Modules[5] = require('@serverless-dns/dns-blocker').DNSResolver
-            Modules[6] = require('@serverless-dns/dns-blocker').DNSCnameBlock
-            Modules[7] =  require('./UserLog.js').Log
+            this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
+            this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
+            this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
+            this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
+            this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
         ``` 
-        There are 8 plugins currently loaded by rethink dns out of which SharedContext, SingleRequest, UserOperation, DNSResolver are mandatory plugins.
-        * [SharedContext](https://github.com/serverless-dns/globalcontext)<br>
-            This plugin loads all global variables and methods once and used accross all plugins for multiple dns requestes.<br>
-            Loads environment variable.<br>
-            Initialize local cache.<br>
-            Downloads blocklist filter from aws s3.
+        There are 5 plugins currently loaded by rethink dns.
         * [CommandControl](https://github.com/serverless-dns/command-control)<br>
             This is optional plugin used to provide command to rethink serverless dns using GET request.
-        * [SingleRequest](https://github.com/serverless-dns/single-request)<br>
-            This plugin loads requested domain name, user details from cache if exist.<br>
-            Check requested domain name exists in blocklist and cache domain name if not exist in cache. 
-        * [UserOperation](https://github.com/serverless-dns/free-user)<br>
+        * [UserOperation](https://github.com/serverless-dns/basic)<br>
             This plugin loads current user details if not found in cache.<br>
             eg. dns resolve 'google.com' request to rethink serverless cloudflare resolver 'https://example.com/1:AIAA7g==' configuration string '1:AIAA7g==' is treated as user id and loads selected blocklists files for configuration string and cache it under user id.
-        * [DNSBlock](https://github.com/serverless-dns/dns-blocker)<br>
+        * [DNSBlock](https://github.com/serverless-dns/dns-blocker/blob/main/dnsBlock.js)<br>
             This is optional plugin used to check whether requested domain should be blocked or processed further.            
-        * [DNSResolver](https://github.com/serverless-dns/dns-blocker)<br>
-            This plugin forward dns request to upstream resolver based on environment variable 'CF_DNS_RESOLVER_DOMAIN_NAME' & Cf_DNS_RESOLVER_PATH_NAME if not blocked by DNSBlock plugin.
-        * [DNSCnameBlock](https://github.com/serverless-dns/dns-blocker)<br>
+        * [DNSResolver](https://github.com/serverless-dns/dns-blocker/blob/main/dnsResolver.js)<br>
+            This plugin forward dns request to upstream resolver based on environment variable 'CF_DNS_RESOLVER_URL' if not blocked by DNSBlock plugin.
+        * [DNSCnameBlock](https://github.com/serverless-dns/dns-blocker/blob/main/dnsCnameBlock.js)<br>
             This is optional plugin used to check whether dns resolved response contains cname and cname has blocked domain name, if cname has blocked domain name then request is blocked.
-        * [Log](https://github.com/serverless-dns/free-user)<br>
-            This is optional plugin used to collect logs about all dns request, stored logs will be processed based on configurable wait time at environment variable CF_DNSLOG_WAIT_TIME as milliseconds, currently its 10000 milliseconds. Normal cloudflare plan can wait upto 30seconds set accordingly.<br>
-            This plugin is partially developed till log collection.<br>
-            Further can implement it to pass dns logs to their personal data stores for thread analytics or usage analytics and further more.
+            
     * Custom Plugin<br>
         Custom plugins can be developed by adding following function to class
         ```javascript
@@ -66,42 +51,79 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
                 constructor() {
 
                 }
-                async RethinkModule(commonContext, thisRequest, event) {
+                async RethinkModule(param) {
+                    let response = {}
+                    response.isException = false
+                    response.exceptionStack = ""
+                    response.exceptionFrom = ""
+                    response.data = {}
                     try{
 
                     }
                     catch(e){
-                        thisRequest.StopProcessing = true
-                        thisRequest.IsException = true
-                        thisRequest.exception = e
-                        thisRequest.exceptionFrom = "CustomPlugin.js CustomPlugin"
+                        response.isException = true
+                        response.exceptionStack = e.stack
+                        response.exceptionFrom = "CustomPlugin RethinkModule"
                     }
+                    return response
                 }
             }
             module.exports.CustomPlugin = CustomPlugin
         ```
-        * RethinkModule(commonContext, thisRequest, event) is entry point for every plugin.<br>
-        * Inside RethinkModule method your custom logic can be build for your dns resolver.<br>
-        * Three parameters are passed to RethinkModule<br> 
-            * commonContext contains all global information.<br>
-            * thisRequest contains details about current request.<br>
-            * event is worker parameter passed for the current request.<br>
-        * To stop execution of plugins set thisRequest.StopProcessing = true and return, no further plugins will be executed.<br>
-        * By stop processing we have interruped process, make sure you generate proper return response.<br>
-        * Once your custom plugin is created publish it to npm or directly point it to module file.<br>
-        * Make sure Modules array index is incremented properly.<br>
+        * RethinkModule(param) is entry point for every plugin.<br>
+        * Inside RethinkModule method your custom logic can be build for your rethink serverless dns.<br>
         * example if published to npm as @your-plugin/plugin<br>
+        * add your plugin to rethink serverless dns at [plugin.js](https://github.com/serverless-dns/serverless-dns/blob/main/plugin.js)
         ```javascript
-            var Modules = []
-            Modules[0] = require('@serverless-dns/globalcontext').SharedContext
-            Modules[1] = require('@serverless-dns/command-control').CommandControl
-            Modules[2] = require('@serverless-dns/single-request').SingleRequest
-            Modules[3] = require("./UserOperation.js").UserOperation
-            Modules[4] = require('@serverless-dns/dns-blocker').DNSBlock
-            Modules[5] = require('@serverless-dns/dns-blocker').DNSResolver
-            Modules[6] = require('@serverless-dns/dns-blocker').DNSCnameBlock
-            Modules[7] = require('@your-plugin/plugin').CustomPlugin
-            Modules[8] =  require('./UserLog.js').Log
+            var commandControl = new (require("@serverless-dns/command-control").CommandControl)()
+            var userOperation = new (require("@serverless-dns/basic").UserOperation)()
+            var dnsBlock = new (require("@serverless-dns/dns-operation").DNSBlock)()
+            var dnsResolver = new (require("@serverless-dns/dns-operation").DNSResolver)()
+            var dnsCnameBlock = new (require("@serverless-dns/dns-operation").DNSCnameBlock)()
+            
+            //customPlugin declaration
+            var customPlugin = new (require("@your-plugin/plugin").CustomPlugin)()
+            //
+            
+            
+            this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
+            this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
+            this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
+            this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
+            
+            //custom plugin registration
+            this.registerPlugin("customPlugin", customPlugin, ["event", "userBlocklistInfo", "dnsResolverResponse"], customCallBack, false)
+            //
+            
+            this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
+            
+            //custom plugin call back after execution
+            function customCallBack(response, currentRequest) {
+                if (response.isException) {
+                    loadException(response, currentRequest)
+                }
+                else if (response.data.decision){
+                     currentRequest.stopProcessing = true
+                }
+                else {
+                     //this.registerParameter("parameter-name", parameter data) -> parameter-name can be used to pass as parameter for next plugin
+                    this.registerParameter("customResponse", response.data)
+                }
+            }
         ``` 
-        * In above example custom created plugin will executed after DNSCnameBlock plugin.<br>
+        * this.registerPlugin( Plugin Name, Plugin Object , [Parameter to Plugin], Plugin Call Back Function, Plugin Execution After StopProcessing)<br>
+            * Plugin Name - string denotes name of the plugin. <br>
+            * Plugin Object - object of plugin class, which implements RethinkModule function within class. <br>
+            * Parameter to Plugin - list of paramaters passed to RethinkModule function. <br>
+            * Plugin Call Back Function - function thats will be called back after plugin execution with plugin response and current request object. <br>
+            * Plugin Execution After StopProcessing  - boolen indicates the plugin execution status after currentRequest.stopProcessing is set.<br>
+                                   
+        * In above example custom created plugin will executed after dnsResolver plugin.<br>
+        * Three parameters are passed to custom rethink module<br> 
+            * event parameter passed by worker<br>
+            * userBlocklistInfo is output of userOperation plugin<br>
+            * dnsResolverResponse is output of dnsResolver plugin<br>
+        * Once plugin excution is done customCallBack function is initiated with plugin response and currentRequest.
+        * Inside the plugin call-back based on the plugin response dns process can be stopped or moved further by saving response this.registerParameter("parameter-name", parameter data).
+        * By setting currentRequest.stopProcessing = true, no futher plugin will be executed except if 'Plugin Execution After StopProcessing' is set to true.
         * Publish to cloudflare with updated plugin which will reflect to all your pointed devices.
