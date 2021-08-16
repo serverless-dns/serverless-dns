@@ -16,13 +16,20 @@ class CommandControl {
 	param.blocklistFilter
 	*/
 	async RethinkModule(param) {
+		let response = {}
+		response.isException = false
+		response.exceptionStack = ""
+		response.exceptionFrom = ""
+		response.data = {}
+		response.data.stopProcessing = false
 		if (param.event.request.method === "GET") {
-			this.commandOperation(param.event.request.url, thisRequest, commonContext)
+			response = this.commandOperation(param.event.request.url, param.blocklistFilter)
 		}
+		return response
 	}
 
 
-	commandOperation(url, thisRequest, commonContext) {
+	commandOperation(url, blocklistFilter) {
 		let response = {}
 		response.isException = false
 		response.exceptionStack = ""
@@ -36,16 +43,16 @@ class CommandControl {
 			let pathSplit = reqUrl.pathname.split("/")
 			let command = pathSplit[1]
 			if (command == "listtob64") {
-				response.data.httpResponse = listToB64.call(this, queryString, param.blocklistFilter)
+				response.data.httpResponse = listToB64.call(this, queryString, blocklistFilter)
 			}
 			else if (command == "b64tolist") {
-				response.data.httpResponse = b64ToList.call(this, queryString, param.blocklistFilter)
+				response.data.httpResponse = b64ToList.call(this, queryString, blocklistFilter)
 			}
 			else if (command == "dntolist") {
-				response.data.httpResponse = domainNameToList.call(this, queryString, param.blocklistFilter)
+				response.data.httpResponse = domainNameToList.call(this, queryString, blocklistFilter)
 			}
 			else if (command == "dntouint") {
-				response.data.httpResponse = domainNameToUint.call(this, queryString, param.blocklistFilter)
+				response.data.httpResponse = domainNameToUint.call(this, queryString, blocklistFilter)
 			}
 			else if (command == "config" || command == "configure") {
 				let b64UserFlag = ""
@@ -54,7 +61,7 @@ class CommandControl {
 				}
 				response.data.httpResponse = configRedirect.call(this, b64UserFlag, reqUrl.origin)
 			}
-			else if (QueryString.has("dns")) {
+			else if (queryString.has("dns")) {
 				response.data.stopProcessing = false
 			}
 			else {
@@ -68,12 +75,14 @@ class CommandControl {
 			response.isException = true
 			response.exceptionStack = e.stack
 			response.exceptionFrom = "CommandControl commandOperation"
-			response.data.httpResponse = new Response(JSON.stringify(returndata))
+			response.data.httpResponse = new Response(JSON.stringify(response.exceptionStack))
 			response.data.httpResponse.headers.set('Content-Type', 'application/json')
 			response.data.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
 			response.data.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
 		}
+		return response
 	}
+	
 }
 
 function configRedirect(b64UserFlag, requestUrlOrigin) {
