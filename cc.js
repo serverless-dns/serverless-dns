@@ -8,92 +8,95 @@
 
 class CommandControl {
 	constructor() {
-
+		this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP
 	}
 
-
-	async RethinkModule(commonContext, thisRequest, event) {
-		if (event.request.method === "GET") {
-			this.CommandOperation(event.request.url, thisRequest, commonContext)
+	/*
+	param.event
+	param.blocklistFilter
+	*/
+	async RethinkModule(param) {
+		if (param.event.request.method === "GET") {
+			this.commandOperation(param.event.request.url, thisRequest, commonContext)
 		}
 	}
 
 
-	CommandOperation(url, thisRequest, commonContext) {
+	commandOperation(url, thisRequest, commonContext) {
+		let response = {}
+		response.isException = false
+		response.exceptionStack = ""
+		response.exceptionFrom = ""
+		response.data = {}
 		try {
-			thisRequest.StopProcessing = true
+			response.data.stopProcessing = true
+			response.data.httpResponse
 			let reqUrl = new URL(url)
-			let QueryString = reqUrl.searchParams
+			let queryString = reqUrl.searchParams
 			let pathSplit = reqUrl.pathname.split("/")
 			let command = pathSplit[1]
 			if (command == "listtob64") {
-				thisRequest.httpResponse = listToB64.call(this, QueryString, commonContext)
+				response.data.httpResponse = listToB64.call(this, queryString, param.blocklistFilter)
 			}
 			else if (command == "b64tolist") {
-				thisRequest.httpResponse = b64ToList.call(this, QueryString, commonContext)
+				response.data.httpResponse = b64ToList.call(this, queryString, param.blocklistFilter)
 			}
 			else if (command == "dntolist") {
-				thisRequest.httpResponse = domainNameToList.call(this, QueryString, commonContext)
-			}
-			else if (command == "showlog") {
-				thisRequest.httpResponse = showLog.call(this, commonContext)
+				response.data.httpResponse = domainNameToList.call(this, queryString, param.blocklistFilter)
 			}
 			else if (command == "dntouint") {
-				thisRequest.httpResponse = domainNameToUint.call(this, QueryString, commonContext)
+				response.data.httpResponse = domainNameToUint.call(this, queryString, param.blocklistFilter)
 			}
 			else if (command == "config" || command == "configure") {
-				let B64UserFlag = ""
+				let b64UserFlag = ""
 				if (pathSplit.length >= 3) {
-					B64UserFlag = pathSplit[2]
+					b64UserFlag = pathSplit[2]
 				}
-				thisRequest.httpResponse = configRedirect.call(this, B64UserFlag, reqUrl.origin, commonContext)
+				response.data.httpResponse = configRedirect.call(this, b64UserFlag, reqUrl.origin)
 			}
-			else if(QueryString.has("dns")){
-				thisRequest.StopProcessing = false
+			else if (QueryString.has("dns")) {
+				response.data.stopProcessing = false
 			}
 			else {
-				thisRequest.httpResponse = new Response(JSON.stringify("bad request"))
-				thisRequest.httpResponse.headers.set('Content-Type', 'application/json')
-				thisRequest.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
-				thisRequest.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
+				response.data.httpResponse = new Response(JSON.stringify("bad request"))
+				response.data.httpResponse.headers.set('Content-Type', 'application/json')
+				response.data.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
+				response.data.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
 			}
 		}
 		catch (e) {
-			thisRequest.httpResponse = new Response(JSON.stringify(e.stack))
-			thisRequest.httpResponse.headers.set('Content-Type', 'application/json')
-			thisRequest.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
-			thisRequest.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
+			response.isException = true
+			response.exceptionStack = e.stack
+			response.exceptionFrom = "CommandControl commandOperation"
+			response.data.httpResponse = new Response(JSON.stringify(returndata))
+			response.data.httpResponse.headers.set('Content-Type', 'application/json')
+			response.data.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
+			response.data.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
 		}
 	}
 }
 
-function configRedirect(B64UserFlag, RequestUrlOrigin, commonContext) {
+function configRedirect(b64UserFlag, requestUrlOrigin) {
 	let base = "https://rethinkdns.com/configure"
-	let query = "?v=ext&u=" + RequestUrlOrigin + "&tstamp=" + commonContext.GlobalContext.CFmember.latestBlocklistTimestamp + "#" + B64UserFlag
+	let query = "?v=ext&u=" + requestUrlOrigin + "&tstamp=" + this.latestTimestamp + "#" + b64UserFlag
 	return Response.redirect(base + query, 302)
 
 }
-function showLog(commonContext) {
-	let response = new Response(JSON.stringify(commonContext.RequestLogs))
-	response.headers.set('Content-Type', 'application/json')
-	response.headers.set('Access-Control-Allow-Origin', '*')
-	response.headers.set('Access-Control-Allow-Headers', '*')
-	return response
-}
-function domainNameToList(QueryString, commonContext) {
-	let DomainName = QueryString.get("dn") || ""
+
+function domainNameToList(queryString, blocklistFilter) {
+	let domainName = queryString.get("dn") || ""
 	let returndata = {}
-	returndata.domainName = DomainName
+	returndata.domainName = domainName
 	returndata.list = {}
-	var searchResult = commonContext.BlockListFilter.Blocklist.hadDomainName(DomainName)
+	var searchResult = blocklistFilter.hadDomainName(domainName)
 	if (searchResult) {
 		let list
 		let listDetail = {}
 		for (let entry of searchResult) {
-			list = commonContext.BlockListFilter.Blocklist.getTag(entry[1])
+			list = blocklistFilter.getTag(entry[1])
 			listDetail = {}
 			for (let listValue of list) {
-				listDetail[listValue] = commonContext.BlockListFilter.blocklistFileTag[listValue]
+				listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue]
 			}
 			returndata.list[entry[0]] = listDetail
 		}
@@ -109,16 +112,16 @@ function domainNameToList(QueryString, commonContext) {
 	return response
 }
 
-function domainNameToUint(QueryString, commonContext) {
-	let DomainName = QueryString.get("dn") || ""
+function domainNameToUint(queryString, blocklistFilter) {
+	let domainName = queryString.get("dn") || ""
 	let returndata = {}
-	returndata.domainName = DomainName
+	returndata.domainName = domainName
 	returndata.list = {}
-	var searchResult = commonContext.BlockListFilter.Blocklist.hadDomainName(DomainName)
+	var searchResult = blocklistFilter.hadDomainName(domainName)
 	if (searchResult) {
 		let list
 		let listDetail = {}
-		for (let entry of searchResult) {			
+		for (let entry of searchResult) {
 			returndata.list[entry[0]] = entry[1]
 		}
 	}
@@ -133,14 +136,14 @@ function domainNameToUint(QueryString, commonContext) {
 	return response
 }
 
-function listToB64(QueryString, commonContext) {
-	let list = QueryString.get("list") || []
-	let flagVersion = parseInt(QueryString.get("flagversion")) || 0
+function listToB64(queryString, blocklistFilter) {
+	let list = queryString.get("list") || []
+	let flagVersion = parseInt(queryString.get("flagversion")) || 0
 	let returndata = {}
 	returndata.command = "List To B64String"
 	returndata.inputList = list
 	returndata.flagVersion = flagVersion
-	returndata.b64String = commonContext.BlockListFilter.Blocklist.getB64Flag(list.split(","), commonContext.BlockListFilter.blocklistFileTag, flagVersion)
+	returndata.b64String = blocklistFilter.getB64FlagFromTag(list.split(","), flagVersion)
 	let response = new Response(JSON.stringify(returndata))
 	response.headers.set('Content-Type', 'application/json')
 	response.headers.set('Access-Control-Allow-Origin', '*')
@@ -148,17 +151,17 @@ function listToB64(QueryString, commonContext) {
 	return response
 }
 
-function b64ToList(QueryString, commonContext) {
-	let b64 = QueryString.get("b64") || ""
+function b64ToList(queryString, blocklistFilter) {
+	let b64 = queryString.get("b64") || ""
 	let returndata = {}
 	returndata.command = "Base64 To List"
 	returndata.inputB64 = b64
-	let response = commonContext.BlockListFilter.Blocklist.userB64FlagProcess(b64)
+	let response = blocklistFilter.userB64FlagProcess(b64)
 	if (response.isValidFlag) {
-		returndata.list = commonContext.BlockListFilter.Blocklist.getTag(response.userBlocklistFlagUint)
+		returndata.list = blocklistFilter.getTag(response.userBlocklistFlagUint)
 		returndata.listDetail = {}
 		for (let listValue of returndata.list) {
-			returndata.listDetail[listValue] = commonContext.BlockListFilter.blocklistFileTag[listValue]
+			returndata.listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue]
 		}
 	}
 	else {
