@@ -20,8 +20,7 @@
   "dependencies": {
     "@serverless-dns/blocklist-wrapper": "^1.0.6",
     "@serverless-dns/cache-wrapper": "^1.0.1",
-    "@serverless-dns/command-control": "^1.0.5",
-    "@serverless-dns/count-min-sketch": "^1.0.1",
+    "@serverless-dns/command-control": "^1.0.8",
     "@serverless-dns/dns-operation": "^1.0.0",
     "@serverless-dns/dns-parser": "^1.0.1",
     "@serverless-dns/basic": "^1.0.0",

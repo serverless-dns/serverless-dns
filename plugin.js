@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
+var commandControl = new (require("@serverless-dns/command-control").CommandControl)()
 var userOperation = new (require("@serverless-dns/basic").UserOperation)()
 var dnsBlock = new (require("@serverless-dns/dns-operation").DNSBlock)()
 var dnsResolver = new (require("@serverless-dns/dns-operation").DNSResolver)()
@@ -16,6 +16,7 @@ class RethinkPlugin {
         this.registerParameter("blocklistFilter", blocklistFilter)
         this.registerParameter("event", event)
         this.plugin = new Array()
+        this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
         this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
         this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
         this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
@@ -40,6 +41,16 @@ class RethinkPlugin {
                 singlePlugin.callBack.call(this, response, currentRequest)
             }
         }
+    }
+}
+
+
+function commandControlCallBack(response, currentRequest) {
+    if (response.data.stopProcessing) {
+        console.log("In userOperationCallBack")
+        console.log(JSON.stringify(response.data))
+        currentRequest.httpResponse = response.data.httpResponse
+        currentRequest.stopProcessing = true
     }
 }
 
