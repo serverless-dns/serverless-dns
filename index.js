@@ -27,12 +27,12 @@ async function proxyRequest(event) {
 			await blocklistFilter.initBlocklistConstruction()
 		}		
 		let retryCount = 0;
-		let retryLimit = 300;
+		let retryLimit = 150;
 		while (blocklistFilter.isBlocklistUnderConstruction == true) {
 			if (retryCount >= retryLimit) {
 				break
 			}
-			await sleep(20)
+			await sleep(50)
 			if (blocklistFilter.isBlocklistLoadException == true) {
 				break
 			}
