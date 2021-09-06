@@ -12,7 +12,7 @@ class DNSResolver {
     }
     /*
     param.event
-    param.userBlocklistInfo
+    param.dnsResolverUrl
     */
     async RethinkModule(param) {
         let response = {}
@@ -22,7 +22,7 @@ class DNSResolver {
         response.data = {}
         response.data.dnsResponse
         try {
-            let res = await resolveDns(param.event.request, param.userBlocklistInfo.dnsResolverUrl)
+            let res = await resolveDns(param.event.request, param.dnsResolverUrl)
             response.data.dnsResponse = new Response(res.body, res)
             response.data.dnsResponse.headers.set('Content-Type', 'application/dns-message')
             response.data.dnsResponse.headers.set('Access-Control-Allow-Origin', '*')
