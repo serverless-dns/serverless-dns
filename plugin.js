@@ -19,7 +19,7 @@ class RethinkPlugin {
         this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
         this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
         this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
-        this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
+        this.registerPlugin("dnsResolver", dnsResolver, ["event", "dnsResolverUrl"], dnsResolverCallBack, false)
         this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
     }
 
@@ -71,6 +71,7 @@ function userOperationCallBack(response, currentRequest) {
         //console.log("In userOperationCallBack success")
         //console.log(JSON.stringify(response.data))
         this.registerParameter("userBlocklistInfo", response.data)
+        this.registerParameter("dnsResolverUrl", response.data.dnsResolverUrl)
     }
 }
 
