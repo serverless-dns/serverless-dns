@@ -3,7 +3,7 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
     * Rethink serverless can be hosted to cloudflare(user will be liable for cloudflare billing).
     * click below button to deploy
             <br><br>
-            [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns)
+            [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
 2. #### Configure
     * Once the hosting is successful, lets consider rethink serverless dns is hosted to example.com.
     * To configure your dns level blocking vist to example.com/configure which will take to configuration page, which currently contains 171 blocklists with 5Million too block domains in catogery like notracking, dating, gambling, privacy, porn, cryptojacking, security ...
