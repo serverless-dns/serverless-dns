@@ -41,6 +41,7 @@ class BlocklistWrapper {
     }
 
     getDomainInfo(domainName, event) {
+        domainName = domainName.trim().toLowerCase()
 		let domainNameInfo = this.domainNameCache.Get(domainName)
 
 		if (!domainNameInfo) {
@@ -49,7 +50,6 @@ class BlocklistWrapper {
 			domainNameInfo.data = {}
 			domainNameInfo.data.searchResult = this.hadDomainName(domainName)
 		}
-
 		this.domainNameCache.Put(domainNameInfo, event)
 		return domainNameInfo
 	}
@@ -242,7 +242,7 @@ function userFlagConvertB64ToUint(b64Flag) {
 
 function Base64ToUint(b64Flag) {
     let buff = Buffer.from(decodeURIComponent(b64Flag), 'base64');
-    str = buff.toString('utf-8')
+    let str = buff.toString('utf-8')
     //singlerequest.flow.push(str)
     var uint = []
     for (var i = 0; i < str.length; i++) {
