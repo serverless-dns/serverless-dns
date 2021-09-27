@@ -29,7 +29,7 @@ class LocalCache {
       }
     }
     catch (e) {
-
+      console.log(e.stack)
     }
   }
 }
@@ -58,6 +58,7 @@ async function safeAdd() {
     let errobj = {}
     errobj.errat = "cache-wrapper.js safeAdd"
     errobj.errmsg = e.stack
+    console.log(errobj)
   }
 }
 const sleep = ms => {
