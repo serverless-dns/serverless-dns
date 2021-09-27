@@ -16,7 +16,7 @@ class DNSCnameBlock {
     param.userBlocklistInfo
     param.blocklistFilter
     param.event
-    param.dnsResolverResponse
+    param.responseBodyBuffer
     */
     async RethinkModule(param) {
         let response = {}
@@ -29,8 +29,8 @@ class DNSCnameBlock {
 		response.data.domainNameInBlocklistUint
         response.data.domainNameUserBlocklistIntersection
 		response.data.decodedDnsPacket
-        try {
-            let decodedDnsPacket = await loadDnsFromRequest(param.dnsResolverResponse.dnsResponse, this.dnsParser)
+        try {            
+            let decodedDnsPacket = await this.dnsParser.Decode(param.responseBodyBuffer)
             if (param.userBlocklistInfo.isValidFlag) {
                 let domainNameBlocklistInfo
                 if (decodedDnsPacket.answers.length > 0 && decodedDnsPacket.answers[0].type == "CNAME") {
@@ -58,19 +58,6 @@ class DNSCnameBlock {
             response.data = false
         }
         return response
-    }
-}
-
-
-async function loadDnsFromRequest(request, dnsParser) {
-    let dnsPacketBuffer
-    try {
-        let tmpReq = await request.clone();
-        dnsPacketBuffer = await tmpReq.arrayBuffer()
-        return await dnsParser.Decode(dnsPacketBuffer)
-    }
-    catch (e) {
-        throw e
     }
 }
 

@@ -8,10 +8,10 @@
 
 class DNSResolver {
     constructor() {
-        this.dnsResolverUrl = CF_DNS_RESOLVER_URL
     }
     /*
-    param.event
+    param.request
+    param.requestBodyBuffer
     param.dnsResolverUrl
     */
     async RethinkModule(param) {
@@ -22,15 +22,7 @@ class DNSResolver {
         response.data = {}
         response.data.dnsResponse
         try {
-            let res = await resolveDns(param.event.request, param.dnsResolverUrl)
-            response.data.dnsResponse = new Response(res.body, res)
-            response.data.dnsResponse.headers.set('Content-Type', 'application/dns-message')
-            response.data.dnsResponse.headers.set('Access-Control-Allow-Origin', '*')
-            response.data.dnsResponse.headers.set('Access-Control-Allow-Headers', '*')
-            response.data.dnsResponse.headers.append('Vary', 'Origin')
-            response.data.dnsResponse.headers.set('server', 'bravedns')
-            response.data.dnsResponse.headers.delete('expect-ct')
-            response.data.dnsResponse.headers.delete('cf-ray')
+            response.data.responseBodyBuffer = await (await resolveDns(param.request, param.dnsResolverUrl, param.requestBodyBuffer)).arrayBuffer()
         }
         catch (e) {
             response.isException = true
@@ -44,56 +36,51 @@ class DNSResolver {
 
 }
 
-async function resolveDns(request, resolverUrl) {
+async function resolveDns(request, resolverUrl, requestBodyBuffer) {
     try {
-        return await forwardDnsMessage(request, resolverUrl)
+        let u = new URL(request.url)
+        let dnsResolverUrl = new URL(resolverUrl)
+        u.hostname = dnsResolverUrl.hostname
+        u.pathname = dnsResolverUrl.pathname
+
+        let newRequest
+        if (request.method === 'GET') {
+            newRequest = new Request(u.href, {
+                method: 'GET',
+                headers: {
+                    'crossDomain': 'true',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
+                    'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
+                    'Content-Type': 'application/dns-message',
+                    'accept': 'application/dns-message'
+                }
+            })
+        }
+        else if (request.method === 'POST') {
+            newRequest = new Request(u.href, {
+                method: 'POST',
+                headers: {
+                    'crossDomain': 'true',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
+                    'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
+                    'Content-Type': 'application/dns-message',
+                    'accept': 'application/dns-message',
+                    'content-length': requestBodyBuffer.byteLength
+                },
+                body: requestBodyBuffer
+            })
+        }
+        else {
+            newRequest = new Request(u.href)
+        }
+
+        return await fetch(newRequest)
     }
     catch (e) {
         throw e
     }
-}
-
-async function forwardDnsMessage(request, resolverUrl) {
-    let u = new URL(request.url)
-    let dnsResolverUrl = new URL(resolverUrl)
-    u.hostname = dnsResolverUrl.hostname
-    u.pathname = dnsResolverUrl.pathname
-
-    let newRequest
-    if (request.method === 'GET') {
-        newRequest = new Request(u.href, {
-            method: 'GET',
-            headers: {
-                'crossDomain': 'true',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
-                'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
-                'Content-Type': 'application/dns-message',
-                'accept': 'application/dns-message'
-            }
-        })
-    }
-    else if (request.method === 'POST') {
-        let buf = await request.arrayBuffer()
-        newRequest = new Request(u.href, {
-            method: 'POST',
-            headers: {
-                'crossDomain': 'true',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers',
-                'Access-Control-Allow-Methods': 'POST, GET, PUT, OPTIONS, DELETE',
-                'Content-Type': 'application/dns-message',
-                'accept': 'application/dns-message',
-                'content-length': buf.byteLength
-            },
-            body: buf
-        })
-    }
-    else {
-        newRequest = new Request(u.href)
-    }
-
-    return await fetch(newRequest)
 }
 
 module.exports.DNSResolver = DNSResolver
