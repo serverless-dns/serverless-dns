@@ -12,7 +12,7 @@ class CommandControl {
 	}
 
 	/*
-	param.event
+	param.request
 	param.blocklistFilter
 	*/
 	async RethinkModule(param) {
@@ -22,8 +22,8 @@ class CommandControl {
 		response.exceptionFrom = ""
 		response.data = {}
 		response.data.stopProcessing = false
-		if (param.event.request.method === "GET") {
-			response = this.commandOperation(param.event.request.url, param.blocklistFilter)
+		if (param.request.method === "GET") {
+			response = this.commandOperation(param.request.url, param.blocklistFilter)
 		}
 		return response
 	}
