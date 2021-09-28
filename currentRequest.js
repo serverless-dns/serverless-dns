@@ -33,14 +33,9 @@ class CurrentRequest {
 		});
 		let res = new Response(dnsEncodeObj)
 		this.httpResponse = new Response(res.body, res)
+		setResponseCommonHeader.call(this)
 		this.httpResponse.headers.set('x-err', JSON.stringify(singleLog))
-		this.httpResponse.headers.set('Content-Type', 'application/dns-message')
-		this.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
-		this.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
-		this.httpResponse.headers.append('Vary', 'Origin')
-		this.httpResponse.headers.set('server', 'bravedns')
-		this.httpResponse.headers.delete('expect-ct')
-		this.httpResponse.headers.delete('cf-ray')
+		
 	}
 
 	customResponse(data) {
@@ -50,21 +45,20 @@ class CurrentRequest {
 		});
 		let res = new Response(dnsEncodeObj)
 		this.httpResponse = new Response(res.body, res)
+		setResponseCommonHeader.call(this)
 		this.httpResponse.headers.set('x-err', JSON.stringify(data))
-		this.httpResponse.headers.set('Content-Type', 'application/dns-message')
-		this.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
-		this.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
-		this.httpResponse.headers.append('Vary', 'Origin')
-		this.httpResponse.headers.set('server', 'bravedns')
-		this.httpResponse.headers.delete('expect-ct')
-		this.httpResponse.headers.delete('cf-ray')
+		
 	}
 
-	dnsResponse() {
-		if (this.isDomainInBlockListNotBlocked) {
+	dnsResponse(arrayBuffer) {
+
+		this.httpResponse = new Response(arrayBuffer)
+		setResponseCommonHeader.call(this)
+
+		/*if (this.isDomainInBlockListNotBlocked) {
 			this.httpResponse = new Response(this.httpResponse.body, this.httpResponse)
 			this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
-		}
+		}*/
 		return this.httpResponse
 	}
 	dnsBlockResponse() {
@@ -88,21 +82,25 @@ class CurrentRequest {
 				this.decodedDnsPacket.answers[0].data = "::"
 			}
 			let res = new Response(this.dnsParser.Encode(this.decodedDnsPacket))
-			this.httpResponse = new Response(res.body, res)
-			this.httpResponse.headers.set('Content-Type', 'application/dns-message')
-			this.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
-			this.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
-			this.httpResponse.headers.append('Vary', 'Origin')
-			this.httpResponse.headers.set('server', 'bravedns')
-			this.httpResponse.headers.delete('expect-ct')
-			this.httpResponse.headers.delete('cf-ray')
+			this.httpResponse = new Response(res.body, res)		
+			setResponseCommonHeader.call(this)	
 			this.httpResponse.headers.set('x-nile-flags', this.blockedB64Flag)
 		}
 		catch (e) {
 			this.isException = true
 			this.exceptionStack = e.stack
-			this.exceptionFrom = "SingleRequest.js SingleRequest DnsBlockResponse"
+			this.exceptionFrom = "CurrentRequest dnsBlockResponse"
 		}
-	}
+	}	
+}
+
+function setResponseCommonHeader(){
+	this.httpResponse.headers.set('Content-Type', 'application/dns-message')
+	this.httpResponse.headers.set('Access-Control-Allow-Origin', '*')
+	this.httpResponse.headers.set('Access-Control-Allow-Headers', '*')
+	this.httpResponse.headers.append('Vary', 'Origin')
+	this.httpResponse.headers.set('server', 'bravedns')
+	this.httpResponse.headers.delete('expect-ct')
+	this.httpResponse.headers.delete('cf-ray')
 }
 module.exports.CurrentRequest = CurrentRequest

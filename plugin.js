@@ -14,13 +14,14 @@ class RethinkPlugin {
     constructor(blocklistFilter, event) {
         this.parameter = new Map()
         this.registerParameter("blocklistFilter", blocklistFilter)
+        this.registerParameter("request", event.request)
         this.registerParameter("event", event)
         this.plugin = new Array()
-        this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
+        this.registerPlugin("commandControl", commandControl, ["request", "blocklistFilter"], commandControlCallBack, false)
         this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
-        this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
-        this.registerPlugin("dnsResolver", dnsResolver, ["event", "dnsResolverUrl"], dnsResolverCallBack, false)
-        this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
+        this.registerPlugin("dnsBlock", dnsBlock, ["requestBodyBuffer", "event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
+        this.registerPlugin("dnsResolver", dnsResolver, ["requestBodyBuffer", "request", "dnsResolverUrl"], dnsResolverCallBack, false)
+        this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "responseBodyBuffer"], dnsCnameBlockCallBack, false)
     }
 
     registerParameter(key, parameter) {
@@ -38,19 +39,31 @@ class RethinkPlugin {
             }
             let response = await singlePlugin.module.RethinkModule(generateParam.call(this, singlePlugin.param))
             if (singlePlugin.callBack) {
-                singlePlugin.callBack.call(this, response, currentRequest)
+                await singlePlugin.callBack.call(this, response, currentRequest)
             }
         }
     }
 }
 
 
-function commandControlCallBack(response, currentRequest) {
+async function commandControlCallBack(response, currentRequest) {
     if (response.data.stopProcessing) {
         //console.log("In userOperationCallBack")
         //console.log(JSON.stringify(response.data))
         currentRequest.httpResponse = response.data.httpResponse
         currentRequest.stopProcessing = true
+    }
+    else {
+        let request = this.parameter.get("request")
+        let bodyBuffer
+        if (request.method.toUpperCase() === "GET") {
+            let QueryString = (new URL(request.url)).searchParams
+            bodyBuffer = base64ToArrayBuffer(decodeURI(QueryString.get("dns")))
+        }
+        else {
+            bodyBuffer = await request.arrayBuffer()
+        }
+        this.registerParameter("requestBodyBuffer", bodyBuffer)
     }
 }
 
@@ -93,9 +106,6 @@ function dnsBlockCallBack(response, currentRequest) {
             currentRequest.stopProcessing = true
             currentRequest.dnsBlockResponse()
         }
-        else {
-            currentRequest.customResponse({ errorFrom: "No Error" })
-        }
     }
 }
 function dnsResolverCallBack(response, currentRequest) {
@@ -107,8 +117,8 @@ function dnsResolverCallBack(response, currentRequest) {
     else {
         //console.log("In dnsResolverCallBack success")
         //console.log(JSON.stringify(response.data))
-        this.registerParameter("dnsResolverResponse", response.data)
-        currentRequest.httpResponse = response.data.dnsResponse
+        this.registerParameter("responseBodyBuffer", response.data.responseBodyBuffer)
+        //currentRequest.httpResponse = response.data.dnsResponse
     }
 }
 
@@ -129,6 +139,9 @@ function dnsCnameBlockCallBack(response, currentRequest) {
         if (currentRequest.isDnsBlock) {
             currentRequest.stopProcessing = true
             currentRequest.dnsBlockResponse()
+        }
+        else{
+            currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"))
         }
     }
 }
@@ -153,4 +166,13 @@ function generateParam(list) {
     return param
 }
 
+function base64ToArrayBuffer(base64) {
+    var binary_string = atob(base64);
+    var len = binary_string.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
 module.exports.RethinkPlugin = RethinkPlugin
