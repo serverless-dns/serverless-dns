@@ -87,25 +87,25 @@ function checkDomainNameUserFlagIntersection(userBlocklistFlagUint, flagVersion,
         response.isBlocked = false
         response.isNotBlockedExistInBlocklist = false
         response.blockedB64Flag = ""
-        response.domainNameInBlocklistUint
-        response.domainNameUserBlocklistIntersection
+        response.blockedTag = []
         if (domainNameBlocklistInfo.data.searchResult.has(domainName)) {
-            response.domainNameInBlocklistUint = domainNameBlocklistInfo.data.searchResult.get(domainName)
-            response.domainNameUserBlocklistIntersection = blocklistFilter.flagIntersection(userBlocklistFlagUint, response.domainNameInBlocklistUint)
-            if (response.domainNameUserBlocklistIntersection) {
+            let domainNameInBlocklistUint = domainNameBlocklistInfo.data.searchResult.get(domainName)
+            let blockedUint = blocklistFilter.flagIntersection(userBlocklistFlagUint, domainNameInBlocklistUint)
+            if (blockedUint) {
                 response.isBlocked = true
-                response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(response.domainNameUserBlocklistIntersection, flagVersion)
+                response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(blockedUint, flagVersion)
             }
             else {
                 response.isNotBlockedExistInBlocklist = true
-                let uint16ArrConversion = new Uint16Array(response.domainNameInBlocklistUint.length)
+                blockedUint = new Uint16Array(domainNameInBlocklistUint.length)
                 let index = 0
-                for (let singleBlock of response.domainNameInBlocklistUint) {
-                    uint16ArrConversion[index] = singleBlock
+                for (let singleBlock of domainNameInBlocklistUint) {
+                    blockedUint[index] = singleBlock
                     index++
                 }
-                response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(uint16ArrConversion, flagVersion)
+                response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(blockedUint, flagVersion)
             }
+            response.blockedTag = blocklistFilter.getTag(blockedUint)
         }
     }
     catch (e) {
