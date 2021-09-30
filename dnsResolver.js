@@ -8,6 +8,7 @@
 
 class DNSResolver {
     constructor() {
+        this.dnsResolverUrl = CF_DNS_RESOLVER_URL
     }
     /*
     param.request
@@ -20,8 +21,10 @@ class DNSResolver {
         response.exceptionStack = ""
         response.exceptionFrom = ""
         response.data = {}
-        response.data.dnsResponse
         try {
+            if(!param.dnsResolverUrl){
+                param.dnsResolverUrl = this.dnsResolverUrl
+            }
             response.data.responseBodyBuffer = await (await resolveDns(param.request, param.dnsResolverUrl, param.requestBodyBuffer)).arrayBuffer()
         }
         catch (e) {
