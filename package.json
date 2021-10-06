@@ -6,6 +6,7 @@
   "description": "Rethink Free Dns with Blocklist, one click install from github to cloudflare",
   "main": "index.js",
   "scripts": {
+    "clean": "rm -rf worker/ dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

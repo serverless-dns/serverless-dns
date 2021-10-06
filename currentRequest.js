@@ -6,8 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-const DnsParser = require("@serverless-dns/dns-operation").DNSParserWrap;
-class CurrentRequest {
+import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
+
+export default class CurrentRequest {
   constructor() {
     this.blockedB64Flag = "";
     this.decodedDnsPacket = undefined;
@@ -53,9 +54,9 @@ class CurrentRequest {
     setResponseCommonHeader.call(this);
 
     /*if (this.isDomainInBlockListNotBlocked) {
-			this.httpResponse = new Response(this.httpResponse.body, this.httpResponse)
-			this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
-		}*/
+      this.httpResponse = new Response(this.httpResponse.body, this.httpResponse)
+      this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
+    }*/
     return this.httpResponse;
   }
   dnsBlockResponse() {
@@ -100,4 +101,3 @@ function setResponseCommonHeader() {
   this.httpResponse.headers.delete("expect-ct");
   this.httpResponse.headers.delete("cf-ray");
 }
-module.exports.CurrentRequest = CurrentRequest;

@@ -1,7 +1,6 @@
-const CurrentRequest = require("./currentRequest.js").CurrentRequest;
-const RethinkPlugin = require("./plugin.js").RethinkPlugin;
-const BlocklistWrapper =
-  require("@serverless-dns/blocklist-wrapper").BlocklistWrapper;
+import CurrentRequest from "./currentRequest.js";
+import RethinkPlugin from "./plugin.js";
+import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 
 addEventListener("fetch", (event) => {
   event.respondWith(handleRequest(event));

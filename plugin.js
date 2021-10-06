@@ -5,14 +5,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-const commandControl =
-  new (require("@serverless-dns/command-control").CommandControl)();
-const userOperation = new (require("@serverless-dns/basic").UserOperation)();
-const dnsBlock = new (require("@serverless-dns/dns-operation").DNSBlock)();
-const dnsResolver = new (require("@serverless-dns/dns-operation").DNSResolver)();
-const dnsCnameBlock =
-  new (require("@serverless-dns/dns-operation").DNSCnameBlock)();
-class RethinkPlugin {
+
+import { CommandControl } from "@serverless-dns/command-control";
+import { UserOperation } from "@serverless-dns/basic";
+import { DNSBlock } from "@serverless-dns/dns-operation";
+import { DNSResolver } from "@serverless-dns/dns-operation";
+import { DNSCnameBlock } from "@serverless-dns/dns-operation";
+
+const commandControl = new CommandControl();
+const userOperation = new UserOperation();
+const dnsBlock = new DNSBlock();
+const dnsResolver = new DNSResolver();
+const dnsCnameBlock = new DNSCnameBlock();
+
+export default class RethinkPlugin {
   constructor(blocklistFilter, event) {
     this.parameter = new Map();
     this.registerParameter("blocklistFilter", blocklistFilter);
@@ -222,4 +228,3 @@ function base64ToArrayBuffer(base64) {
   }
   return bytes.buffer;
 }
-module.exports.RethinkPlugin = RethinkPlugin;
