@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-var LocalCache = require('@serverless-dns/cache-wrapper').LocalCache
-var radixTrieOperation = require("./radixTrie.js")
+const LocalCache = require('@serverless-dns/cache-wrapper').LocalCache
+const radixTrieOperation = require("./radixTrie.js")
 class BlocklistWrapper {
     constructor() {
         this.t
@@ -55,7 +55,7 @@ class BlocklistWrapper {
 	}
 
     hadDomainName(domainName) {
-        let enc = new TextEncoder()
+        const enc = new TextEncoder()
         return this.ft.lookup(enc.encode(domainName).reverse())
     }
 
@@ -78,7 +78,7 @@ class BlocklistWrapper {
             }
             let flag1Length = flag1.length - 1
             let flag2Length = flag2.length - 1
-            let intersectBody = new Array()
+            const intersectBody = []
             let tmpInterectHeader = intersectHeader
             let maskHeaderForBodyEmpty = 1
             let tmpBodyIntersect
@@ -110,7 +110,7 @@ class BlocklistWrapper {
                 //console.log("Second Return")
                 return false
             }
-            let intersectFlag = new Uint16Array(intersectBody.length + 1)
+            const intersectFlag = new Uint16Array(intersectBody.length + 1)
             let count = 0
             intersectFlag[count++] = intersectHeader
             let bodyData
@@ -162,21 +162,21 @@ class BlocklistWrapper {
 async function downloadBuildBlocklist() {
     try {
         this.isBlocklistUnderConstruction = true
-        var decoder = new TextDecoder()
+        const decoder = new TextDecoder()
 
-        let buf0 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/basicconfig.json")
-        let buf1 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/filetag.json")
-        let buf2 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/td.txt")
-        let buf3 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/rd.txt")
+        const buf0 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/basicconfig.json")
+        const buf1 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/filetag.json")
+        const buf2 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/td.txt")
+        const buf3 = fileFetch.call(this, this.blocklistUrl + this.latestTimestamp + "/rd.txt")
 
         this.bufferList = await Promise.all([buf0, buf1, buf2, buf3]);
 
         this.blocklistBasicConfig = JSON.parse(decoder.decode(this.bufferList[0]))
         this.blocklistFileTag = JSON.parse(decoder.decode(this.bufferList[1]))
-        let resp = await radixTrieOperation.createBlocklistFilter(this.bufferList[2], this.bufferList[3], this.blocklistFileTag, this.blocklistBasicConfig)
+        const resp = await radixTrieOperation.createBlocklistFilter(this.bufferList[2], this.bufferList[3], this.blocklistFileTag, this.blocklistBasicConfig)
         this.t = resp.t
         this.ft = resp.ft
-        let str = radixTrieOperation.customTagToFlag(this.wildCardLists, this.blocklistFileTag)
+        const str = radixTrieOperation.customTagToFlag(this.wildCardLists, this.blocklistFileTag)
         this.wildCardUint = new Uint16Array(str.length);
         for (let i = 0; i < this.wildCardUint.length; i++) {
             this.wildCardUint[i] = str.charCodeAt(i);
@@ -206,7 +206,7 @@ function encodeToBinary(s) {
 
 function userFlagConvertB64ToUint(b64Flag) {
     try {
-        let response = {}
+        const response = {}
         response.isValidFlag = true
         response.userBlocklistFlagUint = ""
         response.flagVersion = "0"
@@ -219,7 +219,7 @@ function userFlagConvertB64ToUint(b64Flag) {
             response.isEmptyFlag = true
             return response
         }
-        let splitFlag = b64Flag.split(':')
+        const splitFlag = b64Flag.split(':')
         if (splitFlag.length == 0) {
             response.isValidFlag = false
             response.isEmptyFlag = true
@@ -241,11 +241,11 @@ function userFlagConvertB64ToUint(b64Flag) {
 }
 
 function Base64ToUint(b64Flag) {
-    let buff = Buffer.from(decodeURIComponent(b64Flag), 'base64');
-    let str = buff.toString('utf-8')
+    const buff = Buffer.from(decodeURIComponent(b64Flag), 'base64');
+    const str = buff.toString('utf-8')
     //singlerequest.flow.push(str)
-    var uint = []
-    for (var i = 0; i < str.length; i++) {
+    const uint = []
+    for (let i = 0; i < str.length; i++) {
         uint[i] = str.charCodeAt(i) //DEC16(str[i])
     }
     return uint
@@ -255,8 +255,8 @@ function Base64ToUint_v1(b64Flag) {
     let str = decodeURI(b64Flag)
     str = decodeFromBinary(atob(str.replace(/_/g, '/').replace(/-/g, '+')))
     //singlerequest.flow.push(str)
-    var uint = []
-    for (var i = 0; i < str.length; i++) {
+    const uint = []
+    for (let i = 0; i < str.length; i++) {
         uint[i] = str.charCodeAt(i) //DEC16(str[i])
     }
     return uint
