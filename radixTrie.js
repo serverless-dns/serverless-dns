@@ -163,7 +163,7 @@ BitWriter.prototype = {
       b = b << (brim - numBits);
     } else {
       // shave right most bits if there are too many bits than
-      // what the current element at the brim can accomodate
+      // what the current element at the brim can accommodate
       remainingBits = (numBits - brim);
       b = b >>> remainingBits;
     }
@@ -839,7 +839,7 @@ Trie.prototype = {
 
   setupFlags: function (flags) {
     let i = 0;
-    for (f of flags) {
+    for (const f of flags) {
       this.flags[f] = i++;
     }
     this.rflags = flags;
@@ -977,7 +977,7 @@ Trie.prototype = {
             const newFlagArray = new Uint16Array(msbCount + lsbCount + 1);
             const newFlagArray = "" //new Uint16Array(node.flag.length + 1);
             let i = 0;
-            for (f of node.flag) {
+            for (const f of node.flag) {
                 if (i === index) i += 1;
                 newFlagArray[i] = f;
                 i += 1;
@@ -1116,16 +1116,16 @@ Trie.prototype = {
 
     for (i = commonPrefix; i < word.length; i++) {
       // fix the bug if words not inserted in alphabetical order
-      /*var isLetterExist = false;
-            for ( var j = 0; j < node.children.length; j++ ) {
-                if (node.children[j].letter == word[i]) {
-                    this.cache.push(node.children[j]);
-                    node = node.children[j];
-                    isLetterExist = true;
-                    break;
-                }
-            }
-            if (isLetterExist) continue;*/
+      /*let isLetterExist = false;
+      for ( let j = 0; j < node.children.length; j++ ) {
+        if (node.children[j].letter == word[i]) {
+          this.cache.push(node.children[j]);
+          node = node.children[j];
+          isLetterExist = true;
+          break;
+        }
+      }
+      if (isLetterExist) continue;*/
 
       const next = new TrieNode(word[i]);
       this.nodeCount += 1;
@@ -1166,7 +1166,7 @@ Trie.prototype = {
       const node = level[n];
 
       // skip processing flag-nodes in the regular loop,
-      // they always are processed in conjuction with the
+      // they always are processed in conjunction with the
       // corresponding final-node. todo: not really req
       // since child-len of a flag-node is unapologetically 0.
       if (config.valueNode && node.flag === true) continue;
@@ -1371,7 +1371,7 @@ Trie.prototype = {
       bits.top,
     );
     let k = 0;
-    for (c of chars) {
+    for (const c of chars) {
       if (k % (chars.length / 10 | 0) == 0) console.log("charslen: " + k);
       bits.write(c, bitslen);
       k += 1;
@@ -1397,7 +1397,7 @@ Trie.prototype = {
 
         bits.write(index, bitslenindex);
         //let ininsp = []
-        for (v of value) {
+        for (const v of value) {
           //ininsp.push(DEC16(v));
           bits.write(DEC16(v), bitslenvalue);
         }
@@ -1422,7 +1422,7 @@ function childrenSize(tn) {
   if (!tn.children) return size;
 
   if (config.valueNode === true) {
-    for (c of tn.children) {
+    for (const c of tn.children) {
       let len = c.letter.length;
       if (c.flag) {
         // calculate the actual length of flag-nodes: base32 (5bits / char)
@@ -1434,7 +1434,7 @@ function childrenSize(tn) {
     return size;
   }
 
-  for (c of tn.children) {
+  for (const c of tn.children) {
     size += c.letter.length;
   }
   return size;
@@ -1944,8 +1944,6 @@ FrozenTrie.prototype = {
   },
 };
 
-// var tag, fl;
-
 const ldownload = function (name, bin) {
   const file = makeFile(bin);
 
@@ -2033,7 +2031,7 @@ function createBlocklistFilter(
     //console.log(tag)
     initialize();
 
-    t = new Trie();
+    const t = new Trie();
     t.setupFlags(fl);
 
     // fixme: find a way to serialize nodeCount? probably along
@@ -2059,7 +2057,7 @@ function createBlocklistFilter(
       L2,
       null,
     );
-    ft = new FrozenTrie(td, rd, blocklistBasicConfig.nodecount);
+    const ft = new FrozenTrie(td, rd, blocklistBasicConfig.nodecount);
 
     config.useBuffer = true;
     config.valueNode = true;
