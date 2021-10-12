@@ -56,14 +56,16 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer) {
   try {
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
-    u.hostname = dnsResolverUrl.hostname;
-    u.pathname = dnsResolverUrl.pathname;
+    u.hostname = dnsResolverUrl.hostname; // override host, default cloudflare-dns.com
+    u.pathname = dnsResolverUrl.pathname; // override path, default /dns-query
+    u.port = dnsResolverUrl.port; // override port, default 443
+    u.protocol = dnsResolverUrl.protocol; // override proto, default https
 
     let newRequest;
     if (request.method === "GET") {
       newRequest = new Request(u.href, {
         method: "GET",
-        headers: {
+        headers: { // FIXME: are these headers needed?
           "crossDomain": "true",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers":
@@ -76,7 +78,7 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer) {
     } else if (request.method === "POST") {
       newRequest = new Request(u.href, {
         method: "POST",
-        headers: {
+        headers: { // FIXME: are these headers needed?
           "crossDomain": "true",
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Headers":
@@ -89,7 +91,7 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer) {
         body: requestBodyBuffer,
       });
     } else {
-      newRequest = new Request(u.href);
+      throw new Error("get/post requests only");
     }
 
     return await fetch(newRequest);
