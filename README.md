@@ -25,11 +25,11 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
     * Flow <br>
         &emsp;The flow of rethink dns is based on plugin module, current [plugin flow](https://github.com/serverless-dns/serverless-dns/blob/main/plugin.js#L19) as below
         ```javascript
-            this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
-            this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
-            this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
-            this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
-            this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
+        this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
+        this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
+        this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
+        this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
+        this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
         ``` 
         There are 5 plugins currently loaded by rethink dns.
         * [CommandControl](https://github.com/serverless-dns/command-control)<br>
@@ -47,69 +47,76 @@ This is free, open source rethink serverless DOH resolver with custom blocklist 
     * Custom Plugin<br>
         Custom plugins can be developed by adding following function to class
         ```javascript
-            class CustomPlugin {
-                constructor() {
+        class CustomPlugin {
+            constructor() {
 
-                }
-                async RethinkModule(param) {
-                    let response = {}
-                    response.isException = false
-                    response.exceptionStack = ""
-                    response.exceptionFrom = ""
-                    response.data = {}
-                    try{
-
-                    }
-                    catch(e){
-                        response.isException = true
-                        response.exceptionStack = e.stack
-                        response.exceptionFrom = "CustomPlugin RethinkModule"
-                    }
-                    return response
-                }
             }
-            module.exports.CustomPlugin = CustomPlugin
+            async RethinkModule(param) {
+                let response = {}
+                response.isException = false
+                response.exceptionStack = ""
+                response.exceptionFrom = ""
+                response.data = {}
+                try{
+
+                }
+                catch(e){
+                    response.isException = true
+                    response.exceptionStack = e.stack
+                    response.exceptionFrom = "CustomPlugin RethinkModule"
+                }
+                return response
+            }
+        }
+        module.exports.CustomPlugin = CustomPlugin
         ```
         * RethinkModule(param) is entry point for every plugin.<br>
         * Inside RethinkModule method your custom logic can be build for your rethink serverless dns.<br>
         * example if published to npm as @your-plugin/plugin<br>
         * add your plugin to rethink serverless dns at [plugin.js](https://github.com/serverless-dns/serverless-dns/blob/main/plugin.js)
         ```javascript
-            var commandControl = new (require("@serverless-dns/command-control").CommandControl)()
-            var userOperation = new (require("@serverless-dns/basic").UserOperation)()
-            var dnsBlock = new (require("@serverless-dns/dns-operation").DNSBlock)()
-            var dnsResolver = new (require("@serverless-dns/dns-operation").DNSResolver)()
-            var dnsCnameBlock = new (require("@serverless-dns/dns-operation").DNSCnameBlock)()
-            
-            //customPlugin declaration
-            var customPlugin = new (require("@your-plugin/plugin").CustomPlugin)()
-            //
-            
-            
-            this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
-            this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
-            this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
-            this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
-            
-            //custom plugin registration
-            this.registerPlugin("customPlugin", customPlugin, ["event", "userBlocklistInfo", "dnsResolverResponse"], customCallBack, false)
-            //
-            
-            this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
-            
-            //custom plugin call back after execution
-            function customCallBack(response, currentRequest) {
-                if (response.isException) {
-                    loadException(response, currentRequest)
-                }
-                else if (response.data.decision){
-                     currentRequest.stopProcessing = true
-                }
-                else {
-                     //this.registerParameter("parameter-name", parameter data) -> parameter-name can be used to pass as parameter for next plugin
-                    this.registerParameter("customResponse", response.data)
-                }
+        import { CommandControl } from "@serverless-dns/command-control";
+        import { UserOperation } from "@serverless-dns/basic";
+        import { DNSBlock } from "@serverless-dns/dns-operation";
+        import { DNSResolver } from "@serverless-dns/dns-operation";
+        import { DNSCnameBlock } from "@serverless-dns/dns-operation";
+
+        const commandControl = new CommandControl();
+        const userOperation = new UserOperation();
+        const dnsBlock = new DNSBlock();
+        const dnsResolver = new DNSResolver();
+        const dnsCnameBlock = new DNSCnameBlock();
+        
+        //customPlugin declaration
+        import { CustomPlugin } from "@your-plugin/plugin";
+        const customPlugin = new CustomPlugin()
+        //
+        
+        
+        this.registerPlugin("commandControl", commandControl, ["event", "blocklistFilter"], commandControlCallBack, false)
+        this.registerPlugin("userOperation", userOperation, ["event", "blocklistFilter"], userOperationCallBack, false)
+        this.registerPlugin("dnsBlock", dnsBlock, ["event", "blocklistFilter", "userBlocklistInfo"], dnsBlockCallBack, false)
+        this.registerPlugin("dnsResolver", dnsResolver, ["event", "userBlocklistInfo"], dnsResolverCallBack, false)
+        
+        //custom plugin registration
+        this.registerPlugin("customPlugin", customPlugin, ["event", "userBlocklistInfo", "dnsResolverResponse"], customCallBack, false)
+        //
+        
+        this.registerPlugin("dnsCnameBlock", dnsCnameBlock, ["event", "userBlocklistInfo", "blocklistFilter", "dnsResolverResponse"], dnsCnameBlockCallBack, false)
+        
+        //custom plugin call back after execution
+        function customCallBack(response, currentRequest) {
+            if (response.isException) {
+                loadException(response, currentRequest)
             }
+            else if (response.data.decision){
+                    currentRequest.stopProcessing = true
+            }
+            else {
+                    //this.registerParameter("parameter-name", parameter data) -> parameter-name can be used to pass as parameter for next plugin
+                this.registerParameter("customResponse", response.data)
+            }
+        }
         ``` 
         * this.registerPlugin( Plugin Name, Plugin Object , [Parameter to Plugin], Plugin Call Back Function, Plugin Execution After StopProcessing)<br>
             * Plugin Name - string denotes name of the plugin. <br>
