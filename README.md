@@ -3,8 +3,8 @@ that can be hosted on cloudflare. This initiative is to provide first level of
 anti-censorship and data privacy to every persons on earth.
 
 1. #### Hosting
-   - Rethink serverless can be hosted to cloudflare(user will be liable for
-     cloudflare billing).
+   - Rethink serverless can be hosted to cloudflare (user will be liable for
+     cloudflare billing, free for first 100k requests per day, service will be disabled until the next day unless upgrading to paid tier).
    - click below button to deploy
      <br><br>
      [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
