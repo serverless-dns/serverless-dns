@@ -29,6 +29,7 @@ class LocalCache {
       }
     }
     catch (e) {
+      console.log("Error At : LocalCache -> Put")
       console.log(e.stack)
     }
   }
@@ -55,10 +56,8 @@ async function safeAdd() {
   }
   catch (e) {
     this.block = false
-    let errobj = {}
-    errobj.errat = "cache-wrapper.js safeAdd"
-    errobj.errmsg = e.stack
-    console.log(errobj)
+    console.log("Error At : LocalCache -> safeAdd " + this.localCache.lfuname)
+    console.log(e.stack)
   }
 }
 const sleep = ms => {
