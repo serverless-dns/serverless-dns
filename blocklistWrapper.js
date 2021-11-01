@@ -34,8 +34,9 @@ class BlocklistWrapper {
     } catch (e) {
       this.isBlocklistLoadException = true;
       this.exceptionStack = e.stack;
-      this.exceptionFrom = "UseTrie.js downloadBuildBlocklist " +
-        this.exceptionFrom;
+      this.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction"
+      console.log("Error At -> BlocklistWrapper initBlocklistConstruction");
+      console.log(e.stack);
     }
   }
 
@@ -215,10 +216,7 @@ async function downloadBuildBlocklist() {
     this.isBlocklistUnderConstruction = false;
     this.isBlocklistLoaded = true;
   } catch (e) {
-    this.isException = true;
-    this.exceptionStack = e.stack;
-    this.exceptionFrom = "UseTrie.js downloadBuildBlocklist " +
-      this.exceptionFrom;
+    throw e
   }
 }
 
