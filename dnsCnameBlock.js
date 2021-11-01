@@ -54,8 +54,10 @@ class DNSCnameBlock {
         catch (e) {
             response.isException = true
             response.exceptionStack = e.stack
-            response.exceptionFrom = "DNSBlock RethinkModule"
+            response.exceptionFrom = "DNSCnameBlock RethinkModule"
             response.data = false
+            console.log("Error At : DNSCnameBlock -> RethinkModule")
+            console.log(e.stack)
         }
         return response
     }

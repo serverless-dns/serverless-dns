@@ -18,6 +18,8 @@ class DNSParserWrap {
 			return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)))
 		}
 		catch (e) {
+			console.log("Error At : DNSParserWrap -> Decode")
+            console.log(e.stack)
 			throw e
 		}
 	}
@@ -26,6 +28,8 @@ class DNSParserWrap {
 			return DnsParser.encode(DecodedDnsPacket);
 		}
 		catch (e) {
+			console.log("Error At : DNSParserWrap -> Encode")
+            console.log(e.stack)
 			throw e
 		}
 	}

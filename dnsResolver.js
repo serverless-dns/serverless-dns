@@ -32,6 +32,8 @@ class DNSResolver {
             response.exceptionStack = e.stack
             response.exceptionFrom = "DNSResolver RethinkModule"
             response.data = false
+            console.log("Error At : DNSResolver -> RethinkModule")
+            console.log(e.stack)
         }
         return response
     }

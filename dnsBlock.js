@@ -48,6 +48,8 @@ class DNSBlock {
             response.exceptionStack = e.stack
             response.exceptionFrom = "DNSBlock RethinkModule"
             response.data = false
+            console.log("Error At : DNSBlock -> RethinkModule")
+            console.log(e.stack)
         }
         return response
     }
