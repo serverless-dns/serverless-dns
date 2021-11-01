@@ -70,6 +70,8 @@ function loadUser(param) {
         response.exceptionStack = e.stack
         response.exceptionFrom = "UserOperation loadUser"
         response.data = false
+        console.log("Error At : UserOperation -> loadUser")
+        console.log(e.stack)
     }
     return response
 }
