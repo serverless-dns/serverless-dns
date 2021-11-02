@@ -2068,5 +2068,4 @@ function createBlocklistFilter(
   }
 }
 
-module.exports.createBlocklistFilter = createBlocklistFilter;
-module.exports.customTagToFlag = customTagToFlag;
+export { createBlocklistFilter, customTagToFlag };

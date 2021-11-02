@@ -6,9 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-const LocalCache = require("@serverless-dns/cache-wrapper").LocalCache;
-const radixTrieOperation = require("./radixTrie.js");
-class BlocklistWrapper {
+import { LocalCache } from "@serverless-dns/cache-wrapper";
+import {
+  createBlocklistFilter,
+  customTagToFlag as _customTagToFlag,
+} from "./radixTrie.js";
+export class BlocklistWrapper {
   constructor() {
     this.t;
     this.ft;
@@ -34,7 +37,7 @@ class BlocklistWrapper {
     } catch (e) {
       this.isBlocklistLoadException = true;
       this.exceptionStack = e.stack;
-      this.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction"
+      this.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
       console.log("Error At -> BlocklistWrapper initBlocklistConstruction");
       console.log(e.stack);
     }
@@ -122,7 +125,7 @@ class BlocklistWrapper {
   }
 
   customTagToFlag(tagList) {
-    return radixTrieOperation.customTagToFlag(tagList, this.blocklistFileTag);
+    return _customTagToFlag(tagList, this.blocklistFileTag);
   }
 
   getB64FlagFromTag(tagList, flagVersion) {
@@ -130,7 +133,7 @@ class BlocklistWrapper {
       if (flagVersion == "0") {
         return encodeURIComponent(
           Buffer.from(
-            radixTrieOperation.customTagToFlag(tagList, this.blocklistFileTag),
+            _customTagToFlag(tagList, this.blocklistFileTag),
           ).toString("base64"),
         );
       } else if (flagVersion == "1") {
@@ -138,7 +141,7 @@ class BlocklistWrapper {
           encodeURI(
             btoa(
               encodeToBinary(
-                radixTrieOperation.customTagToFlag(
+                _customTagToFlag(
                   tagList,
                   this.blocklistFileTag,
                 ),
@@ -196,7 +199,7 @@ async function downloadBuildBlocklist() {
 
     this.blocklistBasicConfig = JSON.parse(decoder.decode(this.bufferList[0]));
     this.blocklistFileTag = JSON.parse(decoder.decode(this.bufferList[1]));
-    const resp = await radixTrieOperation.createBlocklistFilter(
+    const resp = await createBlocklistFilter(
       this.bufferList[2],
       this.bufferList[3],
       this.blocklistFileTag,
@@ -204,7 +207,7 @@ async function downloadBuildBlocklist() {
     );
     this.t = resp.t;
     this.ft = resp.ft;
-    const str = radixTrieOperation.customTagToFlag(
+    const str = _customTagToFlag(
       this.wildCardLists,
       this.blocklistFileTag,
     );
@@ -216,7 +219,7 @@ async function downloadBuildBlocklist() {
     this.isBlocklistUnderConstruction = false;
     this.isBlocklistLoaded = true;
   } catch (e) {
-    throw e
+    throw e;
   }
 }
 
@@ -361,5 +364,3 @@ function setWildcardlist() {
   this.wildCardLists.add("IVO"); // windows native
   this.wildCardLists.add("ALQ"); // xiaomi native
 }
-
-module.exports.BlocklistWrapper = BlocklistWrapper;
