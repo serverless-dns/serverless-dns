@@ -6,65 +6,55 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-var Cache = require('@serverless-dns/lfu-cache').LfuCache
+import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
 
-class LocalCache {
+export class LocalCache {
   constructor(cacheName, size, cacheDataRemoveCount, sleepTime = 100) {
-    this.localCache = new Cache(cacheName, size)
-    this.cacheDataHold = []
-    this.block = false
-    this.cacheDataRemoveCount = cacheDataRemoveCount
-    this.sleepTime = sleepTime
+    this.localCache = new Cache(cacheName, size);
+    this.cacheDataHold = [];
+    this.block = false;
+    this.cacheDataRemoveCount = cacheDataRemoveCount;
+    this.sleepTime = sleepTime;
   }
 
   Get(key) {
-    return this.localCache.Get(key)
+    return this.localCache.Get(key);
   }
   Put(cacheData, event) {
     try {
-      this.cacheDataHold.push(cacheData)
+      this.cacheDataHold.push(cacheData);
       if (!this.block) {
-        this.block = true
-        event.waitUntil(safeAdd.call(this))
+        this.block = true;
+        event.waitUntil(safeAdd.call(this));
       }
-    }
-    catch (e) {
-      console.log("Error At : LocalCache -> Put")
-      console.log(e.stack)
+    } catch (e) {
+      console.log("Error At : LocalCache -> Put");
+      console.log(e.stack);
     }
   }
 }
-
-
-
-
-
-
 
 async function safeAdd() {
   try {
     await sleep(this.sleepTime);
-    var cacheData
-    var count = 0
+    var cacheData;
+    var count = 0;
     while (cacheData = this.cacheDataHold.shift()) {
-      count++
-      this.localCache.Put(cacheData)
-      if (count >= this.cacheDataRemoveCount)
-        break
+      count++;
+      this.localCache.Put(cacheData);
+      if (count >= this.cacheDataRemoveCount) {
+        break;
+      }
     }
-    this.block = false
-  }
-  catch (e) {
-    this.block = false
-    console.log("Error At : LocalCache -> safeAdd " + this.localCache.lfuname)
-    console.log(e.stack)
+    this.block = false;
+  } catch (e) {
+    this.block = false;
+    console.log("Error At : LocalCache -> safeAdd " + this.localCache.lfuname);
+    console.log(e.stack);
   }
 }
-const sleep = ms => {
-  return new Promise(resolve => {
+const sleep = (ms) => {
+  return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
 };
-
-
-module.exports.LocalCache = LocalCache

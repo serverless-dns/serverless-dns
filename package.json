@@ -2,6 +2,7 @@
   "name": "@serverless-dns/cache-wrapper",
   "version": "1.0.3",
   "description": "",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
