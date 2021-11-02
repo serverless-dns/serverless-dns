@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/dns-blocker/issues"
   },
-  "homepage": "https://github.com/serverless-dns/dns-blocker#readme"
+  "homepage": "https://github.com/serverless-dns/dns-blocker#readme",
+  "dependencies": {
+    "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser"
+  }
 }
