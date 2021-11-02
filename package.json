@@ -1,8 +1,9 @@
 {
   "name": "@serverless-dns/command-control",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "",
   "main": "cc.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
