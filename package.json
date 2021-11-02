@@ -1,5 +1,5 @@
 {
-  "name": "@serverless-dns-git/blocklist-wrapper",
+  "name": "@serverless-dns/blocklist-wrapper",
   "version": "1.0.8",
   "description": "rethink-dns blocklist wrapper for trie",
   "main": "blocklistWrapper.js",
