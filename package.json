@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/cache-wrapper/issues"
   },
-  "homepage": "https://github.com/serverless-dns/cache-wrapper#readme"
+  "homepage": "https://github.com/serverless-dns/cache-wrapper#readme",
+  "dependencies": {
+    "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache"
+  }
 }
