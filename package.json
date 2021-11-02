@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/basic/issues"
   },
-  "homepage": "https://github.com/serverless-dns/basic#readme"
+  "homepage": "https://github.com/serverless-dns/basic#readme",
+  "dependencies": {
+    "@serverless-dns/cache-wrapper": "github:serverless-dns/cache-wrapper"
+  }
 }
