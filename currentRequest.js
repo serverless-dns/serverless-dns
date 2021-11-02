@@ -88,6 +88,8 @@ export default class CurrentRequest {
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
+      console.log("Exception at CurrentRequest -> dnsBlockResponse")
+      console.log(this.decodedDnsPacket)
     }
   }
 }

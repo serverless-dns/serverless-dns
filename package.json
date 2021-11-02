@@ -19,12 +19,9 @@
   },
   "homepage": "https://github.com/serverless-dns/serverless-dns#readme",
   "dependencies": {
-    "@serverless-dns/basic": "^1.0.0",
-    "@serverless-dns/blocklist-wrapper": "^1.0.7",
-    "@serverless-dns/cache-wrapper": "^1.0.2",
-    "@serverless-dns/command-control": "^1.0.9",
-    "@serverless-dns/dns-operation": "^1.0.4",
-    "@serverless-dns/dns-parser": "^1.0.1",
-    "@serverless-dns/lfu-cache": "^1.0.1"
+    "@serverless-dns/basic": "github:serverless-dns/basic",
+    "@serverless-dns/blocklist-wrapper": "github:serverless-dns/blocklist-wrapper",
+    "@serverless-dns/command-control": "github:serverless-dns/command-control",
+    "@serverless-dns/dns-operation": "github:serverless-dns/dns-blocker"
   }
 }
