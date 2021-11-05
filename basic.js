@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-var UserOperation = require("./userOperation.js").UserOperation
+import { UserOperation as UserOperation } from "./userOperation.js";
 //var Log = require("./userLog").Log
 
-module.exports.UserOperation = UserOperation
+export { UserOperation };
 //module.exports.Log = Log
