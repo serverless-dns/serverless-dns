@@ -6,12 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-var DNSParserWrap = require("./dnsParserWrap.js").DNSParserWrap
-var DNSBlock = require("./dnsBlock.js").DNSBlock
-var DNSCnameBlock = require("./dnsCnameBlock.js").DNSCnameBlock
-var DNSResolver = require("./dnsResolver.js").DNSResolver
+import DNSParserWrap from "./dnsParserWrap.js";
+import DNSBlock from "./dnsBlock.js";
+import DNSCnameBlock from "./dnsCnameBlock.js";
+import DNSResolver from "./dnsResolver.js";
 
-module.exports.DNSParserWrap = DNSParserWrap
-module.exports.DNSBlock = DNSBlock
-module.exports.DNSCnameBlock = DNSCnameBlock
-module.exports.DNSResolver = DNSResolver
+export { DNSBlock, DNSCnameBlock, DNSParserWrap, DNSResolver };
