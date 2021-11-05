@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/cache-wrapper",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "",
   "type": "module",
   "scripts": {
@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/serverless-dns/cache-wrapper#readme",
   "dependencies": {
-    "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache"
+    "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v2.0.0"
   }
 }
