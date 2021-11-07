@@ -13,10 +13,12 @@ export class UserOperation {
       true;
     this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
   }
-  /*
-    param.event
-    param.blocklistFilter
-    */
+  /**
+   * @param {*} param
+   * @param {*} param.event
+   * @param {*} param.blocklistFilter
+   * @returns
+   */
   async RethinkModule(param) {
     return loadUser.call(this, param);
   }
@@ -80,9 +82,16 @@ function loadUser(param) {
   return response;
 }
 
+/**
+ * Get the blocklist stamp (base64 encoded) from Request URL
+ * @param {String} url - Request URL string
+ * @returns
+ */
 function getBlocklistFlag(url) {
   let blocklistFlag = "";
   let reqUrl = new URL(url);
+
+  // Check if pathname has `/dns-query`
   let tmpsplit = reqUrl.pathname.split("/");
   if (tmpsplit.length > 1) {
     if (tmpsplit[1].toLowerCase() == "dns-query") {
