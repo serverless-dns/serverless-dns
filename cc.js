@@ -8,7 +8,15 @@
 
 export class CommandControl {
   constructor() {
-    this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
+    try {
+      this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
+    } catch (e) {
+      if (e instanceof ReferenceError) {
+        ({
+          CF_LATEST_BLOCKLIST_TIMESTAMP: this.latestTimestamp,
+        } = Deno.env.toObject());
+      } else throw e;
+    }
   }
 
   /**
