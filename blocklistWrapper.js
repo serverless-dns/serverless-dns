@@ -174,6 +174,7 @@ export class BlocklistWrapper {
 }
 
 async function downloadBuildBlocklist() {
+  console.log("downloadBuildBlocklist with URL: " + this.blocklistUrl);
   try {
     this.isBlocklistUnderConstruction = true;
     const decoder = new TextDecoder();
