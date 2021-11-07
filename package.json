@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/blocklist-wrapper",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "rethink-dns blocklist wrapper for trie",
   "main": "blocklistWrapper.js",
   "type": "module",

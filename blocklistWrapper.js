@@ -23,8 +23,17 @@ export class BlocklistWrapper {
     this.isBlocklistLoadException = false;
     this.exceptionStack;
     this.exceptionFrom = "";
-    this.blocklistUrl = CF_BLOCKLIST_URL;
-    this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
+    try {
+      this.blocklistUrl = CF_BLOCKLIST_URL;
+      this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
+    } catch (e) {
+      if (e instanceof ReferenceError) {
+        ({
+          CF_BLOCKLIST_URL: this.blocklistUrl,
+          CF_LATEST_BLOCKLIST_TIMESTAMP: this.latestTimestamp,
+        } = Deno.env.toObject());
+      } else throw e;
+    }
     this.domainNameCache = new LocalCache("Domain-Name-Cache", 5000, 500, 5);
     this.wildCardLists = new Set();
     this.wildCardUint;
