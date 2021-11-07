@@ -11,10 +11,12 @@ export class CommandControl {
     this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
   }
 
-  /*
-	param.request
-	param.blocklistFilter
-	*/
+  /**
+   * @param {*} param
+   * @param {*} param.request
+   * @param {*} param.blocklistFilter
+   * @returns
+   */
   async RethinkModule(param) {
     let response = {};
     response.isException = false;
