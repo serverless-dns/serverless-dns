@@ -49,6 +49,10 @@ export default class CurrentRequest {
     this.httpResponse.headers.set("x-err", JSON.stringify(data));
   }
 
+  /**
+   * @param {ArrayBuffer} arrayBuffer - responseBodyBuffer
+   * @returns Web API Response
+   */
   dnsResponse(arrayBuffer) {
     this.httpResponse = new Response(arrayBuffer);
     setResponseCommonHeader.call(this);
@@ -88,8 +92,8 @@ export default class CurrentRequest {
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
-      console.log("Exception at CurrentRequest -> dnsBlockResponse")
-      console.log(this.decodedDnsPacket)
+      console.log("Exception at CurrentRequest -> dnsBlockResponse");
+      console.log(this.decodedDnsPacket);
     }
   }
 }

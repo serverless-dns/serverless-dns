@@ -19,7 +19,14 @@ const dnsResolver = new DNSResolver();
 const dnsCnameBlock = new DNSCnameBlock();
 
 export default class RethinkPlugin {
+  /**
+   * @param {BlocklistWrapper} blocklistFilter
+   * @param {{request: Request}} event
+   */
   constructor(blocklistFilter, event) {
+    /**
+     * Parameters of RethinkPlugin which may be used by individual plugins.
+     */
     this.parameter = new Map();
     this.registerParameter("blocklistFilter", blocklistFilter);
     this.registerParameter("request", event.request);
@@ -101,6 +108,12 @@ export default class RethinkPlugin {
   }
 }
 
+/**
+ * Adds "requestBodyBuffer" (arrayBuffer of "request" param) to RethinkPlugin
+ * params
+ * @param {*} response
+ * @param {*} currentRequest
+ */
 async function commandControlCallBack(response, currentRequest) {
   if (response.data.stopProcessing) {
     //console.log("In userOperationCallBack")
@@ -120,6 +133,11 @@ async function commandControlCallBack(response, currentRequest) {
   }
 }
 
+/**
+ * Adds "userBlocklistInfo" and "dnsResolverUrl" to RethinkPlugin params
+ * @param {*} response - Contains `data` which is `userBlocklistInfo`
+ * @param {*} currentRequest
+ */
 function userOperationCallBack(response, currentRequest) {
   if (response.isException) {
     //console.log("In userOperationCallBack Exception")
@@ -161,6 +179,12 @@ function dnsBlockCallBack(response, currentRequest) {
     }
   }
 }
+/**
+ * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
+ * resolver) to RethinkPlugin params
+ * @param {*} response
+ * @param {*} currentRequest
+ */
 function dnsResolverCallBack(response, currentRequest) {
   if (response.isException) {
     //console.log("In dnsResolverCallBack Exception")
@@ -177,6 +201,11 @@ function dnsResolverCallBack(response, currentRequest) {
   }
 }
 
+/**
+ * Adds "dnsCnameBlockResponse" to RethinkPlugin params
+ * @param {*} response -
+ * @param {*} currentRequest
+ */
 function dnsCnameBlockCallBack(response, currentRequest) {
   if (response.isException) {
     //console.log("In dnsCnameBlockCallBack Exception")
@@ -208,6 +237,11 @@ function loadException(response, currentRequest) {
   currentRequest.dnsExceptionResponse();
 }
 
+/**
+ * Retrieves parameters of a plugin
+ * @param {String[]} list - Parameters of a plugin
+ * @returns - Object of plugin parameters
+ */
 function generateParam(list) {
   const param = {};
   for (const key of list) {
