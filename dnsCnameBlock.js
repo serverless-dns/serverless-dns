@@ -12,12 +12,14 @@ export default class DNSCnameBlock {
   constructor() {
     this.dnsParser = new DNSParserWrap();
   }
-  /*
-    param.userBlocklistInfo
-    param.blocklistFilter
-    param.event
-    param.responseBodyBuffer
-    */
+  /**
+   * @param {*} param
+   * @param {*} param.userBlocklistInfo
+   * @param {*} param.blocklistFilter
+   * @param {*} param.event
+   * @param {*} param.responseBodyBuffer
+   * @returns
+   */
   async RethinkModule(param) {
     let response = {};
     response.isException = false;

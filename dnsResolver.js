@@ -10,11 +10,13 @@ export default class DNSResolver {
   constructor() {
     this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
   }
-  /*
-    param.request
-    param.requestBodyBuffer
-    param.dnsResolverUrl
-    */
+  /**
+   * @param {*} param
+   * @param {*} param.request
+   * @param {*} param.requestBodyBuffer
+   * @param {*} param.dnsResolverUrl
+   * @returns
+   */
   async RethinkModule(param) {
     let response = {};
     response.isException = false;

@@ -12,12 +12,14 @@ export default class DNSBlock {
   constructor() {
     this.dnsParser = new DNSParserWrap();
   }
-  /*
-    param.userBlocklistInfo
-    param.blocklistFilter
-    param.requestBodyBuffer
-    param.event
-    */
+  /**
+   * @param {*} param
+   * @param {*} param.userBlocklistInfo
+   * @param {*} param.blocklistFilter
+   * @param {*} param.requestBodyBuffer
+   * @param {*} param.event
+   * @returns
+   */
   async RethinkModule(param) {
     let response = {};
     response.isException = false;
