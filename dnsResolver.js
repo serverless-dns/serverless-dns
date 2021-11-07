@@ -8,7 +8,15 @@
 
 export default class DNSResolver {
   constructor() {
-    this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
+    try {
+      this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
+    } catch (e) {
+      if (e instanceof ReferenceError) {
+        ({
+          CF_DNS_RESOLVER_URL: this.dnsResolverUrl,
+        } = Deno.env.toObject());
+      } else throw e;
+    }
   }
   /**
    * @param {*} param
