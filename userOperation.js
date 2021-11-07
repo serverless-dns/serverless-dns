@@ -9,9 +9,20 @@ import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 export class UserOperation {
   constructor() {
     this.userConfigCache = new LocalCache("User-Config-Cache", 1000, 500, 5);
-    this.onInvalidFlagStopProcessing = CF_ON_INVALID_FLAG_STOPPROCESSING ||
-      true;
-    this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
+    try {
+      this.onInvalidFlagStopProcessing = CF_ON_INVALID_FLAG_STOPPROCESSING ||
+        true;
+      this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
+    } catch (e) {
+      if (e instanceof ReferenceError) {
+        ({
+          CF_DNS_RESOLVER_URL: this.dnsResolverUrl,
+          CF_ON_INVALID_FLAG_STOPPROCESSING: this.onInvalidFlagStopProcessing,
+        } = Deno.env.toObject());
+        this.onInvalidFlagStopProcessing = this.onInvalidFlagStopProcessing ||
+          true;
+      } else throw e;
+    }
   }
   /**
    * @param {*} param
