@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import * as DnsParser from "@serverless-dns/dns-parser";
+import { Buffer } from "buffer";
 
 export default class DNSParserWrap {
   constructor() {
