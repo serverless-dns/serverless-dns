@@ -6,7 +6,7 @@ addEventListener("fetch", (event) => {
   event.respondWith(handleRequest(event));
 });
 
-function handleRequest(event) {
+export function handleRequest(event) {
   return proxyRequest(event);
 }
 
