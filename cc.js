@@ -8,24 +8,18 @@
 
 export class CommandControl {
   constructor() {
-    try {
-      this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        ({
-          CF_LATEST_BLOCKLIST_TIMESTAMP: this.latestTimestamp,
-        } = Deno.env.toObject());
-      } else throw e;
-    }
+    this.latestTimestamp = "";
   }
 
   /**
    * @param {*} param
    * @param {*} param.request
    * @param {*} param.blocklistFilter
+   * @param {*} param.latestTimestamp
    * @returns
    */
   async RethinkModule(param) {
+    this.latestTimestamp = param.latestTimestamp
     let response = {};
     response.isException = false;
     response.exceptionStack = "";
