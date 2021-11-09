@@ -23,32 +23,30 @@ export class BlocklistWrapper {
     this.isBlocklistLoadException = false;
     this.exceptionStack;
     this.exceptionFrom = "";
-    try {
-      this.blocklistUrl = CF_BLOCKLIST_URL;
-      this.latestTimestamp = CF_LATEST_BLOCKLIST_TIMESTAMP;
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        ({
-          CF_BLOCKLIST_URL: this.blocklistUrl,
-          CF_LATEST_BLOCKLIST_TIMESTAMP: this.latestTimestamp,
-        } = Deno.env.toObject());
-      } else throw e;
-    }
-    this.domainNameCache = new LocalCache("Domain-Name-Cache", 5000, 500, 5);
+    this.domainNameCache;
     this.wildCardLists = new Set();
     this.wildCardUint;
     setWildcardlist.call(this);
   }
 
-  async initBlocklistConstruction() {
+  async initBlocklistConstruction(runTimeEnv, blocklistUrl, latestTimestamp) {
     try {
+      this.domainNameCache = new LocalCache(
+        "Domain-Name-Cache",
+        5000,
+        500,
+        5,
+        runTimeEnv,
+      );
+      this.blocklistUrl = blocklistUrl;
+      this.latestTimestamp = latestTimestamp;
       await downloadBuildBlocklist.call(this);
     } catch (e) {
       this.isBlocklistLoadException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
-      console.log("Error At -> BlocklistWrapper initBlocklistConstruction");
-      console.log(e.stack);
+      console.error("Error At -> BlocklistWrapper initBlocklistConstruction");
+      console.error(e.stack);
     }
   }
 
