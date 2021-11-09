@@ -8,15 +8,6 @@
 
 export default class DNSResolver {
   constructor() {
-    try {
-      this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        ({
-          CF_DNS_RESOLVER_URL: this.dnsResolverUrl,
-        } = Deno.env.toObject());
-      } else throw e;
-    }
   }
   /**
    * @param {*} param
@@ -32,9 +23,6 @@ export default class DNSResolver {
     response.exceptionFrom = "";
     response.data = {};
     try {
-      if (!param.dnsResolverUrl) {
-        param.dnsResolverUrl = this.dnsResolverUrl;
-      }
       response.data.responseBodyBuffer = await (await resolveDns(
         param.request,
         param.dnsResolverUrl,
@@ -45,8 +33,8 @@ export default class DNSResolver {
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSResolver RethinkModule";
       response.data = false;
-      console.log("Error At : DNSResolver -> RethinkModule");
-      console.log(e.stack);
+      console.error("Error At : DNSResolver -> RethinkModule");
+      console.error(e.stack);
     }
     return response;
   }

@@ -80,8 +80,8 @@ export default class DNSCnameBlock {
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSCnameBlock RethinkModule";
       response.data = false;
-      console.log("Error At : DNSCnameBlock -> RethinkModule");
-      console.log(e.stack);
+      console.error("Error At : DNSCnameBlock -> RethinkModule");
+      console.error(e.stack);
     }
     return response;
   }
