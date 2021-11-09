@@ -8,26 +8,14 @@
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 export class UserOperation {
   constructor() {
-    this.userConfigCache = new LocalCache("User-Config-Cache", 1000, 500, 5);
-    try {
-      this.onInvalidFlagStopProcessing = CF_ON_INVALID_FLAG_STOPPROCESSING ||
-        true;
-      this.dnsResolverUrl = CF_DNS_RESOLVER_URL;
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        ({
-          CF_DNS_RESOLVER_URL: this.dnsResolverUrl,
-          CF_ON_INVALID_FLAG_STOPPROCESSING: this.onInvalidFlagStopProcessing,
-        } = Deno.env.toObject());
-        this.onInvalidFlagStopProcessing = this.onInvalidFlagStopProcessing ||
-          true;
-      } else throw e;
-    }
+    this.userConfigCache = false;
   }
   /**
    * @param {*} param
    * @param {*} param.event
    * @param {*} param.blocklistFilter
+   * @param {*} param.dnsResolverUrl
+   * @param {*} param.runTimeEnv
    * @returns
    */
   async RethinkModule(param) {
@@ -42,6 +30,15 @@ function loadUser(param) {
   response.exceptionFrom = "";
   response.data = {};
   try {
+    if (!this.userConfigCache) {
+      this.userConfigCache = new LocalCache(
+        "User-Config-Cache",
+        1000,
+        500,
+        5,
+        param.runTimeEnv,
+      );
+    }
     let userBlocklistInfo = {};
     userBlocklistInfo.from = "Cache";
     let blocklistFlag = getBlocklistFlag(param.event.request.url);
@@ -78,17 +75,17 @@ function loadUser(param) {
     userBlocklistInfo.isEmptyFlag = currentUser.data.isEmptyFlag;
     userBlocklistInfo.userServiceListUint =
       currentUser.data.userServiceListUint;
-    userBlocklistInfo.dnsResolverUrl = this.dnsResolverUrl;
+    userBlocklistInfo.dnsResolverUrl = param.dnsResolverUrl;
 
     response.data = userBlocklistInfo;
-    this.userConfigCache.Put(currentUser, param.event);
+    this.userConfigCache.Put(currentUser, param.event, param.runTimeEnv);
   } catch (e) {
     response.isException = true;
     response.exceptionStack = e.stack;
     response.exceptionFrom = "UserOperation loadUser";
     response.data = false;
-    console.log("Error At : UserOperation -> loadUser");
-    console.log(e.stack);
+    console.error("Error At : UserOperation -> loadUser");
+    console.error(e.stack);
   }
   return response;
 }
