@@ -40,6 +40,18 @@ anti-censorship and data privacy to every persons on earth.
 
 ## For Developers
 
+### Deno
+
+Run:
+
+```
+deno run --allow-net --allow-env --allow-read --import-map=import_map.json http.ts
+```
+
+List of environment variables can be found in [`.env.example`](.env.example)
+file. Put them in a `.env` file and they will be loaded into environment with
+this deno process if such a file exists, else it has to come from other methods.
+
 ### Flow
 
 - The flow of rethink dns is based on plugin module, current
