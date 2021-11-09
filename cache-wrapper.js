@@ -9,12 +9,19 @@
 import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
 
 export class LocalCache {
-  constructor(cacheName, size, cacheDataRemoveCount, sleepTime = 100) {
+  constructor(
+    cacheName,
+    size,
+    cacheDataRemoveCount,
+    sleepTime = 100,
+    runTimeEnv,
+  ) {
     this.localCache = new Cache(cacheName, size);
     this.cacheDataHold = [];
     this.block = false;
     this.cacheDataRemoveCount = cacheDataRemoveCount;
     this.sleepTime = sleepTime;
+    this.runTimeEnv = runTimeEnv || "worker"
   }
 
   Get(key) {
@@ -22,18 +29,19 @@ export class LocalCache {
   }
   Put(cacheData, event) {
     try {
-      this.cacheDataHold.push(cacheData);
-      if (!this.block) {
-        this.block = true;
-        // `waitUntil` is probably needed only in service worker environments
-        // like cloudflare workers. Which is not available or required in deno.
-        event.waitUntil
-          ? event.waitUntil(safeAdd.call(this))
-          : safeAdd.call(this);
+      if(this.runTimeEnv == "worker"){
+        this.cacheDataHold.push(cacheData);
+        if (!this.block) {
+          this.block = true;
+          event.waitUntil(safeAdd.call(this))
+        }
       }
+      else if(this.runTimeEnv == "deno"){
+        this.localCache.Put(cacheData)
+      }            
     } catch (e) {
-      console.log("Error At : LocalCache -> Put");
-      console.log(e.stack);
+      console.error("Error At : LocalCache -> Put");
+      console.error(e.stack);
     }
   }
 }
@@ -53,8 +61,8 @@ async function safeAdd() {
     this.block = false;
   } catch (e) {
     this.block = false;
-    console.log("Error At : LocalCache -> safeAdd " + this.localCache.lfuname);
-    console.log(e.stack);
+    console.error("Error At : LocalCache -> safeAdd " + this.localCache.lfuname);
+    console.error(e.stack);
   }
 }
 const sleep = (ms) => {
