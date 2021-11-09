@@ -25,7 +25,11 @@ export class LocalCache {
       this.cacheDataHold.push(cacheData);
       if (!this.block) {
         this.block = true;
-        event.waitUntil(safeAdd.call(this));
+        // `waitUntil` is probably needed only in service worker environments
+        // like cloudflare workers. Which is not available or required in deno.
+        event.waitUntil
+          ? event.waitUntil(safeAdd.call(this))
+          : safeAdd.call(this);
       }
     } catch (e) {
       console.log("Error At : LocalCache -> Put");
