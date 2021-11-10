@@ -56,11 +56,6 @@ export default class CurrentRequest {
   dnsResponse(arrayBuffer) {
     this.httpResponse = new Response(arrayBuffer);
     setResponseCommonHeader.call(this);
-
-    /*if (this.isDomainInBlockListNotBlocked) {
-      this.httpResponse = new Response(this.httpResponse.body, this.httpResponse)
-      this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
-    }*/
     return this.httpResponse;
   }
   dnsBlockResponse() {
@@ -86,8 +81,7 @@ export default class CurrentRequest {
       }
       const res = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
       this.httpResponse = new Response(res.body, res);
-      setResponseCommonHeader.call(this);
-      this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
+      setResponseCommonHeader.call(this);      
     } catch (e) {
       this.isException = true;
       this.exceptionStack = e.stack;
@@ -103,7 +97,12 @@ function setResponseCommonHeader() {
   this.httpResponse.headers.set("Access-Control-Allow-Origin", "*");
   this.httpResponse.headers.set("Access-Control-Allow-Headers", "*");
   this.httpResponse.headers.append("Vary", "Origin");
-  this.httpResponse.headers.set("server", "bravedns");
   this.httpResponse.headers.delete("expect-ct");
   this.httpResponse.headers.delete("cf-ray");
+  if(this.isDnsBlock){
+    this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
+  }
+  else if(this.isDomainInBlockListNotBlocked){
+    this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
+  }
 }

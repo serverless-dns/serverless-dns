@@ -1,5 +1,6 @@
 import CurrentRequest from "./currentRequest.js";
 import RethinkPlugin from "./plugin.js";
+import Env from "./env.js";
 import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 
 addEventListener("fetch", (event) => {
@@ -11,6 +12,7 @@ function handleRequest(event) {
 }
 
 const blocklistFilter = new BlocklistWrapper();
+const env = new Env();
 async function proxyRequest(event) {
   const currentRequest = new CurrentRequest();
   let res;
@@ -23,11 +25,18 @@ async function proxyRequest(event) {
       return res;
     }
 
+    if (!env.isLoaded) {
+      env.loadEnv();
+    }
     if (
       blocklistFilter.isBlocklistUnderConstruction == false &&
       blocklistFilter.isBlocklistLoaded == false
     ) {
-      await blocklistFilter.initBlocklistConstruction();
+      await blocklistFilter.initBlocklistConstruction(
+        env.get("runTimeEnv"),
+        env.get("blocklistUrl"),
+        env.get("latestTimestamp"),
+      );
     }
 
     let retryCount = 0;
@@ -44,7 +53,7 @@ async function proxyRequest(event) {
     }
 
     if (blocklistFilter.isBlocklistLoaded == true) {
-      const plugin = new RethinkPlugin(blocklistFilter, event);
+      const plugin = new RethinkPlugin(blocklistFilter, event, env);
       await plugin.executePlugin(currentRequest);
     } else if (blocklistFilter.isException == true) {
       currentRequest.stopProcessing = true;
@@ -63,14 +72,12 @@ async function proxyRequest(event) {
 
     return currentRequest.httpResponse;
   } catch (e) {
-    //thisRequest.exception = e
-    //thisRequest.DnsExceptionResponse()
+    console.error(e.stack);
     res = new Response(JSON.stringify(e.stack));
     res.headers.set("Content-Type", "application/json");
     res.headers.set("Access-Control-Allow-Origin", "*");
     res.headers.set("Access-Control-Allow-Headers", "*");
     res.headers.append("Vary", "Origin");
-    res.headers.set("server", "bravedns");
     res.headers.delete("expect-ct");
     res.headers.delete("cf-ray");
     return res;

@@ -22,12 +22,13 @@ export default class RethinkPlugin {
   /**
    * @param {BlocklistWrapper} blocklistFilter
    * @param {{request: Request}} event
+   * @param {Env} env
    */
-  constructor(blocklistFilter, event) {
+  constructor(blocklistFilter, event, env) {
     /**
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
-    this.parameter = new Map();
+    this.parameter = new Map(env.getEnvMap());
     this.registerParameter("blocklistFilter", blocklistFilter);
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
@@ -35,14 +36,14 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       commandControl,
-      ["request", "blocklistFilter"],
+      ["request", "blocklistFilter", "latestTimestamp"],
       commandControlCallBack,
       false,
     );
     this.registerPlugin(
       "userOperation",
       userOperation,
-      ["event", "blocklistFilter"],
+      ["event", "blocklistFilter", "dnsResolverUrl", "runTimeEnv"],
       userOperationCallBack,
       false,
     );
