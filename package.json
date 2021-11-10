@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/basic",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "",
   "main": "basic.js",
   "type": "module",
@@ -16,8 +16,5 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/basic/issues"
   },
-  "homepage": "https://github.com/serverless-dns/basic#readme",
-  "dependencies": {
-    "@serverless-dns/cache-wrapper": "github:serverless-dns/cache-wrapper#v2.1.0"
-  }
+  "homepage": "https://github.com/serverless-dns/basic#readme"
 }
