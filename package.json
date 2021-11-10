@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/dns-operation",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "rethink-dns dns packet blocker",
   "main": "dnsOperation.js",
   "type": "module",
@@ -16,8 +16,5 @@
   "bugs": {
     "url": "https://github.com/serverless-dns/dns-blocker/issues"
   },
-  "homepage": "https://github.com/serverless-dns/dns-blocker#readme",
-  "dependencies": {
-    "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.0.1"
-  }
+  "homepage": "https://github.com/serverless-dns/dns-blocker#readme"
 }
