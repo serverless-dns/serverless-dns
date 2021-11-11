@@ -72,6 +72,7 @@ export default class CurrentRequest {
         this.decodedDnsPacket.questions[0].type;
       this.decodedDnsPacket.answers[0].ttl = 300;
       this.decodedDnsPacket.answers[0].class = "IN";
+      this.decodedDnsPacket.answers[0].data = "";
       this.decodedDnsPacket.answers[0].flush = false;
       if (this.decodedDnsPacket.questions[0].type == "A") {
         this.decodedDnsPacket.answers[0].data = "0.0.0.0";

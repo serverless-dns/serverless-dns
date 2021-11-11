@@ -6,4 +6,4 @@ workers_dev = true
 zone_id = ""
 compatibility_date = "2021-09-21"
 
-vars = {RUNTIME_ENV = "worker", CF_BLOCKLIST_URL = "https://bravepublic.s3.us-east-2.amazonaws.com/completeblocklist/", CF_LATEST_BLOCKLIST_TIMESTAMP = "1635754946983", CF_PROCESS_DNS_ON_DNSPARSER_EXCEPTION = false, CF_ON_INVALID_FLAG_STOPPROCESSING = true, CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"}
+vars = {RUNTIME_ENV = "worker" ,CF_BLOCKLIST_URL = "https://bravepublic.s3.us-east-2.amazonaws.com/completeblocklist/", CF_LATEST_BLOCKLIST_TIMESTAMP = "1635754946983", CF_PROCESS_DNS_ON_DNSPARSER_EXCEPTION = false, CF_ON_INVALID_FLAG_STOPPROCESSING = true, CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"}
