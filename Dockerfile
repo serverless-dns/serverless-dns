@@ -23,7 +23,7 @@ COPY --from=bin /deno /bin/deno
 WORKDIR /deno-dir
 COPY . .
 
-RUN ls -la
+RUN ls -Fla
 
 ENTRYPOINT ["/bin/deno"]
 
