@@ -21,7 +21,7 @@ export class LocalCache {
     this.block = false;
     this.cacheDataRemoveCount = cacheDataRemoveCount;
     this.sleepTime = sleepTime;
-    this.runTimeEnv = runTimeEnv || "worker"
+    this.runTimeEnv = runTimeEnv || "worker";
   }
 
   Get(key) {
@@ -29,16 +29,15 @@ export class LocalCache {
   }
   Put(cacheData, event) {
     try {
-      if(this.runTimeEnv == "worker"){
+      if (this.runTimeEnv == "worker" || this.runTimeEnv == "deno") {
         this.cacheDataHold.push(cacheData);
         if (!this.block) {
           this.block = true;
-          event.waitUntil(safeAdd.call(this))
+          event.waitUntil
+            ? event.waitUntil(safeAdd.call(this))
+            : safeAdd.call(this);
         }
       }
-      else if(this.runTimeEnv == "deno"){
-        this.localCache.Put(cacheData)
-      }            
     } catch (e) {
       console.error("Error At : LocalCache -> Put");
       console.error(e.stack);
@@ -61,7 +60,7 @@ async function safeAdd() {
     this.block = false;
   } catch (e) {
     this.block = false;
-    console.error("Error At : LocalCache -> safeAdd " + this.localCache.lfuname);
+    console.error("Error At : LocalCache -> safeAdd" + this.localCache.lfuname);
     console.error(e.stack);
   }
 }
