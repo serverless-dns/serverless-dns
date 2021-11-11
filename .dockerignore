@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.example
+.github
+.vscode
+
+node_modules/
+worker/
+dist/
+test/
+log/
+
+*.md

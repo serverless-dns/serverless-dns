@@ -1,0 +1,29 @@
+name: 🪰 Fly
+
+on:
+  push:
+    branches:
+      - 'main'
+  workflow_dispatch:
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  FLY_APP_NAME: ${{ secrets.FLY_APP_NAME }}
+
+jobs:
+  deploy:
+    name: 🚀 Deploy app
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v2
+
+      # Write app name to fly.toml
+      - name: 🔧 Configure fly-app-name
+        run: |
+          sed -i "s#app.*=.*\$#app = \"$FLY_APP_NAME\"#g" fly.toml
+
+      - name: 🏗️ Build & 🚢 Ship
+        uses: superfly/flyctl-actions@1.1
+        with:
+          args: "deploy"
