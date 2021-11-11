@@ -8,7 +8,7 @@
 
 import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlock from "./dnsBlock.js";
-import DNSCnameBlock from "./dnsCnameBlock.js";
+import DNSResponseBlock from "./dnsResponseBlock.js";
 import DNSResolver from "./dnsResolver.js";
 
-export { DNSBlock, DNSCnameBlock, DNSParserWrap, DNSResolver };
+export { DNSBlock, DNSResponseBlock, DNSParserWrap, DNSResolver };

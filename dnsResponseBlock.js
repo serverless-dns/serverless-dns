@@ -8,7 +8,7 @@
 
 import DNSParserWrap from "./dnsParserWrap.js";
 
-export default class DNSCnameBlock {
+export default class DNSResponseBlock {
   constructor() {
     this.dnsParser = new DNSParserWrap();
   }
@@ -36,57 +36,84 @@ export default class DNSCnameBlock {
         param.responseBodyBuffer,
       );
       if (param.userBlocklistInfo.isValidFlag) {
-        let domainNameBlocklistInfo;
         if (
           decodedDnsPacket.answers.length > 0 &&
           decodedDnsPacket.answers[0].type == "CNAME"
         ) {
-          let cname = decodedDnsPacket.answers[0].data.trim().toLowerCase();
-          domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-            cname,
-            param.event,
-          );
-          if (domainNameBlocklistInfo.data.searchResult) {
-            response.data = checkDomainBlocking(
-              param.userBlocklistInfo,
-              domainNameBlocklistInfo,
-              param.blocklistFilter,
-              cname,
-            );
-          }
-
-          if (!response.data.isBlocked) {
-            cname = decodedDnsPacket
-              .answers[decodedDnsPacket.answers.length - 1].name.trim()
-              .toLowerCase();
-            domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-              cname,
-              param.event,
-            );
-            if (domainNameBlocklistInfo.data.searchResult) {
-              response.data = checkDomainBlocking(
-                param.userBlocklistInfo,
-                domainNameBlocklistInfo,
-                param.blocklistFilter,
-                cname,
-              );
-            }
-          }
+          checkCnameBlock(param, response, decodedDnsPacket);
+        } else if (
+          decodedDnsPacket.answers.length > 0 &&
+          (decodedDnsPacket.answers[0].type == "HTTPS" ||
+            decodedDnsPacket.answers[0].type == "SVCB")
+        ) {
+          checkHttpsSvcbBlock(param, response, decodedDnsPacket);
         }
       }
       response.data.decodedDnsPacket = decodedDnsPacket;
     } catch (e) {
       response.isException = true;
       response.exceptionStack = e.stack;
-      response.exceptionFrom = "DNSCnameBlock RethinkModule";
+      response.exceptionFrom = "DNSResponseBlock RethinkModule";
       response.data = false;
-      console.error("Error At : DNSCnameBlock -> RethinkModule");
+      console.error("Error At : DNSResponseBlock -> RethinkModule");
       console.error(e.stack);
     }
     return response;
   }
 }
 
+function checkHttpsSvcbBlock(param, response, decodedDnsPacket) {
+  let targetName = decodedDnsPacket.answers[0].data.targetName.trim()
+    .toLowerCase();
+  if (targetName != ".") {
+    domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
+      targetName,
+      param.event,
+    );
+    if (domainNameBlocklistInfo.data.searchResult) {
+      response.data = checkDomainBlocking(
+        param.userBlocklistInfo,
+        domainNameBlocklistInfo,
+        param.blocklistFilter,
+        targetName,
+      );
+    }
+  }
+}
+function checkCnameBlock(param, response, decodedDnsPacket) {
+  let domainNameBlocklistInfo;
+  let cname = decodedDnsPacket.answers[0].data.trim().toLowerCase();
+  domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
+    cname,
+    param.event,
+  );
+  if (domainNameBlocklistInfo.data.searchResult) {
+    response.data = checkDomainBlocking(
+      param.userBlocklistInfo,
+      domainNameBlocklistInfo,
+      param.blocklistFilter,
+      cname,
+    );
+  }
+
+  if (!response.data.isBlocked) {
+    cname = decodedDnsPacket
+      .answers[decodedDnsPacket.answers.length - 1].name.trim()
+      .toLowerCase();
+    domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
+      cname,
+      param.event,
+    );
+    if (domainNameBlocklistInfo.data.searchResult) {
+      response.data = checkDomainBlocking(
+        param.userBlocklistInfo,
+        domainNameBlocklistInfo,
+        param.blocklistFilter,
+        cname,
+      );
+    }
+  }
+}
 function checkDomainBlocking(
   userBlocklistInfo,
   domainNameBlocklistInfo,
