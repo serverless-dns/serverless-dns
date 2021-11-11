@@ -72,12 +72,17 @@ export default class CurrentRequest {
         this.decodedDnsPacket.questions[0].type;
       this.decodedDnsPacket.answers[0].ttl = 300;
       this.decodedDnsPacket.answers[0].class = "IN";
-      this.decodedDnsPacket.answers[0].data = "0.0.0.0";
       this.decodedDnsPacket.answers[0].flush = false;
       if (this.decodedDnsPacket.questions[0].type == "A") {
         this.decodedDnsPacket.answers[0].data = "0.0.0.0";
-      } else {
+      } else if(this.decodedDnsPacket.questions[0].type == "AAAA") {
         this.decodedDnsPacket.answers[0].data = "::";
+      }
+      else if(this.decodedDnsPacket.questions[0].type == "HTTPS" || this.decodedDnsPacket.questions[0].type == "SVCB") {
+        this.decodedDnsPacket.answers[0].data = {}
+        this.decodedDnsPacket.answers[0].data.svcPriority = 0;
+        this.decodedDnsPacket.answers[0].data.targetName = ".";
+        this.decodedDnsPacket.answers[0].data.svcPriority = {};
       }
       const res = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
       this.httpResponse = new Response(res.body, res);

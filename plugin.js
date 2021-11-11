@@ -10,13 +10,13 @@ import { CommandControl } from "@serverless-dns/command-control";
 import { UserOperation } from "@serverless-dns/basic";
 import { DNSBlock } from "@serverless-dns/dns-operation";
 import { DNSResolver } from "@serverless-dns/dns-operation";
-import { DNSCnameBlock } from "@serverless-dns/dns-operation";
+import { DNSResponseBlock } from "@serverless-dns/dns-operation";
 
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();
 const dnsBlock = new DNSBlock();
 const dnsResolver = new DNSResolver();
-const dnsCnameBlock = new DNSCnameBlock();
+const dnsResponseBlock = new DNSResponseBlock();
 
 export default class RethinkPlugin {
   /**
@@ -62,10 +62,10 @@ export default class RethinkPlugin {
       false,
     );
     this.registerPlugin(
-      "dnsCnameBlock",
-      dnsCnameBlock,
+      "DNSResponseBlock",
+      dnsResponseBlock,
       ["event", "userBlocklistInfo", "blocklistFilter", "responseBodyBuffer"],
-      dnsCnameBlockCallBack,
+      dnsResponseBlockCallBack,
       false,
     );
   }
@@ -207,7 +207,7 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} response -
  * @param {*} currentRequest
  */
-function dnsCnameBlockCallBack(response, currentRequest) {
+function dnsResponseBlockCallBack(response, currentRequest) {
   if (response.isException) {
     //console.log("In dnsCnameBlockCallBack Exception")
     //console.log(JSON.stringify(response))
