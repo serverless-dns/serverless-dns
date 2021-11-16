@@ -52,6 +52,21 @@ List of environment variables can be found in [`.env.example`](.env.example)
 file. Load them as required. For convenience, you can also put them in a `.env`
 file and they will also be loaded into the environment.
 
+### Node
+
+Run:
+
+```
+node server.js
+```
+
+Proxies DNS over HTTPS & DNS over TLS requests to the main app (`index.js`).
+
+List of environment variables can be found in [`.env.example`](.env.example)
+file. Load them as required. For convenience in non-production environment, you
+can also put them in a `.env` file and they will be loaded into the environment
+if not already present.
+
 ### Flow
 
 The flow of rethink dns is based on plugin module, current
