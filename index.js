@@ -3,9 +3,11 @@ import RethinkPlugin from "./plugin.js";
 import Env from "./env.js";
 import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event));
-});
+if (typeof addEventListener !== "undefined") {
+  addEventListener("fetch", (event) => {
+    event.respondWith(handleRequest(event));
+  });
+}
 
 export function handleRequest(event) {
   return proxyRequest(event);
