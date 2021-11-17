@@ -31,7 +31,7 @@ export class LocalCache {
     try {
       if (
         this.runTimeEnv == "worker" || this.runTimeEnv == "deno" ||
-        this.runTimeEnv == "deno"
+        this.runTimeEnv == "node"
       ) {
         this.cacheDataHold.push(cacheData);
         if (!this.block) {
