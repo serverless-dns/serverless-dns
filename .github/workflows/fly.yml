@@ -26,4 +26,4 @@ jobs:
       - name: 🏗️ Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
         with:
-          args: "deploy"
+          args: "deploy --dockerfile node.Dockerfile"

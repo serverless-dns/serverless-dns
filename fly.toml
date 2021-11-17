@@ -4,21 +4,22 @@ kill_signal = "SIGINT"
 kill_timeout = 5
 
 [env]
-  RUNTIME_ENV = "deno"
   DENO_ENV = "production"
+  NODE_ENV = "production"
 
 [experimental]
   allowed_public_ports = []
   auto_rollback = true
 
 [processes]
-  doh = "run --allow-net --allow-env --import-map=import_map.json http.ts"
+  # app = "run --allow-net --allow-env --import-map=import_map.json http.ts"
+  app = "node server.js"
 
-# DNS over HTTP
+# DNS over HTTP[S]
 [[services]]
   http_checks = []
   internal_port = 8080
-  processes = ["doh"]
+  processes = ["app"]
   protocol = "tcp"
   script_checks = []
 
@@ -28,7 +29,7 @@ kill_timeout = 5
     type = "connections"
 
   [[services.ports]]
-    handlers = ["tls", "http"]
+    # handlers = ["tls", "http"]
     port = 443
 
   [[services.tcp_checks]]
@@ -36,3 +37,20 @@ kill_timeout = 5
     interval = "15s"
     restart_limit = 6
     timeout = "2s"
+
+# DNS over TCP/TLS
+[[services]]
+  http_checks = []
+  internal_port = 10000
+  processes = ["app"]
+  protocol = "tcp"
+  script_checks = []
+
+  [services.concurrency]
+    hard_limit = 250
+    soft_limit = 200
+    type = "connections"
+
+  [[services.ports]]
+    # handlers = ["tls"]
+    port = 853
