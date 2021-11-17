@@ -32,12 +32,47 @@ function logListner(addr) {
  */
 function serveTLS(socket) {
   if (!socket.servername) {
-    socket.end();
+    socket.destroy();
     return;
   }
 
-  socket.on("data", (chunk) => {
-    handleTCPChunk(chunk, socket);
+  // console.debug("-> TLS @", socket.servername);
+  let qlBuf = Buffer.allocUnsafe(2).fill(0);
+  let qlBufPtr = 0;
+
+  socket.on("data", /** @param {ArrayBuffer} chunk */ (chunk) => {
+    const cl = chunk.byteLength;
+    if (cl == 0) return;
+    if (cl == 1) {
+      qlBuf.fill(chunk, qlBufPtr);
+      qlBufPtr = qlBufPtr ? 0 : 1;
+      return;
+    }
+    if (qlBufPtr) {
+      qlBuf.fill(chunk.slice(0, 1), qlBufPtr);
+      qlBufPtr = 0;
+      chunk = chunk.slice(1);
+    }
+    if (!qlBuf.readUInt16BE() && cl == 2) {
+      qlBuf = chunk;
+      return;
+    }
+
+    const ql = qlBuf.readUInt16BE() || chunk.slice(0, 2).readUInt16BE();
+    // console.debug(`q len = ${ql}`);
+
+    const q = qlBuf.readUInt16BE() ? chunk : chunk.slice(2, ql + 2);
+    // console.debug(`Read q:`, q);
+    qlBuf.fill(0);
+
+    if (q.byteLength != ql) {
+      console.warn(`incomplete query: ${q.byteLength} < ${ql}`);
+      socket.destroy();
+      return;
+    }
+
+    // console.debug("-> TLS q", q.byteLength);
+    handleTCPQuery(q, socket);
   });
 
   socket.on("end", () => {
@@ -58,29 +93,15 @@ async function serveHTTPS(req, res) {
   }
   const q = Buffer.concat(buffers);
 
+  // console.debug("-> HTTPS req");
   handleHTTPRequest(q, req, res);
 }
 
 /**
- * @param {Buffer} chunk
+ * @param {Buffer} q
  * @param {tls.TLSSocket} socket
  */
-async function handleTCPChunk(chunk, socket) {
-  if (chunk.byteLength < 2) {
-    console.warn("incomplete query length");
-    socket.end();
-  }
-  const ql = chunk.slice(0, 2).readUInt16BE();
-  // console.debug(`q len = ${ql}`);
-
-  if (chunk.byteLength - 2 != ql) {
-    console.warn(`incomplete query: ${chunk.byteLength - 2} < ${ql}`);
-    socket.end();
-  }
-
-  const q = chunk.slice(2, ql + 2);
-  // console.debug(`Read q:`, q);
-
+async function handleTCPQuery(q, socket) {
   try {
     const r = await resolveQuery(q, socket.servername);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
