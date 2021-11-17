@@ -21,7 +21,7 @@ jobs:
       # Write app name to fly.toml
       - name: 🔧 Configure fly-app-name
         run: |
-          sed -i "s#app.*=.*\$#app = \"$FLY_APP_NAME\"#g" fly.toml
+          sed -i "s#^app\s*=.*\$#app = \"$FLY_APP_NAME\"#g" fly.toml
 
       - name: 🏗️ Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
