@@ -29,7 +29,10 @@ export class LocalCache {
   }
   Put(cacheData, event) {
     try {
-      if (this.runTimeEnv == "worker" || this.runTimeEnv == "deno") {
+      if (
+        this.runTimeEnv == "worker" || this.runTimeEnv == "deno" ||
+        this.runTimeEnv == "deno"
+      ) {
         this.cacheDataHold.push(cacheData);
         if (!this.block) {
           this.block = true;
@@ -47,6 +50,7 @@ export class LocalCache {
 
 async function safeAdd() {
   try {
+    // await keyword here makes `safeAdd` async & non-blocking
     await sleep(this.sleepTime);
     var cacheData;
     var count = 0;
