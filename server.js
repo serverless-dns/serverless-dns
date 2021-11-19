@@ -11,6 +11,8 @@ const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
 };
+const MinDNSPacketSize = 12 + 5;
+const MaxDNSPacketSize = 4096;
 
 const tServer = tls.createServer(tlsOptions, serveTLS).listen(
   TLS_PORT,
@@ -40,7 +42,7 @@ function serveTLS(socket) {
   let qlBuf = Buffer.allocUnsafe(2).fill(0);
   let qlBufPtr = 0;
 
-  socket.on("data", /** @param {ArrayBuffer} chunk */ (chunk) => {
+  socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
     const cl = chunk.byteLength;
     if (cl == 0) return;
     if (cl == 1) {
@@ -60,8 +62,13 @@ function serveTLS(socket) {
 
     const ql = qlBuf.readUInt16BE() || chunk.slice(0, 2).readUInt16BE();
     // console.debug(`q len = ${ql}`);
+    if (ql < MinDNSPacketSize || ql > MaxDNSPacketSize) {
+      console.warn(`TCP query length out of [min, max] bounds: ${ql}`);
+      socket.destroy();
+      return;
+    }
 
-    const q = qlBuf.readUInt16BE() ? chunk : chunk.slice(2, ql + 2);
+    const q = qlBuf.readUInt16BE() ? chunk : chunk.slice(2);
     // console.debug(`Read q:`, q);
     qlBuf.fill(0);
 
@@ -82,36 +89,23 @@ function serveTLS(socket) {
 }
 
 /**
- * Services a DNS over HTTPS connection
- * @param {IncomingMessage} req
- * @param {ServerResponse} res
- */
-async function serveHTTPS(req, res) {
-  const buffers = [];
-  for await (const chunk of req) {
-    buffers.push(chunk);
-  }
-  const q = Buffer.concat(buffers);
-
-  // console.debug("-> HTTPS req");
-  handleHTTPRequest(q, req, res);
-}
-
-/**
  * @param {Buffer} q
  * @param {tls.TLSSocket} socket
  */
 async function handleTCPQuery(q, socket) {
   try {
+    // const t1 = Date.now(); // debug
     const r = await resolveQuery(q, socket.servername);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
     if (!socket.destroyed) {
       const wrote = socket.write(new Uint8Array([...rlBuf, ...r]));
       if (!wrote) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+      // console.debug("processing time t-q =", Date.now() - t1);
     }
   } catch (e) {
     console.warn(e);
-    if (!socket.destroyed) socket.write((new Uint8Array(2)).fill(0));
+  } finally {
+    if (!socket.destroyed) socket.destroy();
   }
 }
 
@@ -125,18 +119,41 @@ async function resolveQuery(q, sni) {
     ? ["", sni]
     : [sni.split(".", 1)[0], sni.slice(sni.indexOf(".") + 1)];
 
-  const response = await handleRequest({
-    request: new Request(`https://${host}/${flag}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/dns-message",
-        "content-length": q.byteLength.toString(),
+  const r = await handleRequest({
+    request: new Request(
+      `https://${host}/${flag}?dns=${q.toString("base64url")}`,
+      {
+        method: "GET",
+        headers: {
+          "Accept": "application/dns-message",
+        },
       },
-      body: q,
-    }),
+    ),
   });
 
-  return new Uint8Array(await response.arrayBuffer());
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+/**
+ * Services a DNS over HTTPS connection
+ * @param {IncomingMessage} req
+ * @param {ServerResponse} res
+ */
+async function serveHTTPS(req, res) {
+  const buffers = [];
+  for await (const chunk of req) {
+    buffers.push(chunk);
+  }
+  const q = Buffer.concat(buffers);
+
+  if (q.byteLength > MaxDNSPacketSize) {
+    console.warn(`HTTP req body too large: ${q.byteLength}`);
+    res.end();
+    return;
+  }
+
+  // console.debug("-> HTTPS req", q.byteLength);
+  handleHTTPRequest(q, req, res);
 }
 
 /**
@@ -145,16 +162,24 @@ async function resolveQuery(q, sni) {
  * @param {ServerResponse} res
  */
 async function handleHTTPRequest(q, req, res) {
-  const fRequest = new Request(
-    new URL(req.url, `https://${req.headers.host}`),
-    {
-      ...req,
-      body: req.method.toUpperCase() == "POST" ? q : null,
-    },
-  );
+  try {
+    // const t1 = Date.now(); // debug
+    const r = await handleRequest({
+      request: new Request(
+        new URL(req.url, `https://${req.headers.host}`),
+        {
+          ...req,
+          body: req.method.toUpperCase() == "POST" ? q : null,
+        },
+      ),
+    });
 
-  const r = await handleRequest({ request: fRequest });
-
-  res.writeHead(r.status, r.statusText, r.headers);
-  res.end(Buffer.from(await r.arrayBuffer()));
+    res.writeHead(r.status, r.statusText, r.headers);
+    res.end(Buffer.from(await r.arrayBuffer()));
+    // console.debug("processing time h-q =", Date.now() - t1);
+  } catch (e) {
+    console.warn(e);
+  } finally {
+    res.end();
+  }
 }
