@@ -83,8 +83,9 @@ export default class CurrentRequest {
         this.decodedDnsPacket.answers[0].data = {}
         this.decodedDnsPacket.answers[0].data.svcPriority = 0;
         this.decodedDnsPacket.answers[0].data.targetName = ".";
-        this.decodedDnsPacket.answers[0].data.svcPriority = {};
+        this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
+      this.decodedDnsPacket.authorities = []
       const res = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
       this.httpResponse = new Response(res.body, res);
       setResponseCommonHeader.call(this);      
