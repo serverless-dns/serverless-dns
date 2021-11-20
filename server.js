@@ -120,7 +120,7 @@ async function resolveQuery(q, sni) {
     : [sni.split(".", 1)[0], sni.slice(sni.indexOf(".") + 1)];
 
   const qURL = new URL(
-    `/${flag}?dns=${q.toString("base64url").replace("=", "")}`,
+    `/${flag}?dns=${q.toString("base64url").replace(/=/g, "")}`,
     `https://${host}`,
   );
 

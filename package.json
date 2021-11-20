@@ -24,7 +24,7 @@
     "@serverless-dns/blocklist-wrapper": "github:serverless-dns/blocklist-wrapper#v2.2.1",
     "@serverless-dns/cache-wrapper": "github:serverless-dns/cache-wrapper#v2.1.4",
     "@serverless-dns/command-control": "github:serverless-dns/command-control#v2.2.0",
-    "@serverless-dns/dns-operation": "github:serverless-dns/dns-blocker#v2.3.0",
+    "@serverless-dns/dns-operation": "github:serverless-dns/dns-blocker#v2.3.1",
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.1",
     "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v2.0.0",
     "dotenv": "^10.0.0",
