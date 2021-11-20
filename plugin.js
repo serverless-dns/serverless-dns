@@ -128,7 +128,9 @@ async function commandControlCallBack(response, currentRequest) {
     let bodyBuffer;
     if (request.method.toUpperCase() === "GET") {
       const QueryString = (new URL(request.url)).searchParams;
-      bodyBuffer = base64ToArrayBuffer(decodeURI(QueryString.get("dns")));
+      bodyBuffer = base64ToArrayBuffer(
+        decodeURI(QueryString.get("dns")).replace("-", "+").replace("_", "/"),
+      );
     } else {
       bodyBuffer = await request.arrayBuffer();
     }

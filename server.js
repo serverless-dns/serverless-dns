@@ -119,16 +119,18 @@ async function resolveQuery(q, sni) {
     ? ["", sni]
     : [sni.split(".", 1)[0], sni.slice(sni.indexOf(".") + 1)];
 
+  const qURL = new URL(
+    `/${flag}?dns=${q.toString("base64url").replace("=", "")}`,
+    `https://${host}`,
+  );
+
   const r = await handleRequest({
-    request: new Request(
-      `https://${host}/${flag}?dns=${q.toString("base64url")}`,
-      {
-        method: "GET",
-        headers: {
-          "Accept": "application/dns-message",
-        },
+    request: new Request(qURL, {
+      method: "GET",
+      headers: {
+        "Accept": "application/dns-message",
       },
-    ),
+    }),
   });
 
   return new Uint8Array(await r.arrayBuffer());
