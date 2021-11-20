@@ -76,8 +76,10 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
       u.search = runTimeEnv == "worker" && request.method === "POST"
         ? "?dns=" +
           btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
-            .replace("+", "-").replace("/", "_").replace("=", "")
+            .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
         : u.search;
+      // console.debug("buf length:", requestBodyBuffer.byteLength);
+      // console.debug(u.href);
       newRequest = new Request(u.href, {
         method: "GET",
         headers: headers,
