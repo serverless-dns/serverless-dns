@@ -11,9 +11,10 @@ export default class DNSResolver {
   }
   /**
    * @param {*} param
-   * @param {*} param.request
-   * @param {*} param.requestBodyBuffer
-   * @param {*} param.dnsResolverUrl
+   * @param {Request} param.request
+   * @param {ArrayBuffer} param.requestBodyBuffer
+   * @param {String} param.dnsResolverUrl
+   * @param {String} param.runTimeEnv
    * @returns
    */
   async RethinkModule(param) {
@@ -27,6 +28,7 @@ export default class DNSResolver {
         param.request,
         param.dnsResolverUrl,
         param.requestBodyBuffer,
+        param.runTimeEnv,
       )).arrayBuffer();
     } catch (e) {
       response.isException = true;
@@ -40,7 +42,14 @@ export default class DNSResolver {
   }
 }
 
-async function resolveDns(request, resolverUrl, requestBodyBuffer) {
+/**
+ * @param {Request} request
+ * @param {String} resolverUrl
+ * @param {ArrayBuffer} requestBodyBuffer
+ * @param {String} runTimeEnv
+ * @returns
+ */
+async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
   try {
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
@@ -49,31 +58,35 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer) {
     u.port = dnsResolverUrl.port; // override port, default 443
     u.protocol = dnsResolverUrl.protocol; // override proto, default https
 
+    const headers = { // FIXME: are these headers needed? ~ mz
+      "crossDomain": "true",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers":
+        "X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers",
+      "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS, DELETE",
+      "Content-Type": "application/dns-message",
+      "accept": "application/dns-message",
+    };
+
     let newRequest;
-    if (request.method === "GET") {
+    if (
+      request.method === "GET" ||
+      runTimeEnv == "worker" && request.method === "POST"
+    ) {
+      u.search = runTimeEnv == "worker" && request.method === "POST"
+        ? "?dns=" +
+          btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
+            .replace("+", "-").replace("/", "_").replace("=", "")
+        : u.search;
       newRequest = new Request(u.href, {
         method: "GET",
-        headers: { // FIXME: are these headers needed?
-          "crossDomain": "true",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers":
-            "X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers",
-          "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS, DELETE",
-          "Content-Type": "application/dns-message",
-          "accept": "application/dns-message",
-        },
+        headers: headers,
       });
     } else if (request.method === "POST") {
       newRequest = new Request(u.href, {
         method: "POST",
-        headers: { // FIXME: are these headers needed?
-          "crossDomain": "true",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers":
-            "X-Requested-With, Content-Type, Authorization, Origin, Accept, Access-Control-Request-Method, Access-Control-Request-Headers",
-          "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS, DELETE",
-          "Content-Type": "application/dns-message",
-          "accept": "application/dns-message",
+        headers: {
+          ...headers,
           "content-length": requestBodyBuffer.byteLength,
         },
         body: requestBodyBuffer,
