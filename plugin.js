@@ -59,7 +59,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "dnsResolver",
       dnsResolver,
-      ["requestBodyBuffer", "request", "dnsResolverUrl", "runTimeEnv"],
+      ["requestBodyBuffer", "request", "dnsResolverUrl", "runTimeEnv", "event"],
       dnsResolverCallBack,
       false,
     );
