@@ -8,9 +8,11 @@
 
 import { CommandControl } from "@serverless-dns/command-control";
 import { UserOperation } from "@serverless-dns/basic";
-import { DNSBlock } from "@serverless-dns/dns-operation";
-import { DNSResolver } from "@serverless-dns/dns-operation";
-import { DNSResponseBlock } from "@serverless-dns/dns-operation";
+import {
+  DNSBlock,
+  DNSResolver,
+  DNSResponseBlock,
+} from "@serverless-dns/dns-operation";
 
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();

@@ -24,20 +24,37 @@ export default class Env {
       this.isLoaded = true;
     } catch (e) {
       if (e instanceof ReferenceError) {
-        this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
-        this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
-        this.env.set(
-          "latestTimestamp",
-          Deno.env.get("CF_LATEST_BLOCKLIST_TIMESTAMP"),
-        );
-        this.env.set("dnsResolverUrl", Deno.env.get("CF_DNS_RESOLVER_URL"));
-        this.env.set(
-          "onInvalidFlagStopProcessing",
-          Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING"),
-        );
-        this.isLoaded = true;
+        typeof Deno !== "undefined" ? this.loadEnvDeno() : this.loadEnvNode();
       } else throw e;
     }
+  }
+  loadEnvDeno() {
+    this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
+    this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
+    this.env.set(
+      "latestTimestamp",
+      Deno.env.get("CF_LATEST_BLOCKLIST_TIMESTAMP"),
+    );
+    this.env.set("dnsResolverUrl", Deno.env.get("CF_DNS_RESOLVER_URL"));
+    this.env.set(
+      "onInvalidFlagStopProcessing",
+      Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING"),
+    );
+    this.isLoaded = true;
+  }
+  loadEnvNode() {
+    this.env.set("runTimeEnv", process.env.RUNTIME_ENV);
+    this.env.set("blocklistUrl", process.env.CF_BLOCKLIST_URL);
+    this.env.set(
+      "latestTimestamp",
+      process.env.CF_LATEST_BLOCKLIST_TIMESTAMP,
+    );
+    this.env.set("dnsResolverUrl", process.env.CF_DNS_RESOLVER_URL);
+    this.env.set(
+      "onInvalidFlagStopProcessing",
+      process.env.CF_ON_INVALID_FLAG_STOPPROCESSING,
+    );
+    this.isLoaded = true;
   }
   getEnvMap() {
     return this.env;

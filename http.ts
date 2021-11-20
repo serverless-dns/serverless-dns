@@ -1,6 +1,6 @@
 // env config at top, so if .env file variables are used, it is available to
 // other modules.
-import "./config.ts";
+import "./helpers/deno/config.ts";
 import { handleRequest } from "./index.js";
 
 const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();

@@ -12,3 +12,5 @@ test/
 log/
 
 *.md
+LICENSE
+wrangler.toml
