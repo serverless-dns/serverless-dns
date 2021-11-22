@@ -12,64 +12,20 @@ export class LocalCache {
   constructor(
     cacheName,
     size,
-    cacheDataRemoveCount,
-    sleepTime = 100,
-    runTimeEnv,
   ) {
     this.localCache = new Cache(cacheName, size);
-    this.cacheDataHold = [];
-    this.block = false;
-    this.cacheDataRemoveCount = cacheDataRemoveCount;
-    this.sleepTime = sleepTime;
-    this.runTimeEnv = runTimeEnv || "worker";
   }
 
   Get(key) {
     return this.localCache.Get(key);
   }
-  Put(cacheData, event) {
+  Put(cacheData) {
     try {
-      if (
-        this.runTimeEnv == "worker" || this.runTimeEnv == "deno" ||
-        this.runTimeEnv == "node"
-      ) {
-        this.cacheDataHold.push(cacheData);
-        if (!this.block) {
-          this.block = true;
-          event.waitUntil
-            ? event.waitUntil(safeAdd.call(this))
-            : safeAdd.call(this);
-        }
-      }
+      this.localCache.Put(cacheData);
     } catch (e) {
       console.error("Error At : LocalCache -> Put");
       console.error(e.stack);
+      throw e
     }
   }
 }
-
-async function safeAdd() {
-  try {
-    // await keyword here makes `safeAdd` async & non-blocking
-    await sleep(this.sleepTime);
-    var cacheData;
-    var count = 0;
-    while (cacheData = this.cacheDataHold.shift()) {
-      count++;
-      this.localCache.Put(cacheData);
-      if (count >= this.cacheDataRemoveCount) {
-        break;
-      }
-    }
-    this.block = false;
-  } catch (e) {
-    this.block = false;
-    console.error("Error At : LocalCache -> safeAdd" + this.localCache.lfuname);
-    console.error(e.stack);
-  }
-}
-const sleep = (ms) => {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-};
