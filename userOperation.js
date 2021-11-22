@@ -12,10 +12,9 @@ export class UserOperation {
   }
   /**
    * @param {*} param
-   * @param {*} param.event
    * @param {*} param.blocklistFilter
    * @param {*} param.dnsResolverUrl
-   * @param {*} param.runTimeEnv
+   * @param {*} param.request
    * @returns
    */
   async RethinkModule(param) {
@@ -33,15 +32,12 @@ function loadUser(param) {
     if (!this.userConfigCache) {
       this.userConfigCache = new LocalCache(
         "User-Config-Cache",
-        1000,
-        500,
-        5,
-        param.runTimeEnv,
+        1000
       );
     }
     let userBlocklistInfo = {};
     userBlocklistInfo.from = "Cache";
-    let blocklistFlag = getBlocklistFlag(param.event.request.url);
+    let blocklistFlag = getBlocklistFlag(param.request.url);
     let currentUser = this.userConfigCache.Get(blocklistFlag);
     if (!currentUser) {
       currentUser = {};
@@ -78,7 +74,7 @@ function loadUser(param) {
     userBlocklistInfo.dnsResolverUrl = param.dnsResolverUrl;
 
     response.data = userBlocklistInfo;
-    this.userConfigCache.Put(currentUser, param.event, param.runTimeEnv);
+    this.userConfigCache.Put(currentUser);
   } catch (e) {
     response.isException = true;
     response.exceptionStack = e.stack;
