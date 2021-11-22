@@ -253,8 +253,10 @@ function isB32(s) {
     return s.indexOf(b32delim) > 0
 }
 
+// s[0] is version field, if it doesn't exist
+// then treat it as if version 0.
 function version(s) {
-    if (s && s.length >= 1) return s
+    if (s && s.length > 1) return s[0]
     else return "0"
 }
 
@@ -271,10 +273,11 @@ function toUint(flag) {
     }
 
     const isB32 = isB32(flag)
+    // "v:b64" or "v+b32" or "uriencoded(b64)", where v is uint version
     let s = flag.split(isB32 ? base32delim : base64delim)
     let convertor = (x) => "" // empty convertor
     let f = "" // stamp flag
-    const v = version(s[0])
+    const v = version(s)
 
     if (v == "0") { // version 0
       convertor = Base64ToUint
