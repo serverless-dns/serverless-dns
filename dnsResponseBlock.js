@@ -34,7 +34,7 @@ export default class DNSResponseBlock {
       let decodedDnsPacket = await this.dnsParser.Decode(
         param.responseBodyBuffer,
       );
-      if (param.userBlocklistInfo.isValidFlag) {
+      if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
         if (
           decodedDnsPacket.answers.length > 0 &&
           decodedDnsPacket.answers[0].type == "CNAME"

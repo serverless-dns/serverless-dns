@@ -35,8 +35,9 @@ export default class DNSBlock {
       let decodedDnsPacket = await this.dnsParser.Decode(
         param.requestBodyBuffer,
       );
-      if (param.userBlocklistInfo.isValidFlag) {
+      if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
         let domainNameBlocklistInfo;
+        // FIXME: handle HTTPS/SVCB
         if (
           (decodedDnsPacket.questions.length >= 1) &&
           (decodedDnsPacket.questions[0].type == "A" ||
