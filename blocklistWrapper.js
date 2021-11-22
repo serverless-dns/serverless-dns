@@ -29,14 +29,11 @@ export class BlocklistWrapper {
     setWildcardlist.call(this);
   }
 
-  async initBlocklistConstruction(runTimeEnv, blocklistUrl, latestTimestamp) {
+  async initBlocklistConstruction(blocklistUrl, latestTimestamp) {
     try {
       this.domainNameCache = new LocalCache(
         "Domain-Name-Cache",
-        5000,
-        500,
-        5,
-        runTimeEnv,
+        5000
       );
       this.blocklistUrl = blocklistUrl;
       this.latestTimestamp = latestTimestamp;
@@ -50,7 +47,7 @@ export class BlocklistWrapper {
     }
   }
 
-  getDomainInfo(domainName, event) {
+  getDomainInfo(domainName) {
     domainName = domainName.trim().toLowerCase();
     let domainNameInfo = this.domainNameCache.Get(domainName);
 
@@ -60,7 +57,7 @@ export class BlocklistWrapper {
       domainNameInfo.data = {};
       domainNameInfo.data.searchResult = this.hadDomainName(domainName);
     }
-    this.domainNameCache.Put(domainNameInfo, event);
+    this.domainNameCache.Put(domainNameInfo);
     return domainNameInfo;
   }
 
@@ -307,7 +304,7 @@ function decodeFromBinary(b) {
 }
 
 async function fileFetch(url) {
-  const res = await fetch(url, { cf: { cacheTtl: 604800 } });
+  const res = await fetch(url, { cf: { cacheTtl: 1209600 } });
   const b = await res.arrayBuffer();
   return b;
 }
