@@ -11,6 +11,12 @@ import {
   createBlocklistFilter,
   customTagToFlag as _customTagToFlag,
 } from "./radixTrie.js";
+
+import {
+  base32,
+  rbase32
+} from "./b32.js";
+
 export class BlocklistWrapper {
   constructor() {
     this.t;
@@ -70,8 +76,8 @@ export class BlocklistWrapper {
     return this.t.flagsToTag(uintFlag);
   }
 
-  userB64FlagProcess(b64Flag) {
-    return userFlagConvertB64ToUint(b64Flag);
+  unstamp(flag) {
+    return toUint(flag);
   }
 
   flagIntersection(flag1, flag2) {
@@ -240,34 +246,51 @@ function encodeToBinary(s) {
   return String.fromCharCode(...new Uint8Array(codeUnits.buffer));
 }
 
-function userFlagConvertB64ToUint(b64Flag) {
+const b64delim = ":"
+const b32delim = "+"
+
+function isB32(s) {
+    return s.indexOf(b32delim) > 0
+}
+
+function version(s) {
+    if (s && s.length >= 1) return s
+    else return "0"
+}
+
+function toUint(flag) {
   try {
     const response = {};
-    response.isValidFlag = true;
     response.userBlocklistFlagUint = "";
     response.flagVersion = "0";
     //added to check if UserFlag is empty for changing dns request flow
-    response.isEmptyFlag = false;
-    b64Flag = b64Flag.trim();
+    flag = (flag) ? flag.trim() : "";
 
-    if (b64Flag == "") {
-      response.isValidFlag = false;
-      response.isEmptyFlag = true;
+    if (flag.length <= 0) {
       return response;
     }
-    const splitFlag = b64Flag.split(":");
-    if (splitFlag.length == 0) {
-      response.isValidFlag = false;
-      response.isEmptyFlag = true;
-      return response;
-    } else if (splitFlag.length == 1) {
-      response.userBlocklistFlagUint = Base64ToUint(splitFlag[0]) || "";
-      response.flagVersion = "0";
+
+    const isB32 = isB32(flag)
+    let s = flag.split(isB32 ? base32delim : base64delim)
+    let convertor = (x) => "" // empty convertor
+    let f = "" // stamp flag
+    const v = version(s[0])
+
+    if (v == "0") { // version 0
+      convertor = Base64ToUint
+      f = s[0]
+    } else if (v == "1") {
+      convertor = (isB32) ? Base32ToUint_v1 : Base64ToUint_v1
+      f = s[1]
     } else {
-      response.userBlocklistFlagUint = Base64ToUint_v1(splitFlag[1]) || "";
-      response.flagVersion = splitFlag[0] || "0";
+        throw new Error("unknown blocklist stamp version in " + s)
     }
+
+    response.flagVersion = v;
+    response.userBlocklistFlagUint = convertor(f) || "";
+
     return response;
+
   } catch (e) {
     throw e;
   }
@@ -276,10 +299,9 @@ function userFlagConvertB64ToUint(b64Flag) {
 function Base64ToUint(b64Flag) {
   const buff = Buffer.from(decodeURIComponent(b64Flag), "base64");
   const str = buff.toString("utf-8");
-  //singlerequest.flow.push(str)
   const uint = [];
   for (let i = 0; i < str.length; i++) {
-    uint[i] = str.charCodeAt(i); //DEC16(str[i])
+    uint[i] = str.charCodeAt(i);
   }
   return uint;
 }
@@ -287,24 +309,39 @@ function Base64ToUint(b64Flag) {
 function Base64ToUint_v1(b64Flag) {
   let str = decodeURI(b64Flag);
   str = decodeFromBinary(atob(str.replace(/_/g, "/").replace(/-/g, "+")));
-  //singlerequest.flow.push(str)
   const uint = [];
   for (let i = 0; i < str.length; i++) {
-    uint[i] = str.charCodeAt(i); //DEC16(str[i])
+    uint[i] = str.charCodeAt(i);
   }
   return uint;
 }
 
-function decodeFromBinary(b) {
-  const bytes = new Uint8Array(b.length);
+function Base32ToUint_v1(flag) {
+    let str = decodeURI(flag)
+    str = decodeFromBinaryArray(rbase32((str)))
+    const uint = []
+    for(let i = 0; i < str.length; i++){
+        uint[i] = str.charCodeAt(i)
+    }
+    return uint
+}
+
+function decodeFromBinary(b, u8) {
+  if (u8) return String.fromCharCode(...new Uint16Array(b.buffer))
+  const bytes = new Uint8Array(b.length)
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = b.charCodeAt(i);
+    bytes[i] = b.charCodeAt(i)
   }
-  return String.fromCharCode(...new Uint16Array(bytes.buffer));
+  return String.fromCharCode(...new Uint16Array(bytes.buffer))
+}
+
+function decodeFromBinaryArray(b) {
+    const u8 = true
+    return decodeFromBinary(b, u8)
 }
 
 async function fileFetch(url) {
-  const res = await fetch(url, { cf: { cacheTtl: 1209600 } });
+  const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   const b = await res.arrayBuffer();
   return b;
 }
