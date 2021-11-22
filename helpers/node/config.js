@@ -20,8 +20,8 @@ if (!globalThis.atob) {
   globalThis.atob = atob;
 }
 
-const TLS_CN = process.env.TLS_CN ?? "";
-const TLS_CRT_KEY = eval(`process.env.TLS_${TLS_CN}`);
+const TLS_CRT_KEY = eval(`process.env.TLS_${process.env.TLS_CN}`) ||
+  process.env.TLS_;
 
 export const [TLS_KEY, TLS_CRT] =
   process.env.NODE_ENV == "production" || TLS_CRT_KEY != undefined

@@ -20,8 +20,7 @@ async function proxyRequest(event) {
   let res;
   try {
     if (event.request.method === "OPTIONS") {
-      res = new Response();
-      res.headers.set("Content-Type", "application/json");
+      res = new Response(null, { "status": 204 });
       res.headers.set("Access-Control-Allow-Origin", "*");
       res.headers.set("Access-Control-Allow-Headers", "*");
       return res;

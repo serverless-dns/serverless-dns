@@ -166,18 +166,21 @@ async function serveHTTPS(req, res) {
 async function handleHTTPRequest(q, req, res) {
   try {
     // const t1 = Date.now(); // debug
-    const r = await handleRequest({
-      request: new Request(
-        new URL(req.url, `https://${req.headers.host}`),
-        {
-          ...req,
-          body: req.method.toUpperCase() == "POST" ? q : null,
-        },
-      ),
-    });
+    const fReq = new Request(
+      new URL(req.url, `https://${req.headers.host}`),
+      {
+        ...req,
+        body: req.method.toUpperCase() == "POST" ? q : null,
+      },
+    );
+    const fRes = await handleRequest({ request: fReq });
 
-    res.writeHead(r.status, r.statusText, r.headers);
-    res.end(Buffer.from(await r.arrayBuffer()));
+    const resHeaders = {};
+    fRes.headers.forEach((v, k) => {
+      resHeaders[k] = v;
+    });
+    res.writeHead(fRes.status, resHeaders);
+    res.end(Buffer.from(await fRes.arrayBuffer()));
     // console.debug("processing time h-q =", Date.now() - t1);
   } catch (e) {
     console.warn(e);
