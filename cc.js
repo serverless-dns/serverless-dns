@@ -213,8 +213,8 @@ function b64ToList(queryString, blocklistFilter) {
   let returndata = {};
   returndata.command = "Base64 To List";
   returndata.inputB64 = b64;
-  let response = blocklistFilter.userB64FlagProcess(b64);
-  if (response.isValidFlag) {
+  let response = blocklistFilter.unstamp(b64);
+  if (response.userBlocklistFlagUint.length > 0) {
     returndata.list = blocklistFilter.getTag(response.userBlocklistFlagUint);
     returndata.listDetail = {};
     for (let listValue of returndata.list) {
