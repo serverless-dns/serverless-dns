@@ -46,16 +46,12 @@ function loadUser(param) {
       currentUser.data.userBlocklistFlagUint = "";
       currentUser.data.flagVersion = 0;
       currentUser.data.userServiceListUint = false;
-      currentUser.data.isValidFlag = true;
-      currentUser.data.isEmptyFlag = false;
 
-      let response = param.blocklistFilter.userB64FlagProcess(blocklistFlag);
+      let response = param.blocklistFilter.unstamp(blocklistFlag);
       currentUser.data.userBlocklistFlagUint = response.userBlocklistFlagUint;
-      currentUser.data.isValidFlag = response.isValidFlag;
       currentUser.data.flagVersion = response.flagVersion;
-      currentUser.data.isEmptyFlag = response.isEmptyFlag;
 
-      if (currentUser.data.isValidFlag) {
+      if (currentUser.data.userBlocklistFlagUint.length > 0) {
         currentUser.data.userServiceListUint = param.blocklistFilter
           .flagIntersection(
             currentUser.data.userBlocklistFlagUint,
@@ -66,9 +62,7 @@ function loadUser(param) {
     }
     userBlocklistInfo.userBlocklistFlagUint =
       currentUser.data.userBlocklistFlagUint;
-    userBlocklistInfo.isValidFlag = currentUser.data.isValidFlag;
     userBlocklistInfo.flagVersion = currentUser.data.flagVersion;
-    userBlocklistInfo.isEmptyFlag = currentUser.data.isEmptyFlag;
     userBlocklistInfo.userServiceListUint =
       currentUser.data.userServiceListUint;
     userBlocklistInfo.dnsResolverUrl = param.dnsResolverUrl;
