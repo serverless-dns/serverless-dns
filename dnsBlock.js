@@ -17,7 +17,6 @@ export default class DNSBlock {
    * @param {*} param.userBlocklistInfo
    * @param {*} param.blocklistFilter
    * @param {*} param.requestBodyBuffer
-   * @param {*} param.event
    * @returns
    */
   async RethinkModule(param) {
@@ -45,8 +44,7 @@ export default class DNSBlock {
             decodedDnsPacket.questions[0].type == "CNAME")
         ) {
           domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-            decodedDnsPacket.questions[0].name,
-            param.event,
+            decodedDnsPacket.questions[0].name
           );
           if (domainNameBlocklistInfo.data.searchResult) {
             response.data = checkDomainBlocking(
