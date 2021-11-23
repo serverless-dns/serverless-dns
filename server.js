@@ -169,7 +169,10 @@ async function handleHTTPRequest(q, req, res) {
     const fReq = new Request(
       new URL(req.url, `https://${req.headers.host}`),
       {
+        // Note: In VM container, Object spread may not be working for all
+        // properties, especially of "hidden" Symbol values!? like "headers"?
         ...req,
+        headers: req.headers,
         body: req.method.toUpperCase() == "POST" ? q : null,
       },
     );
