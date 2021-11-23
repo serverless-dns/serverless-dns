@@ -12,14 +12,14 @@ export class CommandControl {
   }
 
   /**
-   * @param {*} param
-   * @param {*} param.request
+   * @param {Object} param
+   * @param {Request} param.request
    * @param {*} param.blocklistFilter
    * @param {*} param.latestTimestamp
    * @returns
    */
   async RethinkModule(param) {
-    this.latestTimestamp = param.latestTimestamp
+    this.latestTimestamp = param.latestTimestamp;
     let response = {};
     response.isException = false;
     response.exceptionStack = "";
@@ -30,7 +30,7 @@ export class CommandControl {
       response = this.commandOperation(
         param.request.url,
         param.blocklistFilter,
-        param.request.headers
+        param.request.headers,
       );
     }
     return response;
@@ -42,7 +42,8 @@ export class CommandControl {
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
-    const isDnsMsg = headers.get("Accept") == "application/dns-message" || headers.get("Content-Type") == "application/dns-message"
+    const isDnsMsg = headers.get("Accept") == "application/dns-message" ||
+      headers.get("Content-Type") == "application/dns-message";
     try {
       response.data.stopProcessing = true;
       response.data.httpResponse;
@@ -50,7 +51,9 @@ export class CommandControl {
       let queryString = reqUrl.searchParams;
       let pathSplit = reqUrl.pathname.split("/");
       let command = pathSplit[1];
-      const weburl = command == "" ? "https://rethinkdns.com/configure" : "https://rethinkdns.com/configure?s=added#" + command
+      const weburl = command == ""
+        ? "https://rethinkdns.com/configure"
+        : "https://rethinkdns.com/configure?s=added#" + command;
       if (command == "listtob64") {
         response.data.httpResponse = listToB64.call(
           this,
@@ -87,25 +90,17 @@ export class CommandControl {
         );
       } else if (!isDnsMsg) {
         response.data.httpResponse = Response.redirect(weburl, 302);
-      }
-      else if (queryString.has("dns")) {
+      } else if (queryString.has("dns")) {
         response.data.stopProcessing = false;
       } else {
-        response.data.httpResponse = new Response(
-          JSON.stringify("bad request"),
-        );
-        response.data.httpResponse.headers.set(
-          "Content-Type",
-          "application/json",
-        );
-        response.data.httpResponse.headers.set(
-          "Access-Control-Allow-Origin",
-          "*",
-        );
-        response.data.httpResponse.headers.set(
-          "Access-Control-Allow-Headers",
-          "*",
-        );
+        response.data.httpResponse = new Response(null, {
+          "status": 400,
+          "statusText": "Bad Request",
+          "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+          },
+        });
       }
     } catch (e) {
       response.isException = true;
