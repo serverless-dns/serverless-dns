@@ -70,7 +70,7 @@ async function proxyRequest(event) {
     let retryCount = 0;
     const retryLimit = 150;
     while (blocklistFilter.isBlocklistUnderConstruction == true) {
-      console.log("Blocklist construction wait : " + retryCount)
+      //console.log("Blocklist construction wait : " + retryCount)
       if (retryCount >= retryLimit) {
         break;
       }
