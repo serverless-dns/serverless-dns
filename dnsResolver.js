@@ -190,8 +190,8 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
     u.port = dnsResolverUrl.port; // override port, default 443
     u.protocol = dnsResolverUrl.protocol; // override proto, default https
 
-    const headers = { // FIXME: are these headers needed? ~ mz
-      "Content-Type": "application/dns-message",
+    const headers = {
+      "Accept": "application/dns-message",
     };
 
     let newRequest;
@@ -215,7 +215,8 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
         method: "POST",
         headers: {
           ...headers,
-          "content-length": requestBodyBuffer.byteLength,
+          "Content-Type": "application/dns-message",
+          "Content-Length": requestBodyBuffer.byteLength,
         },
         body: requestBodyBuffer,
       });
