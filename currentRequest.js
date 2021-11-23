@@ -32,8 +32,7 @@ export default class CurrentRequest {
       type: "response",
       flags: 1,
     });
-    const res = new Response(dnsEncodeObj);
-    this.httpResponse = new Response(res.body, res);
+    this.httpResponse = new Response(dnsEncodeObj);
     setResponseCommonHeader.call(this);
     this.httpResponse.headers.set("x-err", JSON.stringify(singleLog));
   }
@@ -43,8 +42,7 @@ export default class CurrentRequest {
       type: "response",
       flags: 1,
     });
-    const res = new Response(dnsEncodeObj);
-    this.httpResponse = new Response(res.body, res);
+    this.httpResponse = new Response(dnsEncodeObj);
     setResponseCommonHeader.call(this);
     this.httpResponse.headers.set("x-err", JSON.stringify(data));
   }
@@ -93,8 +91,6 @@ export default class CurrentRequest {
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
-      console.log("Exception at CurrentRequest -> dnsBlockResponse");
-      console.log(this.decodedDnsPacket);
     }
   }
 }

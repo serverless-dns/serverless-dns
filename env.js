@@ -21,6 +21,7 @@ export default class Env {
         "onInvalidFlagStopProcessing",
         CF_ON_INVALID_FLAG_STOPPROCESSING,
       );
+      this.env.set("workerTimeout", WORKER_TIMEOUT);
       this.isLoaded = true;
     } catch (e) {
       if (e instanceof ReferenceError) {

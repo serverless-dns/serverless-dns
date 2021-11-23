@@ -7,8 +7,9 @@ zone_id = ""
 compatibility_date = "2021-09-21"
 
 [vars]
+WORKER_TIMEOUT = 15000
 RUNTIME_ENV = "worker"
-CF_BLOCKLIST_URL = "https://rdns.s3.us-east-2.amazonaws.com/blocklists/"
+CF_BLOCKLIST_URL = "https://delegate-download.bravedns.com/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
 CF_PROCESS_DNS_ON_DNSPARSER_EXCEPTION = false
 CF_ON_INVALID_FLAG_STOPPROCESSING = true

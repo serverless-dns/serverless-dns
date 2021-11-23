@@ -45,28 +45,28 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOperation",
       userOperation,
-      ["event", "blocklistFilter", "dnsResolverUrl", "runTimeEnv"],
+      ["blocklistFilter", "dnsResolverUrl", "request"],
       userOperationCallBack,
       false,
     );
     this.registerPlugin(
       "dnsBlock",
       dnsBlock,
-      ["requestBodyBuffer", "event", "blocklistFilter", "userBlocklistInfo"],
+      ["requestBodyBuffer", "blocklistFilter", "userBlocklistInfo"],
       dnsBlockCallBack,
       false,
     );
     this.registerPlugin(
       "dnsResolver",
       dnsResolver,
-      ["requestBodyBuffer", "request", "dnsResolverUrl", "runTimeEnv", "event"],
+      ["requestBodyBuffer", "request", "dnsResolverUrl", "runTimeEnv"],
       dnsResolverCallBack,
       false,
     );
     this.registerPlugin(
       "DNSResponseBlock",
       dnsResponseBlock,
-      ["event", "userBlocklistInfo", "blocklistFilter", "responseBodyBuffer"],
+      ["userBlocklistInfo", "blocklistFilter", "responseBodyBuffer"],
       dnsResponseBlockCallBack,
       false,
     );
@@ -118,9 +118,9 @@ export default class RethinkPlugin {
  * @param {*} currentRequest
  */
 async function commandControlCallBack(response, currentRequest) {
+  console.log("In userOperationCallBack")
+  //console.log(JSON.stringify(response.data))
   if (response.data.stopProcessing) {
-    //console.log("In userOperationCallBack")
-    //console.log(JSON.stringify(response.data))
     currentRequest.httpResponse = response.data.httpResponse;
     currentRequest.stopProcessing = true;
   } else {
@@ -144,34 +144,28 @@ async function commandControlCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function userOperationCallBack(response, currentRequest) {
+  console.log("In userOperationCallBack")
+  //console.log(JSON.stringify(response))
   if (response.isException) {
-    //console.log("In userOperationCallBack Exception")
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else if (!response.data.isValidFlag && !response.data.isEmptyFlag) {
-    //console.log("In userOperationCallBack data failure")
-    //console.log(JSON.stringify(response.data))
     currentRequest.stopProcessing = true;
     currentRequest.customResponse({
       errorFrom: "plugin.js userOperationCallBack",
       errorReason: "Invalid input user flag",
     });
   } else {
-    //console.log("In userOperationCallBack success")
-    //console.log(JSON.stringify(response.data))
     this.registerParameter("userBlocklistInfo", response.data);
     this.registerParameter("dnsResolverUrl", response.data.dnsResolverUrl);
   }
 }
 
 function dnsBlockCallBack(response, currentRequest) {
+  console.log("In dnsBlockCallBack")
+  //console.log(JSON.stringify(response))
   if (response.isException) {
-    //console.log("In dnsBlockCallBack Exception")
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
-    //console.log("In dnsBlockCallBack success")
-    //console.log(JSON.stringify(response.data))
     this.registerParameter("dnsBlockResponse", response.data);
     currentRequest.isDnsBlock = response.data.isBlocked;
     currentRequest.isDomainInBlockListNotBlocked =
@@ -191,13 +185,11 @@ function dnsBlockCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResolverCallBack(response, currentRequest) {
+  console.log("In dnsResolverCallBack")
+  //console.log(JSON.stringify(response))
   if (response.isException) {
-    //console.log("In dnsResolverCallBack Exception")
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
-    //console.log("In dnsResolverCallBack success")
-    //console.log(JSON.stringify(response.data))
     this.registerParameter(
       "responseBodyBuffer",
       response.data.responseBodyBuffer,
@@ -212,13 +204,11 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResponseBlockCallBack(response, currentRequest) {
+  console.log("In dnsCnameBlockCallBack")
+  //console.log(JSON.stringify(response))
   if (response.isException) {
-    //console.log("In dnsCnameBlockCallBack Exception")
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
-    //console.log("In dnsCnameBlockCallBack success")
-    //console.log(JSON.stringify(response.data))
     this.registerParameter("dnsCnameBlockResponse", response.data);
     currentRequest.isDnsBlock = response.data.isBlocked;
     currentRequest.isDomainInBlockListNotBlocked =
