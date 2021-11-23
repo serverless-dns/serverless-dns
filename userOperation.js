@@ -13,8 +13,8 @@ export class UserOperation {
   /**
    * @param {*} param
    * @param {*} param.blocklistFilter
-   * @param {*} param.dnsResolverUrl
-   * @param {*} param.request
+   * @param {String} param.dnsResolverUrl
+   * @param {Request} param.request
    * @returns
    */
   async RethinkModule(param) {
@@ -32,7 +32,7 @@ function loadUser(param) {
     if (!this.userConfigCache) {
       this.userConfigCache = new LocalCache(
         "User-Config-Cache",
-        1000
+        1000,
       );
     }
     let userBlocklistInfo = {};
@@ -81,7 +81,8 @@ function loadUser(param) {
 }
 
 /**
- * Get the blocklist stamp (base64 encoded) from Request URL
+ * Get the blocklist flag from `Request` URL
+ * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
  * @param {String} url - Request URL string
  * @returns
  */
