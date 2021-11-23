@@ -6,16 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { Buffer } from "buffer";
 import { LocalCache } from "@serverless-dns/cache-wrapper";
 import {
   createBlocklistFilter,
   customTagToFlag as _customTagToFlag,
 } from "./radixTrie.js";
 
-import {
-  base32,
-  rbase32
-} from "./b32.js";
+import { base32, rbase32 } from "./b32.js";
 
 export class BlocklistWrapper {
   constructor() {
@@ -39,7 +37,7 @@ export class BlocklistWrapper {
     try {
       this.domainNameCache = new LocalCache(
         "Domain-Name-Cache",
-        5000
+        5000,
       );
       this.blocklistUrl = blocklistUrl;
       this.latestTimestamp = latestTimestamp;
@@ -246,18 +244,18 @@ function encodeToBinary(s) {
   return String.fromCharCode(...new Uint8Array(codeUnits.buffer));
 }
 
-const b64delim = ":"
-const b32delim = "+"
+const b64delim = ":";
+const b32delim = "+";
 
 function isB32(s) {
-    return s.indexOf(b32delim) > 0
+  return s.indexOf(b32delim) > 0;
 }
 
 // s[0] is version field, if it doesn't exist
 // then treat it as if version 0.
 function version(s) {
-    if (s && s.length > 1) return s[0]
-    else return "0"
+  if (s && s.length > 1) return s[0];
+  else return "0";
 }
 
 function toUint(flag) {
@@ -272,28 +270,27 @@ function toUint(flag) {
       return response;
     }
 
-    const isB32 = isB32(flag)
+    const isB32 = isB32(flag);
     // "v:b64" or "v+b32" or "uriencoded(b64)", where v is uint version
-    let s = flag.split(isB32 ? base32delim : base64delim)
-    let convertor = (x) => "" // empty convertor
-    let f = "" // stamp flag
-    const v = version(s)
+    let s = flag.split(isB32 ? base32delim : base64delim);
+    let convertor = (x) => ""; // empty convertor
+    let f = ""; // stamp flag
+    const v = version(s);
 
     if (v == "0") { // version 0
-      convertor = Base64ToUint
-      f = s[0]
+      convertor = Base64ToUint;
+      f = s[0];
     } else if (v == "1") {
-      convertor = (isB32) ? Base32ToUint_v1 : Base64ToUint_v1
-      f = s[1]
+      convertor = (isB32) ? Base32ToUint_v1 : Base64ToUint_v1;
+      f = s[1];
     } else {
-        throw new Error("unknown blocklist stamp version in " + s)
+      throw new Error("unknown blocklist stamp version in " + s);
     }
 
     response.flagVersion = v;
     response.userBlocklistFlagUint = convertor(f) || "";
 
     return response;
-
   } catch (e) {
     throw e;
   }
@@ -320,27 +317,27 @@ function Base64ToUint_v1(b64Flag) {
 }
 
 function Base32ToUint_v1(flag) {
-    let str = decodeURI(flag)
-    str = decodeFromBinaryArray(rbase32((str)))
-    const uint = []
-    for(let i = 0; i < str.length; i++){
-        uint[i] = str.charCodeAt(i)
-    }
-    return uint
+  let str = decodeURI(flag);
+  str = decodeFromBinaryArray(rbase32(str));
+  const uint = [];
+  for (let i = 0; i < str.length; i++) {
+    uint[i] = str.charCodeAt(i);
+  }
+  return uint;
 }
 
 function decodeFromBinary(b, u8) {
-  if (u8) return String.fromCharCode(...new Uint16Array(b.buffer))
-  const bytes = new Uint8Array(b.length)
+  if (u8) return String.fromCharCode(...new Uint16Array(b.buffer));
+  const bytes = new Uint8Array(b.length);
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = b.charCodeAt(i)
+    bytes[i] = b.charCodeAt(i);
   }
-  return String.fromCharCode(...new Uint16Array(bytes.buffer))
+  return String.fromCharCode(...new Uint16Array(bytes.buffer));
 }
 
 function decodeFromBinaryArray(b) {
-    const u8 = true
-    return decodeFromBinary(b, u8)
+  const u8 = true;
+  return decodeFromBinary(b, u8);
 }
 
 async function fileFetch(url) {
