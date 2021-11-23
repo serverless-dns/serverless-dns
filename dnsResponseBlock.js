@@ -66,7 +66,7 @@ function checkHttpsSvcbBlock(param, response, decodedDnsPacket) {
     .toLowerCase();
   if (targetName != ".") {
     domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-      targetName
+      targetName,
     );
     if (domainNameBlocklistInfo.data.searchResult) {
       response.data = checkDomainBlocking(
@@ -82,7 +82,7 @@ function checkCnameBlock(param, response, decodedDnsPacket) {
   let domainNameBlocklistInfo;
   let cname = decodedDnsPacket.answers[0].data.trim().toLowerCase();
   domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-    cname
+    cname,
   );
   if (domainNameBlocklistInfo.data.searchResult) {
     response.data = checkDomainBlocking(
@@ -98,7 +98,7 @@ function checkCnameBlock(param, response, decodedDnsPacket) {
       .answers[decodedDnsPacket.answers.length - 1].name.trim()
       .toLowerCase();
     domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-      cname
+      cname,
     );
     if (domainNameBlocklistInfo.data.searchResult) {
       response.data = checkDomainBlocking(

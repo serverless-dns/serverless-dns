@@ -45,7 +45,7 @@ export default class DNSBlock {
             decodedDnsPacket.questions[0].type == "CNAME")
         ) {
           domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-            decodedDnsPacket.questions[0].name
+            decodedDnsPacket.questions[0].name,
           );
           if (domainNameBlocklistInfo.data.searchResult) {
             response.data = checkDomainBlocking(

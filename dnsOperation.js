@@ -11,4 +11,4 @@ import DNSBlock from "./dnsBlock.js";
 import DNSResponseBlock from "./dnsResponseBlock.js";
 import DNSResolver from "./dnsResolver.js";
 
-export { DNSBlock, DNSResponseBlock, DNSParserWrap, DNSResolver };
+export { DNSBlock, DNSParserWrap, DNSResolver, DNSResponseBlock };
