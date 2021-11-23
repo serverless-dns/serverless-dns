@@ -42,7 +42,9 @@ export default class DNSBlock {
           (decodedDnsPacket.questions.length >= 1) &&
           (decodedDnsPacket.questions[0].type == "A" ||
             decodedDnsPacket.questions[0].type == "AAAA" ||
-            decodedDnsPacket.questions[0].type == "CNAME")
+            decodedDnsPacket.questions[0].type == "CNAME" ||
+            decodedDnsPacket.questions[0].type == "HTTPS" ||
+            decodedDnsPacket.questions[0].type == "SVCB")
         ) {
           domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
             decodedDnsPacket.questions[0].name,
