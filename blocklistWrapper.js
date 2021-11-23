@@ -270,9 +270,9 @@ function toUint(flag) {
       return response;
     }
 
-    const isB32 = isB32(flag);
+    const isFlagB32 = isB32(flag);
     // "v:b64" or "v+b32" or "uriencoded(b64)", where v is uint version
-    let s = flag.split(isB32 ? base32delim : base64delim);
+    let s = flag.split(isFlagB32 ? b32delim : b64delim);
     let convertor = (x) => ""; // empty convertor
     let f = ""; // stamp flag
     const v = version(s);
@@ -281,7 +281,7 @@ function toUint(flag) {
       convertor = Base64ToUint;
       f = s[0];
     } else if (v == "1") {
-      convertor = (isB32) ? Base32ToUint_v1 : Base64ToUint_v1;
+      convertor = (isFlagB32) ? Base32ToUint_v1 : Base64ToUint_v1;
       f = s[1];
     } else {
       throw new Error("unknown blocklist stamp version in " + s);
