@@ -34,7 +34,6 @@ async function proxyRequest(event) {
       blocklistFilter.isBlocklistLoaded == false
     ) {
       await blocklistFilter.initBlocklistConstruction(
-        env.get("runTimeEnv"),
         env.get("blocklistUrl"),
         env.get("latestTimestamp"),
       );

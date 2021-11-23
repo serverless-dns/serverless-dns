@@ -45,7 +45,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOperation",
       userOperation,
-      ["event", "blocklistFilter", "dnsResolverUrl", "runTimeEnv"],
+      ["blocklistFilter", "dnsResolverUrl", "request"],
       userOperationCallBack,
       false,
     );

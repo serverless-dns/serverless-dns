@@ -1,4 +1,4 @@
-import { atob } from "buffer";
+import { atob, btoa } from "buffer";
 import fetch, { Headers, Request, Response } from "node-fetch";
 import { getTLSfromEnv } from "./util.js";
 
@@ -16,8 +16,9 @@ if (!globalThis.fetch) {
   globalThis.Response = Response;
 }
 
-if (!globalThis.atob) {
+if (!globalThis.atob || !globalThis.btoa) {
   globalThis.atob = atob;
+  globalThis.btoa = btoa;
 }
 
 const TLS_CRT_KEY = eval(`process.env.TLS_${process.env.TLS_CN}`) ||
