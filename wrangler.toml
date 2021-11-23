@@ -7,7 +7,7 @@ zone_id = ""
 compatibility_date = "2021-09-21"
 
 [vars]
-WORKER_TIMEOUT = 15000
+WORKER_TIMEOUT = 2500
 RUNTIME_ENV = "worker"
 CF_BLOCKLIST_URL = "https://delegate-download.bravedns.com/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"

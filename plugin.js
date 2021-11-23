@@ -148,12 +148,6 @@ function userOperationCallBack(response, currentRequest) {
   //console.log(JSON.stringify(response))
   if (response.isException) {
     loadException(response, currentRequest);
-  } else if (!response.data.isValidFlag && !response.data.isEmptyFlag) {
-    currentRequest.stopProcessing = true;
-    currentRequest.customResponse({
-      errorFrom: "plugin.js userOperationCallBack",
-      errorReason: "Invalid input user flag",
-    });
   } else {
     this.registerParameter("userBlocklistInfo", response.data);
     this.registerParameter("dnsResolverUrl", response.data.dnsResolverUrl);
@@ -194,7 +188,6 @@ function dnsResolverCallBack(response, currentRequest) {
       "responseBodyBuffer",
       response.data.responseBodyBuffer,
     );
-    //currentRequest.httpResponse = response.data.dnsResponse
   }
 }
 
