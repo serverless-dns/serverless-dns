@@ -5,10 +5,18 @@ on:
     branches:
       - 'main'
   workflow_dispatch:
+    inputs:
+      git-ref:
+        description: 'Branch / ref / tag to build'
+        default: 'main'
+      instance:
+        description: 'Instance to deploy: dev || live'
+        required: true
+        default: 'dev'
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  FLY_APP_NAME: ${{ secrets.FLY_APP_NAME }}
+  FLY_APP: ${{ secrets.FLY_APP_NAME }}
 
 jobs:
   deploy:
@@ -17,11 +25,13 @@ jobs:
     steps:
       - name: 🚚 Get latest code
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.git-ref || github.ref }}
 
-      # Write app name to fly.toml
-      - name: 🔧 Configure fly-app-name
+      - name: 🚨 *LIVE* Fly App ?
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.instance == 'live' }}
         run: |
-          sed -i "s#^app\s*=.*\$#app = \"$FLY_APP_NAME\"#g" fly.toml
+          echo "FLY_APP=${{ secrets.FLY_APP_NAME_LIVE }}" >> $GITHUB_ENV
 
       - name: 🏗️ Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
