@@ -4,37 +4,39 @@ import Env from "./env.js";
 import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
 
+const blocklistFilter = new BlocklistWrapper();
+const env = new Env();
+
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
     if (!env.isLoaded) {
       env.loadEnv();
     }
-    let workerTimeout = env.get("workerTimeout")
+    let workerTimeout = env.get("workerTimeout");
     if (env.get("runTimeEnv") == "worker" && workerTimeout > 0) {
       let dnsParser = new DnsParser();
       let returnResponse = Promise.race([
         new Promise((resolve, _) => {
-          let resp = handleRequest(event)
-          resolve(resp)
+          let resp = handleRequest(event);
+          resolve(resp);
         }),
         new Promise((resolve, _) => {
           let resp = new Response(dnsParser.Encode({
             type: "response",
-            flags: 4098
-          }))
+            flags: 4098,
+          }));
           resp.headers.set("Content-Type", "application/dns-message");
           resp.headers.set("Access-Control-Allow-Origin", "*");
           resp.headers.set("Access-Control-Allow-Headers", "*");
           setTimeout(() => {
-            blocklistFilter.isBlocklistUnderConstruction = false
-            blocklistFilter.isBlocklistLoaded = false
-            resolve(resp)
+            blocklistFilter.isBlocklistUnderConstruction = false;
+            blocklistFilter.isBlocklistLoaded = false;
+            resolve(resp);
           }, workerTimeout);
-        })
-      ])
-      return event.respondWith(returnResponse)
-    }
-    else {
+        }),
+      ]);
+      return event.respondWith(returnResponse);
+    } else {
       event.respondWith(handleRequest(event));
     }
   });
@@ -44,8 +46,6 @@ export function handleRequest(event) {
   return proxyRequest(event);
 }
 
-const blocklistFilter = new BlocklistWrapper();
-const env = new Env();
 async function proxyRequest(event) {
   const currentRequest = new CurrentRequest();
   let res;
@@ -55,6 +55,11 @@ async function proxyRequest(event) {
       res.headers.set("Access-Control-Allow-Origin", "*");
       res.headers.set("Access-Control-Allow-Headers", "*");
       return res;
+    }
+
+    // For environments which don't use FetchEvent to handle request.
+    if (!env.isLoaded) {
+      env.loadEnv();
     }
     if (
       blocklistFilter.isBlocklistUnderConstruction == false &&
