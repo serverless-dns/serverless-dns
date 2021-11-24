@@ -33,7 +33,8 @@ function logListner(addr) {
  * @param {tls.TLSSocket} socket
  */
 function serveTLS(socket) {
-  if (!socket.servername) {
+  // TODO: Find a way to match DNS name with SNI
+  if (!socket.servername || socket.servername.split(".").length < 3) {
     socket.destroy();
     return;
   }
@@ -115,9 +116,11 @@ async function handleTCPQuery(q, socket) {
  * @returns
  */
 async function resolveQuery(q, sni) {
+  // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
+  // TODO: Find a way to match DNS name with SNI to find flag.
   const [flag, host] = sni.split(".").length < 4
     ? ["", sni]
-    : [sni.split(".", 1)[0], sni.slice(sni.indexOf(".") + 1)];
+    : [sni.split(".")[0].replace(/-/g, "+"), sni.slice(sni.indexOf(".") + 1)];
 
   const qURL = new URL(
     `/${flag}?dns=${q.toString("base64url").replace(/=/g, "")}`,

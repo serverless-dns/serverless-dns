@@ -118,7 +118,7 @@ export default class RethinkPlugin {
  * @param {*} currentRequest
  */
 async function commandControlCallBack(response, currentRequest) {
-  console.log("In userOperationCallBack")
+  // console.log("In userOperationCallBack")
   //console.log(JSON.stringify(response.data))
   if (response.data.stopProcessing) {
     currentRequest.httpResponse = response.data.httpResponse;
@@ -144,7 +144,7 @@ async function commandControlCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function userOperationCallBack(response, currentRequest) {
-  console.log("In userOperationCallBack")
+  // console.log("In userOperationCallBack")
   //console.log(JSON.stringify(response))
   if (response.isException) {
     loadException(response, currentRequest);
@@ -155,7 +155,7 @@ function userOperationCallBack(response, currentRequest) {
 }
 
 function dnsBlockCallBack(response, currentRequest) {
-  console.log("In dnsBlockCallBack")
+  // console.log("In dnsBlockCallBack")
   //console.log(JSON.stringify(response))
   if (response.isException) {
     loadException(response, currentRequest);
@@ -179,7 +179,7 @@ function dnsBlockCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResolverCallBack(response, currentRequest) {
-  console.log("In dnsResolverCallBack")
+  // console.log("In dnsResolverCallBack")
   //console.log(JSON.stringify(response))
   if (response.isException) {
     loadException(response, currentRequest);
@@ -197,7 +197,7 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResponseBlockCallBack(response, currentRequest) {
-  console.log("In dnsCnameBlockCallBack")
+  // console.log("In dnsCnameBlockCallBack")
   //console.log(JSON.stringify(response))
   if (response.isException) {
     loadException(response, currentRequest);
