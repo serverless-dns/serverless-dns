@@ -106,9 +106,9 @@ async function checkLocalCacheBfrResolve(param) {
 
 async function loadDnsResponseFromCache(dnsPacket, ttlEndTime) {
   let now = Date.now();
-  if (dnsPacket.decodedDnsPacket.answers.length > 0) {
+  if (dnsPacket.answers.length > 0) {
     //set 30sec grace time when ttl from cache is negative
-    dnsPacket.decodedDnsPacket.answers[0].ttl = Math.max(
+    dnsPacket.answers[0].ttl = Math.max(
       Math.floor((ttlEndTime - now) / 1000),
       30,
     );
@@ -127,7 +127,7 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn) {
       let cacheRes = {}
       cacheRes.k = dn;
       cacheRes.data = {};
-      cacheRes.data.decodedDnsPacket = this.dnsParser.Encode(await resp.arrayBuffer());
+      cacheRes.data.decodedDnsPacket = await this.dnsParser.Decode(await resp.arrayBuffer());
       let metaData = JSON.parse(resp.headers.get("x-rethink-metadata"))
       cacheRes.data.ttlEndTime = metaData.ttlEndTime
       cacheRes.data.addTime = metaData.addTime
@@ -176,12 +176,15 @@ async function resolveDnsUpdateCache(param, cacheRes, dn) {
   if (param.runTimeEnv == "worker") {
     let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
     let response = new Response(responseBodyBuffer, {
+      headers: {
+        'Cache-Control': 's-maxage=' + ttl,
+        'Content-Length': responseBodyBuffer.length,
+        'Content-Type': 'application/octet-stream',
+        'x-rethink-metadata': JSON.stringify({ ttlEndTime: cacheRes.data.ttlEndTime, addTime: cacheRes.data.addTime })
+      },
       cf: { cacheTtl: ttl },
     });
-    let metaData = {}
-    metaData.ttlEndTime = cacheRes.data.ttlEndTime
-    metaData.addTime = cacheRes.data.addTime
-    response.headers.set('x-rethink-metadata', JSON.stringify(metaData))
+    await this.wCache.put(wCacheUrl, response);
     this.wCache.put(wCacheUrl, response);
     //console.log("Added to worker Cache")
   }
