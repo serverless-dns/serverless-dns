@@ -26,8 +26,9 @@ if (typeof addEventListener !== "undefined") {
           resp.headers.set("Access-Control-Allow-Origin", "*");
           resp.headers.set("Access-Control-Allow-Headers", "*");
           setTimeout(() => {
-            blocklistFilter.isBlocklistUnderConstruction = false
-            blocklistFilter.isBlocklistLoaded = false
+            if(blocklistFilter.isBlocklistLoaded == false){
+              blocklistFilter.isBlocklistUnderConstruction = false
+            }
             resolve(resp)
           }, workerTimeout);
         })
@@ -66,14 +67,21 @@ async function proxyRequest(event) {
       );
     }
 
+    // res.arrayBuffer() is the most expensive op, taking anywhere
+    // between 700ms to 1.2s for trie. But: We don't want all incoming
+    // reqs to wait until the trie becomes available. 400ms is 1/3rd of
+    // 1.2s and 2x 250ms; both of these values have cost implications:
+    // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
+    // equals cost of one bundled req.
     let retryCount = 0;
-    const retryLimit = 150;
+    const retryLimit = 8; // 8 * waitms == 400ms
+    const waitms = 50;
     while (blocklistFilter.isBlocklistUnderConstruction == true) {
       //console.log("Blocklist construction wait : " + retryCount)
       if (retryCount >= retryLimit) {
         break;
       }
-      await sleep(50);
+      await sleep(waitms);
       if (blocklistFilter.isBlocklistLoadException == true) {
         break;
       }
