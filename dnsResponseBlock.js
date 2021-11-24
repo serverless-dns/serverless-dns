@@ -16,7 +16,7 @@ export default class DNSResponseBlock {
    * @param {*} param
    * @param {*} param.userBlocklistInfo
    * @param {*} param.blocklistFilter
-   * @param {*} param.responseBodyBuffer
+   * @param {DnsDecodedObject} param.responseDecodedDnsPacket
    * @returns
    */
   async RethinkModule(param) {
@@ -29,26 +29,21 @@ export default class DNSResponseBlock {
     response.data.isNotBlockedExistInBlocklist = false;
     response.data.domainNameInBlocklistUint;
     response.data.domainNameUserBlocklistIntersection;
-    response.data.decodedDnsPacket;
     try {
-      let decodedDnsPacket = await this.dnsParser.Decode(
-        param.responseBodyBuffer,
-      );
       if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
         if (
-          decodedDnsPacket.answers.length > 0 &&
-          decodedDnsPacket.answers[0].type == "CNAME"
+          param.responseDecodedDnsPacket.answers.length > 0 &&
+          param.responseDecodedDnsPacket.answers[0].type == "CNAME"
         ) {
-          checkCnameBlock(param, response, decodedDnsPacket);
+          checkCnameBlock(param, response, param.responseDecodedDnsPacket);
         } else if (
-          decodedDnsPacket.answers.length > 0 &&
-          (decodedDnsPacket.answers[0].type == "HTTPS" ||
-            decodedDnsPacket.answers[0].type == "SVCB")
+          param.responseDecodedDnsPacket.answers.length > 0 &&
+          (param.responseDecodedDnsPacket.answers[0].type == "HTTPS" ||
+          param.responseDecodedDnsPacket.answers[0].type == "SVCB")
         ) {
-          checkHttpsSvcbBlock(param, response, decodedDnsPacket);
+          checkHttpsSvcbBlock(param, response, param.responseDecodedDnsPacket);
         }
       }
-      response.data.decodedDnsPacket = decodedDnsPacket;
     } catch (e) {
       response.isException = true;
       response.exceptionStack = e.stack;
