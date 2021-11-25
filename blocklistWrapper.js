@@ -23,6 +23,8 @@ export class BlocklistWrapper {
    * @param {String} param.blocklistUrl
    * @param {String} param.latestTimestamp
    * @param {Number} param.workerTimeout
+   * @param {Number} param.tdParts
+   * @param {Number} param.tdNodecount
    * @returns
    */
   async RethinkModule(param) {
@@ -42,6 +44,8 @@ export class BlocklistWrapper {
         return await this.initBlocklistConstruction(
           param.blocklistUrl,
           param.latestTimestamp,
+          param.tdNodecount,
+          param.tdParts,
         );
       } else if (
         this.blocklistFilter == null &&
@@ -53,6 +57,8 @@ export class BlocklistWrapper {
         return await this.initBlocklistConstruction(
           param.blocklistUrl,
           param.latestTimestamp,
+          param.tdNodecount,
+          param.tdParts,
         );
       } else {
         // res.arrayBuffer() is the most expensive op, taking anywhere
@@ -79,11 +85,12 @@ export class BlocklistWrapper {
           response.data.blocklistFilter = this.blocklistFilter;
         } else if (this.isException == true) {
           response.isException = true;
-          response.exceptionStack = this.exceptionStack
-          response.exceptionFrom = this.exceptionFrom
+          response.exceptionStack = this.exceptionStack;
+          response.exceptionFrom = this.exceptionFrom;
         } else {
           response.isException = true;
-          response.exceptionStack = "Problem in loading blocklistFilter - Waiting Timeout"
+          response.exceptionStack =
+            "Problem in loading blocklistFilter - Waiting Timeout";
           response.exceptionFrom = "blocklistWrapper.js RethinkModule";
         }
       }
@@ -97,7 +104,12 @@ export class BlocklistWrapper {
     return response;
   }
 
-  async initBlocklistConstruction(blocklistUrl, latestTimestamp) {
+  async initBlocklistConstruction(
+    blocklistUrl,
+    latestTimestamp,
+    tdNodecount,
+    tdParts,
+  ) {
     let response = {};
     response.isException = false;
     response.exceptionStack = "";
@@ -108,6 +120,8 @@ export class BlocklistWrapper {
       let resp = await downloadBuildBlocklist(
         blocklistUrl,
         latestTimestamp,
+        tdNodecount,
+        tdParts,
       );
       this.blocklistFilter = new BlocklistFilter(
         resp.t,
@@ -130,38 +144,42 @@ export class BlocklistWrapper {
     return response;
   }
 }
-async function downloadBuildBlocklist(blocklistUrl, latestTimestamp) {
+//Add needed env variables to param
+async function downloadBuildBlocklist(
+  blocklistUrl,
+  latestTimestamp,
+  tdNodecount,
+  tdParts,
+) {
   try {
     let resp = {};
-    const buf0 = fileFetch(
-      blocklistUrl + latestTimestamp + "/basicconfig.json",
-      "json",
-    );
-    const buf1 = fileFetch(
-      blocklistUrl + latestTimestamp + "/filetag.json",
-      "json",
-    );
-    const buf2 = fileFetch(
-      blocklistUrl + latestTimestamp + "/td.txt",
-      "buffer",
-    );
-    const buf3 = fileFetch(
-      blocklistUrl + latestTimestamp + "/rd.txt",
-      "buffer",
-    );
+    const baseurl = blocklistUrl + latestTimestamp;
+    let blocklistBasicConfig = {
+      nodecount: tdNodecount || -1,
+      tdparts: tdParts || -1,
+    };
 
-    let downloads = await Promise.all([buf0, buf1, buf2, buf3]);
+    //let now = Date.now();
+    const buf0 = fileFetch(baseurl + "/filetag.json", "json");
+    const buf1 = makeTd(baseurl, tdParts);
+    const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
-    let trie = await createBlocklistFilter(
-      downloads[2],
-      downloads[3],
+    let downloads = await Promise.all([buf0, buf1, buf2]);
+
+    //console.log("Downloaded Time : " + (Date.now() - now));
+    let trie = createBlocklistFilter(
       downloads[1],
+      downloads[2],
       downloads[0],
+      blocklistBasicConfig,
     );
+
+    //console.log("download and trie create Time : " + (Date.now() - now));
+
     resp.t = trie.t;
     resp.ft = trie.ft;
-    resp.blocklistBasicConfig = downloads[0];
-    resp.blocklistFileTag = downloads[1];
+    resp.blocklistBasicConfig = blocklistBasicConfig;
+    resp.blocklistFileTag = downloads[0];
     return resp;
   } catch (e) {
     throw e;
@@ -169,6 +187,7 @@ async function downloadBuildBlocklist(blocklistUrl, latestTimestamp) {
 }
 
 async function fileFetch(url, type) {
+  //console.log("Downloading : "+url)
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   if (type == "buffer") {
     return await res.arrayBuffer();
@@ -183,3 +202,35 @@ const sleep = (ms) => {
     setTimeout(resolve, ms);
   });
 };
+
+// joins split td parts into one td
+async function makeTd(baseurl, tdparts) {
+  const n = tdparts;
+  if (n <= -1) {
+    return fileFetch(baseurl + "/td.txt", "buffer");
+  }
+  const tdpromises = new Array(n + 1);
+  for (let i = 0; i <= n; i++) {
+    // td0.txt, td1.txt, td2.txt, ...
+    const f = baseurl + "/td" + i + ".txt";
+    tdpromises.push(fileFetch(f, "buffer"));
+  }
+  const tds = await Promise.all(tdpromises);
+  return new Promise((resolve, reject) => {
+    resolve(concat(tds));
+  });
+}
+
+// https://stackoverflow.com/a/40108543/
+// Concatenate a mix of typed arrays
+function concat(arraybuffers) {                                                    
+  let sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0)                        
+  let buf = new ArrayBuffer(sz)
+  let cat = new Uint8Array(buf)                                       
+  let offset = 0                                                                
+  for (let a of arraybuffers) {                                                     
+    cat.set(a, offset)                                                        
+    offset += a.byteLength                                                    
+  }                                                                             
+  return buf                                                            
+}
