@@ -204,12 +204,11 @@ const sleep = (ms) => {
 };
 
 // joins split td parts into one td
-async function makeTd(baseurl, tdparts) {
-  const n = tdparts;
+async function makeTd(baseurl, n) {
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
   }
-  const tdpromises = new Array(n + 1);
+  const tdpromises = []
   for (let i = 0; i <= n; i++) {
     // td0.txt, td1.txt, td2.txt, ...
     const f = baseurl + "/td" + i + ".txt";
@@ -228,8 +227,9 @@ function concat(arraybuffers) {
   let buf = new ArrayBuffer(sz)
   let cat = new Uint8Array(buf)                                       
   let offset = 0                                                                
-  for (let a of arraybuffers) {                                                     
-    cat.set(a, offset)                                                        
+  for (let a of arraybuffers) {  
+    const v = new Uint8Array(a)                                                   
+    cat.set(v, offset)                                                        
     offset += a.byteLength                                                    
   }                                                                             
   return buf                                                            
