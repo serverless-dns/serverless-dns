@@ -31,6 +31,8 @@ export class BlocklistWrapper {
     this.wildCardLists = new Set();
     this.wildCardUint;
     setWildcardlist.call(this);
+    this.env = new Env();
+    this.env.loadEnv();
   }
 
   async initBlocklistConstruction(blocklistUrl, latestTimestamp) {
@@ -187,39 +189,35 @@ async function downloadBuildBlocklist() {
     this.isBlocklistUnderConstruction = true;
     const decoder = new TextDecoder();
 
-    const buf0 = fileFetch.call(
-      this,
-      this.blocklistUrl + this.latestTimestamp + "/basicconfig.json",
-    );
-    const buf1 = fileFetch.call(
-      this,
-      this.blocklistUrl + this.latestTimestamp + "/filetag.json",
-    );
-    const buf2 = fileFetch.call(
-      this,
-      this.blocklistUrl + this.latestTimestamp + "/td.txt",
-    );
-    const buf3 = fileFetch.call(
-      this,
-      this.blocklistUrl + this.latestTimestamp + "/rd.txt",
-    );
+    const baseurl = this.blocklistUrl + this.latestTimestamp
+    this.blocklistBasicConfig = {
+        nodecount: this.env.get("tdNodecount") || -1,
+        tdparts: this.env.get("tdParts") || -1
+    }
 
-    this.bufferList = await Promise.all([buf0, buf1, buf2, buf3]);
+    const buf1 = fileFetch(baseurl + "/filetag.json");
+    const buf2 = makeTd(baseurl);
+    const buf3 = fileFetch(baseurl + "/rd.txt");
 
-    this.blocklistBasicConfig = JSON.parse(decoder.decode(this.bufferList[0]));
+    this.bufferList = await Promise.all([buf1, buf2, buf3]);
+
     this.blocklistFileTag = JSON.parse(decoder.decode(this.bufferList[1]));
+
     const resp = await createBlocklistFilter(
       this.bufferList[2],
       this.bufferList[3],
       this.blocklistFileTag,
       this.blocklistBasicConfig,
     );
+
     this.t = resp.t;
     this.ft = resp.ft;
+
     const str = _customTagToFlag(
       this.wildCardLists,
       this.blocklistFileTag,
     );
+
     this.wildCardUint = new Uint16Array(str.length);
     for (let i = 0; i < this.wildCardUint.length; i++) {
       this.wildCardUint[i] = str.charCodeAt(i);
@@ -344,6 +342,45 @@ async function fileFetch(url) {
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   const b = await res.arrayBuffer();
   return b;
+}
+
+// joins split td parts into one td
+async function makeTd(baseurl) {
+    const n = this.blocklistBasicConfig.tdparts
+    if (n <= -1) {
+        return fileFetch(baseurl + "/td.txt")
+    }
+    const tdpromises = new Array(n + 1);
+    for (let i = 0; i <= n; i++) {
+        // td0.txt, td1.txt, td2.txt, ...
+        const f = baseurl + "/td" + i + ".txt"
+        tdpromises.push(fileFetch(f))
+    }
+    const tds = await Promise.all(tdpromises)
+    return new Promise((resolve, reject) => {
+        resolve(concat(tds).buffer)
+    })
+}
+
+async function fileFetch(url) {
+  const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
+  const b = await res.arrayBuffer();
+  return b;
+}
+
+// https://stackoverflow.com/a/40108543/
+// Concatenate a mix of typed arrays
+function concat(arraybuffers) {
+  let size = arraybuffers.reduce((s, it) => s + it.byteLength, 0)
+  let cat = new Uint8Array(size) // alloc
+
+  let offset = 0
+  for (let a of arraybuffers) {
+    cat.set(a, offset)
+    offset += arr.byteLength
+  }
+
+  return cat // meow
 }
 
 function setWildcardlist() {
