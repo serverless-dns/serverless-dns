@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+const debug = false
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
 
@@ -73,7 +74,6 @@ export class BlocklistWrapper {
         while (
           this.isBlocklistUnderConstruction == true && this.isException == false
         ) {
-          //console.log("Blocklist construction wait : " + retryCount)
           if (retryCount >= retryLimit) {
             break;
           }
@@ -211,7 +211,7 @@ async function makeTd(baseurl, n) {
   const tdpromises = []
   for (let i = 0; i <= n; i++) {
     // td0.txt, td1.txt, td2.txt, ...
-    const f = baseurl + "/td" + i + ".txt";
+    const f = baseurl + "/td" + (i).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false}) + ".txt";
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
