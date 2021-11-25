@@ -22,6 +22,11 @@ export default class Env {
         CF_ON_INVALID_FLAG_STOPPROCESSING,
       );
       this.env.set("workerTimeout", WORKER_TIMEOUT);
+
+      //env variables for td file split
+      this.env.set("tdNodecount", TD_NODE_COUNT);
+      this.env.set("tdParts", TD_PARTS);
+
       this.isLoaded = true;
     } catch (e) {
       if (e instanceof ReferenceError) {
@@ -41,6 +46,11 @@ export default class Env {
       "onInvalidFlagStopProcessing",
       Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING"),
     );
+
+    //env variables for td file split
+    this.env.set("tdNodecount", Deno.env.get("TD_NODE_COUNT"));
+    this.env.set("tdParts", Deno.env.get("TD_PARTS"));
+
     this.isLoaded = true;
   }
   loadEnvNode() {
@@ -55,6 +65,11 @@ export default class Env {
       "onInvalidFlagStopProcessing",
       process.env.CF_ON_INVALID_FLAG_STOPPROCESSING,
     );
+
+    //env variables for td file split
+    this.env.set("tdNodecount", process.env.TD_NODE_COUNT);
+    this.env.set("tdParts", process.env.TD_PARTS);
+
     this.isLoaded = true;
   }
   getEnvMap() {

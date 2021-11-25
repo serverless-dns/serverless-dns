@@ -5,7 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+const debug = false;
 
+import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 import { CommandControl } from "@serverless-dns/command-control";
 import { UserOperation } from "@serverless-dns/basic";
 import {
@@ -14,6 +16,7 @@ import {
   DNSResponseBlock,
 } from "@serverless-dns/dns-operation";
 
+const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();
 const dnsBlock = new DNSBlock();
@@ -26,15 +29,28 @@ export default class RethinkPlugin {
    * @param {{request: Request}} event
    * @param {Env} env
    */
-  constructor(blocklistFilter, event, env) {
+  constructor(event, env) {
     /**
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
     this.parameter = new Map(env.getEnvMap());
-    this.registerParameter("blocklistFilter", blocklistFilter);
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
     this.plugin = [];
+    this.registerPlugin(
+      "blocklistFilter",
+      blocklistWrapper,
+      [
+        "blocklistUrl",
+        "latestTimestamp",
+        "workerTimeout",
+        "tdParts",
+        "tdNodecount",
+      ],
+      blocklistFilterCallBack,
+      false,
+    );
+
     this.registerPlugin(
       "commandControl",
       commandControl,
@@ -59,7 +75,14 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "dnsResolver",
       dnsResolver,
-      ["requestBodyBuffer", "request", "dnsResolverUrl", "runTimeEnv", "requestDecodedDnsPacket"],
+      [
+        "requestBodyBuffer",
+        "request",
+        "dnsResolverUrl",
+        "runTimeEnv",
+        "requestDecodedDnsPacket",
+        "event",
+      ],
       dnsResolverCallBack,
       false,
     );
@@ -112,14 +135,31 @@ export default class RethinkPlugin {
 }
 
 /**
+ * Adds "blocklistFilter" to RethinkPlugin params
+ * @param {*} response - Contains `data` which is `blocklistFilter`
+ * @param {*} currentRequest
+ */
+function blocklistFilterCallBack(response, currentRequest) {
+  if (debug) console.log("In blocklistFilterCallBack");
+  if (response.isException) {
+    loadException(response, currentRequest);
+  } else {
+    this.registerParameter("blocklistFilter", response.data.blocklistFilter);
+  }
+}
+
+/**
  * Adds "requestBodyBuffer" (arrayBuffer of "request" param) to RethinkPlugin
  * params
  * @param {*} response
  * @param {*} currentRequest
  */
 async function commandControlCallBack(response, currentRequest) {
-  // console.log("In userOperationCallBack")
-  //console.log(JSON.stringify(response.data))
+  if (debug) {
+    console.log("In commandControlCallBack");
+    console.log(JSON.stringify(response.data));
+  }
+
   if (response.data.stopProcessing) {
     currentRequest.httpResponse = response.data.httpResponse;
     currentRequest.stopProcessing = true;
@@ -144,9 +184,11 @@ async function commandControlCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function userOperationCallBack(response, currentRequest) {
-  //console.log("In userOperationCallBack")  
+  if (debug) {
+    console.log("In userOperationCallBack");
+    console.log(JSON.stringify(response.data));
+  }
   if (response.isException) {
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
     this.registerParameter("userBlocklistInfo", response.data);
@@ -155,13 +197,18 @@ function userOperationCallBack(response, currentRequest) {
 }
 
 function dnsBlockCallBack(response, currentRequest) {
-  //console.log("In dnsBlockCallBack")  
+  if (debug) {
+    console.log("In dnsBlockCallBack");
+    console.log(JSON.stringify(response.data));
+  }
   if (response.isException) {
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
     this.registerParameter("dnsBlockResponse", response.data);
-    this.registerParameter("requestDecodedDnsPacket", response.data.decodedDnsPacket);
+    this.registerParameter(
+      "requestDecodedDnsPacket",
+      response.data.decodedDnsPacket,
+    );
     currentRequest.isDnsBlock = response.data.isBlocked;
     currentRequest.isDomainInBlockListNotBlocked =
       response.data.isNotBlockedExistInBlocklist;
@@ -180,9 +227,11 @@ function dnsBlockCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResolverCallBack(response, currentRequest) {
-  //console.log("In dnsResolverCallBack")  
+  if (debug) {
+    console.log("In dnsResolverCallBack");
+    console.log(JSON.stringify(response.data));
+  }
   if (response.isException) {
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
     this.registerParameter(
@@ -194,7 +243,6 @@ function dnsResolverCallBack(response, currentRequest) {
       "responseDecodedDnsPacket",
       response.data.responseDecodedDnsPacket,
     );
-
     currentRequest.decodedDnsPacket = response.data.responseDecodedDnsPacket;
   }
 }
@@ -205,9 +253,11 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResponseBlockCallBack(response, currentRequest) {
-  //console.log("In dnsCnameBlockCallBack")  
+  if (debug) {
+    console.log("In dnsCnameBlockCallBack");
+    console.log(JSON.stringify(response.data));
+  }
   if (response.isException) {
-    //console.log(JSON.stringify(response))
     loadException(response, currentRequest);
   } else {
     this.registerParameter("dnsCnameBlockResponse", response.data);
@@ -225,6 +275,7 @@ function dnsResponseBlockCallBack(response, currentRequest) {
 }
 
 function loadException(response, currentRequest) {
+  console.error(JSON.stringify(response));
   currentRequest.stopProcessing = true;
   currentRequest.isException = true;
   currentRequest.exceptionStack = response.exceptionStack;
