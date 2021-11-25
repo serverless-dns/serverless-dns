@@ -21,6 +21,7 @@ export default class DNSResolver {
    * @param {String} param.dnsResolverUrl
    * @param {String} param.runTimeEnv
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
+   * @param {Worker-Event} param.event
    * @returns
    */
   async RethinkModule(param) {
@@ -184,8 +185,7 @@ async function resolveDnsUpdateCache(param, cacheRes, dn) {
       },
       cf: { cacheTtl: ttl },
     });
-    await this.wCache.put(wCacheUrl, response);
-    this.wCache.put(wCacheUrl, response);
+    param.event.waitUntil(this.wCache.put(wCacheUrl, response));
     //console.log("Added to worker Cache")
   }
   //console.log("Added to Local Cache")
