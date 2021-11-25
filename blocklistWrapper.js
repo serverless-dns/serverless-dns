@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-const debug = false
+
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
 
@@ -144,6 +144,7 @@ export class BlocklistWrapper {
     return response;
   }
 }
+
 //Add needed env variables to param
 async function downloadBuildBlocklist(
   blocklistUrl,
@@ -210,8 +211,9 @@ async function makeTd(baseurl, n) {
   }
   const tdpromises = []
   for (let i = 0; i <= n; i++) {
-    // td0.txt, td1.txt, td2.txt, ...
-    const f = baseurl + "/td" + (i).toLocaleString('en-US', {minimumIntegerDigits: 2, useGrouping:false}) + ".txt";
+    // td00.txt, td01.txt, td02.txt, ... , td98.txt, td100.txt, ...
+    const f = baseurl + "/td" + (i).toLocaleString('en-US',
+        { minimumIntegerDigits: 2, useGrouping:false }) + ".txt";
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
@@ -220,14 +222,16 @@ async function makeTd(baseurl, n) {
   });
 }
 
-// https://stackoverflow.com/a/40108543/
+// stackoverflow.com/a/40108543/
 // Concatenate a mix of typed arrays
 function concat(arraybuffers) {                                                    
-  let sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0)                        
+  let sz = arraybuffers.reduce(
+      (sum, a) => sum + a.byteLength, 0)                        
   let buf = new ArrayBuffer(sz)
   let cat = new Uint8Array(buf)                                       
   let offset = 0                                                                
-  for (let a of arraybuffers) {  
+  for (let a of arraybuffers) {
+    // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17 
     const v = new Uint8Array(a)                                                   
     cat.set(v, offset)                                                        
     offset += a.byteLength                                                    
