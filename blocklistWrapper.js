@@ -162,7 +162,7 @@ async function downloadBuildBlocklist(
 
     //let now = Date.now();
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
-    const buf1 = makeTd(baseurl, tdParts);
+    const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
     const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
     let downloads = await Promise.all([buf0, buf1, buf2]);
