@@ -4,53 +4,58 @@ kill_signal = "SIGINT"
 kill_timeout = 5
 
 [env]
-  DENO_ENV = "production"
-  NODE_ENV = "production"
+DENO_ENV = "production"
+NODE_ENV = "production"
+CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
+CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
+TD_NODE_COUNT = "39479810"
+TD_PARTS = "2"
+CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
 
 [experimental]
-  allowed_public_ports = []
-  auto_rollback = true
+allowed_public_ports = []
+auto_rollback = true
 
 [processes]
-  # main_process = "run --allow-net --allow-env --import-map=import_map.json http.ts"
-  main_process = "node server.js"
+# main_process = "run --allow-net --allow-env --import-map=import_map.json http.ts"
+main_process = "node server.js"
 
 # DNS over HTTP[S]
 [[services]]
-  http_checks = []
-  internal_port = 8080
-  processes = ["main_process"]
-  protocol = "tcp"
-  script_checks = []
+http_checks = []
+internal_port = 8080
+processes = ["main_process"]
+protocol = "tcp"
+script_checks = []
 
   [services.concurrency]
-    hard_limit = 250
-    soft_limit = 200
-    type = "connections"
+  hard_limit = 250
+  soft_limit = 200
+  type = "connections"
 
   [[services.ports]]
-    # handlers = ["tls", "http"]
-    port = 443
+  # handlers = ["tls", "http"]
+  port = 443
 
   [[services.tcp_checks]]
-    grace_period = "1s"
-    interval = "15s"
-    restart_limit = 6
-    timeout = "2s"
+  grace_period = "1s"
+  interval = "15s"
+  restart_limit = 6
+  timeout = "2s"
 
 # DNS over TCP/TLS
 [[services]]
-  http_checks = []
-  internal_port = 10000
-  processes = ["main_process"]
-  protocol = "tcp"
-  script_checks = []
+http_checks = []
+internal_port = 10000
+processes = ["main_process"]
+protocol = "tcp"
+script_checks = []
 
   [services.concurrency]
-    hard_limit = 250
-    soft_limit = 200
-    type = "connections"
+  hard_limit = 250
+  soft_limit = 200
+  type = "connections"
 
   [[services.ports]]
-    # handlers = ["tls"]
-    port = 853
+  # handlers = ["tls"]
+  port = 853
