@@ -3,16 +3,17 @@ name: 🪰 Fly
 on:
   push:
     branches:
-      - 'main'
+      - "main"
   workflow_dispatch:
     inputs:
       git-ref:
-        description: 'Branch / ref / tag to build'
-        default: 'main'
-      instance:
-        description: 'Instance to deploy: dev || live'
+        description: "Branch / ref / tag to build"
+        required: false
+        default: "main"
+      deployment:
+        description: "Deployment: dev || live || b1"
         required: true
-        default: 'dev'
+        default: "dev"
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -28,8 +29,15 @@ jobs:
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
 
+      - name: ⚠️ *B1* Fly App ?
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment == 'b1' }}
+        run: |
+          echo "FLY_APP=${{ secrets.FLY_APP_NAME_B1 }}" >> $GITHUB_ENV
+
       - name: 🚨 *LIVE* Fly App ?
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.instance == 'live' }}
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment == 'live' }}
         run: |
           echo "FLY_APP=${{ secrets.FLY_APP_NAME_LIVE }}" >> $GITHUB_ENV
 
