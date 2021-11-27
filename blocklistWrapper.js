@@ -160,7 +160,8 @@ async function downloadBuildBlocklist(
       tdparts: tdParts || -1,
     };
 
-    tdNodecount ?? console.error("tdNodecount missing! Blocking won't work");
+    tdNodecount == null &&
+      console.error("tdNodecount missing! Blocking won't work");
     //let now = Date.now();
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
