@@ -160,6 +160,7 @@ async function downloadBuildBlocklist(
       tdparts: tdParts || -1,
     };
 
+    tdNodecount ?? console.error("tdNodecount missing! Blocking won't work");
     //let now = Date.now();
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
@@ -209,11 +210,14 @@ async function makeTd(baseurl, n) {
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
   }
-  const tdpromises = []
+  const tdpromises = [];
   for (let i = 0; i <= n; i++) {
     // td00.txt, td01.txt, td02.txt, ... , td98.txt, td100.txt, ...
-    const f = baseurl + "/td" + (i).toLocaleString('en-US',
-        { minimumIntegerDigits: 2, useGrouping:false }) + ".txt";
+    const f = baseurl + "/td" +
+      (i).toLocaleString("en-US", {
+        minimumIntegerDigits: 2,
+        useGrouping: false,
+      }) + ".txt";
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
@@ -224,17 +228,19 @@ async function makeTd(baseurl, n) {
 
 // stackoverflow.com/a/40108543/
 // Concatenate a mix of typed arrays
-function concat(arraybuffers) {                                                    
+function concat(arraybuffers) {
   let sz = arraybuffers.reduce(
-      (sum, a) => sum + a.byteLength, 0)                        
-  let buf = new ArrayBuffer(sz)
-  let cat = new Uint8Array(buf)                                       
-  let offset = 0                                                                
+    (sum, a) => sum + a.byteLength,
+    0,
+  );
+  let buf = new ArrayBuffer(sz);
+  let cat = new Uint8Array(buf);
+  let offset = 0;
   for (let a of arraybuffers) {
-    // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17 
-    const v = new Uint8Array(a)                                                   
-    cat.set(v, offset)                                                        
-    offset += a.byteLength                                                    
-  }                                                                             
-  return buf                                                            
+    // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17
+    const v = new Uint8Array(a);
+    cat.set(v, offset);
+    offset += a.byteLength;
+  }
+  return buf;
 }
