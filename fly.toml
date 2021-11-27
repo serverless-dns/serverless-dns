@@ -29,12 +29,12 @@ protocol = "tcp"
 script_checks = []
 
   [services.concurrency]
-  hard_limit = 250
-  soft_limit = 200
+  hard_limit = 50
+  soft_limit = 40
   type = "connections"
 
   [[services.ports]]
-  # handlers = ["tls", "http"]
+  # handlers = ["proxy_proto"]
   port = 443
 
   [[services.tcp_checks]]
@@ -52,10 +52,10 @@ protocol = "tcp"
 script_checks = []
 
   [services.concurrency]
-  hard_limit = 250
-  soft_limit = 200
+  hard_limit = 50
+  soft_limit = 40
   type = "connections"
 
   [[services.ports]]
-  # handlers = ["tls"]
+  # handlers = ["proxy_proto"]
   port = 853
