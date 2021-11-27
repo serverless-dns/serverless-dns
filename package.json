@@ -7,7 +7,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "clean": "rm -rf worker/ dist/",
+    "clean": "npm run clean:wrangler",
+    "clean:node": "rm -rf node_modules/ package-lock.json",
+    "clean:wrangler": "rm -rf worker/ dist/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
