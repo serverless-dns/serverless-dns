@@ -26,6 +26,7 @@ export class BlocklistWrapper {
    * @param {Number} param.workerTimeout
    * @param {Number} param.tdParts
    * @param {Number} param.tdNodecount
+   * @param {Number} param.fetchTimeout
    * @returns
    */
   async RethinkModule(param) {
@@ -68,9 +69,11 @@ export class BlocklistWrapper {
         // 1.2s and 2x 250ms; both of these values have cost implications:
         // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
         // equals cost of one bundled req.
+        // going back to direct-s3 download as worker-bundled blocklist files download
+        // gets triggered for 10% of requests.
         let retryCount = 0;
-        const retryLimit = 14; // 14 * waitms == 700ms
-        const waitms = 50;
+        const retryLimit = 200; // 200 * (10000 / 200) == 10000ms
+        const waitms = Math.floor(param.fetchTimeout / retryLimit);
         while (
           this.isBlocklistUnderConstruction == true && this.isException == false
         ) {
