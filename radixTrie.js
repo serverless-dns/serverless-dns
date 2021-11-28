@@ -8,7 +8,8 @@
 
 // impl based on S Hanov's succinct-trie: stevehanov.ca/blog/?id=120
 
-const BASE64 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+const BASE64 =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
 
 const config = {
   useBinarySearch: true,
@@ -76,96 +77,8 @@ const DELIM = "#";
 // utf8 encoded delim for non-base32/64
 const ENC_DELIM = TxtEnc.encode(DELIM);
 
-/**
- * The BitWriter will create a stream of bytes, letting you write a certain
- * number of bits at a time. This is part of the encoder, so it is not
- * optimized for memory or speed.
- */
-function BitWriter() {
-  this.init();
-}
-
-function getBuffer(size, nofbits) {
-  // fix size
-  return new bufferView[nofbits](size);
-}
-
-BitWriter.prototype = {
-  init: function () {
-    this.bits = [];
-    this.bytes = [];
-    this.bits16 = [];
-    this.top = 0;
-  },
-
-  write16(data, numBits) {
-    // todo: throw error?
-    if (numBits > 16) {
-      console.error(
-        "write16 can only writes lsb16 bits, out of range: " + numBits,
-      );
-      return;
-    }
-    const n = data;
-    const brim = 16 - (this.top % 16);
-    const cur = (this.top / 16) | 0;
-    const e = this.bits16[cur] | 0;
-    let remainingBits = 0;
-    // clear msb
-    let b = n & BitString.MaskTop[16][16 - numBits];
-
-    // shift to bit pos to be right at brim-th bit
-    if (brim >= numBits) {
-      b = b << (brim - numBits);
-    } else {
-      // shave right most bits if there are too many bits than
-      // what the current element at the brim can accommodate
-      remainingBits = (numBits - brim);
-      b = b >>> remainingBits;
-    }
-    // overlay b on current element, e.
-    b = e | b;
-    this.bits16[cur] = b;
-
-    // account for the left-over bits shaved off by brim
-    if (remainingBits > 0) {
-      b = n & BitString.MaskTop[16][16 - remainingBits];
-      b = b << (16 - remainingBits);
-      this.bits16[cur + 1] = b;
-    }
-
-    // update top to reflect the bits included
-    this.top += numBits;
-  },
-
-  /**
-   * Write some data to the bit string. The number of bits must be 32 or
-   * fewer.
-   */
-  write: function (data, numBits) {
-    while (numBits > 0) {
-      // take 16 and then the leftover pass it to write16
-      const i = (numBits - 1) / 16 | 0;
-      const b = data >>> (i * 16);
-      const l = (numBits % 16 === 0) ? 16 : numBits % 16;
-      this.write16(b, l);
-      numBits -= l;
-    }
-
-    return;
-  },
-
-  getData: function () {
-    return this.bitsToBytes();
-  },
-
-  /**
-   * Get the bitstring represented as a javascript string of bytes
-   */
-  bitsToBytes: function () {
-    return bufferView[W].from(this.bits16);
-  },
-};
+// period encode value for wildcard lookup
+const periodEncVal = TxtEnc.encode(".");
 
 /**
  * Given a string of data (eg, in BASE-64), the BitString class supports
@@ -195,7 +108,7 @@ BitString.MaskTop = {
     0x0003,
     0x0001,
     0x0000,
-  ]
+  ],
 };
 
 BitString.MaskBottom = {
@@ -217,7 +130,7 @@ BitString.MaskBottom = {
     0xc000,
     0x8000,
     0x0000,
-  ]
+  ],
 };
 
 const BitsSetTable256 = [];
@@ -412,72 +325,10 @@ function RankDirectory(
   bitData,
   numBits,
   l1Size,
-  l2Size
+  l2Size,
 ) {
   this.init(directoryData, bitData, numBits, l1Size, l2Size);
 }
-
-/**
- * Used to build a rank directory from the given input string.
- * @param {*} data A javascript string containing the data, as readable using the
-    BitString object.
- * @param {*} numBits The number of letters in the trie.
- * @param {*} l1Size The number of bits that each entry in the Level 1 table
-    summarizes. This should be a multiple of l2Size.
- * @param {*} l2Size The number of bits that each entry in the Level 2 table
-    summarizes.
- * @returns
- */
-RankDirectory.Create = function (data, nodeCount, l1Size, l2Size) {
-  const bits = new BitString(data);
-  let p = 0;
-  let i = 0;
-  let count1 = 0, count2 = 0;
-
-  const numBits = nodeCount * 2 + 1;
-
-  const l1bits = Math.ceil(Math.log2(numBits));
-  const l2bits = Math.ceil(Math.log2(l1Size));
-  const bitCount = 7;
-  const valuesIndex = numBits + (bitCount * nodeCount);
-
-  const directory = new BitWriter();
-
-  if (config.selectsearch === false) {
-    while (p + l2Size <= numBits) {
-      count2 += bits.count(p, l2Size);
-      i += l2Size;
-      p += l2Size;
-      if (i === l1Size) {
-        count1 += count2;
-        directory.write(count1, l1bits);
-        count2 = 0;
-        i = 0;
-      } else {
-        directory.write(count2, l2bits);
-      }
-    }
-  } else {
-    let i = 0;
-    while (i + l2Size <= numBits) {
-      // find index of l2Size-th 0 from index i
-      const sel = bits.pos0(i, l2Size);
-      // do we need l1bits? yes. sel is the exact
-      // index in the rankdirectory.
-      // todo: impl a l1/l2 cache to lessen nof bits.
-      directory.write(sel, l1bits);
-      i = sel + 1;
-    }
-  }
-
-  return new RankDirectory(
-    directory.getData(),
-    data,
-    numBits,
-    l1Size,
-    l2Size
-  );
-};
 
 RankDirectory.prototype = {
   init: function (directoryData, trieData, numBits, l1Size, l2Size) {
@@ -589,15 +440,15 @@ RankDirectory.prototype = {
 };
 
 function Tags(flags) {
-  this.init(flags);
+  this.init();
+  this.setupFlags(flags);
 }
 
 Tags.prototype = {
-  init: function(flags) {
+  init: function (flags) {
     this.flags = {};
     this.rflags = {};
     this.fsize = 0;
-    setupFlags(flags)
   },
 
   setupFlags: function (flags) {
@@ -625,7 +476,11 @@ Tags.prototype = {
     }
     // flags.length must be equal to tagIndices.length
     if (tagIndices.length !== flags.length - 1) {
-      console.log(tagIndices, flags, "flags and header mismatch (bug in upsert?)");
+      console.log(
+        tagIndices,
+        flags,
+        "flags and header mismatch (bug in upsert?)",
+      );
       return values;
     }
     for (let i = 0; i < flags.length; i++) {
@@ -635,7 +490,18 @@ Tags.prototype = {
         if ((flag << j) === 0) break;
         if ((flag & mask) === mask) {
           const pos = (index * 16) + j;
-          if (config.debug) console.log("pos", pos, "index/tagIndices", index, tagIndices, "j/i", j, i);
+          if (config.debug) {
+            console.log(
+              "pos",
+              pos,
+              "index/tagIndices",
+              index,
+              tagIndices,
+              "j/i",
+              j,
+              i,
+            );
+          }
           values.push(this.rflags[pos]);
         }
         mask = mask >>> 1;
@@ -656,27 +522,19 @@ function FrozenTrieNode(trie, index) {
   let finCached, whCached, comCached, fcCached, chCached, valCached, flagCached;
   this.final = () => {
     if (typeof (finCached) === "undefined") {
-      finCached = this.trie.data.get(
-        this.trie.letterStart + (index * this.trie.bitslen) +
-          this.trie.extraBit,
-        1,
-      ) === 1;
+      finCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen) + this.trie.extraBit, 1) === 1;
     }
     return finCached;
   };
   this.where = () => {
     if (typeof (whCached) === "undefined") {
-      whCached = this.trie.data.get(
-        this.trie.letterStart + (index * this.trie.bitslen) + 1 +
-          this.trie.extraBit,
-        this.trie.bitslen - 1 - this.trie.extraBit,
-      );
+      whCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen) + 1 + this.trie.extraBit, this.trie.bitslen - 1 - this.trie.extraBit);
     }
     return whCached;
   };
   this.compressed = () => {
     if (typeof (comCached) === "undefined") {
-      comCached = (this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen), 1)) === 1;
+      comCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen), 1) === 1;
     }
     return comCached;
   };
@@ -712,47 +570,47 @@ function FrozenTrieNode(trie, index) {
   this.childCount = () => this.childOfNextNode() - this.firstChild();
 
   this.value = () => {
-      if (typeof (valCached) === "undefined") {
-        //let valueChain = this;
-        const value = [];
-        let i = 0;
-        let j = 0;
+    if (typeof (valCached) === "undefined") {
+      //let valueChain = this;
+      const value = [];
+      let i = 0;
+      let j = 0;
+      if (config.debug) {
+        console.log(
+          "thisnode: index/vc/ccount ",
+          this.index,
+          this.letter(),
+          this.childCount(),
+        );
+      }
+      while (i < this.childCount()) {
+        const valueChain = this.getChild(i);
         if (config.debug) {
           console.log(
-            "thisnode: index/vc/ccount ",
-            this.index,
-            this.letter(),
-            this.childCount(),
+            "vc no-flag end vlet/vflag/vindex/val ",
+            i,
+            valueChain.letter(),
+            valueChain.flag(),
+            valueChain.index,
+            value,
           );
         }
-        while (i < this.childCount()) {
-          const valueChain = this.getChild(i);
-          if (config.debug) {
-            console.log(
-              "vc no-flag end vlet/vflag/vindex/val ",
-              i,
-              valueChain.letter(),
-              valueChain.flag(),
-              valueChain.index,
-              value,
-            );
-          }
-          if (!valueChain.flag()) {
-            break;
-          }
-          if (i % 2 === 0) {
-            value.push(valueChain.letter() << 8);
-          } else {
-            value[j] = (value[j] | valueChain.letter());
-            j += 1;
-          }
-          i += 1;
+        if (!valueChain.flag()) {
+          break;
         }
-        valCached = value;
+        if (i % 2 === 0) {
+          value.push(valueChain.letter() << 8);
+        } else {
+          value[j] = (value[j] | valueChain.letter());
+          j += 1;
+        }
+        i += 1;
       }
-
-      return valCached;
+      valCached = value;
     }
+
+    return valCached;
+  };
 }
 
 FrozenTrieNode.prototype = {
@@ -798,16 +656,6 @@ FrozenTrie.prototype = {
     // The position of the first bit of the data in 0th node. In non-root
     // nodes, this would contain bitslen letters.
     this.letterStart = nodeCount * 2 + 1;
-
-    // The bit-position in this.data where the values of the final nodes start
-    // fixme: should there be a +1?
-    this.valuesStart = this.letterStart + (nodeCount * this.bitslen); // + 1;
-
-    this.valuesIndexLength = Math.ceil(Math.log2(nodeCount));
-
-    this.valuesDirBitsLength = Math.ceil(
-      Math.log2(this.data.length - this.valuesStart),
-    );
   },
 
   /**
@@ -831,13 +679,12 @@ FrozenTrie.prototype = {
    * Look-up a word in the trie. Returns true if and only if the word exists
    * in the trie.
    */
-  lookup: function (word) {
+  lookup: function (word) {   
     const index = word.lastIndexOf(ENC_DELIM[0]);
     if (index > 0) word = word.slice(0, index); //: word.slice(index + 1)
     const debug = config.debug;
     let node = this.getRoot();
-    let child;
-    const periodEncVal = TxtEnc.encode(".");
+    let child;    
     let returnValue = false;
     for (let i = 0; i < word.length; i++) {
       let isFlag = -1;
@@ -1019,12 +866,26 @@ FrozenTrie.prototype = {
             child = nodes[nodes.length - 1];
             i += comp.length - 1; // ugly compensate i++ at the top
             break;
+          } else {
+            if (child.letter() === word[i]) {
+              break;
+            } else if (word[i] > child.letter()) {
+              low = probe;
+            } else {
+              high = probe;
+            }
           }
 
           if (high - low <= 1) {
             if (debug) {
-              console.log("h-low: " + (high - low) + " c: " + node.getChildCount(),
-                    high, low, child.letter(), word[i], probe);
+              console.log(
+                "h-low: " + (high - low) + " c: " + node.getChildCount(),
+                high,
+                low,
+                child.letter(),
+                word[i],
+                probe,
+              );
             }
             return returnValue;
           }
@@ -1063,12 +924,17 @@ function customTagToFlag(fl, blocklistFileTag) {
     h |= 1 << (15 - index);
     n |= 1 << (15 - pos);
     res = CHR16(h) + res.slice(1, dataIndex) + CHR16(n) +
-        res.slice(upsertData ? (dataIndex + 1) : dataIndex);
+      res.slice(upsertData ? (dataIndex + 1) : dataIndex);
   }
   return res;
 }
 
-function createBlocklistFilter(tdbuf, rdbuf, blocklistFileTag, blocklistBasicConfig) {
+function createBlocklistFilter(
+  tdbuf,
+  rdbuf,
+  blocklistFileTag,
+  blocklistBasicConfig,
+) {
   initialize();
   try {
     let tag = {};
@@ -1083,12 +949,10 @@ function createBlocklistFilter(tdbuf, rdbuf, blocklistFileTag, blocklistBasicCon
     }
 
     const tags = new Tags(fl);
-
-    const tdv = new bufferView[W](tdubf);
+    const tdv = new bufferView[W](tdbuf);
     const rdv = new bufferView[W](rdbuf);
-    const nc = blocklistBasicConfig.nodeCount
-    const numbits = (blocklistBasicConfig.nodecount * 2) + 1
-
+    const nc = blocklistBasicConfig.nodeCount;
+    const numbits = (blocklistBasicConfig.nodecount * 2) + 1;
     const rd = new RankDirectory(rdv, tdv, numbits, L1, L2);
     const frozentrie = new FrozenTrie(tdv, rd, nc);
 
