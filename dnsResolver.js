@@ -8,6 +8,8 @@
 
 import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
+
+const ttlGraceSec = 30; //30 sec grace tiem for expired ttl answer
 export default class DNSResolver {
   constructor() {
     this.dnsParser = new DNSParserWrap();
@@ -62,18 +64,19 @@ export default class DNSResolver {
  * @returns
  */
 async function checkLocalCacheBfrResolve(param) {
-  let resp = {}
-  resp.responseDecodedDnsPacket = null
-  resp.responseBodyBuffer = null
+  let resp = {};
+  resp.responseDecodedDnsPacket = null;
+  resp.responseBodyBuffer = null;
   const dn =
     (param.requestDecodedDnsPacket.questions.length > 0
       ? param.requestDecodedDnsPacket.questions[0].name
-      : "").trim().toLowerCase() + ":" + param.requestDecodedDnsPacket.questions[0].type;
+      : "").trim().toLowerCase() +
+    ":" + param.requestDecodedDnsPacket.questions[0].type;
   let cacheRes = this.dnsResCache.Get(dn);
   let now = Date.now();
   //console.log("dn ::"+dn)
   // 30sec grace time for expired cache entries
-  if (!cacheRes || (now >= (cacheRes.data.ttlEndTime + 30))) {
+  if (!cacheRes || (now >= (cacheRes.data.ttlEndTime + ttlGraceSec))) {
     //console.log("dn Not in local Cache")
     cacheRes = await checkSecondLevelCacheBfrResolve.call(
       this,
@@ -89,17 +92,25 @@ async function checkLocalCacheBfrResolve(param) {
         cacheRes,
         dn,
       );
-      resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket
+      resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
     } else {
-      resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket
-      resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id
-      resp.responseBodyBuffer = await loadDnsResponseFromCache.call(this, resp.responseDecodedDnsPacket, cacheRes.data.ttlEndTime);
+      resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
+      resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
+      resp.responseBodyBuffer = await loadDnsResponseFromCache.call(
+        this,
+        resp.responseDecodedDnsPacket,
+        cacheRes.data.ttlEndTime,
+      );
     }
   } else {
     //console.log("dn found in local cache")
-    resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket
-    resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id
-    resp.responseBodyBuffer = await loadDnsResponseFromCache.call(this, resp.responseDecodedDnsPacket, cacheRes.data.ttlEndTime);
+    resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
+    resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
+    resp.responseBodyBuffer = await loadDnsResponseFromCache.call(
+      this,
+      resp.responseDecodedDnsPacket,
+      cacheRes.data.ttlEndTime,
+    );
   }
   this.dnsResCache.Put(cacheRes);
   return resp;
@@ -111,7 +122,7 @@ async function loadDnsResponseFromCache(dnsPacket, ttlEndTime) {
     //set 30sec grace time when ttl from cache is negative
     dnsPacket.answers[0].ttl = Math.max(
       Math.floor((ttlEndTime - now) / 1000),
-      30,
+      ttlGraceSec,
     );
   }
   return this.dnsParser.Encode(dnsPacket);
@@ -125,17 +136,19 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn) {
     let resp = await this.wCache.match(wCacheUrl);
     if (resp) {
       //console.log("dn found in worker cache")
-      let cacheRes = {}
+      let cacheRes = {};
       cacheRes.k = dn;
       cacheRes.data = {};
-      cacheRes.data.decodedDnsPacket = await this.dnsParser.Decode(await resp.arrayBuffer());
-      let metaData = JSON.parse(resp.headers.get("x-rethink-metadata"))
-      cacheRes.data.ttlEndTime = metaData.ttlEndTime
-      cacheRes.data.addTime = metaData.addTime
+      cacheRes.data.decodedDnsPacket = await this.dnsParser.Decode(
+        await resp.arrayBuffer(),
+      );
+      let metaData = JSON.parse(resp.headers.get("x-rethink-metadata"));
+      cacheRes.data.ttlEndTime = metaData.ttlEndTime;
+      cacheRes.data.addTime = metaData.addTime;
       let now = Date.now();
       //console.log(workerCacheData)
       // 30sec grace time for expired cache entries
-      if (now >= (cacheRes.data.ttlEndTime + 30)) {
+      if (now >= (cacheRes.data.ttlEndTime + ttlGraceSec)) {
         //console.log("worker cache expired by ttl")
         return false;
       }
@@ -163,25 +176,37 @@ async function resolveDnsUpdateCache(param, cacheRes, dn) {
   let decodedDnsPacket = await this.dnsParser.Decode(
     responseBodyBuffer,
   );
-  // min 60sec ttl for single answers and 300sec for multi or no answer
-  let ttl = decodedDnsPacket.answers.length == 1
-    ? Math.max(decodedDnsPacket.answers[0].ttl, 60)
-    : 300; // todo - check all answers to find min ttl
 
+  // min 60sec ttl for single answers and 300sec no answer
+  let ttl = 0;
+  if (decodedDnsPacket.answers.length > 0) {
+    for (let answer of decodedDnsPacket.answers) {
+      if (ttl == 0) {
+        ttl = Math.max((answer.ttl + ttlGraceSec), 60); //ttl + 30sec grace time is added to manage expired ttl entries
+      } else if (answer.ttl < ttl) {
+        ttl = Math.max((answer.ttl + ttlGraceSec), 60); //ttl + 30sec grace time is added to manage expired ttl entries
+      }
+    }
+  } else {
+    ttl = 300;
+  }
   cacheRes.k = dn;
   cacheRes.data = {};
   cacheRes.data.decodedDnsPacket = decodedDnsPacket;
   cacheRes.data.ttlEndTime = (ttl * 1000) + Date.now();
-  cacheRes.data.addTime = Date.now()
+  cacheRes.data.addTime = Date.now();
 
   if (param.runTimeEnv == "worker") {
     let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
     let response = new Response(responseBodyBuffer, {
       headers: {
-        'Cache-Control': 's-maxage=' + ttl,
-        'Content-Length': responseBodyBuffer.length,
-        'Content-Type': 'application/octet-stream',
-        'x-rethink-metadata': JSON.stringify({ ttlEndTime: cacheRes.data.ttlEndTime, addTime: cacheRes.data.addTime })
+        "Cache-Control": "s-maxage=" + ttl,
+        "Content-Length": responseBodyBuffer.length,
+        "Content-Type": "application/octet-stream",
+        "x-rethink-metadata": JSON.stringify({
+          ttlEndTime: cacheRes.data.ttlEndTime,
+          addTime: cacheRes.data.addTime,
+        }),
       },
       cf: { cacheTtl: ttl },
     });
@@ -219,8 +244,8 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
     ) {
       u.search = runTimeEnv == "worker" && request.method === "POST"
         ? "?dns=" +
-        btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
-          .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
+          btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
+            .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
         : u.search;
       // console.debug("buf length:", requestBodyBuffer.byteLength);
       // console.debug(u.href);
