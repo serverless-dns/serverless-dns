@@ -75,7 +75,7 @@ export class BlocklistWrapper {
         const retryLimit = 200; // 200 * (10000 / 200) == 10000ms
         const waitms = Math.floor(param.fetchTimeout / retryLimit);
         while (
-          this.isBlocklistUnderConstruction == true && this.isException == false
+          this.isBlocklistUnderConstruction == true && this.isException == false && this.blocklistFilter == null
         ) {
           if (retryCount >= retryLimit) {
             break;

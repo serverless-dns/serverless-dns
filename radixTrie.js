@@ -747,9 +747,7 @@ FrozenTrie.prototype = {
         while (high - low > 1) {
           const probe = (high + low) / 2 | 0;
           child = node.getChild(probe);
-          const prevchild = (probe > isFlag)
-            ? node.getChild(probe - 1)
-            : undefined;
+          const prevchild = (probe > isFlag) ? node.getChild(probe - 1) : undefined;
           if (debug) {
             console.log(
               "        current: " + child.letter() + " l: " + low + " h: " +
@@ -951,7 +949,7 @@ function createBlocklistFilter(
     const tags = new Tags(fl);
     const tdv = new bufferView[W](tdbuf);
     const rdv = new bufferView[W](rdbuf);
-    const nc = blocklistBasicConfig.nodeCount;
+    const nc = blocklistBasicConfig.nodecount;
     const numbits = (blocklistBasicConfig.nodecount * 2) + 1;
     const rd = new RankDirectory(rdv, tdv, numbits, L1, L2);
     const frozentrie = new FrozenTrie(tdv, rd, nc);
