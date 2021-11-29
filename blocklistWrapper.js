@@ -14,7 +14,6 @@ export class BlocklistWrapper {
     this.blocklistFilter = null;
     this.startTime;
     this.isBlocklistUnderConstruction = false;
-    this.isException = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
   }
@@ -35,34 +34,29 @@ export class BlocklistWrapper {
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
+    if (this.blocklistFilter !== null) {
+      response.data.blocklistFilter = this.blocklistFilter;
+      return response;
+    }
     try {
-      let now = Date.now();
-      if (
-        this.blocklistFilter == null &&
-        this.isBlocklistUnderConstruction == false
-      ) {
-        this.isBlocklistUnderConstruction = true;
-        this.startTime = Date.now();
+      const now = Date.now();
+      if (this.isBlocklistUnderConstruction === false) {
         return await this.initBlocklistConstruction(
+          now,
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
           param.tdParts,
         );
-      } else if (
-        this.blocklistFilter == null &&
-        this.isBlocklistUnderConstruction == true &&
-        (now - this.startTime) > param.workerTimeout
-      ) {
-        this.startTime = Date.now();
-        this.isException = false;
+      } else if ((now - this.startTime) > (param.workerTimeout * 2)) {
         return await this.initBlocklistConstruction(
+          now,
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
           param.tdParts,
         );
-      } else {
+      } else { // someone's constructing... wait till finished
         // res.arrayBuffer() is the most expensive op, taking anywhere
         // between 700ms to 1.2s for trie. But: We don't want all incoming
         // reqs to wait until the trie becomes available. 400ms is 1/3rd of
@@ -71,31 +65,22 @@ export class BlocklistWrapper {
         // equals cost of one bundled req.
         // going back to direct-s3 download as worker-bundled blocklist files download
         // gets triggered for 10% of requests.
-        let retryCount = 0;
-        const retryLimit = 200; // 200 * (10000 / 200) == 10000ms
-        const waitms = Math.floor(param.fetchTimeout / retryLimit);
-        while (
-          this.isBlocklistUnderConstruction == true && this.isException == false && this.blocklistFilter == null
-        ) {
-          if (retryCount >= retryLimit) {
-            break;
+        let totalWaitms = 0;
+        const waitms = 50
+        while (totalWaitms < param.fetchTimeout) {
+          if (this.blocklistFilter !== null) {
+            response.data.blocklistFilter = this.blocklistFilter;
+            return response
           }
           await sleep(waitms);
+          totalWaitms += waitms
           retryCount++;
         }
-
-        if (this.blocklistFilter != null) {
-          response.data.blocklistFilter = this.blocklistFilter;
-        } else if (this.isException == true) {
           response.isException = true;
-          response.exceptionStack = this.exceptionStack;
-          response.exceptionFrom = this.exceptionFrom;
-        } else {
-          response.isException = true;
-          response.exceptionStack =
-            "Problem in loading blocklistFilter - Waiting Timeout";
-          response.exceptionFrom = "blocklistWrapper.js RethinkModule";
-        }
+          response.exceptionStack = (this.exceptionStack) ? this.exceptionStack :
+              "Problem in loading blocklistFilter - Waiting Timeout";
+          response.exceptionFrom = (this.exceptionFrom) ? this.exceptionFrom :
+              "blocklistWrapper.js RethinkModule";
       }
     } catch (e) {
       response.isException = true;
@@ -108,11 +93,15 @@ export class BlocklistWrapper {
   }
 
   async initBlocklistConstruction(
+    when,
     blocklistUrl,
     latestTimestamp,
     tdNodecount,
     tdParts,
   ) {
+    this.isBlocklistUnderConstruction = true;
+    this.startTime = when
+
     let response = {};
     response.isException = false;
     response.exceptionStack = "";
@@ -120,28 +109,27 @@ export class BlocklistWrapper {
     response.data = {};
 
     try {
-      let resp = await downloadBuildBlocklist(
+      const bl = await downloadBuildBlocklist(
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
         tdParts,
       );
       this.blocklistFilter = new BlocklistFilter(
-        resp.t,
-        resp.ft,
-        resp.blocklistBasicConfig,
-        resp.blocklistFileTag,
+        bl.t,
+        bl.ft,
+        bl.blocklistBasicConfig,
+        bl.blocklistFileTag,
       );
       this.isBlocklistUnderConstruction = false;
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
+      this.isBlocklistUnderConstruction = false;
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
-      this.isException = true;
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
-      console.error("Error At -> BlocklistWrapper initBlocklistConstruction");
       console.error(e.stack);
     }
     return response;
@@ -164,7 +152,7 @@ async function downloadBuildBlocklist(
     };
 
     tdNodecount == null &&
-      console.error("tdNodecount missing! Blocking won't work");
+    console.error("tdNodecount missing! Blocking won't work");
     //let now = Date.now();
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
@@ -192,15 +180,22 @@ async function downloadBuildBlocklist(
   }
 }
 
-async function fileFetch(url, type) {
+async function fileFetch(url, typ) {
+  if (typ !== "buffer" && typ !== "json") {
+    throw new Error("Unknown conversion type at fileFetch");
+  }
   //console.log("Downloading : "+url)
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
-  if (type == "buffer") {
-    return await res.arrayBuffer();
-  } else if (type == "json") {
-    return await res.json();
+  if (res.status == 200) {
+    if (typ == "buffer") {
+      return await res.arrayBuffer();
+    } else if (typ == "json") {
+      return await res.json();
+    }
+  } else {
+    console.error(url, res);
+    throw new Error(JSON.stringify([url, res, "response status unsuccessful at fileFetch"]));
   }
-  throw "Unknown conversion type at fileFetch";
 }
 
 const sleep = (ms) => {
