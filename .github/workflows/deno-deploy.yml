@@ -1,0 +1,49 @@
+name: 🦕 Deno deploy
+
+on:
+  # push:
+  #   tags:
+  #     - "*"
+  #   branches:
+  #     - "main"
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "Branch / ref / tag to build"
+        required: false
+        default: "main"
+
+env:
+  BUILD_BRANCH: "build/deno-deploy"
+
+jobs:
+  deploy:
+    name: 🌯 Bundle app
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.git-ref || github.ref }}
+
+      - name: 🧰 Configuring workspace
+        run: |
+          git fetch --all
+          git checkout --orphan ${BUILD_BRANCH} || git checkout ${BUILD_BRANCH}
+          git reset
+          git merge origin/${BUILD_BRANCH} || :
+
+      - name: 📦 Bundling...
+        run: |
+          curl -fsSL https://deno.land/x/install/install.sh | sh
+          export DENO_INSTALL="/home/runner/.deno"
+          export PATH="$DENO_INSTALL/bin:$PATH"
+          deno bundle --import-map=import_map.json http.ts http.ts
+
+      - name: 🚢 Pushing to branch build branch
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git add 'http.ts'
+          git commit -m "Update bundle"
+          git push origin ${BUILD_BRANCH}

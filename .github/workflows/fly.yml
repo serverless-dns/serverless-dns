@@ -12,7 +12,7 @@ on:
         default: "main"
       deployment:
         description: "Deployment: dev || live || b1"
-        required: true
+        required: false
         default: "dev"
 
 env:
