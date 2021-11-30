@@ -46,6 +46,7 @@ export default class RethinkPlugin {
         "workerTimeout",
         "tdParts",
         "tdNodecount",
+        "fetchTimeout",
       ],
       blocklistFilterCallBack,
       false,

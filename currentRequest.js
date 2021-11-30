@@ -30,7 +30,7 @@ export default class CurrentRequest {
     singleLog.exceptionStack = this.exceptionStack;
     const dnsEncodeObj = this.dnsParser.Encode({
       type: "response",
-      flags: 1,
+      flags: 4098, //sets server fail response
     });
     this.httpResponse = new Response(dnsEncodeObj);
     setResponseCommonHeader.call(this);

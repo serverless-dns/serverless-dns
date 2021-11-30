@@ -23,6 +23,10 @@ export default class Env {
       );
       this.env.set("workerTimeout", WORKER_TIMEOUT);
 
+      //adding download timeout with worker time to determine worker's overall timeout
+      this.env.set("workerTimeout", (WORKER_TIMEOUT + CF_BLOCKLIST_DOWNLOAD_TIMEOUT));
+      //parallel request wait timeout for download blocklist from s3
+      this.env.set("fetchTimeout", CF_BLOCKLIST_DOWNLOAD_TIMEOUT);
       //env variables for td file split
       this.env.set("tdNodecount", TD_NODE_COUNT);
       this.env.set("tdParts", TD_PARTS);
@@ -51,6 +55,8 @@ export default class Env {
     this.env.set("tdNodecount", Deno.env.get("TD_NODE_COUNT"));
     this.env.set("tdParts", Deno.env.get("TD_PARTS"));
 
+    //parallel request wait timeout for download blocklist from s3
+    this.env.set("fetchTimeout", Deno.env.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT"));
     this.isLoaded = true;
   }
   loadEnvNode() {
@@ -70,6 +76,8 @@ export default class Env {
     this.env.set("tdNodecount", process.env.TD_NODE_COUNT);
     this.env.set("tdParts", process.env.TD_PARTS);
 
+   //parallel request wait timeout for download blocklist from s3
+    this.env.set("fetchTimeout", process.env.CF_BLOCKLIST_DOWNLOAD_TIMEOUT);
     this.isLoaded = true;
   }
   getEnvMap() {

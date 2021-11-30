@@ -11,6 +11,8 @@ CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
 TD_NODE_COUNT = "39479810"
 TD_PARTS = "2"
 CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
+# parallel request wait timeout for download blocklist from s3
+CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 10000
 
 [experimental]
 allowed_public_ports = []
