@@ -32,6 +32,23 @@ export class CommandControl {
         param.blocklistFilter,
         param.request.headers,
       );
+    } else if (param.request.method === "POST") {
+      response.data.stopProcessing = true;
+      const isPOSTDnsMsg = headers.get("Accept") == "application/dns-message" ||
+        headers.get("Content-Type") == "application/dns-message";
+
+      if (isPOSTDnsMsg) {
+        response.data.stopProcessing = false;
+      } else {
+        response.data.httpResponse = new Response(null, {
+          "status": 400,
+          "statusText": "Bad Request",
+          "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+          },
+        });
+      }
     }
     return response;
   }
@@ -42,8 +59,7 @@ export class CommandControl {
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
-    const isDnsMsg = headers.get("Accept") == "application/dns-message" ||
-      headers.get("Content-Type") == "application/dns-message";
+    const isGETDnsMsg = headers.get("Accept") == "application/dns-message";
     try {
       response.data.stopProcessing = true;
       response.data.httpResponse;
@@ -92,7 +108,7 @@ export class CommandControl {
           b64UserFlag,
           reqUrl.origin,
         );
-      } else if (!isDnsMsg) {
+      } else if (!isGETDnsMsg) {
         response.data.httpResponse = Response.redirect(weburl, 302);
       } else if (queryString.has("dns")) {
         response.data.stopProcessing = false;

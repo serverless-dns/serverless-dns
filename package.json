@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/command-control",
-  "version": "2.2.2",
+  "version": "2.2.4",
   "description": "",
   "main": "cc.js",
   "type": "module",
