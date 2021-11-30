@@ -1,4 +1,4 @@
-name = "basic-unbound"
+name = "serverless-dns"
 route = ""
 type = "webpack"
 account_id = ""
@@ -7,10 +7,10 @@ zone_id = ""
 compatibility_date = "2021-09-21"
 
 [vars]
-WORKER_TIMEOUT = 2000
+WORKER_TIMEOUT = 10000
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 400
 RUNTIME_ENV = "worker"
-CF_BLOCKLIST_URL = "https://delegate-download.bravedns.com/"
+CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
 CF_PROCESS_DNS_ON_DNSPARSER_EXCEPTION = false
 CF_ON_INVALID_FLAG_STOPPROCESSING = true
