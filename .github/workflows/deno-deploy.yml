@@ -1,20 +1,25 @@
 name: 🦕 Deno deploy
 
 on:
-  # push:
-  #   tags:
-  #     - "*"
-  #   branches:
-  #     - "main"
+  push:
+    branches:
+      - "main"
   workflow_dispatch:
     inputs:
       git-ref:
         description: "Branch / ref / tag to build"
         required: false
         default: "main"
+      deployment-type:
+        description: "Deployment type: dev || live"
+        required: false
+        default: "dev"
 
 env:
-  BUILD_BRANCH: "build/deno-deploy"
+  BUILD_BRANCH: >
+    ${{ github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.deployment-type == 'live' &&
+      'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
 
 jobs:
   deploy:
@@ -38,12 +43,14 @@ jobs:
           curl -fsSL https://deno.land/x/install/install.sh | sh
           export DENO_INSTALL="/home/runner/.deno"
           export PATH="$DENO_INSTALL/bin:$PATH"
-          deno bundle --import-map=import_map.json http.ts http.ts
+          deno bundle --import-map=import_map.json http.ts http.bundle.js
 
-      - name: 🚢 Pushing to branch build branch
+      - name: 🚢 Pushing to build branch
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
-          git add 'http.ts'
-          git commit -m "Update bundle"
+          git add http.bundle.js
+          git commit -m "Update bundle for ${GITHUB_SHA}" && \
+            echo "::notice::Pushing to ${BUILD_BRANCH}" || \
+            echo "::notice::No changes to commit"
           git push origin ${BUILD_BRANCH}

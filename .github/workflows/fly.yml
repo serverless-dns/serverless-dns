@@ -10,7 +10,7 @@ on:
         description: "Branch / ref / tag to build"
         required: false
         default: "main"
-      deployment:
+      deployment-type:
         description: "Deployment: dev || live || b1"
         required: false
         default: "dev"
@@ -31,13 +31,13 @@ jobs:
 
       - name: ⚠️ *B1* Fly App ?
         if: ${{ github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.deployment == 'b1' }}
+          github.event.inputs.deployment-type == 'b1' }}
         run: |
           echo "FLY_APP=${{ secrets.FLY_APP_NAME_B1 }}" >> $GITHUB_ENV
 
       - name: 🚨 *LIVE* Fly App ?
         if: ${{ github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.deployment == 'live' }}
+          github.event.inputs.deployment-type == 'live' }}
         run: |
           echo "FLY_APP=${{ secrets.FLY_APP_NAME_LIVE }}" >> $GITHUB_ENV
 
