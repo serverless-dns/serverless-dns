@@ -47,10 +47,14 @@ export class CommandControl {
     try {
       response.data.stopProcessing = true;
       response.data.httpResponse;
-      let reqUrl = new URL(url);
-      let queryString = reqUrl.searchParams;
-      let pathSplit = reqUrl.pathname.split("/");
+      const reqUrl = new URL(url);
+      const queryString = reqUrl.searchParams;
+      const pathSplit = reqUrl.pathname.split("/");
       let command = pathSplit[1];
+      if (!command) {
+        const d = reqUrl.host.split("."); // ex: xyz.max.rethinkdns.com
+        command = (d.length > 3 && d[2] === "rethinkdns") ? d[0] : ""
+      }
       const weburl = command == ""
         ? "https://rethinkdns.com/configure"
         : "https://rethinkdns.com/configure?s=added#" + command;
