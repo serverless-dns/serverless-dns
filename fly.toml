@@ -2,6 +2,7 @@ app = ""
 
 kill_signal = "SIGINT"
 kill_timeout = 5
+# processes = []
 
 [env]
 DENO_ENV = "production"
@@ -18,17 +19,17 @@ CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 10000
 allowed_public_ports = []
 auto_rollback = true
 
-# Don't use `processes`, undocumented and causes problems with [auto]scaling.
+# Don't use `[processes]`, undocumented and causes problems with [auto]scaling.
 # Instead, use CMD in Dockerfile.
 # [processes]
-# main_process = "run --allow-net --allow-env --import-map=import_map.json http.ts"
-# main_process = "node server.js"
+# app = "run --allow-net --allow-env --import-map=import_map.json http.ts"
+# app = "node server.js"
 
 # DNS over HTTP[S]
 [[services]]
 http_checks = []
 internal_port = 8080
-# processes = ["main_process"]
+# processes = ["app"]
 protocol = "tcp"
 script_checks = []
 
@@ -51,7 +52,7 @@ script_checks = []
 [[services]]
 http_checks = []
 internal_port = 10000
-# processes = ["main_process"]
+# processes = ["app"]
 protocol = "tcp"
 script_checks = []
 
