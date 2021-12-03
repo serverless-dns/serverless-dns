@@ -10,7 +10,6 @@ import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
 const ttlGraceSec = 30; //30 sec grace tiem for expired ttl answer
-const now = Date.now();
 const lfusize= 2000; // TODO: retrieve this from env
 
 export default class DNSResolver {
@@ -18,28 +17,6 @@ export default class DNSResolver {
     this.dnsParser = new DNSParserWrap();
     this.dnsResCache = false;
     this.wCache = false;
-  }
-
-  function emptyResponse() {
-    return {
-      isException: false,
-      exceptionStack: "",
-      exceptionFrom: "",
-      data: {},
-      responseDecodedDnsPacket: null,
-      responseBodyBuffer: null
-    }
-  }
-
-  function errResponse(e) {
-      return {
-        isException: true,
-        exceptionStack: e.stack,
-        exceptionFrom: "DNSResolver RethinkModule",
-        data: false,
-        responseDecodedDnsPacket: null,
-        responseBodyBuffer: null
-      }
   }
 
   /**
@@ -71,6 +48,27 @@ export default class DNSResolver {
   }
 }
 
+function emptyResponse() {
+  return {
+    isException: false,
+    exceptionStack: "",
+    exceptionFrom: "",
+    data: {},
+    responseDecodedDnsPacket: null,
+    responseBodyBuffer: null
+  }
+}
+
+function errResponse(e) {
+    return {
+      isException: true,
+      exceptionStack: e.stack,
+      exceptionFrom: "DNSResolver RethinkModule",
+      data: false,
+      responseDecodedDnsPacket: null,
+      responseBodyBuffer: null
+    }
+}
 /**
  * @param {Object} param
  * @returns
@@ -80,13 +78,14 @@ async function checkLocalCacheBfrResolve(param) {
   const dn = (param.requestDecodedDnsPacket.questions.length > 0 ?
         param.requestDecodedDnsPacket.questions[0].name : "").trim().toLowerCase() +
         ":" + param.requestDecodedDnsPacket.questions[0].type;
+  const now = Date.now();
   let cacheRes = this.dnsResCache.Get(dn);
 
-  if (!cacheRes || (now >= (cacheRes.data.ttlEndTime + ttlGraceSec))) {
-    cacheRes = await checkSecondLevelCacheBfrResolve.call(this, param.runTimeEnv, param.request.url, dn);
+  if (!cacheRes || (now >= cacheRes.data.ttlEndTime)) {
+    cacheRes = await checkSecondLevelCacheBfrResolve.call(this, param.runTimeEnv, param.request.url, dn, now);
     if (!cacheRes) { // upstream if not in both lfu (l1) and workers (l2) cache
       cacheRes = {};
-      resp.responseBodyBuffer = await resolveDnsUpdateCache.call(this, param, cacheRes, dn);
+      resp.responseBodyBuffer = await resolveDnsUpdateCache.call(this, param, cacheRes, dn, now);
       resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
       this.dnsResCache.Put(cacheRes);
       return resp;
@@ -95,19 +94,19 @@ async function checkLocalCacheBfrResolve(param) {
 
   resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
   resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
-  resp.responseBodyBuffer = await loadDnsResponseFromCache.call(this, resp.responseDecodedDnsPacket, cacheRes.data.ttlEndTime);
+  resp.responseBodyBuffer = await loadDnsResponseFromCache.call(this, resp.responseDecodedDnsPacket, cacheRes.data.ttlEndTime, now);
   return resp;
 }
 
-async function loadDnsResponseFromCache(dnsPacket, ttlEndTime) {
-  const outttl = Math.max(Math.floor(ttlEndTime - now / 1000), ttlGraceSec)
+async function loadDnsResponseFromCache(dnsPacket, ttlEndTime, now) {
+  const outttl = Math.max(Math.floor(ttlEndTime - now / 1000), 1) // to verify ttl is not set to 0sec
   for (let answer of dnsPacket.answers) {
     answer.ttl = outttl
   }
   return this.dnsParser.Encode(dnsPacket);
 }
 
-async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn) {
+async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
   if (runTimeEnv !== "worker") {
     return false;
   }
@@ -135,7 +134,7 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn) {
  * @param {String} dn
  * @returns
  */
-async function resolveDnsUpdateCache(param, cacheRes, dn) {
+async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
   let responseBodyBuffer = await (await resolveDns(param.request,
         param.dnsResolverUrl, param.requestBodyBuffer, param.runTimeEnv)).arrayBuffer();
 
