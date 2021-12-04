@@ -13,18 +13,19 @@ const tlsOptions = {
 };
 const minDNSPacketSize = 12 + 5;
 const maxDNSPacketSize = 4096;
+const dnsHeaderSize = 2;
 
 const tServer = tls.createServer(tlsOptions, serveTLS).listen(
   TLS_PORT,
-  () => logListner(tServer.address()),
+  () => up(tServer.address()),
 );
 
 const hServer = https.createServer(tlsOptions, serveHTTPS).listen(
   HTTPS_PORT,
-  () => logListner(hServer.address()),
+  () => up(hServer.address()),
 );
 
-function logListner(addr) {
+function up(addr) {
   console.log(`listening on: [${addr.address}]:${addr.port}`);
 }
 
@@ -39,48 +40,48 @@ function serveTLS(socket) {
     return;
   }
 
-  // console.debug("-> TLS @", socket.servername);
-  let qlBuf = Buffer.allocUnsafe(2).fill(0);
-  let qlBufPtr = 0;
+  let qlBuf = Buffer.allocUnsafe(dnsHeaderSize).fill(0);
+  let qlBufOffset = 0;
 
   socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
-    const cl = chunk.byteLength;
-    if (cl == 0) return;
-    if (cl == 1) {
-      qlBuf.fill(chunk, qlBufPtr);
-      qlBufPtr = qlBufPtr ? 0 : 1;
-      return;
-    }
-    if (qlBufPtr) {
-      qlBuf.fill(chunk.slice(0, 1), qlBufPtr);
-      qlBufPtr = 0;
-      chunk = chunk.slice(1);
-    }
-    if (!qlBuf.readUInt16BE() && cl == 2) {
-      qlBuf = chunk;
-      return;
-    }
 
-    const ql = qlBuf.readUInt16BE() || chunk.slice(0, 2).readUInt16BE();
-    // console.debug(`q len = ${ql}`);
+    const cl = chunk.byteLength;
+    if (cl <= 0) return;
+
+    const rem = dnsHeaderSize - qlBufOffset; // not more than 2 bytes
+    const seek = Math.min(rem, cl);
+    if (seek > 0) {
+      const read = chunk.slice(0, seek)
+      qlBuf.fill(read, qlBufOffset);
+      qlBufOffset += seek;
+    }
+    // done reading entire chunk
+    if (cl === seek) return;
+
+    // read the actual dns query starting from seek-th byte
+    chunk = chunk.slice(seek);
+
+    const ql = qlBuf.readUInt16BE();
+    qlBuf.fill(0);
+
     if (ql < minDNSPacketSize || ql > maxDNSPacketSize) {
       console.warn(`TCP query length out of [min, max] bounds: ${ql}`);
       socket.destroy();
       return;
     }
 
-    const q = qlBuf.readUInt16BE() ? chunk : chunk.slice(2);
-    // console.debug(`Read q:`, q);
-    qlBuf.fill(0);
-
-    if (q.byteLength != ql) {
-      console.warn(`incomplete query: ${q.byteLength} < ${ql}`);
+    // chunk must exactly be ql bytes in size
+    if (chunk.byteLength !== ql) {
+      console.warn(`size mismatch: ${chunk.byteLength} <> ${ql}`);
       socket.destroy();
       return;
     }
 
-    // console.debug("-> TLS q", q.byteLength);
-    handleTCPQuery(q, socket);
+    const ok = await handleTCPQuery(chunk, socket);
+    // Only close socket on error, else it would break pipelining of queries.
+    if (!ok && !socket.destroyed) {
+      socket.destroy();
+    }
   });
 
   socket.on("end", () => {
@@ -94,20 +95,19 @@ function serveTLS(socket) {
  * @param {tls.TLSSocket} socket
  */
 async function handleTCPQuery(q, socket) {
+  if (socket.destroyed) return false;
   try {
     // const t1 = Date.now(); // debug
     const r = await resolveQuery(q, socket.servername);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-    if (!socket.destroyed) {
-      const wrote = socket.write(new Uint8Array([...rlBuf, ...r]));
-      if (!wrote) console.error(`res write incomplete: < ${r.byteLength + 2}`);
-      // console.debug("processing time t-q =", Date.now() - t1);
-    }
+    const y = socket.write(new Uint8Array([...rlBuf, ...r]));
+    if (!y) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+    // console.debug("processing time t-q =", Date.now() - t1);
+    return y;
   } catch (e) {
     console.warn(e);
-    // Only close socket on error, else it would break pipelining of queries.
-    if (!socket.destroyed) socket.destroy();
   }
+  return false;
 }
 
 /**
@@ -122,6 +122,8 @@ async function resolveQuery(q, sni) {
     ? ["", sni]
     : [sni.split(".")[0].replace(/-/g, "+"), sni.slice(sni.indexOf(".") + 1)];
 
+  // FIXME: GET requests are capped at 2KB, where-as DNS-over-TCP
+  // has a much higher ceiling (even if rarely used)
   const qURL = new URL(
     `/${flag}?dns=${q.toString("base64url").replace(/=/g, "")}`,
     `https://${host}`,
@@ -152,9 +154,7 @@ async function serveHTTPS(req, res) {
   const b = Buffer.concat(buffers);
   const bl = b.byteLength;
 
-  if (
-    req.method == "POST" && (bl < minDNSPacketSize || bl > maxDNSPacketSize)
-  ) {
+  if (req.method == "POST" && (bl < minDNSPacketSize || bl > maxDNSPacketSize)) {
     console.warn(`HTTP req body length out of [min, max] bounds: ${bl}`);
     res.end();
     return;
@@ -184,10 +184,7 @@ async function handleHTTPRequest(b, req, res) {
     );
     const fRes = await handleRequest({ request: fReq });
 
-    const resHeaders = {};
-    fRes.headers.forEach((v, k) => {
-      resHeaders[k] = v;
-    });
+    const resHeaders = Object.assign({}, fRes.headers);
     res.writeHead(fRes.status, resHeaders);
     res.end(Buffer.from(await fRes.arrayBuffer()));
     // console.debug("processing time h-q =", Date.now() - t1);
