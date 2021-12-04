@@ -114,7 +114,7 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
   let resp = await this.wCache.match(wCacheUrl);
   if (resp) { // cache hit
     const metaData = JSON.parse(resp.headers.get("x-rethink-metadata"));
-    if (now >= (cacheRes.data.ttlEndTime + ttlGraceSec)) {
+    if (now >= (cacheRes.data.ttlEndTime)) {
       return false;
     }
 
@@ -123,7 +123,6 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
     cacheRes.data = {};
     cacheRes.data.decodedDnsPacket = await this.dnsParser.Decode(await resp.arrayBuffer());
     cacheRes.data.ttlEndTime = metaData.ttlEndTime;
-    cacheRes.data.addTime = metaData.addTime;
     return cacheRes;
   }
 }
@@ -152,7 +151,6 @@ async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
   cacheRes.data = {};
   cacheRes.data.decodedDnsPacket = decodedDnsPacket;
   cacheRes.data.ttlEndTime = (minttl * 1000) + now;
-  cacheRes.data.addTime = now;
 
   if (param.runTimeEnv == "worker") { // workers cache it
     let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
@@ -163,7 +161,6 @@ async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
         "Content-Type": "application/octet-stream",
         "x-rethink-metadata": JSON.stringify({
           ttlEndTime: cacheRes.data.ttlEndTime,
-          addTime: cacheRes.data.addTime,
         }),
       },
       cf: { cacheTtl: minttl },
