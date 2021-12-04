@@ -49,43 +49,64 @@ function serveTLS(socket) {
     return;
   }
 
-  let qlBuf = createBuffer(dnsHeaderSize);
-  let qlBufOffset = recycleBuffer(qlBuf);
+  let qlenBuf = createBuffer(dnsHeaderSize);
+  let qlenBufOffset = recycleBuffer(qlenBuf);
+  let qBuf = null;
+  let qBufOffset = 0;
 
   socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
 
     const cl = chunk.byteLength;
     if (cl <= 0) return;
 
-    const rem = dnsHeaderSize - qlBufOffset; // not more than 2 bytes
-    const seek = Math.min(rem, cl);
-    if (seek > 0) {
+    // read header first which contains length(dns-query)
+    const rem = dnsHeaderSize - qlenBufOffset;
+    if (rem > 0) {
+      const seek = Math.min(rem, cl);
       const read = chunk.slice(0, seek)
-      qlBuf.fill(read, qlBufOffset);
-      qlBufOffset += seek;
+      qlenBuf.fill(read, qlenBufOffset);
+      qlenBufOffset += seek;
     }
-    // done reading entire chunk
-    if (cl === seek) return;
 
-    // read the actual dns query starting from seek-th byte
-    chunk = chunk.slice(seek);
+    // header has not been read fully, yet
+    if (qlenBufOffset !== dnsHeaderSize) return;
 
-    const ql = qlBuf.readUInt16BE();
-    qlBufOffset = recycleBuffer(qlBuf);
-    if (ql < minDNSPacketSize || ql > maxDNSPacketSize) {
-      console.warn(`dns query out of range: ql:${ql} cl:${cl} seek:${seek} rem:${rem}`);
+    const qlen = qlenBuf.readUInt16BE();
+    if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
+      console.warn(`dns query out of range: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`);
       socket.destroy();
       return;
     }
 
-    // chunk must exactly be ql bytes in size
-    if (chunk.byteLength !== ql) {
-      console.warn(`size mismatch: ${chunk.byteLength} <> ${ql}`);
-      socket.destroy();
-      return;
+    // rem bytes already read, is any more left in chunk?
+    const size = cl - rem;
+    if (size <= 0) return;
+
+    // hopefully fast github.com/nodejs/node/issues/20130#issuecomment-382417255
+    // chunk out dns-query starting rem-th byte
+    const data = chunk.slice(rem);
+
+    if (qBuf === null) {
+      qBuf = createBuffer(qlen);
+      qBufOffset = recycleBuffer(qBuf);
     }
 
-    handleTCPQuery(chunk, socket);
+    qBuf.fill(data, qBufOffset);
+    qBufOffset += size;
+
+    // exactly qlen bytes read till now, handle the dns query
+    if (qBufOffset === qlen) {
+      handleTCPQuery(qBuf, socket);
+      // reset qBuf and qlenBuf states
+      qlenBufOffset = recycleBuffer(qlenBuf);
+      qBuf = null;
+      qBufOffset = 0;
+    } else if (qBufOffset > qlen) {
+      console.warn(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
+      socket.destroy();
+      return;
+    } // continue reading from socket
+
   });
 
   socket.on("end", () => {
