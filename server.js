@@ -29,6 +29,15 @@ function up(addr) {
   console.log(`listening on: [${addr.address}]:${addr.port}`);
 }
 
+function recycleBuffer(b) {
+  b.fill(0);
+  return 0;
+}
+
+function createBuffer(size) {
+  return Buffer.allocUnsafe(size);
+}
+
 /**
  * Services a DNS over TLS connection
  * @param {tls.TLSSocket} socket
@@ -40,8 +49,8 @@ function serveTLS(socket) {
     return;
   }
 
-  let qlBuf = Buffer.allocUnsafe(dnsHeaderSize).fill(0);
-  let qlBufOffset = 0;
+  let qlBuf = createBuffer(dnsHeaderSize);
+  let qlBufOffset = recycleBuffer(qlBuf);
 
   socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
 
@@ -62,8 +71,7 @@ function serveTLS(socket) {
     chunk = chunk.slice(seek);
 
     const ql = qlBuf.readUInt16BE();
-    qlBuf.fill(0);
-
+    qlBufOffset = recycleBuffer(qlBuf);
     if (ql < minDNSPacketSize || ql > maxDNSPacketSize) {
       console.warn(`dns query out of range: ql:${ql} cl:${cl} seek:${seek} rem:${rem}`);
       socket.destroy();
