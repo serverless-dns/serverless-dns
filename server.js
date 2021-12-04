@@ -65,7 +65,7 @@ function serveTLS(socket) {
     qlBuf.fill(0);
 
     if (ql < minDNSPacketSize || ql > maxDNSPacketSize) {
-      console.warn(`TCP query length out of [min, max] bounds: ${ql}`);
+      console.warn(`dns query out of range: ql:${ql} cl:${cl} seek:${seek} rem:${rem}`);
       socket.destroy();
       return;
     }
