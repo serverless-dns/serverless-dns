@@ -11,8 +11,8 @@ const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
 };
-const MinDNSPacketSize = 12 + 5;
-const MaxDNSPacketSize = 4096;
+const minDNSPacketSize = 12 + 5;
+const maxDNSPacketSize = 4096;
 
 const tServer = tls.createServer(tlsOptions, serveTLS).listen(
   TLS_PORT,
@@ -63,7 +63,7 @@ function serveTLS(socket) {
 
     const ql = qlBuf.readUInt16BE() || chunk.slice(0, 2).readUInt16BE();
     // console.debug(`q len = ${ql}`);
-    if (ql < MinDNSPacketSize || ql > MaxDNSPacketSize) {
+    if (ql < minDNSPacketSize || ql > maxDNSPacketSize) {
       console.warn(`TCP query length out of [min, max] bounds: ${ql}`);
       socket.destroy();
       return;
@@ -105,7 +105,7 @@ async function handleTCPQuery(q, socket) {
     }
   } catch (e) {
     console.warn(e);
-  } finally {
+    // Only close socket on error, else it would break pipelining of queries.
     if (!socket.destroyed) socket.destroy();
   }
 }
@@ -149,24 +149,27 @@ async function serveHTTPS(req, res) {
   for await (const chunk of req) {
     buffers.push(chunk);
   }
-  const q = Buffer.concat(buffers);
+  const b = Buffer.concat(buffers);
+  const bl = b.byteLength;
 
-  if (q.byteLength > MaxDNSPacketSize) {
-    console.warn(`HTTP req body too large: ${q.byteLength}`);
+  if (
+    req.method == "POST" && (bl < minDNSPacketSize || bl > maxDNSPacketSize)
+  ) {
+    console.warn(`HTTP req body length out of [min, max] bounds: ${bl}`);
     res.end();
     return;
   }
 
-  // console.debug("-> HTTPS req", q.byteLength);
-  handleHTTPRequest(q, req, res);
+  // console.debug("-> HTTPS req", req.method, bl);
+  handleHTTPRequest(b, req, res);
 }
 
 /**
- * @param {Buffer} q - Request body
+ * @param {Buffer} b - Request body
  * @param {IncomingMessage} req
  * @param {ServerResponse} res
  */
-async function handleHTTPRequest(q, req, res) {
+async function handleHTTPRequest(b, req, res) {
   try {
     // const t1 = Date.now(); // debug
     const fReq = new Request(
@@ -176,7 +179,7 @@ async function handleHTTPRequest(q, req, res) {
         // properties, especially of "hidden" Symbol values!? like "headers"?
         ...req,
         headers: req.headers,
-        body: req.method.toUpperCase() == "POST" ? q : null,
+        body: req.method.toUpperCase() == "POST" ? b : null,
       },
     );
     const fRes = await handleRequest({ request: fReq });
