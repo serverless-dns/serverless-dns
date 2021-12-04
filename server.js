@@ -77,11 +77,7 @@ function serveTLS(socket) {
       return;
     }
 
-    const ok = await handleTCPQuery(chunk, socket);
-    // Only close socket on error, else it would break pipelining of queries.
-    if (!ok && !socket.destroyed) {
-      socket.destroy();
-    }
+    handleTCPQuery(chunk, socket);
   });
 
   socket.on("end", () => {
@@ -95,19 +91,25 @@ function serveTLS(socket) {
  * @param {tls.TLSSocket} socket
  */
 async function handleTCPQuery(q, socket) {
-  if (socket.destroyed) return false;
+  let ok = true;
+  if (socket.destroyed) return;
+
   try {
     // const t1 = Date.now(); // debug
     const r = await resolveQuery(q, socket.servername);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-    const y = socket.write(new Uint8Array([...rlBuf, ...r]));
-    if (!y) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+    ok = socket.write(new Uint8Array([...rlBuf, ...r]));
+    if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
     // console.debug("processing time t-q =", Date.now() - t1);
-    return y;
   } catch (e) {
+    ok = false
     console.warn(e);
   }
-  return false;
+
+  // Only close socket on error, else it would break pipelining of queries.
+  if (!ok && !socket.destroyed) {
+    socket.destroy();
+  }
 }
 
 /**
