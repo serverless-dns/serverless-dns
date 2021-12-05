@@ -45,7 +45,7 @@ anti-censorship and data privacy to every person on the earth.
 
 > Supports DoH resolver only
 
-> User will be liable for fly.io billing
+> User will be liable for Deno billing
 
 1. Fork [this repository](https://github.com/serverless-dns/serverless-dns) (You will need a GitHub account).
 2. In your fork, click on the _Actions_ tab and Confirm that you want to use Actions, if asked.
