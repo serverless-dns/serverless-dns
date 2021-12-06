@@ -14,6 +14,8 @@ const tlsOptions = {
 const minDNSPacketSize = 12 + 5;
 const maxDNSPacketSize = 4096;
 const dnsHeaderSize = 2;
+let DNS_RG_RE = null;
+let DNS_WC_RE = null;
 
 const tServer = tls.createServer(tlsOptions, serveTLS).listen(
   TLS_PORT,
@@ -43,8 +45,33 @@ function createBuffer(size) {
  * @param {tls.TLSSocket} socket
  */
 function serveTLS(socket) {
-  // TODO: Find a way to match DNS name with SNI
-  if (!socket.servername || socket.servername.split(".").length < 3) {
+  if (!DNS_RG_RE || !DNS_WC_RE) {
+    const TLS_SUBJECT_ALT = socket.getCertificate().subjectaltname;
+    const DNS_RE_ARR = TLS_SUBJECT_ALT.split(",").reduce((a, d) => {
+      d = d.trim();
+      if (d.startsWith("DNS:")) {
+        d = d.replace(/^DNS:/, "");
+
+        let re = d.replace(/\./g, "\\.");
+
+        if (d.startsWith("*")) {
+          re = re.replace("*", "[a-z0-9-_]*");
+          a[1].push("(^" + re + "$)");
+        } else {
+          a[0].push("(^" + re + "$)");
+        }
+      }
+  
+      return a;
+    }, [[], []]);
+
+    DNS_RG_RE = new RegExp(DNS_RE_ARR[0].join("|"), "i");
+    DNS_WC_RE = new RegExp(DNS_RE_ARR[1].join("|"), "i");
+    console.debug(DNS_RG_RE, DNS_WC_RE);
+  }
+
+  const SNI = socket.servername;
+  if (!SNI || !(DNS_RG_RE.test(SNI) || DNS_WC_RE.test(SNI))) {
     socket.destroy();
     return;
   }
@@ -127,8 +154,10 @@ async function handleTCPQuery(q, socket) {
     // const t1 = Date.now(); // debug
     const r = await resolveQuery(q, socket.servername);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-    ok = socket.write(new Uint8Array([...rlBuf, ...r]));
-    if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+    if (!socket.destroyed) {
+      ok = socket.write(new Uint8Array([...rlBuf, ...r]));
+      if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+    }
     // console.debug("processing time t-q =", Date.now() - t1);
   } catch (e) {
     ok = false
