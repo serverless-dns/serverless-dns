@@ -176,10 +176,11 @@ async function handleTCPQuery(q, socket, host, flag) {
     // const t1 = Date.now(); // debug
     const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-    if (!socket.destroyed) {
-      ok = socket.write(new Uint8Array([...rlBuf, ...r]));
-      if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
-    }
+    const chunk = new Uint8Array([...rlBuf, ...r]);
+
+    // Don't write to a closed socket, else it will crash nodejs
+    if (!socket.destroyed) ok = socket.write(chunk);
+    if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
     // console.debug("processing time t-q =", Date.now() - t1);
   } catch (e) {
     ok = false;
