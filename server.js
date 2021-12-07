@@ -228,10 +228,19 @@ async function serveHTTPS(req, res) {
     buffers.push(chunk);
   }
   const b = Buffer.concat(buffers);
-  const bl = b.byteLength;
+  const bLen = b.byteLength;
 
-  if (req.method == "POST" && (bl < minDNSPacketSize || bl > maxDNSPacketSize)) {
-    console.warn(`HTTP req body length out of [min, max] bounds: ${bl}`);
+  if (
+    req.method == "POST" &&
+    (req.headers.accept == "application/dns-message" ||
+      req.headers["content-type"] == "application/dns-message") &&
+    (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
+  ) {
+    console.warn(`HTTP req body length out of [min, max] bounds: ${bLen}`);
+    res.writeHead(413, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+    });
     res.end();
     return;
   }
@@ -263,7 +272,11 @@ async function handleHTTPRequest(b, req, res) {
     );
     const fRes = await handleRequest({ request: fReq });
 
-    const resHeaders = Object.assign({}, fRes.headers);
+    // Don't use Object.assign or similar
+    const resHeaders = {};
+    fRes.headers.forEach((v, k) => {
+      resHeaders[k] = v;
+    });
     res.writeHead(fRes.status, resHeaders);
     res.end(Buffer.from(await fRes.arrayBuffer()));
     // console.debug("processing time h-q =", Date.now() - t1);
