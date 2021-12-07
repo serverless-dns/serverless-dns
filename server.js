@@ -7,6 +7,7 @@
  */
 
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
+import { isIPv6 } from "net";
 import * as tls from "tls";
 // import { IncomingMessage, ServerResponse } from "http";
 import * as https from "https";
@@ -25,15 +26,13 @@ const dnsHeaderSize = 2;
 let DNS_RG_RE = null;
 let DNS_WC_RE = null;
 
-const tServer = tls.createServer(tlsOptions, serveTLS).listen(
-  TLS_PORT,
-  () => up(tServer.address()),
-);
+const tServer = tls
+  .createServer(tlsOptions, serveTLS)
+  .listen(TLS_PORT, () => up(tServer.address()));
 
-const hServer = https.createServer(tlsOptions, serveHTTPS).listen(
-  HTTPS_PORT,
-  () => up(hServer.address()),
-);
+const hServer = https
+  .createServer(tlsOptions, serveHTTPS)
+  .listen(HTTPS_PORT, () => up(hServer.address()));
 
 function up(addr) {
   console.log(`listening on: [${addr.address}]:${addr.port}`);
@@ -55,23 +54,26 @@ function createBuffer(size) {
 function serveTLS(socket) {
   if (!DNS_RG_RE || !DNS_WC_RE) {
     const TLS_SUBJECT_ALT = socket.getCertificate().subjectaltname;
-    const DNS_RE_ARR = TLS_SUBJECT_ALT.split(",").reduce((a, d) => {
-      d = d.trim();
-      if (d.startsWith("DNS:")) {
-        d = d.replace(/^DNS:/, "");
+    const DNS_RE_ARR = TLS_SUBJECT_ALT.split(",").reduce(
+      (a, d) => {
+        d = d.trim();
+        if (d.startsWith("DNS:")) {
+          d = d.replace(/^DNS:/, "");
 
-        let re = d.replace(/\./g, "\\.");
+          let re = d.replace(/\./g, "\\.");
 
-        if (d.startsWith("*")) {
-          re = re.replace("*", "[a-z0-9-_]*");
-          a[1].push("(^" + re + "$)");
-        } else {
-          a[0].push("(^" + re + "$)");
+          if (d.startsWith("*")) {
+            re = re.replace("*", "[a-z0-9-_]*");
+            a[1].push("(^" + re + "$)");
+          } else {
+            a[0].push("(^" + re + "$)");
+          }
         }
-      }
 
-      return a;
-    }, [[], []]);
+        return a;
+      },
+      [[], []]
+    );
 
     DNS_RG_RE = new RegExp(DNS_RE_ARR[0].join("|"), "i");
     DNS_WC_RE = new RegExp(DNS_RE_ARR[1].join("|"), "i");
@@ -79,15 +81,15 @@ function serveTLS(socket) {
   }
 
   const SNI = socket.servername;
-  const isWcSni = DNS_WC_RE.test(SNI);
-  const isRgSni = DNS_RG_RE.test(SNI);
-  if (!SNI || !(isRgSni || isWcSni)) {
+  const isOurWcDn = DNS_WC_RE.test(SNI);
+  const isOurRgDn = DNS_RG_RE.test(SNI);
+  if (!SNI || !(isOurRgDn || isOurWcDn)) {
     socket.destroy();
     return;
   }
 
   // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
-  const [flag, host] = isWcSni
+  const [flag, host] = isOurWcDn
     ? [SNI.split(".")[0].replace(/-/g, "+"), SNI.slice(SNI.indexOf(".") + 1)]
     : ["", SNI];
 
@@ -107,7 +109,7 @@ function serveTLS(socket) {
     const rem = dnsHeaderSize - qlenBufOffset;
     if (rem > 0) {
       const seek = Math.min(rem, cl);
-      const read = chunk.slice(0, seek)
+      const read = chunk.slice(0, seek);
       qlenBuf.fill(read, qlenBufOffset);
       qlenBufOffset += seek;
     }
@@ -180,7 +182,7 @@ async function handleTCPQuery(q, socket, host, flag) {
     }
     // console.debug("processing time t-q =", Date.now() - t1);
   } catch (e) {
-    ok = false
+    ok = false;
     console.warn(e);
   }
 
@@ -246,10 +248,8 @@ async function handleHTTPRequest(b, req, res) {
   try {
     // const t1 = Date.now(); // debug
     let host = req.headers.host;
-    host =
-      host.split(":").length > 2 // if ipv6
-        ? `[${host}]`
-        : host;
+    if (isIPv6(host)) host = `[${host}]`;
+
     const fReq = new Request(
       new URL(req.url, `https://${host}`),
       {
