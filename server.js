@@ -61,7 +61,7 @@ function serveTLS(socket) {
           a[0].push("(^" + re + "$)");
         }
       }
-  
+
       return a;
     }, [[], []]);
 
@@ -71,18 +71,27 @@ function serveTLS(socket) {
   }
 
   const SNI = socket.servername;
-  if (!SNI || !(DNS_RG_RE.test(SNI) || DNS_WC_RE.test(SNI))) {
+  const isWcSni = DNS_WC_RE.test(SNI);
+  const isRgSni = DNS_RG_RE.test(SNI);
+  if (!SNI || !(isRgSni || isWcSni)) {
     socket.destroy();
     return;
   }
+
+  // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
+  const [flag, host] = isWcSni
+    ? [SNI.split(".")[0].replace(/-/g, "+"), SNI.slice(SNI.indexOf(".") + 1)]
+    : ["", SNI];
 
   let qlenBuf = createBuffer(dnsHeaderSize);
   let qlenBufOffset = recycleBuffer(qlenBuf);
   let qBuf = null;
   let qBufOffset = 0;
 
-  socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
-
+  /**
+   * @param {Buffer} chunk - A TCP data segment
+   */
+  function handleData(chunk) {
     const cl = chunk.byteLength;
     if (cl <= 0) return;
 
@@ -123,7 +132,7 @@ function serveTLS(socket) {
 
     // exactly qlen bytes read till now, handle the dns query
     if (qBufOffset === qlen) {
-      handleTCPQuery(qBuf, socket);
+      handleTCPQuery(qBuf, socket, host, flag);
       // reset qBuf and qlenBuf states
       qlenBufOffset = recycleBuffer(qlenBuf);
       qBuf = null;
@@ -133,8 +142,9 @@ function serveTLS(socket) {
       socket.destroy();
       return;
     } // continue reading from socket
+  }
 
-  });
+  socket.on("data", handleData);
 
   socket.on("end", () => {
     // console.debug("TLS socket clean half shutdown");
@@ -145,14 +155,16 @@ function serveTLS(socket) {
 /**
  * @param {Buffer} q
  * @param {tls.TLSSocket} socket
+ * @param {String} host
+ * @param {String} flag
  */
-async function handleTCPQuery(q, socket) {
+async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
   if (socket.destroyed) return;
 
   try {
     // const t1 = Date.now(); // debug
-    const r = await resolveQuery(q, socket.servername);
+    const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
     if (!socket.destroyed) {
       ok = socket.write(new Uint8Array([...rlBuf, ...r]));
@@ -172,29 +184,22 @@ async function handleTCPQuery(q, socket) {
 
 /**
  * @param {Buffer} q
- * @param {String} sni
+ * @param {String} host
+ * @param {String} flag
  * @returns
  */
-async function resolveQuery(q, sni) {
-  // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
-  // TODO: Find a way to match DNS name with SNI to find flag.
-  const [flag, host] = sni.split(".").length < 4
-    ? ["", sni]
-    : [sni.split(".")[0].replace(/-/g, "+"), sni.slice(sni.indexOf(".") + 1)];
-
-  // FIXME: GET requests are capped at 2KB, where-as DNS-over-TCP
+async function resolveQuery(q, host, flag) {
+  // Using POST as GET requests are capped at 2KB, where-as DNS-over-TCP
   // has a much higher ceiling (even if rarely used)
-  const qURL = new URL(
-    `/${flag}?dns=${q.toString("base64url").replace(/=/g, "")}`,
-    `https://${host}`,
-  );
-
   const r = await handleRequest({
-    request: new Request(qURL, {
-      method: "GET",
+    request: new Request(`https://${host}/${flag}`, {
+      method: "POST",
       headers: {
-        "Accept": "application/dns-message",
+        Accept: "application/dns-message",
+        "Content-Type": "application/dns-message",
+        "Content-Length": q.byteLength.toString(),
       },
+      body: q,
     }),
   });
 
@@ -232,8 +237,13 @@ async function serveHTTPS(req, res) {
 async function handleHTTPRequest(b, req, res) {
   try {
     // const t1 = Date.now(); // debug
+    let host = req.headers.host;
+    host =
+      host.split(":").length > 2 // if ipv6
+        ? `[${host}]`
+        : host;
     const fReq = new Request(
-      new URL(req.url, `https://${req.headers.host}`),
+      new URL(req.url, `https://${host}`),
       {
         // Note: In VM container, Object spread may not be working for all
         // properties, especially of "hidden" Symbol values!? like "headers"?
