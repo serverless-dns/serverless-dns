@@ -97,8 +97,6 @@ export default class CurrentRequest {
 
 function setResponseCommonHeader() {
   this.httpResponse.headers.set("Content-Type", "application/dns-message");
-  this.httpResponse.headers.set("Access-Control-Allow-Origin", "*");
-  this.httpResponse.headers.set("Access-Control-Allow-Headers", "*");
   this.httpResponse.headers.append("Vary", "Origin");
   this.httpResponse.headers.delete("expect-ct");
   this.httpResponse.headers.delete("cf-ray");
