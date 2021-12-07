@@ -232,12 +232,10 @@ async function serveHTTPS(req, res) {
 
   if (
     req.method == "POST" &&
-    (req.headers.accept == "application/dns-message" ||
-      req.headers["content-type"] == "application/dns-message") &&
     (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
   ) {
     console.warn(`HTTP req body length out of [min, max] bounds: ${bLen}`);
-    res.writeHead(413, {
+    res.writeHead((bLen > maxDNSPacketSize ? 413 : 400), {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "*",
     });
