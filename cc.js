@@ -45,10 +45,6 @@ export class CommandControl {
         response.data.httpResponse = new Response(null, {
           status: 400,
           statusText: "Bad Request",
-          headers: {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-          },
         });
       }
     }
@@ -116,12 +112,8 @@ export class CommandControl {
         response.data.stopProcessing = false;
       } else {
         response.data.httpResponse = new Response(null, {
-          "status": 400,
-          "statusText": "Bad Request",
-          "headers": {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-          },
+          status: 400,
+          statusText: "Bad Request",
         });
       }
     } catch (e) {
@@ -134,14 +126,6 @@ export class CommandControl {
       response.data.httpResponse.headers.set(
         "Content-Type",
         "application/json",
-      );
-      response.data.httpResponse.headers.set(
-        "Access-Control-Allow-Origin",
-        "*",
-      );
-      response.data.httpResponse.headers.set(
-        "Access-Control-Allow-Headers",
-        "*",
       );
     }
     return response;
@@ -179,8 +163,6 @@ function domainNameToList(queryString, blocklistFilter) {
 
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -202,8 +184,6 @@ function domainNameToUint(queryString, blocklistFilter) {
 
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -220,8 +200,6 @@ function listToB64(queryString, blocklistFilter) {
   );
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -243,7 +221,5 @@ function b64ToList(queryString, blocklistFilter) {
   }
   response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
