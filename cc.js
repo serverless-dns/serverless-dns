@@ -30,20 +30,22 @@ export class CommandControl {
       response = this.commandOperation(
         param.request.url,
         param.blocklistFilter,
-        param.request.headers,
+        param.request.headers
       );
     } else if (param.request.method === "POST") {
+      let headers = param.request.headers;
       response.data.stopProcessing = true;
-      const isPOSTDnsMsg = headers.get("Accept") == "application/dns-message" ||
+      const isPOSTDnsMsg =
+        headers.get("Accept") == "application/dns-message" ||
         headers.get("Content-Type") == "application/dns-message";
 
       if (isPOSTDnsMsg) {
         response.data.stopProcessing = false;
       } else {
         response.data.httpResponse = new Response(null, {
-          "status": 400,
-          "statusText": "Bad Request",
-          "headers": {
+          status: 400,
+          statusText: "Bad Request",
+          headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
           },
