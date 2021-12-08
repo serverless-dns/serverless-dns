@@ -4,6 +4,7 @@
 .env.example
 .github
 .vscode
+.prettierrc
 
 node_modules/
 worker/
