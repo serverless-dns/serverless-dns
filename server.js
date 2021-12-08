@@ -7,15 +7,17 @@
  */
 
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
-import { isIPv6 } from "net";
+import net, { isIPv6 } from "net";
+import * as proxyProtocolParser from "proxy-protocol-js";
 import * as tls from "tls";
 // import { IncomingMessage, ServerResponse } from "http";
 import * as https from "https";
 import { handleRequest } from "./index.js";
-import { encodeUint8ArrayBE } from "./helpers/util.js";
+import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 
-const TLS_PORT = 10000;
-const HTTPS_PORT = 8080;
+const DOT_PROXY_PORT = 10000;
+const DOT_PORT = 10001;
+const DOH_PORT = 8080;
 const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
@@ -26,16 +28,73 @@ const dnsHeaderSize = 2;
 let DNS_RG_RE = null;
 let DNS_WC_RE = null;
 
-const tServer = tls
+const dotProxyServer = net
+  .createServer(handleProxyForDOT)
+  .listen(DOT_PROXY_PORT, () => up("DOT Proxy", dotProxyServer.address()));
+
+const dotServer = tls
   .createServer(tlsOptions, serveTLS)
-  .listen(TLS_PORT, () => up(tServer.address()));
+  .listen(DOT_PORT, () => up("DOT", dotServer.address()));
 
-const hServer = https
+const dohServer = https
   .createServer(tlsOptions, serveHTTPS)
-  .listen(HTTPS_PORT, () => up(hServer.address()));
+  .listen(DOH_PORT, () => up("DOH", dohServer.address()));
 
-function up(addr) {
-  console.log(`listening on: [${addr.address}]:${addr.port}`);
+function up(server, addr) {
+  console.log(server, `listening on: [${addr.address}]:${addr.port}`);
+}
+
+/**
+ * Proxies connection to DOT server, retrieving proxy proto header if allowed
+ * @param {net.Socket} inSocket
+ */
+function handleProxyForDOT(inSocket) {
+  // Alternatively, presence of proxy proto header in the first tcp segment
+  // could be checked
+  let hasProxyProto = eval(`process.env.DOT_HAS_PROXY_PROTO`);
+  // console.debug("\n--> new conn");
+
+  const outSocket = net.connect(DOT_PORT);
+
+  function pipeToDOT() {
+    // console.debug("piping to DOT");
+    if (!inSocket.destroyed && !outSocket.destroyed) inSocket.pipe(outSocket);
+    if (!inSocket.destroyed && !outSocket.destroyed) outSocket.pipe(inSocket);
+  }
+
+  if (hasProxyProto) {
+    inSocket.on("close", () => {
+      inSocket.destroy();
+    });
+
+    inSocket.on("data", (data) => {
+      if (hasProxyProto) {
+        let chunk = data.toString("ascii");
+        let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
+
+        if (delim >= 0) hasProxyProto = false;
+        else console.error("proxy proto header not found =>", chunk);
+
+        try {
+          const proto = proxyProtocolParser.V1ProxyProtocol.parse(
+            chunk.slice(0, delim)
+          );
+          console.log(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+        } catch (e) {
+          console.warn("proxy proto header couldn't be parsed.", e);
+          inSocket.destroy();
+          return;
+        }
+
+        // remaining data
+        if (!outSocket.destroyed)
+          outSocket.write(data.slice(delim)) && pipeToDOT();
+      }
+    });
+  } else {
+    // console.debug("has no proxy proto");
+    pipeToDOT();
+  }
 }
 
 function recycleBuffer(b) {
@@ -119,7 +178,9 @@ function serveTLS(socket) {
 
     const qlen = qlenBuf.readUInt16BE();
     if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
-      console.warn(`dns query out of range: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`);
+      console.warn(
+        `dns query out of range: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`
+      );
       socket.destroy();
       return;
     }
@@ -235,7 +296,7 @@ async function serveHTTPS(req, res) {
     (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
   ) {
     console.warn(`HTTP req body length out of [min, max] bounds: ${bLen}`);
-    res.writeHead((bLen > maxDNSPacketSize ? 413 : 400), {
+    res.writeHead(bLen > maxDNSPacketSize ? 413 : 400, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "*",
     });
@@ -258,16 +319,13 @@ async function handleHTTPRequest(b, req, res) {
     let host = req.headers.host;
     if (isIPv6(host)) host = `[${host}]`;
 
-    const fReq = new Request(
-      new URL(req.url, `https://${host}`),
-      {
-        // Note: In VM container, Object spread may not be working for all
-        // properties, especially of "hidden" Symbol values!? like "headers"?
-        ...req,
-        headers: req.headers,
-        body: req.method.toUpperCase() == "POST" ? b : null,
-      },
-    );
+    const fReq = new Request(new URL(req.url, `https://${host}`), {
+      // Note: In VM container, Object spread may not be working for all
+      // properties, especially of "hidden" Symbol values!? like "headers"?
+      ...req,
+      headers: req.headers,
+      body: req.method.toUpperCase() == "POST" ? b : null,
+    });
     const fRes = await handleRequest({ request: fReq });
 
     // Don't use Object.assign or similar
