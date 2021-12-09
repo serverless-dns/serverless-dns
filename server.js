@@ -15,9 +15,14 @@ import * as https from "https";
 import { handleRequest } from "./index.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 
-const DOT_PROXY_PORT = 10000;
-const DOT_PORT = 10001;
-const DOH_PORT = 8080;
+const DOT_ENTRY_PORT = 10000;
+const DOH_ENTRY_PORT = 8080;
+
+const DOT_HAS_PROXY_PROTO = eval(`process.env.DOT_HAS_PROXY_PROTO`);
+const DOT_PROXY_PORT = DOT_ENTRY_PORT;
+const DOT_PORT = DOT_HAS_PROXY_PROTO ? 10001 : DOT_ENTRY_PORT;
+
+const DOH_PORT = DOH_ENTRY_PORT;
 const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
@@ -28,7 +33,7 @@ const dnsHeaderSize = 2;
 let DNS_RG_RE = null;
 let DNS_WC_RE = null;
 
-const dotProxyServer = net
+const dotProxyServer = DOT_HAS_PROXY_PROTO && net
   .createServer(handleProxyForDOT)
   .listen(DOT_PROXY_PORT, () => up("DOT Proxy", dotProxyServer.address()));
 
@@ -51,10 +56,12 @@ function up(server, addr) {
 function handleProxyForDOT(inSocket) {
   // Alternatively, presence of proxy proto header in the first tcp segment
   // could be checked
-  let hasProxyProto = eval(`process.env.DOT_HAS_PROXY_PROTO`);
+  let hasProxyProto = DOT_HAS_PROXY_PROTO;
   // console.debug("\n--> new conn");
 
-  const outSocket = net.connect(DOT_PORT);
+  const outSocket = net.connect(DOT_PORT, () => {
+    // console.debug("DoT pipe ready");
+  });
 
   function pipeToDOT() {
     // console.debug("piping to DOT");

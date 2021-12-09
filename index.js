@@ -69,11 +69,18 @@ async function proxyRequest(event) {
     const plugin = new RethinkPlugin(event, env);
     await plugin.executePlugin(currentRequest);
 
-    currentRequest.httpResponse.headers.set("Access-Control-Allow-Origin", "*");
-    currentRequest.httpResponse.headers.set(
-      "Access-Control-Allow-Headers",
-      "*"
-    );
+    // Add CORS headers only for browsers
+    const UA = event.request.headers.get("User-Agent");
+    if (UA && UA.startsWith("Mozilla/5.0")) {
+      currentRequest.httpResponse.headers.set(
+        "Access-Control-Allow-Origin",
+        "*"
+      );
+      currentRequest.httpResponse.headers.set(
+        "Access-Control-Allow-Headers",
+        "*"
+      );
+    }
 
     return currentRequest.httpResponse;
   } catch (e) {
