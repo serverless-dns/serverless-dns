@@ -123,7 +123,8 @@ async function checkLocalCacheBfrResolve(param) {
 }
 
 async function loadDnsResponseFromCache(dnsPacket, ttlEndTime, now) {
-  const outttl = Math.max(Math.floor(ttlEndTime - now / 1000), 1); // to verify ttl is not set to 0sec
+  // to verify ttl is not set to 0sec
+  const outttl = Math.max(Math.floor((ttlEndTime - now) / 1000), 1);
   for (let answer of dnsPacket.answers) {
     answer.ttl = outttl;
   }
