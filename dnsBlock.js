@@ -33,13 +33,13 @@ export default class DNSBlock {
     response.data.blockedB64Flag = "";
     try {
       let decodedDnsPacket = await this.dnsParser.Decode(
-        param.requestBodyBuffer,
+        param.requestBodyBuffer
       );
       if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
         let domainNameBlocklistInfo;
         // FIXME: handle HTTPS/SVCB
         if (
-          (decodedDnsPacket.questions.length >= 1) &&
+          decodedDnsPacket.questions.length >= 1 &&
           (decodedDnsPacket.questions[0].type == "A" ||
             decodedDnsPacket.questions[0].type == "AAAA" ||
             decodedDnsPacket.questions[0].type == "CNAME" ||
@@ -47,14 +47,14 @@ export default class DNSBlock {
             decodedDnsPacket.questions[0].type == "SVCB")
         ) {
           domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-            decodedDnsPacket.questions[0].name,
+            decodedDnsPacket.questions[0].name
           );
           if (domainNameBlocklistInfo.data.searchResult) {
             response.data = checkDomainBlocking(
               param.userBlocklistInfo,
               domainNameBlocklistInfo,
               param.blocklistFilter,
-              decodedDnsPacket.questions[0].name,
+              decodedDnsPacket.questions[0].name
             );
           }
         }
@@ -76,7 +76,7 @@ function checkDomainBlocking(
   userBlocklistInfo,
   domainNameBlocklistInfo,
   blocklistFilter,
-  domainName,
+  domainName
 ) {
   let response;
   try {
@@ -85,7 +85,7 @@ function checkDomainBlocking(
       userBlocklistInfo.flagVersion,
       domainNameBlocklistInfo,
       blocklistFilter,
-      domainName,
+      domainName
     );
     if (response.isBlocked) {
       return response;
@@ -102,7 +102,7 @@ function checkDomainBlocking(
           userBlocklistInfo.flagVersion,
           domainNameBlocklistInfo,
           blocklistFilter,
-          dnJoin,
+          dnJoin
         );
         if (wildCardResponse.isBlocked) {
           return wildCardResponse;
@@ -121,7 +121,7 @@ function checkDomainNameUserFlagIntersection(
   flagVersion,
   domainNameBlocklistInfo,
   blocklistFilter,
-  domainName,
+  domainName
 ) {
   let response = {};
   try {
@@ -130,17 +130,17 @@ function checkDomainNameUserFlagIntersection(
     response.blockedB64Flag = "";
     response.blockedTag = [];
     if (domainNameBlocklistInfo.data.searchResult.has(domainName)) {
-      let domainNameInBlocklistUint = domainNameBlocklistInfo.data.searchResult
-        .get(domainName);
+      let domainNameInBlocklistUint =
+        domainNameBlocklistInfo.data.searchResult.get(domainName);
       let blockedUint = blocklistFilter.flagIntersection(
         userBlocklistFlagUint,
-        domainNameInBlocklistUint,
+        domainNameInBlocklistUint
       );
       if (blockedUint) {
         response.isBlocked = true;
         response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
           blockedUint,
-          flagVersion,
+          flagVersion
         );
       } else {
         response.isNotBlockedExistInBlocklist = true;
@@ -152,7 +152,7 @@ function checkDomainNameUserFlagIntersection(
         }
         response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
           blockedUint,
-          flagVersion,
+          flagVersion
         );
       }
       response.blockedTag = blocklistFilter.getTag(blockedUint);

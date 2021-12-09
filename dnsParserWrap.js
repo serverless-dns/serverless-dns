@@ -9,8 +9,7 @@ import * as DnsParser from "@serverless-dns/dns-parser";
 import { Buffer } from "buffer";
 
 export default class DNSParserWrap {
-  constructor() {
-  }
+  constructor() {}
 
   async Decode(arrayBuffer) {
     try {
