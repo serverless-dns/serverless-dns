@@ -33,9 +33,11 @@ const dnsHeaderSize = 2;
 let DNS_RG_RE = null;
 let DNS_WC_RE = null;
 
-const dotProxyServer = DOT_HAS_PROXY_PROTO && net
-  .createServer(handleProxyForDOT)
-  .listen(DOT_PROXY_PORT, () => up("DOT Proxy", dotProxyServer.address()));
+const dotProxyServer =
+  DOT_HAS_PROXY_PROTO &&
+  net
+    .createServer(handleProxyForDOT)
+    .listen(DOT_PROXY_PORT, () => up("DOT Proxy", dotProxyServer.address()));
 
 const dotServer = tls
   .createServer(tlsOptions, serveTLS)
@@ -60,48 +62,49 @@ function handleProxyForDOT(inSocket) {
   // console.debug("\n--> new conn");
 
   const outSocket = net.connect(DOT_PORT, () => {
-    // console.debug("DoT pipe ready");
+    // console.debug("DoT tunnel ready");
   });
 
-  function pipeToDOT() {
-    // console.debug("piping to DOT");
+  function tunnelToDOT() {
+    // console.debug("tunnelling to DOT");
     if (!inSocket.destroyed && !outSocket.destroyed) inSocket.pipe(outSocket);
     if (!inSocket.destroyed && !outSocket.destroyed) outSocket.pipe(inSocket);
   }
 
-  if (hasProxyProto) {
-    inSocket.on("close", () => {
-      inSocket.destroy();
-    });
+  function handleProxyProto(buf) {
+    if (hasProxyProto) {
+      let chunk = buf.toString("ascii");
+      let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
+      hasProxyProto = false; // further tcp segments need not be checked
 
-    inSocket.on("data", (data) => {
-      if (hasProxyProto) {
-        let chunk = data.toString("ascii");
-        let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
-
-        if (delim >= 0) hasProxyProto = false;
-        else console.error("proxy proto header not found =>", chunk);
-
-        try {
-          const proto = proxyProtocolParser.V1ProxyProtocol.parse(
-            chunk.slice(0, delim)
-          );
-          console.log(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
-        } catch (e) {
-          console.warn("proxy proto header couldn't be parsed.", e);
-          inSocket.destroy();
-          return;
-        }
-
-        // remaining data
-        if (!outSocket.destroyed)
-          outSocket.write(data.slice(delim)) && pipeToDOT();
+      if (delim < 0) {
+        console.error("proxy proto header invalid / not found =>", chunk);
+        inSocket.destroy();
+        return;
       }
-    });
-  } else {
-    // console.debug("has no proxy proto");
-    pipeToDOT();
+
+      try {
+        const proto = proxyProtocolParser.V1ProxyProtocol.parse(
+          chunk.slice(0, delim)
+        );
+        console.log(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+      } catch (e) {
+        console.warn("proxy proto header couldn't be parsed.", e);
+        inSocket.destroy();
+        return;
+      }
+
+      // remaining data from first tcp segment
+      if (!outSocket.destroyed)
+        outSocket.write(buf.slice(delim)) && tunnelToDOT();
+    }
   }
+
+  inSocket.on("close", () => {
+    inSocket.destroy();
+  });
+
+  inSocket.on("data", handleProxyProto);
 }
 
 function recycleBuffer(b) {
