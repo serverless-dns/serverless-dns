@@ -67,7 +67,7 @@ DNSResolver.prototype.checkLocalCacheBfrResolve = async function (param) {
   const now = Date.now();
   let cacheRes = this.dnsResCache.Get(dn);
 
-  if (!cacheRes || now >= cacheRes.data.ttlEndTime) {
+  if (!cacheRes || now >= cacheRes.data.expiry) {
     cacheRes = await this.checkSecondLevelCacheBfrResolve(
       param.runTimeEnv,
       param.request.url,
@@ -75,14 +75,19 @@ DNSResolver.prototype.checkLocalCacheBfrResolve = async function (param) {
       now
     );
     if (!cacheRes) {
-      // upstream if not in both lfu (l1) and workers (l2) cache
       cacheRes = {};
-      resp.responseBodyBuffer = await this.resolveDnsUpdateCache(
-        param,
-        cacheRes,
-        dn,
-        now
-      );
+
+      // upstream if not in both lfu (l1) and workers (l2) cache
+      resp.responseBodyBuffer = await (
+        await resolveDnsUpstream(
+          param.request,
+          param.dnsResolverUrl,
+          param.requestBodyBuffer,
+          param.runTimeEnv
+        )
+      ).arrayBuffer();
+
+      await this.updateCache(param, cacheRes, dn, now, resp.responseBodyBuffer);
       resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
       this.dnsResCache.Put(cacheRes);
       return resp;
@@ -93,7 +98,7 @@ DNSResolver.prototype.checkLocalCacheBfrResolve = async function (param) {
   resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
   resp.responseBodyBuffer = await this.loadDnsResponseFromCache(
     resp.responseDecodedDnsPacket,
-    cacheRes.data.ttlEndTime,
+    cacheRes.data.expiry,
     now
   );
   return resp;
@@ -101,11 +106,11 @@ DNSResolver.prototype.checkLocalCacheBfrResolve = async function (param) {
 
 DNSResolver.prototype.loadDnsResponseFromCache = async function (
   dnsPacket,
-  ttlEndTime,
+  expiry,
   now
 ) {
   // to verify ttl is not set to 0sec
-  const outttl = Math.max(Math.floor((ttlEndTime - now) / 1000), 1);
+  const outttl = Math.max(Math.floor((expiry - now) / 1000), 1);
   for (let answer of dnsPacket.answers) {
     answer.ttl = outttl;
   }
@@ -126,7 +131,7 @@ DNSResolver.prototype.checkSecondLevelCacheBfrResolve = async function (
   if (resp) {
     // cache hit
     const metaData = JSON.parse(resp.headers.get("x-rethink-metadata"));
-    if (now >= cacheRes.data.ttlEndTime) {
+    if (now >= cacheRes.data.expiry) {
       return false;
     }
 
@@ -136,7 +141,7 @@ DNSResolver.prototype.checkSecondLevelCacheBfrResolve = async function (
     cacheRes.data.decodedDnsPacket = await this.dnsParser.Decode(
       await resp.arrayBuffer()
     );
-    cacheRes.data.ttlEndTime = metaData.ttlEndTime;
+    cacheRes.data.expiry = metaData.expiry;
     return cacheRes;
   }
 };
@@ -147,21 +152,13 @@ DNSResolver.prototype.checkSecondLevelCacheBfrResolve = async function (
  * @param {String} dn
  * @returns
  */
-DNSResolver.prototype.resolveDnsUpdateCache = async function (
+DNSResolver.prototype.updateCache = async function (
   param,
   cacheRes,
   dn,
-  now
+  now,
+  responseBodyBuffer
 ) {
-  let responseBodyBuffer = await (
-    await resolveDnsUpstream(
-      param.request,
-      param.dnsResolverUrl,
-      param.requestBodyBuffer,
-      param.runTimeEnv
-    )
-  ).arrayBuffer();
-
   let decodedDnsPacket = await this.dnsParser.Decode(responseBodyBuffer);
 
   // TODO: only cache noerror / nxdomain responses
@@ -175,7 +172,7 @@ DNSResolver.prototype.resolveDnsUpdateCache = async function (
   cacheRes.k = dn;
   cacheRes.data = {};
   cacheRes.data.decodedDnsPacket = decodedDnsPacket;
-  cacheRes.data.ttlEndTime = minttl * 1000 + now;
+  cacheRes.data.expiry = minttl * 1000 + now;
 
   if (param.runTimeEnv == "worker") {
     // workers cache it
@@ -186,14 +183,13 @@ DNSResolver.prototype.resolveDnsUpdateCache = async function (
         "Content-Length": responseBodyBuffer.length,
         "Content-Type": "application/octet-stream",
         "x-rethink-metadata": JSON.stringify({
-          ttlEndTime: cacheRes.data.ttlEndTime,
+          expiry: cacheRes.data.expiry,
         }),
       },
       cf: { cacheTtl: minttl },
     });
     param.event.waitUntil(this.wCache.put(wCacheUrl, response));
   }
-  return responseBodyBuffer;
 };
 
 /**
@@ -203,7 +199,12 @@ DNSResolver.prototype.resolveDnsUpdateCache = async function (
  * @param {String} runTimeEnv
  * @returns
  */
-async function resolveDnsUpstream(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
+async function resolveDnsUpstream(
+  request,
+  resolverUrl,
+  requestBodyBuffer,
+  runTimeEnv
+) {
   try {
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
