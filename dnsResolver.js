@@ -9,7 +9,7 @@
 import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
-const ttlGraceSec = 30; //30 sec grace tiem for expired ttl answer
+const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
 const lfuSize = 2000; // TODO: retrieve this from env
 
 export default class DNSResolver {
@@ -20,13 +20,13 @@ export default class DNSResolver {
   }
 
   /**
-   * @param {*} param
+   * @param {Object} param
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {String} param.dnsResolverUrl
    * @param {String} param.runTimeEnv
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
-   * @param {Worker-Event} param.event
+   * @param {WorkerEvent} param.event
    * @returns
    */
   async RethinkModule(param) {
@@ -38,7 +38,8 @@ export default class DNSResolver {
           this.wCache = caches.default;
         }
       }
-      response.data = await checkLocalCacheBfrResolve.call(this, param);
+
+      response.data = await this.checkLocalCacheBfrResolve(param);
     } catch (e) {
       response = errResponse(e);
       console.error("Error At : DNSResolver -> RethinkModule");
@@ -48,32 +49,11 @@ export default class DNSResolver {
   }
 }
 
-function emptyResponse() {
-  return {
-    isException: false,
-    exceptionStack: "",
-    exceptionFrom: "",
-    data: {},
-    responseDecodedDnsPacket: null,
-    responseBodyBuffer: null,
-  };
-}
-
-function errResponse(e) {
-  return {
-    isException: true,
-    exceptionStack: e.stack,
-    exceptionFrom: "DNSResolver RethinkModule",
-    data: false,
-    responseDecodedDnsPacket: null,
-    responseBodyBuffer: null,
-  };
-}
 /**
  * @param {Object} param
  * @returns
  */
-async function checkLocalCacheBfrResolve(param) {
+DNSResolver.prototype.checkLocalCacheBfrResolve = async function (param) {
   let resp = emptyResponse();
   const dn =
     (param.requestDecodedDnsPacket.questions.length > 0
@@ -88,8 +68,7 @@ async function checkLocalCacheBfrResolve(param) {
   let cacheRes = this.dnsResCache.Get(dn);
 
   if (!cacheRes || now >= cacheRes.data.ttlEndTime) {
-    cacheRes = await checkSecondLevelCacheBfrResolve.call(
-      this,
+    cacheRes = await this.checkSecondLevelCacheBfrResolve(
       param.runTimeEnv,
       param.request.url,
       dn,
@@ -98,8 +77,7 @@ async function checkLocalCacheBfrResolve(param) {
     if (!cacheRes) {
       // upstream if not in both lfu (l1) and workers (l2) cache
       cacheRes = {};
-      resp.responseBodyBuffer = await resolveDnsUpdateCache.call(
-        this,
+      resp.responseBodyBuffer = await this.resolveDnsUpdateCache(
         param,
         cacheRes,
         dn,
@@ -113,25 +91,33 @@ async function checkLocalCacheBfrResolve(param) {
 
   resp.responseDecodedDnsPacket = cacheRes.data.decodedDnsPacket;
   resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
-  resp.responseBodyBuffer = await loadDnsResponseFromCache.call(
-    this,
+  resp.responseBodyBuffer = await this.loadDnsResponseFromCache(
     resp.responseDecodedDnsPacket,
     cacheRes.data.ttlEndTime,
     now
   );
   return resp;
-}
+};
 
-async function loadDnsResponseFromCache(dnsPacket, ttlEndTime, now) {
+DNSResolver.prototype.loadDnsResponseFromCache = async function (
+  dnsPacket,
+  ttlEndTime,
+  now
+) {
   // to verify ttl is not set to 0sec
   const outttl = Math.max(Math.floor((ttlEndTime - now) / 1000), 1);
   for (let answer of dnsPacket.answers) {
     answer.ttl = outttl;
   }
   return this.dnsParser.Encode(dnsPacket);
-}
+};
 
-async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
+DNSResolver.prototype.checkSecondLevelCacheBfrResolve = async function (
+  runTimeEnv,
+  reqUrl,
+  dn,
+  now
+) {
   if (runTimeEnv !== "worker") {
     return false;
   }
@@ -153,7 +139,7 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
     cacheRes.data.ttlEndTime = metaData.ttlEndTime;
     return cacheRes;
   }
-}
+};
 
 /**
  * @param {Object} param
@@ -161,9 +147,14 @@ async function checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
  * @param {String} dn
  * @returns
  */
-async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
+DNSResolver.prototype.resolveDnsUpdateCache = async function (
+  param,
+  cacheRes,
+  dn,
+  now
+) {
   let responseBodyBuffer = await (
-    await resolveDns(
+    await resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer,
@@ -203,7 +194,7 @@ async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
     param.event.waitUntil(this.wCache.put(wCacheUrl, response));
   }
   return responseBodyBuffer;
-}
+};
 
 /**
  * @param {Request} request
@@ -212,7 +203,7 @@ async function resolveDnsUpdateCache(param, cacheRes, dn, now) {
  * @param {String} runTimeEnv
  * @returns
  */
-async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
+async function resolveDnsUpstream(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
   try {
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
@@ -260,4 +251,26 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
   } catch (e) {
     throw e;
   }
+}
+
+function emptyResponse() {
+  return {
+    isException: false,
+    exceptionStack: "",
+    exceptionFrom: "",
+    data: {},
+    responseDecodedDnsPacket: null,
+    responseBodyBuffer: null,
+  };
+}
+
+function errResponse(e) {
+  return {
+    isException: true,
+    exceptionStack: e.stack,
+    exceptionFrom: "DNSResolver RethinkModule",
+    data: false,
+    responseDecodedDnsPacket: null,
+    responseBodyBuffer: null,
+  };
 }
