@@ -5,6 +5,10 @@ import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
 
 const env = new Env();
 const debug = false;
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "*",
+};
 
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
@@ -20,13 +24,18 @@ if (typeof addEventListener !== "undefined") {
           resolve(resp);
         }),
         new Promise((resolve, _) => {
-          let resp = new Response(dnsParser.Encode({
-            type: "response",
-            flags: 4098, //sets server fail response
-          }));
-          resp.headers.set("Content-Type", "application/dns-message");
-          resp.headers.set("Access-Control-Allow-Origin", "*");
-          resp.headers.set("Access-Control-Allow-Headers", "*");
+          let resp = new Response(
+            dnsParser.Encode({
+              type: "response",
+              flags: 4098, //sets server fail response
+            }),
+            {
+              headers: {
+                ...corsHeaders,
+                "Content-Type": "application/dns-message",
+              },
+            }
+          );
           if (debug) console.log("Worker Time Out");
           setTimeout(() => {
             resolve(resp);
@@ -49,9 +58,7 @@ async function proxyRequest(event) {
   let res;
   try {
     if (event.request.method === "OPTIONS") {
-      res = new Response(null, { "status": 204 });
-      res.headers.set("Access-Control-Allow-Origin", "*");
-      res.headers.set("Access-Control-Allow-Headers", "*");
+      res = new Response(null, { status: 204, headers: corsHeaders });
       return res;
     }
 
@@ -61,6 +68,20 @@ async function proxyRequest(event) {
     }
     const plugin = new RethinkPlugin(event, env);
     await plugin.executePlugin(currentRequest);
+
+    // Add CORS headers only for browsers
+    const UA = event.request.headers.get("User-Agent");
+    if (UA && UA.startsWith("Mozilla/5.0")) {
+      currentRequest.httpResponse.headers.set(
+        "Access-Control-Allow-Origin",
+        "*"
+      );
+      currentRequest.httpResponse.headers.set(
+        "Access-Control-Allow-Headers",
+        "*"
+      );
+    }
+
     return currentRequest.httpResponse;
   } catch (e) {
     console.error(e.stack);

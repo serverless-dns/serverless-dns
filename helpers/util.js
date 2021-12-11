@@ -26,3 +26,14 @@ export function encodeUint8ArrayBE(n, len) {
 
   return new Uint8Array(a);
 }
+
+/**
+ * Promise that resolves after `ms`
+ * @param {number} ms - Milliseconds to sleep
+ * @returns
+ */
+export function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}

@@ -2,7 +2,7 @@
 dist/
 node_modules/
 worker/
-test/data/
+test/data/cache
 package-lock.json
 
 # IDE

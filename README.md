@@ -4,113 +4,23 @@ anti-censorship and data privacy to every person on the earth.
 
 ## For the People
 
-### Using Cloudflare
+Easiest way to host this serverless dns would be to use Cloudflare. Click the below button to deploy. User will be liable for cloudflare billing.
 
-> Difficulty: Easy
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
 
-> Supports DoH resolver only
+Instructions for configuring, like changing recursive resolver and other platforms available to host are linked from the table below.
 
-1. #### Hosting
-	- Rethink serverless can be hosted to cloudflare (user will be liable for
-		cloudflare billing).
-	- click below button to deploy
-		<br><br>
-		[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
-2. #### Configure
-	- Once the hosting is successful, lets consider rethink serverless dns is hosted
-		to `example.com`.
-	- To configure your dns level blocking visit to `example.com/configure` which
-		will take to configuration page, which currently contains 171 blocklists with
-		5 Million too block domains in category like notracking, dating, gambling,
-		privacy, porn, cryptojacking, security ...
-	- Navigate through and select your blocklists.
-	- Once selected you can find your domain name `example.com` followed by
-		configuration token on screen like this `https://example.com/1:AIAA7g==` copy
-		it and add to your dns DOH client.
-	- Now your own trusted dns resolver with custom blocking is up and running.
-3. #### Change Resolver
-	- By default dns request are resolved by cloudflare `cloudflare-dns.com`.
-	- To change resolver login to your cloudflare dash board
-		- click on `worker`
-		- click on `serverless-dns` worker
-		- click on `Settings` tab
-		- under `Environment Variables` click on `Edit variables`
-		- if your new DOH resolver url is `example.dns.resolver.com/dns-query/resolve`
-		- change below variables and click on save button<br>
-			`CF_DNS_RESOLVER_URL = example.dns.resolver.com/dns-query/resolve`
+| Platform      | Difficulty | Resolver Protocol | Instructions                                                                            |
+| ------------- | ---------- | ----------------- | --------------------------------------------------------------------------------------- |
+| ⛅ Cloudflare  | Easy       | HTTPS             | [Hosting on Cloudflare Workers](https://docs.rethinkdns.com/dns/open-source#cloudflare) |
+| 🦕 Deno Deploy | Moderate   | HTTPS             | [Hostng on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)           |
+| 🪰 Fly         | Hard       | TLS & HTTPS       | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
 
-### Using Deno-Deploy
+---
 
-> Difficulty: Moderate
+_Rest of this README is intended for software developers._
 
-> Supports DoH resolver only
-
-> User will be liable for fly.io billing
-
-1. Fork [this repository](https://github.com/serverless-dns/serverless-dns) (You will need a GitHub account).
-2. In your fork, click on the _Actions_ tab and Confirm that you want to use Actions, if asked.
-3. Click on "🦕 Deno deploy" on the left pane. Click on the "Run workflow" dropdown on the right side, and run the workflow using the <kbd>Run workflow</kbd> button.
-4. Now, navigate to [deno.com/deploy](https://deno.com/deploy) and Sign Up for an account.
-5. Create a new project in [deno deploy dash](https://dash.deno.com). Name it appropriately.
-6. Click on "Continue" button under "Deploy from GitHub" and proceed to install the GitHub app on your GitHub Account. Make sure you give access the fork you had made in step 1.
-7. Now, head back the deno dash and select the repository as the fork you had made in step 1 for integration. And branch as "build/deno-deploy/dev". And select the file as "http.bundle.js".
-8. In this deno project, navigate to Settings -> Environment variables. Add the essential environment variables as described [`.env.example`](.env.example) file. Values of the required variables can be inferred from [`wrangler.toml`](wrangler.toml) and [`fly.toml`](fly.toml) files.
-9. Done. Now your DoH resolver should be available on `https://<name>.deno.dev`, where `<name>` is the name of the project you had created on step 5.
-
-### Using Fly.io
-
-> Difficulty: Hard
-
-> Supports both DoH and DoT resolver
-
-> User will be liable for fly.io billing
-
-1. Install `flyctl` on your device. Please [refer to fly.io docs](https://fly.io/docs/getting-started/installing-flyctl/) for the same.
-2. Signup or Login to fly.io. Please [refer to fly.io docs](https://fly.io/docs/getting-started/login-to-fly/) for the same.
-3. Create an empty directory anywhere on your PC. Open you terminal or powershell and navigate to this directory.
-4. Launch a fly app
-	```sh
-	flyctl launch
-	```
-	- Choose a unique name here or let it auto-generate.
-	- Choose a location (closest to you would be better for you to use).
-	- Note down the name of the app and you may delete this directory along with the generated `fly.toml`.
-5. Now, you would need a SSL or TLS certificate for your domain name. Both getting a domain name and CA certificate generation are beyond the scope of this README.
-6. Once you have your CA certificate and key files, you need to encode them as base64 with no wrapping. How this can be done in bash terminal is shown below.
-	```sh
-	# Locate your CA certificate & key files
-	CRT="path/to/full-chain-certificate.pem"
-	KEY="path/to/key.pem"
-	```
-	```sh
-	# Encode them in base64 with no wrappings and store them in variables
-	B64NOWRAP_KEY="$(base64 -w0 "$KEY")"
-	B64NOWRAP_CRT="$(base64 -w0 "$CRT")"
-	```
-7. As described in [`.env.example`](.env.example) file, this base64 encoded certificate-key pair need to set as a single environment variable called `TLS_`. Within this variable, the certificate and key encodings needs to be separated by a newline (`\n`) and described by `CRT=` and `KEY=`. On a bash terminal this can be done by following steps continued by by above.
-	```sh
-	# This creates a single file called "FLY_TLS" in the current directory
-	echo "KEY=$B64NOWRAP_KEY" > FLY_TLS
-	echo "CRT=$B64NOWRAP_CRT" >> FLY_TLS
-	# And now, this "FLY_TLS" file contains both certificate and key encoded and
-	# as required
-	```
-	- Upload this to fly secrets like so in terminal or powershell:
-		```sh
-		fly secrets set TLS_=- < FLY_TLS -a app-id
-		```
-		where "app-id" is the name of the fly app you had launched in step 4.
-	- Other essential environment variables are already present in [`fly.toml`](fly.toml) file of this repository, but you may read [`.env.example`](.env.example) for it's use case and configuration.
-8. Fork [this repository](https://github.com/serverless-dns/serverless-dns) (You will need a GitHub account).
-9. In your fork, click on the _Actions_ tab and Confirm that you want to use Actions, if asked.
-10. Similarly, click on _Settings_ tab and select _Secrets_ on the left pane. Add a new GitHub secret called **FLY_APP_NAME** and set it's value as the name of the fly app you had launched in step 4. And add another secret called **FLY_API_TOKEN** and set's value as what you get from running `flyctl auth token` in terminal or powershell.
-11. Head back to _Actions_ tab and click on "🪰 Fly" on the left pane. Click on the "Run workflow" dropdown on the right side, and run the workflow using the <kbd>Run workflow</kbd> button.
-12. Once this action workflow finishes, open the terminal or powershell again and type in:
-	```sh
-	flyctl ips list -a [app-id]
-	```
-	- Here, you can get the IP address of the application, update the DNS records of your domain name you had used in step 5.
-13. Done. Your application should be available on the said domain name in a few minutes. To configure, say, to change the upstream resolver, you can edit the environment variables on `fly.toml` file of your fork and re-run the Action workflow.
+---
 
 ## For the Developers
 

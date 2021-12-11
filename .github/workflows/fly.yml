@@ -17,7 +17,7 @@ on:
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  FLY_APP: ${{ secrets.FLY_APP_NAME }}
+  FLY_APP: ${{ secrets.FLY_APP_NAME }} # default
 
 jobs:
   deploy:
@@ -28,6 +28,8 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
+      - run: |
+          echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: ⚠️ *B1* Fly App ?
         if: ${{ github.event_name == 'workflow_dispatch' &&
@@ -44,4 +46,6 @@ jobs:
       - name: 🏗️ Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
         with:
-          args: "deploy --dockerfile node.Dockerfile"
+          args: "deploy --dockerfile node.Dockerfile --image-label ${{ env.GIT_HEAD }}"
+      - run: |
+          echo "::notice::Image @ registry.fly.io/${{ env.FLY_APP }}:${{ env.GIT_HEAD }}"

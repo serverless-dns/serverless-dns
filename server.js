@@ -1,31 +1,119 @@
+/*
+ * Copyright (c) 2021 RethinkDNS and its authors.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
+import net, { isIPv6 } from "net";
+import * as proxyProtocolParser from "proxy-protocol-js";
 import * as tls from "tls";
 // import { IncomingMessage, ServerResponse } from "http";
 import * as https from "https";
 import { handleRequest } from "./index.js";
-import { encodeUint8ArrayBE } from "./helpers/util.js";
+import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 
-const TLS_PORT = 10000;
-const HTTPS_PORT = 8080;
+const DOT_ENTRY_PORT = 10000;
+const DOH_ENTRY_PORT = 8080;
+
+const DOT_HAS_PROXY_PROTO = eval(`process.env.DOT_HAS_PROXY_PROTO`);
+const DOT_PROXY_PORT = DOT_ENTRY_PORT;
+const DOT_PORT = DOT_HAS_PROXY_PROTO ? 10001 : DOT_ENTRY_PORT;
+
+const DOH_PORT = DOH_ENTRY_PORT;
 const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
 };
-const MinDNSPacketSize = 12 + 5;
-const MaxDNSPacketSize = 4096;
+const minDNSPacketSize = 12 + 5;
+const maxDNSPacketSize = 4096;
+const dnsHeaderSize = 2;
+let DNS_RG_RE = null;
+let DNS_WC_RE = null;
 
-const tServer = tls.createServer(tlsOptions, serveTLS).listen(
-  TLS_PORT,
-  () => logListner(tServer.address()),
-);
+const dotProxyServer =
+  DOT_HAS_PROXY_PROTO &&
+  net
+    .createServer(handleProxyForDOT)
+    .listen(DOT_PROXY_PORT, () => up("DOT Proxy", dotProxyServer.address()));
 
-const hServer = https.createServer(tlsOptions, serveHTTPS).listen(
-  HTTPS_PORT,
-  () => logListner(hServer.address()),
-);
+const dotServer = tls
+  .createServer(tlsOptions, serveTLS)
+  .listen(DOT_PORT, () => up("DOT", dotServer.address()));
 
-function logListner(addr) {
-  console.log(`listening on: [${addr.address}]:${addr.port}`);
+const dohServer = https
+  .createServer(tlsOptions, serveHTTPS)
+  .listen(DOH_PORT, () => up("DOH", dohServer.address()));
+
+function up(server, addr) {
+  console.log(server, `listening on: [${addr.address}]:${addr.port}`);
+}
+
+/**
+ * Proxies connection to DOT server, retrieving proxy proto header if allowed
+ * @param {net.Socket} inSocket
+ */
+function handleProxyForDOT(inSocket) {
+  // Alternatively, presence of proxy proto header in the first tcp segment
+  // could be checked
+  let hasProxyProto = DOT_HAS_PROXY_PROTO;
+  // console.debug("\n--> new conn");
+
+  const outSocket = net.connect(DOT_PORT, () => {
+    // console.debug("DoT tunnel ready");
+  });
+
+  function tunnelToDOT() {
+    // console.debug("tunnelling to DOT");
+    if (!inSocket.destroyed && !outSocket.destroyed) inSocket.pipe(outSocket);
+    if (!inSocket.destroyed && !outSocket.destroyed) outSocket.pipe(inSocket);
+  }
+
+  function handleProxyProto(buf) {
+    if (hasProxyProto) {
+      let chunk = buf.toString("ascii");
+      let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
+      hasProxyProto = false; // further tcp segments need not be checked
+
+      if (delim < 0) {
+        console.error("proxy proto header invalid / not found =>", chunk);
+        inSocket.destroy();
+        return;
+      }
+
+      try {
+        const proto = proxyProtocolParser.V1ProxyProtocol.parse(
+          chunk.slice(0, delim)
+        );
+        console.log(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+      } catch (e) {
+        console.warn("proxy proto header couldn't be parsed.", e);
+        inSocket.destroy();
+        return;
+      }
+
+      // remaining data from first tcp segment
+      if (!outSocket.destroyed)
+        outSocket.write(buf.slice(delim)) && tunnelToDOT();
+    }
+  }
+
+  inSocket.on("close", () => {
+    inSocket.destroy();
+  });
+
+  inSocket.on("data", handleProxyProto);
+}
+
+function recycleBuffer(b) {
+  b.fill(0);
+  return 0;
+}
+
+function createBuffer(size) {
+  return Buffer.allocUnsafe(size);
 }
 
 /**
@@ -33,55 +121,111 @@ function logListner(addr) {
  * @param {tls.TLSSocket} socket
  */
 function serveTLS(socket) {
-  // TODO: Find a way to match DNS name with SNI
-  if (!socket.servername || socket.servername.split(".").length < 3) {
+  if (!DNS_RG_RE || !DNS_WC_RE) {
+    const TLS_SUBJECT_ALT = socket.getCertificate().subjectaltname;
+    const DNS_RE_ARR = TLS_SUBJECT_ALT.split(",").reduce(
+      (a, d) => {
+        d = d.trim();
+        if (d.startsWith("DNS:")) {
+          d = d.replace(/^DNS:/, "");
+
+          let re = d.replace(/\./g, "\\.");
+
+          if (d.startsWith("*")) {
+            re = re.replace("*", "[a-z0-9-_]*");
+            a[1].push("(^" + re + "$)");
+          } else {
+            a[0].push("(^" + re + "$)");
+          }
+        }
+
+        return a;
+      },
+      [[], []]
+    );
+
+    DNS_RG_RE = new RegExp(DNS_RE_ARR[0].join("|"), "i");
+    DNS_WC_RE = new RegExp(DNS_RE_ARR[1].join("|"), "i");
+    console.debug(DNS_RG_RE, DNS_WC_RE);
+  }
+
+  const SNI = socket.servername;
+  const isOurWcDn = DNS_WC_RE.test(SNI);
+  const isOurRgDn = DNS_RG_RE.test(SNI);
+  if (!SNI || !(isOurRgDn || isOurWcDn)) {
     socket.destroy();
     return;
   }
 
-  // console.debug("-> TLS @", socket.servername);
-  let qlBuf = Buffer.allocUnsafe(2).fill(0);
-  let qlBufPtr = 0;
+  // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
+  const [flag, host] = isOurWcDn
+    ? [SNI.split(".")[0].replace(/-/g, "+"), SNI.slice(SNI.indexOf(".") + 1)]
+    : ["", SNI];
 
-  socket.on("data", /** @param {Buffer} chunk */ (chunk) => {
+  let qlenBuf = createBuffer(dnsHeaderSize);
+  let qlenBufOffset = recycleBuffer(qlenBuf);
+  let qBuf = null;
+  let qBufOffset = 0;
+
+  /**
+   * @param {Buffer} chunk - A TCP data segment
+   */
+  function handleData(chunk) {
     const cl = chunk.byteLength;
-    if (cl == 0) return;
-    if (cl == 1) {
-      qlBuf.fill(chunk, qlBufPtr);
-      qlBufPtr = qlBufPtr ? 0 : 1;
-      return;
-    }
-    if (qlBufPtr) {
-      qlBuf.fill(chunk.slice(0, 1), qlBufPtr);
-      qlBufPtr = 0;
-      chunk = chunk.slice(1);
-    }
-    if (!qlBuf.readUInt16BE() && cl == 2) {
-      qlBuf = chunk;
-      return;
+    if (cl <= 0) return;
+
+    // read header first which contains length(dns-query)
+    const rem = dnsHeaderSize - qlenBufOffset;
+    if (rem > 0) {
+      const seek = Math.min(rem, cl);
+      const read = chunk.slice(0, seek);
+      qlenBuf.fill(read, qlenBufOffset);
+      qlenBufOffset += seek;
     }
 
-    const ql = qlBuf.readUInt16BE() || chunk.slice(0, 2).readUInt16BE();
-    // console.debug(`q len = ${ql}`);
-    if (ql < MinDNSPacketSize || ql > MaxDNSPacketSize) {
-      console.warn(`TCP query length out of [min, max] bounds: ${ql}`);
+    // header has not been read fully, yet
+    if (qlenBufOffset !== dnsHeaderSize) return;
+
+    const qlen = qlenBuf.readUInt16BE();
+    if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
+      console.warn(
+        `dns query out of range: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`
+      );
       socket.destroy();
       return;
     }
 
-    const q = qlBuf.readUInt16BE() ? chunk : chunk.slice(2);
-    // console.debug(`Read q:`, q);
-    qlBuf.fill(0);
+    // rem bytes already read, is any more left in chunk?
+    const size = cl - rem;
+    if (size <= 0) return;
 
-    if (q.byteLength != ql) {
-      console.warn(`incomplete query: ${q.byteLength} < ${ql}`);
-      socket.destroy();
-      return;
+    // hopefully fast github.com/nodejs/node/issues/20130#issuecomment-382417255
+    // chunk out dns-query starting rem-th byte
+    const data = chunk.slice(rem);
+
+    if (qBuf === null) {
+      qBuf = createBuffer(qlen);
+      qBufOffset = recycleBuffer(qBuf);
     }
 
-    // console.debug("-> TLS q", q.byteLength);
-    handleTCPQuery(q, socket);
-  });
+    qBuf.fill(data, qBufOffset);
+    qBufOffset += size;
+
+    // exactly qlen bytes read till now, handle the dns query
+    if (qBufOffset === qlen) {
+      handleTCPQuery(qBuf, socket, host, flag);
+      // reset qBuf and qlenBuf states
+      qlenBufOffset = recycleBuffer(qlenBuf);
+      qBuf = null;
+      qBufOffset = 0;
+    } else if (qBufOffset > qlen) {
+      console.warn(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
+      socket.destroy();
+      return;
+    } // continue reading from socket
+  }
+
+  socket.on("data", handleData);
 
   socket.on("end", () => {
     // console.debug("TLS socket clean half shutdown");
@@ -92,47 +236,52 @@ function serveTLS(socket) {
 /**
  * @param {Buffer} q
  * @param {tls.TLSSocket} socket
+ * @param {String} host
+ * @param {String} flag
  */
-async function handleTCPQuery(q, socket) {
+async function handleTCPQuery(q, socket, host, flag) {
+  let ok = true;
+  if (socket.destroyed) return;
+
   try {
     // const t1 = Date.now(); // debug
-    const r = await resolveQuery(q, socket.servername);
+    const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-    if (!socket.destroyed) {
-      const wrote = socket.write(new Uint8Array([...rlBuf, ...r]));
-      if (!wrote) console.error(`res write incomplete: < ${r.byteLength + 2}`);
-      // console.debug("processing time t-q =", Date.now() - t1);
-    }
+    const chunk = new Uint8Array([...rlBuf, ...r]);
+
+    // Don't write to a closed socket, else it will crash nodejs
+    if (!socket.destroyed) ok = socket.write(chunk);
+    if (!ok) console.error(`res write incomplete: < ${r.byteLength + 2}`);
+    // console.debug("processing time t-q =", Date.now() - t1);
   } catch (e) {
+    ok = false;
     console.warn(e);
-  } finally {
-    if (!socket.destroyed) socket.destroy();
+  }
+
+  // Only close socket on error, else it would break pipelining of queries.
+  if (!ok && !socket.destroyed) {
+    socket.destroy();
   }
 }
 
 /**
  * @param {Buffer} q
- * @param {String} sni
+ * @param {String} host
+ * @param {String} flag
  * @returns
  */
-async function resolveQuery(q, sni) {
-  // NOTE: b32 flag uses delimiter `+` internally, instead of `-`.
-  // TODO: Find a way to match DNS name with SNI to find flag.
-  const [flag, host] = sni.split(".").length < 4
-    ? ["", sni]
-    : [sni.split(".")[0].replace(/-/g, "+"), sni.slice(sni.indexOf(".") + 1)];
-
-  const qURL = new URL(
-    `/${flag}?dns=${q.toString("base64url").replace(/=/g, "")}`,
-    `https://${host}`,
-  );
-
+async function resolveQuery(q, host, flag) {
+  // Using POST as GET requests are capped at 2KB, where-as DNS-over-TCP
+  // has a much higher ceiling (even if rarely used)
   const r = await handleRequest({
-    request: new Request(qURL, {
-      method: "GET",
+    request: new Request(`https://${host}/${flag}`, {
+      method: "POST",
       headers: {
-        "Accept": "application/dns-message",
+        Accept: "application/dns-message",
+        "Content-Type": "application/dns-message",
+        "Content-Length": q.byteLength.toString(),
       },
+      body: q,
     }),
   });
 
@@ -149,38 +298,47 @@ async function serveHTTPS(req, res) {
   for await (const chunk of req) {
     buffers.push(chunk);
   }
-  const q = Buffer.concat(buffers);
+  const b = Buffer.concat(buffers);
+  const bLen = b.byteLength;
 
-  if (q.byteLength > MaxDNSPacketSize) {
-    console.warn(`HTTP req body too large: ${q.byteLength}`);
+  if (
+    req.method == "POST" &&
+    (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
+  ) {
+    console.warn(`HTTP req body length out of [min, max] bounds: ${bLen}`);
+    res.writeHead(bLen > maxDNSPacketSize ? 413 : 400, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+    });
     res.end();
     return;
   }
 
-  // console.debug("-> HTTPS req", q.byteLength);
-  handleHTTPRequest(q, req, res);
+  // console.debug("-> HTTPS req", req.method, bl);
+  handleHTTPRequest(b, req, res);
 }
 
 /**
- * @param {Buffer} q - Request body
+ * @param {Buffer} b - Request body
  * @param {IncomingMessage} req
  * @param {ServerResponse} res
  */
-async function handleHTTPRequest(q, req, res) {
+async function handleHTTPRequest(b, req, res) {
   try {
     // const t1 = Date.now(); // debug
-    const fReq = new Request(
-      new URL(req.url, `https://${req.headers.host}`),
-      {
-        // Note: In VM container, Object spread may not be working for all
-        // properties, especially of "hidden" Symbol values!? like "headers"?
-        ...req,
-        headers: req.headers,
-        body: req.method.toUpperCase() == "POST" ? q : null,
-      },
-    );
+    let host = req.headers.host;
+    if (isIPv6(host)) host = `[${host}]`;
+
+    const fReq = new Request(new URL(req.url, `https://${host}`), {
+      // Note: In VM container, Object spread may not be working for all
+      // properties, especially of "hidden" Symbol values!? like "headers"?
+      ...req,
+      headers: req.headers,
+      body: req.method.toUpperCase() == "POST" ? b : null,
+    });
     const fRes = await handleRequest({ request: fReq });
 
+    // Don't use Object.assign or similar
     const resHeaders = {};
     fRes.headers.forEach((v, k) => {
       resHeaders[k] = v;
