@@ -6,80 +6,92 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
+import { BlocklistFilter } from "@serverless-dns/blocklist-wrapper";
+import {
+  DNSBlockOperation,
+  DNSParserWrap as DnsParser,
+} from "@serverless-dns/dns-operation";
+
 export class UserOperation {
   constructor() {
     this.userConfigCache = false;
+    this.blocklistFilter = new BlocklistFilter();
+    this.dnsBlockOperation = new DNSBlockOperation();
+    this.dnsParser = new DnsParser();
   }
   /**
    * @param {*} param
-   * @param {*} param.blocklistFilter
    * @param {*} param.dnsResolverUrl
    * @param {*} param.request
+   * @param {*} param.isDnsMsg
    * @returns
    */
   async RethinkModule(param) {
-    return loadUser.call(this, param);
+    return this.loadUser(param);
   }
-}
-
-function loadUser(param) {
-  let response = {};
-  response.isException = false;
-  response.exceptionStack = "";
-  response.exceptionFrom = "";
-  response.data = {};
-  try {
-    if (!this.userConfigCache) {
-      this.userConfigCache = new LocalCache(
-        "User-Config-Cache",
-        1000
-      );
-    }
-    let userBlocklistInfo = {};
-    userBlocklistInfo.from = "Cache";
-    let blocklistFlag = getBlocklistFlag(param.request.url);
-    let currentUser = this.userConfigCache.Get(blocklistFlag);
-    if (!currentUser) {
-      currentUser = {};
-      currentUser.k = blocklistFlag;
-      currentUser.data = {};
-      currentUser.data.userBlocklistFlagUint = "";
-      currentUser.data.flagVersion = 0;
-      currentUser.data.userServiceListUint = false;
-
-      let response = param.blocklistFilter.unstamp(blocklistFlag);
-      currentUser.data.userBlocklistFlagUint = response.userBlocklistFlagUint;
-      currentUser.data.flagVersion = response.flagVersion;
-
-      if (currentUser.data.userBlocklistFlagUint.length > 0) {
-        currentUser.data.userServiceListUint = param.blocklistFilter
-          .flagIntersection(
-            currentUser.data.userBlocklistFlagUint,
-            param.blocklistFilter.wildCardUint,
-          );
+  
+  loadUser(param) {
+    let response = {};
+    response.isException = false;
+    response.exceptionStack = "";
+    response.exceptionFrom = "";
+    response.data = {};
+    response.data.userBlocklistInfo = {};
+    response.data.userBlocklistInfo.dnsResolverUrl = "";
+    try {
+      if (!param.isDnsMsg) {
+        return response;
       }
-      userBlocklistInfo.from = "Generated";
+
+      if (!this.userConfigCache) {
+        this.userConfigCache = new LocalCache(
+          "User-Config-Cache",
+          1000,
+        );
+      }
+      let userBlocklistInfo = {};
+      userBlocklistInfo.from = "Cache";
+      let blocklistFlag = getBlocklistFlag(param.request.url);
+      let currentUser = this.userConfigCache.Get(blocklistFlag);
+      if (!currentUser) {
+        currentUser = {};
+        currentUser.userBlocklistFlagUint = "";
+        currentUser.flagVersion = 0;
+        currentUser.userServiceListUint = false;
+
+        let response = this.blocklistFilter.unstamp(blocklistFlag);
+        currentUser.userBlocklistFlagUint = response.userBlocklistFlagUint;
+        currentUser.flagVersion = response.flagVersion;
+
+        if (currentUser.userBlocklistFlagUint !== "") {
+          currentUser.userServiceListUint = this.blocklistFilter
+            .flagIntersection(
+              currentUser.userBlocklistFlagUint,
+              this.blocklistFilter.wildCardUint,
+            );
+        } else {
+          blocklistFlag = "";
+        }
+        userBlocklistInfo.from = "Generated";
+        this.userConfigCache.Put(blocklistFlag, currentUser);
+      }
+      userBlocklistInfo.userBlocklistFlagUint =
+        currentUser.userBlocklistFlagUint;
+      userBlocklistInfo.flagVersion = currentUser.flagVersion;
+      userBlocklistInfo.userServiceListUint = currentUser.userServiceListUint;
+
+      response.data.userBlocklistInfo = userBlocklistInfo;
+      response.data.dnsResolverUrl = param.dnsResolverUrl;
+    } catch (e) {
+      response.isException = true;
+      response.exceptionStack = e.stack;
+      response.exceptionFrom = "UserOperation loadUser";
+      console.error("Error At : UserOperation -> loadUser");
+      console.error(e.stack);
     }
-    userBlocklistInfo.userBlocklistFlagUint =
-      currentUser.data.userBlocklistFlagUint;
-    userBlocklistInfo.flagVersion = currentUser.data.flagVersion;
-    userBlocklistInfo.userServiceListUint =
-      currentUser.data.userServiceListUint;
-    userBlocklistInfo.dnsResolverUrl = param.dnsResolverUrl;
-
-    response.data = userBlocklistInfo;
-    this.userConfigCache.Put(currentUser);
-  } catch (e) {
-    response.isException = true;
-    response.exceptionStack = e.stack;
-    response.exceptionFrom = "UserOperation loadUser";
-    response.data = false;
-    console.error("Error At : UserOperation -> loadUser");
-    console.error(e.stack);
+    return response;
   }
-  return response;
 }
-
 /**
  * Get the blocklist stamp (base64 encoded) from Request URL
  * @param {String} url - Request URL string
