@@ -7,17 +7,11 @@
  */
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 import { BlocklistFilter } from "@serverless-dns/blocklist-wrapper";
-import {
-  DNSBlockOperation,
-  DNSParserWrap as DnsParser,
-} from "@serverless-dns/dns-operation";
 
 export class UserOperation {
   constructor() {
     this.userConfigCache = false;
     this.blocklistFilter = new BlocklistFilter();
-    this.dnsBlockOperation = new DNSBlockOperation();
-    this.dnsParser = new DnsParser();
   }
   /**
    * @param {*} param
@@ -93,7 +87,8 @@ export class UserOperation {
   }
 }
 /**
- * Get the blocklist stamp (base64 encoded) from Request URL
+ * Get the blocklist flag from `Request` URL
+ * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
  * @param {String} url - Request URL string
  * @returns
  */
