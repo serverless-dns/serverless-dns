@@ -19,9 +19,9 @@ export class LocalCache {
   Get(key) {
     return this.localCache.Get(key);
   }
-  Put(cacheData) {
+  Put(key, data) {
     try {
-      this.localCache.Put(cacheData);
+      this.localCache.Put(key, data);
     } catch (e) {
       console.error("Error At : LocalCache -> Put");
       console.error(e.stack);
