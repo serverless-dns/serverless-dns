@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/basic",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "",
   "main": "basic.js",
   "type": "module",
