@@ -47,10 +47,14 @@ export class CommandControl {
     try {
       response.data.stopProcessing = true;
       response.data.httpResponse;
-      let reqUrl = new URL(url);
-      let queryString = reqUrl.searchParams;
-      let pathSplit = reqUrl.pathname.split("/");
+      const reqUrl = new URL(url);
+      const queryString = reqUrl.searchParams;
+      const pathSplit = reqUrl.pathname.split("/");
       let command = pathSplit[1];
+      if (!command) {
+        const d = reqUrl.host.split("."); // ex: xyz.max.rethinkdns.com
+        command = (d.length > 3 && d[2] === "rethinkdns") ? d[0] : ""
+      }
       const weburl = command == ""
         ? "https://rethinkdns.com/configure"
         : "https://rethinkdns.com/configure?s=added#" + command;
@@ -91,12 +95,8 @@ export class CommandControl {
         response.data.stopProcessing = false;
       } else {
         response.data.httpResponse = new Response(null, {
-          "status": 400,
-          "statusText": "Bad Request",
-          "headers": {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-          },
+          status: 400,
+          statusText: "Bad Request",
         });
       }
     } catch (e) {
@@ -109,14 +109,6 @@ export class CommandControl {
       response.data.httpResponse.headers.set(
         "Content-Type",
         "application/json",
-      );
-      response.data.httpResponse.headers.set(
-        "Access-Control-Allow-Origin",
-        "*",
-      );
-      response.data.httpResponse.headers.set(
-        "Access-Control-Allow-Headers",
-        "*",
       );
     }
     return response;
@@ -154,8 +146,6 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
 
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -175,8 +165,6 @@ function domainNameToUint(queryString, blocklistFilter) {
 
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -193,8 +181,6 @@ function listToB64(queryString, blocklistFilter) {
   );
   let response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
 
@@ -216,7 +202,5 @@ function b64ToList(queryString, blocklistFilter) {
   }
   response = new Response(JSON.stringify(returndata));
   response.headers.set("Content-Type", "application/json");
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Headers", "*");
   return response;
 }
