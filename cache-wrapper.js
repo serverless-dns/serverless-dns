@@ -25,7 +25,6 @@ export class LocalCache {
     } catch (e) {
       console.error("Error At : LocalCache -> Put");
       console.error(e.stack);
-      throw e
     }
   }
 }
