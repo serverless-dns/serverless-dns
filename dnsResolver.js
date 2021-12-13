@@ -153,7 +153,19 @@ export default class DNSResolver {
       param.runTimeEnv,
     )).arrayBuffer();
 
-    let decodedDnsPacket = this.dnsParser.Decode(responseBodyBuffer);
+    if (!responseBodyBuffer) throw new Error("Null response from upstream");
+
+    let decodedDnsPacket = (() => {
+      try {
+        return this.dnsParser.Decode(responseBodyBuffer);
+      } catch (e) {
+        console.error(
+          "@DNSResolver->updateCache: Failed decoding response body buffer =>",
+          responseBodyBuffer
+        );
+        throw e;
+      }
+    })();
 
     // TODO: only cache noerror / nxdomain responses
     // TODO: nxdomain ttls are in the authority section
