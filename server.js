@@ -11,7 +11,7 @@ import net, { isIPv6 } from "net";
 import * as proxyProtocolParser from "proxy-protocol-js";
 import * as tls from "tls";
 // import { IncomingMessage, ServerResponse } from "http";
-import * as https from "https";
+import * as http2 from "http2";
 import { handleRequest } from "./index.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 
@@ -33,6 +33,11 @@ const dnsHeaderSize = 2;
 let DNS_RG_RE = null;
 let DNS_WC_RE = null;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "*",
+};
+
 const dotProxyServer =
   DOT_HAS_PROXY_PROTO &&
   net
@@ -43,8 +48,8 @@ const dotServer = tls
   .createServer(tlsOptions, serveTLS)
   .listen(DOT_PORT, () => up("DOT", dotServer.address()));
 
-const dohServer = https
-  .createServer(tlsOptions, serveHTTPS)
+const dohServer = http2
+  .createSecureServer({ ...tlsOptions, allowHTTP1: true }, serveHTTPS)
   .listen(DOH_PORT, () => up("DOH", dohServer.address()));
 
 function up(server, addr) {
@@ -271,7 +276,7 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @returns
  */
 async function resolveQuery(q, host, flag) {
-  // Using POST as GET requests are capped at 2KB, where-as DNS-over-TCP
+  // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
   // has a much higher ceiling (even if rarely used)
   const r = await handleRequest({
     request: new Request(`https://${host}/${flag}`, {
@@ -294,6 +299,7 @@ async function resolveQuery(q, host, flag) {
  * @param {ServerResponse} res
  */
 async function serveHTTPS(req, res) {
+  const UA = req.headers["user-agent"];
   const buffers = [];
   for await (const chunk of req) {
     buffers.push(chunk);
@@ -306,15 +312,15 @@ async function serveHTTPS(req, res) {
     (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
   ) {
     console.warn(`HTTP req body length out of [min, max] bounds: ${bLen}`);
-    res.writeHead(bLen > maxDNSPacketSize ? 413 : 400, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
-    });
+    res.writeHead(
+      bLen > maxDNSPacketSize ? 413 : 400,
+      UA && UA.startsWith("Mozilla/5.0") ? corsHeaders : {}
+    );
     res.end();
     return;
   }
 
-  // console.debug("-> HTTPS req", req.method, bl);
+  // console.debug("-> HTTPS req", req.method, bLen);
   handleHTTPRequest(b, req, res);
 }
 
@@ -326,23 +332,32 @@ async function serveHTTPS(req, res) {
 async function handleHTTPRequest(b, req, res) {
   try {
     // const t1 = Date.now(); // debug
-    let host = req.headers.host;
+    let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
+
+    let reqHeaders = {};
+    // remove http/2 pseudo-headers
+    for (const key in req.headers) {
+      if (key.startsWith(":")) continue;
+      reqHeaders[key] = req.headers[key];
+    }
 
     const fReq = new Request(new URL(req.url, `https://${host}`), {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
-      headers: req.headers,
-      body: req.method.toUpperCase() == "POST" ? b : null,
+      headers: reqHeaders,
+      method: req.method,
+      body: req.method == "POST" ? b : null,
     });
     const fRes = await handleRequest({ request: fReq });
 
-    // Don't use Object.assign or similar
+    // Object.assign, Object spread, etc doesn't work with `node-fetch` Headers
     const resHeaders = {};
     fRes.headers.forEach((v, k) => {
       resHeaders[k] = v;
     });
+
     res.writeHead(fRes.status, resHeaders);
     res.end(Buffer.from(await fRes.arrayBuffer()));
     // console.debug("processing time h-q =", Date.now() - t1);
