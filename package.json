@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/cache-wrapper",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "",
   "type": "module",
   "scripts": {
