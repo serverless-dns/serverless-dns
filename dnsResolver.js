@@ -153,7 +153,8 @@ export default class DNSResolver {
       param.runTimeEnv,
     )).arrayBuffer();
 
-    if (!responseBodyBuffer) throw new Error("Null response from upstream");
+    if (!responseBodyBuffer || responseBodyBuffer.byteLength < 12 + 5)
+      throw new Error("Null / inadequate response from upstream");
 
     let decodedDnsPacket = (() => {
       try {
