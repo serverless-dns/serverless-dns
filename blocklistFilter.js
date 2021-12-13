@@ -13,15 +13,26 @@ import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
 import { base32, rbase32 } from "./b32.js";
 
 export class BlocklistFilter {
-  constructor(t, ft, blocklistBasicConfig, blocklistFileTag) {
-    this.t = t;
-    this.ft = ft;
-    this.blocklistBasicConfig = blocklistBasicConfig;
-    this.blocklistFileTag = blocklistFileTag;
-    this.domainNameCache = new LocalCache(
-      "Domain-Name-Cache",
-      5000,
-    );
+  constructor() {
+    this.t = null;
+    this.ft = null;
+    this.blocklistBasicConfig = null;
+    this.blocklistFileTag = null;
+    this.domainNameCache = null;
+    //following wildCard array is hardcoded to avoid the usage of blocklistFileTag download from s3
+    //the hard coded array contains the list of blocklist files mentioned at setWildcardlist()
+    //TODO is future version wildcard list should be downloaded from KV or from env
+    this.wildCardUint = new Uint16Array([
+      64544,
+      18431,
+      8191,
+      65535,
+      64640,
+      1,
+      128,
+      16320,
+    ]);
+    /*
     this.wildCardLists = new Set();
     setWildcardlist.call(this);
     const str = _customTagToFlag(
@@ -31,7 +42,18 @@ export class BlocklistFilter {
     this.wildCardUint = new Uint16Array(str.length);
     for (let i = 0; i < this.wildCardUint.length; i++) {
       this.wildCardUint[i] = str.charCodeAt(i);
-    }
+    }*/
+  }
+
+  loadFilter(t, ft, blocklistBasicConfig, blocklistFileTag) {
+    this.t = t;
+    this.ft = ft;
+    this.blocklistBasicConfig = blocklistBasicConfig;
+    this.blocklistFileTag = blocklistFileTag;
+    this.domainNameCache = new LocalCache(
+      "Domain-Name-Cache",
+      5000,
+    );
   }
 
   getDomainInfo(domainName) {
@@ -40,11 +62,10 @@ export class BlocklistFilter {
 
     if (!domainNameInfo) {
       domainNameInfo = {};
-      domainNameInfo.k = domainName;
-      domainNameInfo.data = {};
-      domainNameInfo.data.searchResult = this.hadDomainName(domainName);
+      domainNameInfo.searchResult = this.hadDomainName(domainName);
+      this.domainNameCache.Put(domainName, domainNameInfo);
     }
-    this.domainNameCache.Put(domainNameInfo);
+
     return domainNameInfo;
   }
 

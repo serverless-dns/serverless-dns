@@ -8,10 +8,10 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
-
-export class BlocklistWrapper {
+let debug = false;
+class BlocklistWrapper {
   constructor() {
-    this.blocklistFilter = null;
+    this.blocklistFilter = new BlocklistFilter();
     this.startTime;
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
@@ -34,7 +34,7 @@ export class BlocklistWrapper {
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
-    if (this.blocklistFilter !== null) {
+    if (this.blocklistFilter.t !== null) {
       response.data.blocklistFilter = this.blocklistFilter;
       return response;
     }
@@ -66,21 +66,22 @@ export class BlocklistWrapper {
         // going back to direct-s3 download as worker-bundled blocklist files download
         // gets triggered for 10% of requests.
         let totalWaitms = 0;
-        const waitms = 50
+        const waitms = 50;
         while (totalWaitms < param.fetchTimeout) {
-          if (this.blocklistFilter !== null) {
+          if (this.blocklistFilter.t !== null) {
             response.data.blocklistFilter = this.blocklistFilter;
-            return response
+            return response;
           }
           await sleep(waitms);
-          totalWaitms += waitms
-          retryCount++;
+          totalWaitms += waitms;
         }
-          response.isException = true;
-          response.exceptionStack = (this.exceptionStack) ? this.exceptionStack :
-              "Problem in loading blocklistFilter - Waiting Timeout";
-          response.exceptionFrom = (this.exceptionFrom) ? this.exceptionFrom :
-              "blocklistWrapper.js RethinkModule";
+        response.isException = true;
+        response.exceptionStack = (this.exceptionStack)
+          ? this.exceptionStack
+          : "Problem in loading blocklistFilter - Waiting Timeout";
+        response.exceptionFrom = (this.exceptionFrom)
+          ? this.exceptionFrom
+          : "blocklistWrapper.js RethinkModule";
       }
     } catch (e) {
       response.isException = true;
@@ -100,7 +101,7 @@ export class BlocklistWrapper {
     tdParts,
   ) {
     this.isBlocklistUnderConstruction = true;
-    this.startTime = when
+    this.startTime = when;
 
     let response = {};
     response.isException = false;
@@ -109,18 +110,27 @@ export class BlocklistWrapper {
     response.data = {};
 
     try {
-      const bl = await downloadBuildBlocklist(
+      let bl = await downloadBuildBlocklist(
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
         tdParts,
       );
-      this.blocklistFilter = new BlocklistFilter(
+
+      this.blocklistFilter.loadFilter(
         bl.t,
         bl.ft,
         bl.blocklistBasicConfig,
         bl.blocklistFileTag,
       );
+
+      if (debug) {
+        console.log("done blocklist filter");
+        let result = this.blocklistFilter.getDomainInfo("google.com");
+        console.log(JSON.stringify(result));
+        console.log(JSON.stringify(result.searchResult.get("google.com")));
+      }
+
       this.isBlocklistUnderConstruction = false;
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
@@ -152,23 +162,24 @@ async function downloadBuildBlocklist(
     };
 
     tdNodecount == null &&
-    console.error("tdNodecount missing! Blocking won't work");
-    //let now = Date.now();
+      console.error("tdNodecount missing! Blocking won't work");
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
     const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
     let downloads = await Promise.all([buf0, buf1, buf2]);
 
-    //console.log("Downloaded Time : " + (Date.now() - now));
+    if (debug) {
+      console.log("call createBlocklistFilter");
+      console.log(blocklistBasicConfig);
+    }
+
     let trie = createBlocklistFilter(
       downloads[1],
       downloads[2],
       downloads[0],
       blocklistBasicConfig,
     );
-
-    //console.log("download and trie create Time : " + (Date.now() - now));
 
     resp.t = trie.t;
     resp.ft = trie.ft;
@@ -184,7 +195,9 @@ async function fileFetch(url, typ) {
   if (typ !== "buffer" && typ !== "json") {
     throw new Error("Unknown conversion type at fileFetch");
   }
-  //console.log("Downloading : "+url)
+  if (debug) {
+    console.log("Start Downloading : " + url);
+  }
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   if (res.status == 200) {
     if (typ == "buffer") {
@@ -194,7 +207,9 @@ async function fileFetch(url, typ) {
     }
   } else {
     console.error(url, res);
-    throw new Error(JSON.stringify([url, res, "response status unsuccessful at fileFetch"]));
+    throw new Error(
+      JSON.stringify([url, res, "response status unsuccessful at fileFetch"]),
+    );
   }
 }
 
@@ -206,6 +221,9 @@ const sleep = (ms) => {
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {
+  if (debug) {
+    console.log("Make Td Starts : Tdparts -> " + n);
+  }
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
   }
@@ -220,6 +238,11 @@ async function makeTd(baseurl, n) {
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
+
+  if (debug) {
+    console.log("all td download successful");
+  }
+
   return new Promise((resolve, reject) => {
     resolve(concat(tds));
   });
@@ -243,3 +266,5 @@ function concat(arraybuffers) {
   }
   return buf;
 }
+
+export { BlocklistFilter, BlocklistWrapper };
