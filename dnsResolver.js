@@ -11,7 +11,7 @@ import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
 const lfuSize = 2000; // TODO: retrieve this from env
-let debug = true;
+const debug = false;
 export default class DNSResolver {
   constructor() {
     this.dnsParser = new DNSParserWrap();
