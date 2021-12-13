@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
+let debug = false;
 export class CommandControl {
   constructor() {
     this.latestTimestamp = "";
@@ -16,9 +16,11 @@ export class CommandControl {
    * @param {Request} param.request
    * @param {*} param.blocklistFilter
    * @param {*} param.latestTimestamp
+   * @param {*} param.isDnsMsg
    * @returns
    */
   async RethinkModule(param) {
+    if(debug) console.log("In CommandControl")
     this.latestTimestamp = param.latestTimestamp;
     let response = {};
     response.isException = false;
@@ -30,20 +32,18 @@ export class CommandControl {
       response = this.commandOperation(
         param.request.url,
         param.blocklistFilter,
-        param.request.headers,
+        param.isDnsMsg
       );
     }
     return response;
   }
 
-  commandOperation(url, blocklistFilter, headers) {
+  commandOperation(url, blocklistFilter, isDnsMsg) {
     let response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
-    const isDnsMsg = headers.get("Accept") == "application/dns-message" ||
-      headers.get("Content-Type") == "application/dns-message";
     try {
       response.data.stopProcessing = true;
       response.data.httpResponse;
@@ -55,26 +55,23 @@ export class CommandControl {
         ? "https://rethinkdns.com/configure"
         : "https://rethinkdns.com/configure?s=added#" + command;
       if (command == "listtob64") {
-        response.data.httpResponse = listToB64.call(
-          this,
+        response.data.httpResponse = listToB64(
           queryString,
           blocklistFilter,
         );
       } else if (command == "b64tolist") {
-        response.data.httpResponse = b64ToList.call(
-          this,
+        response.data.httpResponse = b64ToList(
           queryString,
           blocklistFilter,
         );
       } else if (command == "dntolist") {
-        response.data.httpResponse = domainNameToList.call(
-          this,
+        response.data.httpResponse = domainNameToList(
           queryString,
           blocklistFilter,
+          this.latestTimestamp,
         );
       } else if (command == "dntouint") {
-        response.data.httpResponse = domainNameToUint.call(
-          this,
+        response.data.httpResponse = domainNameToUint(
           queryString,
           blocklistFilter,
         );
@@ -83,10 +80,10 @@ export class CommandControl {
         if (pathSplit.length >= 3) {
           b64UserFlag = pathSplit[2];
         }
-        response.data.httpResponse = configRedirect.call(
-          this,
+        response.data.httpResponse = configRedirect(          
           b64UserFlag,
           reqUrl.origin,
+          this.latestTimestamp
         );
       } else if (!isDnsMsg) {
         response.data.httpResponse = Response.redirect(weburl, 302);
@@ -126,18 +123,18 @@ export class CommandControl {
   }
 }
 
-function configRedirect(b64UserFlag, requestUrlOrigin) {
+function configRedirect(b64UserFlag, requestUrlOrigin, latestTimestamp) {
   let base = "https://rethinkdns.com/configure";
   let query = "?v=ext&u=" + requestUrlOrigin + "&tstamp=" +
-    this.latestTimestamp + "#" + b64UserFlag;
+    latestTimestamp + "#" + b64UserFlag;
   return Response.redirect(base + query, 302);
 }
 
-function domainNameToList(queryString, blocklistFilter) {
+function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   let domainName = queryString.get("dn") || "";
   let returndata = {};
   returndata.domainName = domainName;
-  returndata.version = this.latestTimestamp;
+  returndata.version = latestTimestamp;
   returndata.list = {};
   var searchResult = blocklistFilter.hadDomainName(domainName);
   if (searchResult) {
@@ -169,8 +166,6 @@ function domainNameToUint(queryString, blocklistFilter) {
   returndata.list = {};
   var searchResult = blocklistFilter.hadDomainName(domainName);
   if (searchResult) {
-    let list;
-    let listDetail = {};
     for (let entry of searchResult) {
       returndata.list[entry[0]] = entry[1];
     }
