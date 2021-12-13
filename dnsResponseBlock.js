@@ -71,7 +71,7 @@ function checkHttpsSvcbBlock(
         param.userBlocklistInfo.flagVersion,
         domainNameBlocklistInfo.searchResult,
         param.blocklistFilter,
-        targetName,
+        targetName
       );
     }
   }
@@ -88,7 +88,7 @@ function checkCnameBlock(param, response, dnsBlockOperation) {
       param.userBlocklistInfo.flagVersion,
       domainNameBlocklistInfo.searchResult,
       param.blocklistFilter,
-      cname,
+      cname
     );
   }
 
@@ -106,7 +106,7 @@ function checkCnameBlock(param, response, dnsBlockOperation) {
         param.userBlocklistInfo.flagVersion,
         domainNameBlocklistInfo.searchResult,
         param.blocklistFilter,
-        cname,
+        cname
       );
     }
   }

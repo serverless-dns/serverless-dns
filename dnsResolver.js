@@ -10,7 +10,7 @@ import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
-const lfusize = 2000; // TODO: retrieve this from env
+const lfuSize = 2000; // TODO: retrieve this from env
 let debug = true;
 export default class DNSResolver {
   constructor() {
@@ -20,7 +20,7 @@ export default class DNSResolver {
   }
 
   /**
-   * @param {*} param
+   * @param {Object} param
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {String} param.dnsResolverUrl
@@ -34,7 +34,7 @@ export default class DNSResolver {
     let response = emptyResponse();
     try {
       if (!this.dnsResCache) {
-        this.dnsResCache = new LocalCache("dns-response-cache", lfusize);
+        this.dnsResCache = new LocalCache("dns-response-cache", lfuSize);
         if (param.runTimeEnv == "worker") {
           this.wCache = caches.default;
         }
@@ -66,7 +66,7 @@ export default class DNSResolver {
       console.log(JSON.stringify(cacheRes));
     }
     if (!cacheRes || (now >= cacheRes.ttlEndTime)) {
-      cacheRes = await this.checkSecondLevelCacheBfrResolve(        
+      cacheRes = await this.checkSecondLevelCacheBfrResolve(
         param.runTimeEnv,
         param.request.url,
         dn,
@@ -78,7 +78,7 @@ export default class DNSResolver {
       }
       if (!cacheRes) { // upstream if not in both lfu (l1) and workers (l2) cache
         cacheRes = {};
-        resp.responseBodyBuffer = await this.resolveDnsUpdateCache(          
+        resp.responseBodyBuffer = await this.resolveDnsUpdateCache(
           param,
           cacheRes,
           dn,
@@ -97,7 +97,7 @@ export default class DNSResolver {
 
     resp.responseDecodedDnsPacket = cacheRes.decodedDnsPacket;
     resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
-    resp.responseBodyBuffer = this.loadDnsResponseFromCache(      
+    resp.responseBodyBuffer = this.loadDnsResponseFromCache(
       cacheRes.decodedDnsPacket,
       cacheRes.ttlEndTime,
       now,
@@ -146,7 +146,7 @@ export default class DNSResolver {
    * @returns
    */
   async resolveDnsUpdateCache(param, cacheRes, dn, now) {
-    let responseBodyBuffer = await (await resolveDns(
+    let responseBodyBuffer = await (await resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer,
@@ -202,7 +202,12 @@ function convertMapToObject(map) {
  * @param {String} runTimeEnv
  * @returns
  */
-async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
+async function resolveDnsUpstream(
+  request,
+  resolverUrl,
+  requestBodyBuffer,
+  runTimeEnv,
+) {
   try {
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
@@ -211,18 +216,20 @@ async function resolveDns(request, resolverUrl, requestBodyBuffer, runTimeEnv) {
     u.port = dnsResolverUrl.port; // override port, default 443
     u.protocol = dnsResolverUrl.protocol; // override proto, default https
     const headers = {
-      "Accept": "application/dns-message",
+      Accept: "application/dns-message",
     };
 
     let newRequest;
     if (
       request.method === "GET" ||
-      runTimeEnv == "worker" && request.method === "POST"
+      (runTimeEnv == "worker" && request.method === "POST")
     ) {
       u.search = runTimeEnv == "worker" && request.method === "POST"
         ? "?dns=" +
           btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
-            .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "")
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=/g, "")
         : u.search;
       newRequest = new Request(u.href, {
         method: "GET",
