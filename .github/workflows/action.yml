@@ -10,11 +10,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          ref: upstream             # set the branch to merge to
+          ref: upstream
           fetch-depth: 0 
       - name: Merge Upstream
         uses: exions/merge-upstream@v1
         with:
-          upstream: owner/repo      # set the upstream repo
-          upstream-branch: master   # set the upstream branch to merge from
-          branch: upstream          # set the branch to merge to
+          upstream:  serverless-dns /serverless-dns
+          upstream-branch: main  
+          branch: upstream         
