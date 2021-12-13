@@ -12,7 +12,7 @@ export default class DNSParserWrap {
   constructor() {
   }
 
-  async Decode(arrayBuffer) {
+  Decode(arrayBuffer) {
     try {
       return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)));
     } catch (e) {

@@ -7,16 +7,22 @@
  */
 
 import DNSParserWrap from "./dnsParserWrap.js";
+import DNSBlockOperation from "./dnsBlockOperation.js";
 
 export default class DNSBlock {
   constructor() {
     this.dnsParser = new DNSParserWrap();
+    this.dnsBlockOperation = new DNSBlockOperation();
+    this.wCache = null;
   }
   /**
    * @param {*} param
    * @param {*} param.userBlocklistInfo
    * @param {*} param.blocklistFilter
-   * @param {*} param.requestBodyBuffer
+   * @param {*} param.requestDecodedDnsPacket
+   * @param {*} param.isAggCacheReq
+   * @param {*} param.event
+   * @param {*} param.request
    * @returns
    */
   async RethinkModule(param) {
@@ -26,45 +32,44 @@ export default class DNSBlock {
     response.exceptionFrom = "";
     response.data = {};
     response.data.isBlocked = false;
-    response.data.isNotBlockedExistInBlocklist = false;
-    response.data.domainNameInBlocklistUint;
-    response.data.domainNameUserBlocklistIntersection;
-    response.data.decodedDnsPacket;
     response.data.blockedB64Flag = "";
     try {
-      let decodedDnsPacket = await this.dnsParser.Decode(
-        param.requestBodyBuffer,
-      );
-      if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
+      if (param.userBlocklistInfo.userBlocklistFlagUint.length !== "") {
         let domainNameBlocklistInfo;
         // FIXME: handle HTTPS/SVCB
         if (
-          (decodedDnsPacket.questions.length >= 1) &&
-          (decodedDnsPacket.questions[0].type == "A" ||
-            decodedDnsPacket.questions[0].type == "AAAA" ||
-            decodedDnsPacket.questions[0].type == "CNAME" ||
-            decodedDnsPacket.questions[0].type == "HTTPS" ||
-            decodedDnsPacket.questions[0].type == "SVCB")
+          (param.requestDecodedDnsPacket.questions.length >= 1) &&
+          (param.requestDecodedDnsPacket.questions[0].type == "A" ||
+            param.requestDecodedDnsPacket.questions[0].type == "AAAA" ||
+            param.requestDecodedDnsPacket.questions[0].type == "CNAME" ||
+            param.requestDecodedDnsPacket.questions[0].type == "HTTPS" ||
+            param.requestDecodedDnsPacket.questions[0].type == "SVCB")
         ) {
           domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-            decodedDnsPacket.questions[0].name,
+            param.requestDecodedDnsPacket.questions[0].name,
           );
-          if (domainNameBlocklistInfo.data.searchResult) {
-            response.data = checkDomainBlocking(
-              param.userBlocklistInfo,
-              domainNameBlocklistInfo,
+          if (domainNameBlocklistInfo.searchResult) {
+            response.data = this.dnsBlockOperation.checkDomainBlocking(
+              param.userBlocklistInfo.userBlocklistFlagUint,
+              param.userBlocklistInfo.userServiceListUint,
+              param.userBlocklistInfo.flagVersion,
+              domainNameBlocklistInfo.searchResult,
               param.blocklistFilter,
-              decodedDnsPacket.questions[0].name,
+              param.requestDecodedDnsPacket.questions[0].name,
             );
+            if (response.data.isBlocked && param.isAggCacheReq) {
+              if (this.wCache === null) {
+                this.wCache = caches.default;
+              }
+              toCacheApi(param, this.wCache, domainNameBlocklistInfo);
+            }
           }
         }
       }
-      response.data.decodedDnsPacket = decodedDnsPacket;
     } catch (e) {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSBlock RethinkModule";
-      response.data = false;
       console.error("Error At : DNSBlock -> RethinkModule");
       console.error(e.stack);
     }
@@ -72,93 +77,20 @@ export default class DNSBlock {
   }
 }
 
-function checkDomainBlocking(
-  userBlocklistInfo,
-  domainNameBlocklistInfo,
-  blocklistFilter,
-  domainName,
-) {
-  let response;
-  try {
-    response = checkDomainNameUserFlagIntersection(
-      userBlocklistInfo.userBlocklistFlagUint,
-      userBlocklistInfo.flagVersion,
-      domainNameBlocklistInfo,
-      blocklistFilter,
-      domainName,
-    );
-    if (response.isBlocked) {
-      return response;
-    }
-
-    if (userBlocklistInfo.userServiceListUint) {
-      let dnSplit = domainName.split(".");
-      let dnJoin = "";
-      let wildCardResponse;
-      while (dnSplit.shift() != undefined) {
-        dnJoin = dnSplit.join(".");
-        wildCardResponse = checkDomainNameUserFlagIntersection(
-          userBlocklistInfo.userServiceListUint,
-          userBlocklistInfo.flagVersion,
-          domainNameBlocklistInfo,
-          blocklistFilter,
-          dnJoin,
-        );
-        if (wildCardResponse.isBlocked) {
-          return wildCardResponse;
-        }
-      }
-    }
-  } catch (e) {
-    throw e;
-  }
-
-  return response;
-}
-
-function checkDomainNameUserFlagIntersection(
-  userBlocklistFlagUint,
-  flagVersion,
-  domainNameBlocklistInfo,
-  blocklistFilter,
-  domainName,
-) {
-  let response = {};
-  try {
-    response.isBlocked = false;
-    response.isNotBlockedExistInBlocklist = false;
-    response.blockedB64Flag = "";
-    response.blockedTag = [];
-    if (domainNameBlocklistInfo.data.searchResult.has(domainName)) {
-      let domainNameInBlocklistUint = domainNameBlocklistInfo.data.searchResult
-        .get(domainName);
-      let blockedUint = blocklistFilter.flagIntersection(
-        userBlocklistFlagUint,
-        domainNameInBlocklistUint,
-      );
-      if (blockedUint) {
-        response.isBlocked = true;
-        response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
-          blockedUint,
-          flagVersion,
-        );
-      } else {
-        response.isNotBlockedExistInBlocklist = true;
-        blockedUint = new Uint16Array(domainNameInBlocklistUint.length);
-        let index = 0;
-        for (let singleBlock of domainNameInBlocklistUint) {
-          blockedUint[index] = singleBlock;
-          index++;
-        }
-        response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
-          blockedUint,
-          flagVersion,
-        );
-      }
-      response.blockedTag = blocklistFilter.getTag(blockedUint);
-    }
-  } catch (e) {
-    throw e;
-  }
-  return response;
+function toCacheApi(param, wCache, domainNameBlocklistInfo) {
+  const dn =
+    param.requestDecodedDnsPacket.questions[0].name.trim().toLowerCase() + ":" +
+    param.requestDecodedDnsPacket.questions[0].type;
+  let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
+  let response = new Response("", {
+    headers: {
+      "x-rethink-metadata": JSON.stringify({
+        ttlEndTime: 0,
+        bodyUsed: false,
+        blocklistInfo: Object.fromEntries(domainNameBlocklistInfo.searchResult),
+      }),
+    },
+    cf: { cacheTtl: 604800 }, //setting ttl to 7days 60*60*24*7
+  });
+  param.event.waitUntil(wCache.put(wCacheUrl, response));
 }

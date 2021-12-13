@@ -6,11 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import DNSParserWrap from "./dnsParserWrap.js";
+import DNSBlockOperation from "./dnsBlockOperation.js";
 
 export default class DNSResponseBlock {
   constructor() {
-    this.dnsParser = new DNSParserWrap();
+    this.dnsBlockOperation = new DNSBlockOperation();
   }
   /**
    * @param {*} param
@@ -26,29 +26,26 @@ export default class DNSResponseBlock {
     response.exceptionFrom = "";
     response.data = {};
     response.data.isBlocked = false;
-    response.data.isNotBlockedExistInBlocklist = false;
-    response.data.domainNameInBlocklistUint;
-    response.data.domainNameUserBlocklistIntersection;
+    response.data.blockedB64Flag = "";
     try {
-      if (param.userBlocklistInfo.userBlocklistFlagUint.length > 0) {
+      if (param.userBlocklistInfo.userBlocklistFlagUint !== "") {
         if (
           param.responseDecodedDnsPacket.answers.length > 0 &&
           param.responseDecodedDnsPacket.answers[0].type == "CNAME"
         ) {
-          checkCnameBlock(param, response, param.responseDecodedDnsPacket);
+          checkCnameBlock(param, response, this.dnsBlockOperation);
         } else if (
           param.responseDecodedDnsPacket.answers.length > 0 &&
           (param.responseDecodedDnsPacket.answers[0].type == "HTTPS" ||
-          param.responseDecodedDnsPacket.answers[0].type == "SVCB")
+            param.responseDecodedDnsPacket.answers[0].type == "SVCB")
         ) {
-          checkHttpsSvcbBlock(param, response, param.responseDecodedDnsPacket);
+          checkHttpsSvcbBlock(param, response, this.dnsBlockOperation);
         }
       }
     } catch (e) {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSResponseBlock RethinkModule";
-      response.data = false;
       console.error("Error At : DNSResponseBlock -> RethinkModule");
       console.error(e.stack);
     }
@@ -56,142 +53,61 @@ export default class DNSResponseBlock {
   }
 }
 
-function checkHttpsSvcbBlock(param, response, decodedDnsPacket) {
-  let targetName = decodedDnsPacket.answers[0].data.targetName.trim()
+function checkHttpsSvcbBlock(
+  param,
+  response,
+  dnsBlockOperation,
+) {
+  let targetName = param.responseDecodedDnsPacket.answers[0].data.targetName.trim()
     .toLowerCase();
   if (targetName != ".") {
-    domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
+    let domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
       targetName,
     );
-    if (domainNameBlocklistInfo.data.searchResult) {
-      response.data = checkDomainBlocking(
-        param.userBlocklistInfo,
-        domainNameBlocklistInfo,
+    if (domainNameBlocklistInfo.searchResult) {
+      response.data = dnsBlockOperation.checkDomainBlocking(
+        param.userBlocklistInfo.userBlocklistFlagUint,
+        param.userBlocklistInfo.userServiceListUint,
+        param.userBlocklistInfo.flagVersion,
+        domainNameBlocklistInfo.searchResult,
         param.blocklistFilter,
         targetName,
       );
     }
   }
 }
-function checkCnameBlock(param, response, decodedDnsPacket) {
-  let domainNameBlocklistInfo;
-  let cname = decodedDnsPacket.answers[0].data.trim().toLowerCase();
-  domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
+function checkCnameBlock(param, response, dnsBlockOperation) {
+  let cname = param.responseDecodedDnsPacket.answers[0].data.trim().toLowerCase();
+  let domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
     cname,
   );
-  if (domainNameBlocklistInfo.data.searchResult) {
-    response.data = checkDomainBlocking(
-      param.userBlocklistInfo,
-      domainNameBlocklistInfo,
+  if (domainNameBlocklistInfo.searchResult) {
+    response.data = dnsBlockOperation.checkDomainBlocking(
+      param.userBlocklistInfo.userBlocklistFlagUint,
+      param.userBlocklistInfo.userServiceListUint,
+      param.userBlocklistInfo.flagVersion,
+      domainNameBlocklistInfo.searchResult,
       param.blocklistFilter,
       cname,
     );
   }
 
   if (!response.data.isBlocked) {
-    cname = decodedDnsPacket
-      .answers[decodedDnsPacket.answers.length - 1].name.trim()
+    cname = param.responseDecodedDnsPacket
+      .answers[param.responseDecodedDnsPacket.answers.length - 1].name.trim()
       .toLowerCase();
     domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
       cname,
     );
-    if (domainNameBlocklistInfo.data.searchResult) {
-      response.data = checkDomainBlocking(
-        param.userBlocklistInfo,
-        domainNameBlocklistInfo,
+    if (domainNameBlocklistInfo.searchResult) {
+      response.data = dnsBlockOperation.checkDomainBlocking(
+        param.userBlocklistInfo.userBlocklistFlagUint,
+        param.userBlocklistInfo.userServiceListUint,
+        param.userBlocklistInfo.flagVersion,
+        domainNameBlocklistInfo.searchResult,
         param.blocklistFilter,
         cname,
       );
     }
   }
-}
-function checkDomainBlocking(
-  userBlocklistInfo,
-  domainNameBlocklistInfo,
-  blocklistFilter,
-  domainName,
-) {
-  let response;
-  try {
-    response = checkDomainNameUserFlagIntersection(
-      userBlocklistInfo.userBlocklistFlagUint,
-      userBlocklistInfo.flagVersion,
-      domainNameBlocklistInfo,
-      blocklistFilter,
-      domainName,
-    );
-    if (response.isBlocked) {
-      return response;
-    }
-
-    if (userBlocklistInfo.userServiceListUint) {
-      let dnSplit = domainName.split(".");
-      let dnJoin = "";
-      let wildCardResponse;
-      while (dnSplit.shift() != undefined) {
-        dnJoin = dnSplit.join(".");
-        wildCardResponse = checkDomainNameUserFlagIntersection(
-          userBlocklistInfo.userServiceListUint,
-          userBlocklistInfo.flagVersion,
-          domainNameBlocklistInfo,
-          blocklistFilter,
-          dnJoin,
-        );
-        if (wildCardResponse.isBlocked) {
-          return wildCardResponse;
-        }
-      }
-    }
-  } catch (e) {
-    throw e;
-  }
-
-  return response;
-}
-
-function checkDomainNameUserFlagIntersection(
-  userBlocklistFlagUint,
-  flagVersion,
-  domainNameBlocklistInfo,
-  blocklistFilter,
-  domainName,
-) {
-  let response = {};
-  try {
-    response.isBlocked = false;
-    response.isNotBlockedExistInBlocklist = false;
-    response.blockedB64Flag = "";
-    response.blockedTag = [];
-    if (domainNameBlocklistInfo.data.searchResult.has(domainName)) {
-      let domainNameInBlocklistUint = domainNameBlocklistInfo.data.searchResult
-        .get(domainName);
-      let blockedUint = blocklistFilter.flagIntersection(
-        userBlocklistFlagUint,
-        domainNameInBlocklistUint,
-      );
-      if (blockedUint) {
-        response.isBlocked = true;
-        response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
-          blockedUint,
-          flagVersion,
-        );
-      } else {
-        response.isNotBlockedExistInBlocklist = true;
-        blockedUint = new Uint16Array(domainNameInBlocklistUint.length);
-        let index = 0;
-        for (let singleBlock of domainNameInBlocklistUint) {
-          blockedUint[index] = singleBlock;
-          index++;
-        }
-        response.blockedB64Flag = blocklistFilter.getB64FlagFromUint16(
-          blockedUint,
-          flagVersion,
-        );
-      }
-      response.blockedTag = blocklistFilter.getTag(blockedUint);
-    }
-  } catch (e) {
-    throw e;
-  }
-  return response;
 }
