@@ -146,12 +146,23 @@ export default class DNSResolver {
    * @returns
    */
   async resolveDnsUpdateCache(param, cacheRes, dn, now) {
-    let responseBodyBuffer = await (await resolveDnsUpstream(
+    const upRes = await resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer,
-      param.runTimeEnv,
-    )).arrayBuffer();
+      param.runTimeEnv
+    );
+
+    if (upRes.status >= 500 && upRes.status < 600) {
+      console.error(
+        "Upstream server error =>",
+        upRes.status,
+        upRes.statusText,
+        await upRes.text()
+      );
+      throw new Error();
+    }
+    let responseBodyBuffer = await upRes.arrayBuffer();
 
     if (!responseBodyBuffer || responseBodyBuffer.byteLength < 12 + 5)
       throw new Error("Null / inadequate response from upstream");
