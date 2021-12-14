@@ -61,7 +61,9 @@ function up(server, addr) {
 }
 
 function close(sock) {
-    if (!sock.destroyed) sock.destroy();
+  try {
+    if (sock && !sock.destroyed) sock.destroy();
+  } catch (ignore) { }
 }
 
 function proxy(sin, sout) {
@@ -226,7 +228,7 @@ function extractMetadataFromSni(socket) {
 function serveTLS(socket) {
   const [flag, host] = extractMetadataFromSni(socket)
   if (host === null) {
-    socket.destroy();
+    close(socket);
     log.w("hostname not found, abort session");
     return;
   }
@@ -266,7 +268,7 @@ function handleData(socket, chunk, sb, host, flag) {
   const qlen = sb.qlenBuf.readUInt16BE();
   if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
     log.w(`query range err: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`);
-    socket.destroy();
+    close(socket);
     return;
   }
 
@@ -295,7 +297,7 @@ function handleData(socket, chunk, sb, host, flag) {
     sb.qBufOffset = 0;
   } else if (sb.qBufOffset > qlen) {
     log.w(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
-    socket.destroy();
+    close(socket);
     return;
   } // continue reading from socket
 }
