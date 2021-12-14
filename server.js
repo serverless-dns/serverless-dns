@@ -13,6 +13,7 @@ import * as tls from "tls";
 import * as http2 from "http2";
 import { handleRequest } from "./index.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
+import * as log from "./helpers/log.js";
 
 const DOT_ENTRY_PORT = 10000;
 const DOT_PROXY_PROTO_ENTRY_PORT = DOT_ENTRY_PORT + 1;
@@ -56,105 +57,78 @@ const doh = http2
   .listen(DOH_PORT, () => up("DoH", doh.address()));
 
 function up(server, addr) {
-  logi(server, `listening on: [${addr.address}]:${addr.port}`);
+  log.i(server, `listening on: [${addr.address}]:${addr.port}`);
 }
 
-function loge() {
-    const err = true;
-    if (err) console.error(...arguments);
+function close(sock) {
+    if (!sock.destroyed) sock.destroy();
 }
 
-function logw() {
-    const warn = true;
-    if (warn) console.warn(...arguments);
-}
-
-function logi() {
-    const info = true;
-    if (info) console.info(...arguments);
-}
-
-function log() {
-    const g = true;
-    if (g) console.log(...arguments);
-}
-
-function logd() {
-    const debug = false;
-    if (debug) console.debug(...arguments);
-}
-
-function laptime(name) {
-    const timer = false;
-    if (timer) console.timeLog(name);
-}
-
-function starttime(name) {
-    const timer = false;
-    if (timer) console.time(name);
-}
-
-function endtime(name) {
-    const timer = false;
-    if (timer) console.timeEnd(name);
+function proxy(sin, sout) {
+  if (sin.destroyed || sout.destroyed) return false;
+  sin.pipe(sout);
+  sout.pipe(sin);
+  return true;
 }
 
 /**
  * Proxies connection to DOT server, retrieving proxy proto header if allowed
- * @param {net.Socket} inSocket
+ * @param {net.Socket} ppsock
  */
-function serveDoTProxyProto(inSocket) {
+function serveDoTProxyProto(ppsock) {
   // Alternatively, presence of proxy proto header in the first tcp segment
   // could be checked
-  let hasProxyProto = DOT_IS_PROXY_PROTO;
-  logd("\n--> new conn");
+  let pphandled = false;
+  log.d("--> new pp conn");
 
-  const outSocket = net.connect(DOT_PORT, () => {
-    logd("DoT tunnel ready");
+  const dotsock = net.connect(DOT_PORT, () => {
+    log.d("DoT ready");
   });
 
-  function proxy(sin, sout) {
-    if (sin.destroyed || sout.destroyed) return; // TODO: clean up sout/sin?
-    sin.pipe(sout);
-    sout.pipe(sin);
-  }
-
   function handleProxyProto(buf) {
-    if (!hasProxyProto) return;
+    if (pphandled) {
+      log.w("proxyproto already handled... len(buf)", buf.byteLength)
+      return;
+    }
 
     let chunk = buf.toString("ascii");
     let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
-    hasProxyProto = false; // further tcp segments need not be checked
+    // FIXME: Explain why further tcp segments need not be checked
+    pphandled = true;
 
     if (delim < 0) {
-      loge("proxy proto header invalid / not found =>", chunk);
-      inSocket.destroy(); // TODO: close outsocket?
+      log.e("proxy proto header invalid / not found =>", chunk);
+      ppclose();
       return;
     }
 
     try {
+      // TODO: admission control
       const proto = proxyProtocolParser.V1ProxyProtocol.parse(
         chunk.slice(0, delim)
       );
-      logd(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+      log.d(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+
+      // remaining data from first tcp segment
+      let ok = !dotsock.destroyed && dotsock.write(buf.slice(delim));
+      if (!ok) throw new Error(proto + " err dotsock write len(buf): " + buf.byteLength)
+
+      ok = proxy(ppsock, dotsock);
+      if (!ok) throw new Error(proto + " err ppsock <> dotsock proxy")
     } catch (e) {
-      logw("proxy proto header couldn't be parsed.", e);
-      inSocket.destroy(); // TODO: close outsocket?
+      log.w(e);
+      ppclose();
       return;
     }
-
-    // remaining data from first tcp segment
-    if (!outSocket.destroyed) {
-      const ok = outSocket.write(buf.slice(delim));
-      if (ok) proxy(inSocket, outSocket);
-    } // TODO: else close inSocket?
   }
 
-  inSocket.on("close", () => { // TODO: outsocket?
-    inSocket.destroy();
-  });
+  function ppclose() {
+    close(ppsock);
+    close(dotsock);
+  }
 
-  inSocket.on("data", handleProxyProto);
+  ppsock.on("close", ppclose);
+  ppsock.on("data", handleProxyProto);
 }
 
 function recycleBuffer(b) {
@@ -181,35 +155,37 @@ function makeScratchBuffer() {
 function initCertRegexesIfNeeded(socket) {
   if (DNS_RG_RE || DNS_WC_RE) return;
 
-  const TLS_SUBJECT_ALT = socket.getCertificate().subjectaltname;
+  const TLS_SAN_PREFIX = "DNS:"
+  const TLS_SAN = socket.getCertificate().subjectaltname;
   // compute subject-alt-names (SAN) regexes
   // for max.rethinkdns.com SANs, see: https://crt.sh/?id=5708836299
-  const DNS_REGEXES = TLS_SUBJECT_ALT.split(",").reduce(
+  const regexes = TLS_SAN.split(",").reduce(
     (arr, entry) => {
 
-      entry = entry.trim();
-      if (!entry.startsWith("DNS:")) return arr;
-
       // entry => DNS:*max.rethinkdns.com
+      // u => 0
+      // sliced => *max.rethinkdns.com
+      const u = entry.indexOf(TLS_SAN_PREFIX);
+      if (u < 0) return arr;
+      entry = entry.slice(u + TLS_SAN_PREFIX.length).trim();
+
       // d => *\\.max\\.rethinkdns\\.com
       // wc => true
       // pos => 1
       // match => [a-z0-9-_]*\\.max\\.rethinkdns\\.com
-      const d = entry
-          .replace(/^DNS:/, "")
-          .replace(/\./g, "\\.");
+      const d = entry.replace(/\./g, "\\.");
       const wc = d.startsWith("*");
       const pos = (wc) ? 1 : 0;
-      const match = (wc) ? d.replace("*", "[a-z0-9-_]*") : d;
+      const match = (wc) ? "[a-z0-9-_]" + d : d;
 
       arr[pos].push("(^" + match + "$)");
 
       return arr;
     }, [[], []]);
 
-  DNS_RG_RE = new RegExp(DNS_REGEXES[0].join("|"), "i");
-  DNS_WC_RE = new RegExp(DNS_REGEXES[1].join("|"), "i");
-  logd(DNS_RG_RE, DNS_WC_RE);
+  DNS_RG_RE = new RegExp(regexes[0].join("|"), "i");
+  DNS_WC_RE = new RegExp(regexes[1].join("|"), "i");
+  log.d(DNS_RG_RE, DNS_WC_RE);
 }
 
 function extractMetadataFromSni(socket) {
@@ -225,11 +201,7 @@ function extractMetadataFromSni(socket) {
 
   const isWc = DNS_WC_RE && DNS_WC_RE.test(sni);
   const isReg = DNS_RG_RE && DNS_RG_RE.test(sni);
-  if (!isWc || !isReg) {
-    return [flag, host];
-  }
 
-  // note: b32 flag uses delimiter `+` internally, instead of `-`.
   if (isWc) {
     // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
     let s = sni.split(".");
@@ -238,11 +210,12 @@ function extractMetadataFromSni(socket) {
     // replace "-" with "+" as doh handlers use "+" to differentiate between
     // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
     flag = s[0].replace(/-/g, "+");
-  } else {
+  } else if (isReg) {
     // max.rethinkdns.com => max.rethinkdns.com
     host = sni;
     flag = "";
-  }
+  } // nothing to extract
+
   return [flag, host];
 }
 
@@ -252,13 +225,19 @@ function extractMetadataFromSni(socket) {
  */
 function serveTLS(socket) {
   const [flag, host] = extractMetadataFromSni(socket)
+  if (host === null) {
+    socket.destroy();
+    log.w("hostname not found, abort session");
+    return;
+  }
+
   const sb = makeScratchBuffer();
 
   socket.on("data", (data) => {
     handleData(socket, data, sb, host, flag);
   });
   socket.on("end", () => {
-    logd("TLS socket clean half shutdown");
+    log.d("TLS socket clean half shutdown");
     socket.end();
   });
 
@@ -286,7 +265,7 @@ function handleData(socket, chunk, sb, host, flag) {
 
   const qlen = sb.qlenBuf.readUInt16BE();
   if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
-    logw(`query range err: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`);
+    log.w(`query range err: ql:${qlen} cl:${cl} seek:${seek} rem:${rem}`);
     socket.destroy();
     return;
   }
@@ -315,7 +294,7 @@ function handleData(socket, chunk, sb, host, flag) {
     sb.qBuf = null;
     sb.qBufOffset = 0;
   } else if (sb.qBufOffset > qlen) {
-    logw(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
+    log.w(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
     socket.destroy();
     return;
   } // continue reading from socket
@@ -331,7 +310,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
   if (socket.destroyed) return;
 
-  starttime("handle-tcp-query");
+  log.starttime("handle-tcp-query");
   try {
     const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
@@ -339,16 +318,16 @@ async function handleTCPQuery(q, socket, host, flag) {
 
     // Don't write to a closed socket, else it will crash nodejs
     if (!socket.destroyed) ok = socket.write(chunk);
-    if (!ok) loge(`res write incomplete: < ${r.byteLength + 2}`);
+    if (!ok) log.e(`res write incomplete: < ${r.byteLength + 2}`);
   } catch (e) {
     ok = false;
-    logw(e);
+    log.w(e);
   }
-  endtime("handle-tcp-query");
+  log.endtime("handle-tcp-query");
 
   // Only close socket on error, else it would break pipelining of queries.
   if (!ok && !socket.destroyed) {
-    socket.destroy();
+    close(socket);
   }
 }
 
@@ -382,7 +361,7 @@ async function resolveQuery(q, host, flag) {
  * @param {ServerResponse} res
  */
 async function serveHTTPS(req, res) {
-  const UA = req.headers["user-agent"];
+  const ua = req.headers["user-agent"];
   const buffers = [];
   for await (const chunk of req) {
     buffers.push(chunk);
@@ -394,16 +373,16 @@ async function serveHTTPS(req, res) {
     req.method == "POST" &&
     (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
   ) {
-    logw(`HTTP req body length out of [min, max] bounds: ${bLen}`);
     res.writeHead(
       bLen > maxDNSPacketSize ? 413 : 400,
-      UA && UA.startsWith("Mozilla/5.0") ? corsHeaders : {}
+      ua && ua.startsWith("Mozilla/5.0") ? corsHeaders : {}
     );
     res.end();
+    log.w(`HTTP req body length out of bounds: ${bLen}`);
     return;
   }
 
-  logd("-> HTTPS req", req.method, bLen);
+  log.d("-> HTTPS req", req.method, bLen);
   handleHTTPRequest(b, req, res);
 }
 
@@ -413,7 +392,7 @@ async function serveHTTPS(req, res) {
  * @param {ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
-  starttime("handle-http-req");
+  log.starttime("handle-http-req");
   try {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
@@ -445,9 +424,8 @@ async function handleHTTPRequest(b, req, res) {
     res.writeHead(fRes.status, resHeaders);
     res.end(Buffer.from(await fRes.arrayBuffer()));
   } catch (e) {
-    logw(e);
-  } finally {
     res.end();
+    log.w(e);
   }
-  endtime("handle-http-req");
+  log.endtime("handle-http-req");
 }
