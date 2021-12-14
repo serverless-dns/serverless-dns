@@ -172,7 +172,10 @@ export default class DNSResolver {
         return this.dnsParser.Decode(responseBodyBuffer);
       } catch (e) {
         console.error(
-          "@DNSResolver->updateCache: Failed decoding response body buffer =>",
+          "@resolveDnsUpdateCache: Failed decoding response body buffer =>",
+          "Upstream resp code:",
+          upRes.status,
+          "resp body buf:",
           responseBodyBuffer
         );
         throw e;
