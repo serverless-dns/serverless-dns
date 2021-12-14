@@ -16,7 +16,6 @@ export default class DNSParserWrap {
       return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)));
     } catch (e) {
       console.error("Error At : DNSParserWrap -> Decode");
-      console.error(e.stack);
       throw e;
     }
   }
@@ -25,7 +24,6 @@ export default class DNSParserWrap {
       return DnsParser.encode(DecodedDnsPacket);
     } catch (e) {
       console.error("Error At : DNSParserWrap -> Encode");
-      console.error(e.stack);
       throw e;
     }
   }

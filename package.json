@@ -1,6 +1,6 @@
 {
   "name": "@serverless-dns/dns-operation",
-  "version": "2.3.19",
+  "version": "2.3.20",
   "description": "rethink-dns dns packet blocker",
   "main": "dnsOperation.js",
   "type": "module",
