@@ -7,6 +7,7 @@
  */
 
 import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
+import * as log from "./helpers/log.js";
 
 export default class CurrentRequest {
   constructor() {
@@ -83,9 +84,9 @@ export default class CurrentRequest {
       }
       this.decodedDnsPacket.authorities = []
       this.httpResponse = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
-      setResponseCommonHeader.call(this);      
+      setResponseCommonHeader.call(this);
     } catch (e) {
-      console.error(JSON.stringify(this.decodedDnsPacket))
+      log.e(JSON.stringify(this.decodedDnsPacket))
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";

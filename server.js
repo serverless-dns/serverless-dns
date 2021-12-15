@@ -101,7 +101,7 @@ function serveDoTProxyProto(clientSocket) {
   });
 
   dotSock.on("error", (e) => {
-    console.log("DoT socket error, closing client connection");
+    log.w("DoT socket error, closing client connection", e);
     close(clientSocket);
     close(dotSock);
   });
@@ -353,7 +353,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
   if (socket.destroyed) return;
 
-  log.starttime("handle-tcp-query");
+  const t = log.starttime("handle-tcp-query");
   try {
     const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
@@ -366,7 +366,7 @@ async function handleTCPQuery(q, socket, host, flag) {
     ok = false;
     log.w(e);
   }
-  log.endtime("handle-tcp-query");
+  log.endtime(t);
 
   // Only close socket on error, else it would break pipelining of queries.
   if (!ok && !socket.destroyed) {
@@ -435,7 +435,7 @@ async function serveHTTPS(req, res) {
  * @param {ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
-  log.starttime("handle-http-req");
+  const t = log.starttime("handle-http-req");
   try {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
@@ -470,5 +470,6 @@ async function handleHTTPRequest(b, req, res) {
     res.end();
     log.w(e);
   }
-  log.endtime("handle-http-req");
+  log.endtime(t);
 }
+

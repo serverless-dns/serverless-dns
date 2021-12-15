@@ -5,8 +5,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-const debug = false;
-
 import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 import { CommandControl } from "@serverless-dns/command-control";
 import { UserOperation } from "@serverless-dns/basic";
@@ -16,6 +14,7 @@ import {
   DNSResolver,
   DNSResponseBlock,
 } from "@serverless-dns/dns-operation";
+import * as log from "./helpers/log.js";
 
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
@@ -154,7 +153,7 @@ export default class RethinkPlugin {
       ) {
         continue;
       }
-      if (debug) console.log(singlePlugin.name);
+      log.d(singlePlugin.name);
       const response = await singlePlugin.module.RethinkModule(
         generateParam(this.parameter, singlePlugin.param),
       );
@@ -172,9 +171,8 @@ export default class RethinkPlugin {
  * @param {*} currentRequest
  */
 function blocklistFilterCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In blocklistFilterCallBack");
-  }
+  log.d("In blocklistFilterCallBack");
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else {
@@ -188,10 +186,7 @@ function blocklistFilterCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 async function commandControlCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In commandControlCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In commandControlCallBack", JSON.stringify(response.data));
 
   if (response.data.stopProcessing) {
     currentRequest.httpResponse = response.data.httpResponse;
@@ -205,10 +200,8 @@ async function commandControlCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 async function userOperationCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In userOperationCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In userOperationCallBack", JSON.stringify(response.data));
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else if (
@@ -241,10 +234,8 @@ async function userOperationCallBack(response, currentRequest) {
 }
 
 function dnsAggCacheCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In dnsAggCacheCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In dnsAggCacheCallBack", JSON.stringify(response.data));
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else if (response.data !== null) {
@@ -280,10 +271,8 @@ function dnsAggCacheCallBack(response, currentRequest) {
 }
 
 function dnsBlockCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In dnsBlockCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In dnsBlockCallBack", JSON.stringify(response.data));
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else {
@@ -302,10 +291,8 @@ function dnsBlockCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResolverCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In dnsResolverCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In dnsResolverCallBack", JSON.stringify(response.data));
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else {
@@ -328,10 +315,8 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResponseBlockCallBack(response, currentRequest) {
-  if (debug) {
-    console.log("In dnsCnameBlockCallBack");
-    console.log(JSON.stringify(response.data));
-  }
+  log.d("In dnsCnameBlockCallBack", JSON.stringify(response.data));
+
   if (response.isException) {
     loadException(response, currentRequest);
   } else {
@@ -348,7 +333,7 @@ function dnsResponseBlockCallBack(response, currentRequest) {
 }
 
 function loadException(response, currentRequest) {
-  console.error(JSON.stringify(response));
+  log.e(JSON.stringify(response));
   currentRequest.stopProcessing = true;
   currentRequest.isException = true;
   currentRequest.exceptionStack = response.exceptionStack;

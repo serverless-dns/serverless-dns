@@ -1,62 +1,53 @@
+/*
+ * Copyright (c) 2021 RethinkDNS and its authors.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 import CurrentRequest from "./currentRequest.js";
 import RethinkPlugin from "./plugin.js";
 import Env from "./env.js";
-import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
+import * as log from "./helpers/log.js";
+import * as util from "./helpers/util.js";
+import * as dnsutil from "./helpers/dnsutil.js";
 
 const env = new Env();
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
-};
 
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
     if (!env.isLoaded) {
       env.loadEnv();
     }
-    let workerTimeout = env.get("workerTimeout");
-    if (env.get("runTimeEnv") == "worker" && workerTimeout > 0) {
-      let dnsParser = new DnsParser();
-      let returnResponse = Promise.race([
-        new Promise((resolve, _) => {
-          let resp = handleRequest(event);
-          resolve(resp);
-        }),
-        new Promise((resolve, _) => {
-          let resp = new Response(
-            dnsParser.Encode({
-              type: "response",
-              flags: 4098, //sets server fail response
-            }),
-            {
-              headers: {
-                ...corsHeaders,
-                "Content-Type": "application/dns-message",
-              },
-            }
-          );
-          setTimeout(() => {
-            resolve(resp);
-          }, workerTimeout);
-        }),
-      ]);
-      return event.respondWith(returnResponse);
-    } else {
-      event.respondWith(handleRequest(event));
-    }
+    event.respondWith(handleRequest(event));
   });
 }
 
 export function handleRequest(event) {
-  return proxyRequest(event);
+  const processingTimeout = env.get("workerTimeout");
+  const respectTimeout = (env.get("runTimeEnv") == "worker" && processingTimeout > 0)
+
+  if (!respectTimeout) return proxyRequest(event);
+
+  return Promise.race([
+    new Promise((resolve, _) => {
+      resolve(proxyRequest(event));
+    }),
+    new Promise((resolve, _) => {
+      setTimeout(() => { // on timeout, send a serv-fail
+        resolve(servfail(event));
+      }, processingTimeout);
+    }),
+  ]);
+
 }
 
 async function proxyRequest(event) {
-  const currentRequest = new CurrentRequest();
-  let res;
   try {
     if (event.request.method === "OPTIONS") {
-      res = new Response(null, { status: 204, headers: corsHeaders });
+      const res = new Response(null, { status: 204 });
+      util.corsHeaders(res);
       return res;
     }
 
@@ -64,32 +55,32 @@ async function proxyRequest(event) {
     if (!env.isLoaded) {
       env.loadEnv();
     }
+    const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event, env);
     await plugin.executePlugin(currentRequest);
 
-    // Add CORS headers only for browsers
-    const UA = event.request.headers.get("User-Agent");
-    if (UA && UA.startsWith("Mozilla/5.0")) {
-      currentRequest.httpResponse.headers.set(
-        "Access-Control-Allow-Origin",
-        "*"
-      );
-      currentRequest.httpResponse.headers.set(
-        "Access-Control-Allow-Headers",
-        "*"
-      );
-    }
+    util.dohHeaders(event.request, currentRequest.httpResponse);
 
     return currentRequest.httpResponse;
-  } catch (e) {
-    console.error(e.stack);
-    res = new Response(JSON.stringify(e.stack));
-    res.headers.set("Content-Type", "application/json");
-    res.headers.set("Access-Control-Allow-Origin", "*");
-    res.headers.set("Access-Control-Allow-Headers", "*");
-    res.headers.append("Vary", "Origin");
-    res.headers.delete("expect-ct");
-    res.headers.delete("cf-ray");
-    return res;
+
+  } catch (err) {
+    log.e(err.stack);
+    return errorOrServfail(event, err);
   }
 }
+
+function errorOrServfail(event, err) {
+  if (util.fromBrowser(event)) {
+    const res = new Response(JSON.stringify(e.stack));
+    util.browserHeaders(res);
+    return res;
+  }
+  return servfail(event);
+}
+
+function servfail(event) {
+  const res = new Response(dnsutil.servfail);
+  util.dohHeaders(event.request, res);
+  return res;
+}
+

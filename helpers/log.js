@@ -38,10 +38,20 @@ export function laptime(name) {
 }
 
 export function starttime(name) {
-    if (timer) console.time(name);
+    if (timer) {
+      name += id();
+      console.time(name);
+    }
+    return name;
 }
 
 export function endtime(name) {
     if (timer) console.timeEnd(name);
+}
+
+// stackoverflow.com/a/8084248
+function id() {
+  // ex: ".ww8ja208it"
+  return (Math.random() + 1).toString(36).slice(1)
 }
 
