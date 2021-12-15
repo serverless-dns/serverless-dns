@@ -1,12 +1,12 @@
 {
   "imports": {
-    "@serverless-dns/basic": "https://github.com/serverless-dns/basic/raw/v2.2.3/basic.js",
-    "@serverless-dns/blocklist-wrapper": "https://github.com/serverless-dns/blocklist-wrapper/raw/v2.3.7/blocklistWrapper.js",
-    "@serverless-dns/cache-wrapper": "https://github.com/serverless-dns/cache-wrapper/raw/v2.1.5/cache-wrapper.js",
-    "@serverless-dns/command-control": "https://github.com/serverless-dns/command-control/raw/v2.2.6/cc.js",
-    "@serverless-dns/dns-operation": "https://github.com/serverless-dns/dns-blocker/raw/v2.3.15/dnsOperation.js",
+    "@serverless-dns/basic": "https://github.com/serverless-dns/basic/raw/v2.2.4/basic.js",
+    "@serverless-dns/blocklist-wrapper": "https://github.com/serverless-dns/blocklist-wrapper/raw/v2.3.12/blocklistWrapper.js",
+    "@serverless-dns/cache-wrapper": "https://github.com/serverless-dns/cache-wrapper/raw/v2.1.6/cache-wrapper.js",
+    "@serverless-dns/command-control": "https://github.com/serverless-dns/command-control/raw/v2.2.7/cc.js",
+    "@serverless-dns/dns-operation": "https://github.com/serverless-dns/dns-blocker/raw/v2.3.21/dnsOperation.js",
     "@serverless-dns/dns-parser": "https://github.com/serverless-dns/dns-parser/raw/v2.1.1/index.js",
-    "@serverless-dns/lfu-cache": "https://github.com/serverless-dns/lfu-cache/raw/v2.0.3/lfu.js",
+    "@serverless-dns/lfu-cache": "https://github.com/serverless-dns/lfu-cache/raw/v2.0.6/lfu.js",
     "buffer": "https://deno.land/std@0.110.0/node/buffer.ts",
     "dotenv": "https://deno.land/x/dotenv@v3.0.0/mod.ts"
   }
