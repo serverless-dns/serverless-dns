@@ -17,19 +17,29 @@ export default class Env {
       this.env.set("blocklistUrl", CF_BLOCKLIST_URL);
       this.env.set("latestTimestamp", CF_LATEST_BLOCKLIST_TIMESTAMP);
       this.env.set("dnsResolverUrl", CF_DNS_RESOLVER_URL);
+      //at worker all env variables are treated as plain text
+      //so type cast is done for necessary variables
       this.env.set(
         "onInvalidFlagStopProcessing",
-        CF_ON_INVALID_FLAG_STOPPROCESSING,
-      );
-      this.env.set("workerTimeout", WORKER_TIMEOUT);
-
+        (CF_ON_INVALID_FLAG_STOPPROCESSING == "true" ? true : false),
+      );      
       //adding download timeout with worker time to determine worker's overall timeout
-      this.env.set("workerTimeout", (WORKER_TIMEOUT + CF_BLOCKLIST_DOWNLOAD_TIMEOUT));
+      this.env.set(
+        "workerTimeout",
+        (parseInt(WORKER_TIMEOUT) + parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)),
+      );
       //parallel request wait timeout for download blocklist from s3
-      this.env.set("fetchTimeout", CF_BLOCKLIST_DOWNLOAD_TIMEOUT);
+      this.env.set("fetchTimeout", parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT));
+
       //env variables for td file split
-      this.env.set("tdNodecount", TD_NODE_COUNT);
-      this.env.set("tdParts", TD_PARTS);
+      this.env.set("tdNodecount", parseInt(TD_NODE_COUNT));
+      this.env.set("tdParts", parseInt(TD_PARTS));
+
+      //set to on - off aggressive cache plugin
+      this.env.set(
+        "isAggCacheReq",
+        (IS_AGGRESSIVE_CACHE_REQ == "true" ? true : false),
+      );
 
       this.isLoaded = true;
     } catch (e) {
@@ -57,6 +67,11 @@ export default class Env {
 
     //parallel request wait timeout for download blocklist from s3
     this.env.set("fetchTimeout", Deno.env.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT"));
+
+    //set to on - off aggressive cache plugin
+    //as of now Cache-api is available only on worker
+    //so setting to false for DENO
+    this.env.set("isAggCacheReq",false);    
     this.isLoaded = true;
   }
   loadEnvNode() {
@@ -76,8 +91,13 @@ export default class Env {
     this.env.set("tdNodecount", process.env.TD_NODE_COUNT);
     this.env.set("tdParts", process.env.TD_PARTS);
 
-   //parallel request wait timeout for download blocklist from s3
+    //parallel request wait timeout for download blocklist from s3
     this.env.set("fetchTimeout", process.env.CF_BLOCKLIST_DOWNLOAD_TIMEOUT);
+
+    //set to on - off aggressive cache plugin
+    //as of now Cache-api is available only on worker
+    //so setting to false for fly 
+    this.env.set("isAggCacheReq",false);
     this.isLoaded = true;
   }
   getEnvMap() {

@@ -4,7 +4,6 @@ import Env from "./env.js";
 import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
 
 const env = new Env();
-const debug = false;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
@@ -36,7 +35,6 @@ if (typeof addEventListener !== "undefined") {
               },
             }
           );
-          if (debug) console.log("Worker Time Out");
           setTimeout(() => {
             resolve(resp);
           }, workerTimeout);

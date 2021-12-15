@@ -18,7 +18,6 @@ export default class CurrentRequest {
     this.exceptionFrom = "";
     this.isDnsParseException = false;
     this.isDnsBlock = false;
-    this.isDomainInBlockListNotBlocked = false;
     this.isInvalidFlagBlock = false;
     this.stopProcessing = false;
     this.dnsParser = new DnsParser();
@@ -54,7 +53,6 @@ export default class CurrentRequest {
   dnsResponse(arrayBuffer) {
     this.httpResponse = new Response(arrayBuffer);
     setResponseCommonHeader.call(this);
-    return this.httpResponse;
   }
   dnsBlockResponse() {
     try {
@@ -84,10 +82,10 @@ export default class CurrentRequest {
         this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
       this.decodedDnsPacket.authorities = []
-      const res = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
-      this.httpResponse = new Response(res.body, res);
+      this.httpResponse = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
       setResponseCommonHeader.call(this);      
     } catch (e) {
+      console.error(JSON.stringify(this.decodedDnsPacket))
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
@@ -103,7 +101,7 @@ function setResponseCommonHeader() {
   if(this.isDnsBlock){
     this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
   }
-  else if(this.isDomainInBlockListNotBlocked){
+  else if(this.blockedB64Flag !== ""){
     this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
   }
 }
