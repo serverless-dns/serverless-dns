@@ -18,7 +18,7 @@ export function mkswap() {
         sh('chmod', ['600', swapfile]) &&
         sh('mkswap', [swapfile]) &&
         sh('swapon', [swapfile]) &&
-        sh('sysctl', 'vm.swappiness=25')
+        sh('sysctl', ['vm.swappiness=25'])
 }
 
 export function rmswap() {
