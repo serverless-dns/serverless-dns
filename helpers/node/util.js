@@ -11,13 +11,11 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
 
   if (TLS_CRT_KEY.split("=", 1)[0].indexOf("KEY") >= 0) {
     return TLS_CRT_KEY.split("\n").map((v) =>
-      Buffer.from(v.substr(v.indexOf("=") + 1), "base64")
+      Buffer.from(v.substring(v.indexOf("=") + 1), "base64")
     );
-  } else if (
-    TLS_CRT_KEY.split("\n")[1].split("=", 1)[0].indexOf("KEY") >= 0
-  ) {
-    return TLS_CRT_KEY.split("\n").reverse().map((v) =>
-      Buffer.from(v.substr(v.indexOf("=") + 1), "base64")
-    );
+  } else if (TLS_CRT_KEY.split("\n")[1].split("=", 1)[0].indexOf("KEY") >= 0) {
+    return TLS_CRT_KEY.split("\n")
+      .reverse()
+      .map((v) => Buffer.from(v.substring(v.indexOf("=") + 1), "base64"));
   } else throw new Error("TLS cert / key malformed");
 }
