@@ -6,14 +6,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 import net, { isIPv6, Socket } from "net";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as tls from "tls";
 import * as http2 from "http2";
+
 import { handleRequest } from "./index.js";
-import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 import * as log from "./helpers/log.js";
+import { mkswap } from "./helpers/setup.js";
+import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
+import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 const DOT_ENTRY_PORT = 10000;
@@ -38,31 +40,37 @@ const maxDNSPacketSize = 4096;
 // A dns message over TCP stream has a header indicating length.
 const dnsHeaderSize = 2;
 
-let OUR_RG_DN_RE = null; // regular dns name match
-let OUR_WC_DN_RE = null; // wildcard dns name match
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
 };
 
-const dot2 =
-  DOT_IS_PROXY_PROTO &&
-  net
-    .createServer(serveDoTProxyProto)
-    .listen(DOT_PROXY_PORT, () => up("DoT ProxyProto", dot2.address()));
+let OUR_RG_DN_RE = null; // regular dns name match
+let OUR_WC_DN_RE = null; // wildcard dns name match
 
-const dot1 = tls
-  .createServer(tlsOptions, serveTLS)
-  .listen(DOT_PORT, () => up("DoT", dot1.address()));
+( _ => { // main
 
-const doh = http2
-  .createSecureServer({ ...tlsOptions, allowHTTP1: true }, serveHTTPS)
-  .listen(DOH_PORT, () => up("DoH", doh.address()));
+  const ok = mkswap();
+  log.i("mkswap done?", ok);
 
-function up(server, addr) {
-  log.i(server, `listening on: [${addr.address}]:${addr.port}`);
-}
+  const dot1 = tls
+    .createServer(tlsOptions, serveTLS)
+    .listen(DOT_PORT, () => up("DoT", dot1.address()));
+
+  const dot2 =
+    DOT_IS_PROXY_PROTO &&
+    net
+      .createServer(serveDoTProxyProto)
+      .listen(DOT_PROXY_PORT, () => up("DoT ProxyProto", dot2.address()));
+
+  const doh = http2
+    .createSecureServer({ ...tlsOptions, allowHTTP1: true }, serveHTTPS)
+    .listen(DOH_PORT, () => up("DoH", doh.address()));
+
+  function up(server, addr) {
+    log.i(server, `listening on: [${addr.address}]:${addr.port}`);
+  }
+})();
 
 function close(sock) {
   sock.destroy();
