@@ -7,7 +7,7 @@
  */
 
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
-import net, { isIPv6 } from "net";
+import net, { isIPv6, Socket } from "net";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as tls from "tls";
 import * as http2 from "http2";
@@ -15,15 +15,15 @@ import { handleRequest } from "./index.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 import * as log from "./helpers/log.js";
 
+// Ports which the services are exposed on. Corresponds to fly.toml ports.
 const DOT_ENTRY_PORT = 10000;
-const DOT_PROXY_PROTO_ENTRY_PORT = DOT_ENTRY_PORT + 1;
 const DOH_ENTRY_PORT = 8080;
 
 const DOT_IS_PROXY_PROTO = eval(`process.env.DOT_HAS_PROXY_PROTO`);
-const DOT_PROXY_PORT = DOT_ENTRY_PORT;
+const DOT_PROXY_PORT = DOT_ENTRY_PORT; // Unused if proxy proto is disabled
 
 const DOT_PORT = DOT_IS_PROXY_PROTO
-  ? DOT_PROXY_PROTO_ENTRY_PORT
+  ? DOT_ENTRY_PORT + 1 // Bump DOT port to allow entry via proxy proto port.
   : DOT_ENTRY_PORT;
 const DOH_PORT = DOH_ENTRY_PORT;
 
@@ -65,40 +65,44 @@ function up(server, addr) {
 }
 
 function close(sock) {
-  try {
-    if (sock && !sock.destroyed) sock.destroy();
-  } catch (ignore) {}
+  sock.destroy();
 }
 
-function proxy(sIn, sOut) {
-  if (sIn.destroyed || sOut.destroyed) return false;
-  sIn.pipe(sOut);
-  sOut.pipe(sIn);
+/**
+ * Creates a duplex pipe between `a` and `b` sockets.
+ * @param {Socket} a
+ * @param {Socket} b
+ * @returns - true if pipe created, false if error
+ */
+function proxySockets(a, b) {
+  if (a.destroyed || b.destroyed) return false;
+  a.pipe(b);
+  b.pipe(a);
   return true;
 }
 
 /**
- * Proxies connection to DOT server, retrieving proxy proto header if allowed
- * @param {net.Socket} ppSock
+ * Proxies connection to DOT server, retrieving proxy proto header.
+ * @param {net.Socket} clientSocket
  */
-function serveDoTProxyProto(ppSock) {
-  // Alternatively, presence of proxy proto header in the first tcp segment
-  // could be checked
+function serveDoTProxyProto(clientSocket) {
   let ppHandled = false;
-  log.d("--> new Conn");
+  log.d("--> new client Connection");
 
   const dotSock = net.connect(DOT_PORT, () => {
-    log.d("DoT ready");
+    log.d("DoT socket ready");
   });
 
-  function ppClose() {
-    close(ppSock);
+  dotSock.on("error", (e) => {
+    console.log("DoT socket error, closing client connection");
+    close(clientSocket);
     close(dotSock);
-  }
+  });
 
   function handleProxyProto(buf) {
-    // Data from only first tcp segment is to be consumed.
-    // So, further tcp segments return here and are to be duplex piped to DoT.
+    // Data from only first tcp segment is to be consumed to get proxy proto.
+    // After extracting proxy proto, a duplex pipe is created to DoT server.
+    // So, further tcp segments return here.
     if (ppHandled) return;
 
     let chunk = buf.toString("ascii");
@@ -107,7 +111,8 @@ function serveDoTProxyProto(ppSock) {
 
     if (delim < 0) {
       log.e("proxy proto header invalid / not found =>", chunk);
-      ppClose();
+      close(clientSocket);
+      close(dotSock);
       return;
     }
 
@@ -123,17 +128,25 @@ function serveDoTProxyProto(ppSock) {
           proto + " err dotSock write len(buf): " + buf.byteLength
         );
 
-      ok = proxy(ppSock, dotSock);
-      if (!ok) throw new Error(proto + " err ppSock <> dotSock proxy");
+      ok = proxySockets(clientSocket, dotSock);
+      if (!ok) throw new Error(proto + " err clientSock <> dotSock proxy");
     } catch (e) {
       log.w(e);
-      ppClose();
+      close(clientSocket);
+      close(dotSock);
       return;
     }
   }
 
-  ppSock.on("close", ppClose);
-  ppSock.on("data", handleProxyProto);
+  clientSocket.on("data", handleProxyProto);
+  clientSocket.on("close", () => {
+    close(dotSock);
+  });
+  clientSocket.on("error", (e) => {
+    log.w("Client socket error, closing connection");
+    close(clientSocket);
+    close(dotSock);
+  });
 }
 
 function recycleBuffer(b) {
@@ -164,19 +177,20 @@ function makeScratchBuffer() {
  * @returns [RegEx, RegEx] - [regular, wildcard]
  */
 function getDnRE(socket) {
-  const TLS_SAN_PREFIX = "DNS:";
-  const TLS_SAN = socket.getCertificate().subjectaltname;
+  const SAN_DNS_PREFIX = "DNS:";
+  const SAN = socket.getCertificate().subjectaltname;
 
   // Compute DNS RegExs from TLS SAN (subject-alt-names)
   // for max.rethinkdns.com SANs, see: https://crt.sh/?id=5708836299
-  const RegExs = TLS_SAN.split(",").reduce(
+  const RegExs = SAN.split(",").reduce(
     (arr, entry) => {
-      // entry => DNS:*max.rethinkdns.com
-      // u => 0
-      // sliced => *max.rethinkdns.com
-      const u = entry.indexOf(TLS_SAN_PREFIX);
-      if (u < 0) return arr; // not a DNS entry
-      entry = entry.slice(u + TLS_SAN_PREFIX.length).trim();
+      entry = entry.trim();
+      // Ignore non-DNS entries
+      const u = entry.indexOf(SAN_DNS_PREFIX);
+      if (u !== 0) return arr;
+      // entry => DNS:*.max.rethinkdns.com
+      // sliced => *.max.rethinkdns.com
+      entry = entry.slice(SAN_DNS_PREFIX.length);
 
       // d => *\\.max\\.rethinkdns\\.com
       // wc => true
@@ -191,6 +205,7 @@ function getDnRE(socket) {
 
       return arr;
     },
+    // [[Regular matches], [Wildcard matches]]
     [[], []]
   );
 
@@ -200,6 +215,11 @@ function getDnRE(socket) {
   return [rgDnRE, wcDnRE];
 }
 
+/**
+ * Gets flag and hostname from TLS socket.
+ * @param {tls.TLSSocket} socket - TLS socket to get SNI from.
+ * @returns [flag, hostname]
+ */
 function getMetadataFromSni(socket) {
   if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
     [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
@@ -247,18 +267,23 @@ function serveTLS(socket) {
   const sb = makeScratchBuffer();
 
   socket.on("data", (data) => {
-    handleData(socket, data, sb, host, flag);
+    handleTCPData(socket, data, sb, host, flag);
   });
   socket.on("end", () => {
     log.d("TLS socket clean half shutdown");
     socket.end();
   });
+  socket.on("error", (e) => {
+    log.w("TLS socket error, closing connection");
+    close(socket);
+  });
 }
 
 /**
+ * Handle DNS over TCP/TLS data stream.
  * @param {Buffer} chunk - A TCP data segment
  */
-function handleData(socket, chunk, sb, host, flag) {
+function handleTCPData(socket, chunk, sb, host, flag) {
   const cl = chunk.byteLength;
   if (cl <= 0) return;
 
@@ -435,10 +460,8 @@ async function handleHTTPRequest(b, req, res) {
     res.writeHead(fRes.status, resHeaders);
     res.end(Buffer.from(await fRes.arrayBuffer()));
   } catch (e) {
-    log.w(e);
-  } finally {
-    // Always close the connection
     res.end();
+    log.w(e);
   }
   log.endtime("handle-http-req");
 }
