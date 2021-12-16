@@ -1,4 +1,4 @@
-name: 🌥️ CF
+name: ⛅ CF
 on:
   push:
     branches:
@@ -11,12 +11,11 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
-      - name: 🏗️ Install Dependencies
+      - name: 🏗 Install Dependencies
         run: npm install
       - name: 📚 Publish
         uses: cloudflare/wrangler-action@1.3.0
         with: 
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          wranglerVersion: '1.10.0'
         env:
           CF_ACCOUNT_ID: ${{secrets.CF_ACCOUNT_ID}}
