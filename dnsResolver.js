@@ -240,7 +240,6 @@ async function resolveDnsUpstream(
     };
 
     if (cloudPlatform === "fly") {
-      console.debug("using plain dns");
       return await plaindns(requestBodyBuffer);
     }
 
@@ -296,11 +295,15 @@ function errResponse(e) {
 }
 
 async function plaindns(q) {
+  // dynamic imports to avoid deployment issues in workers
+  // v8.dev/features/dynamic-import
+  const Buffer = (await import("buffer")).Buffer;
+  const q = Buffer.from(q);
   function lookup(resolve, reject) {
     const client = (await import("dgram")).createSocket("udp6");
 
-    client.on("message", (d, addrinfo) => {
-      const res = new Response(d)
+    client.on("message", (b, addrinfo) => {
+      const res = new Response(arrayBuffer(b));
       resolve(res);
     });
 
@@ -328,3 +331,12 @@ function dnsqurl(dnsq) {
     .replace(/=/g, "");
 }
 
+// stackoverflow.com/a/12101012
+function arraybuffer(buf) {
+  const ab = new ArrayBuffer(buf.length);
+  const view = new Uint8Array(ab);
+  for (let i = 0; i < buf.length; i++) {
+    view[i] = buf[i];
+  }
+  return ab;
+}
