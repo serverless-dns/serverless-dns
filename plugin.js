@@ -147,23 +147,25 @@ export default class RethinkPlugin {
   }
 
   async executePlugin(req) {
+    const t = log.starttime("exec-plugin");
     for (const p of this.plugin) {
       if (req.stopProcessing && !p.continueOnStopProcess) {
         continue;
       }
 
-      const t = log.starttime(p.name);
+      log.laptime(t, p.name, "send-req");
 
       const res = await p.module.RethinkModule(generateParam(this.parameter, p.param));
 
-      log.laptime(t, "response");
+      log.laptime(t, p.name, "got-res");
 
       if (p.callBack) {
         await p.callBack.call(this, res, req);
       }
 
-      log.endtime(t);
+      log.laptime(t, p.name, "post-callback")
     }
+    log.endtime(t);
   }
 }
 

@@ -43,8 +43,8 @@ export function d() {
     if (debug) console.debug(...arguments);
 }
 
-export function laptime(name) {
-    if (timer) console.timeLog(name);
+export function laptime() {
+    if (timer) console.timeLog(...arguments);
 }
 
 export function starttime(name) {
