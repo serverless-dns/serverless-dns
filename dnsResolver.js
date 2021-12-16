@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as udp from "dgram";
+
 import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
@@ -297,7 +297,7 @@ function errResponse(e) {
 
 async function plaindns(q) {
   function lookup(resolve, reject) {
-    const client = udp.createSocket("udp6");
+    const client = (await import("dgram")).createSocket("udp6");
 
     client.on("message", (d, addrinfo) => {
       const res = new Response(d)
