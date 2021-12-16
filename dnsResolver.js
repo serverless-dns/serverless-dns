@@ -148,7 +148,8 @@ export default class DNSResolver {
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer,
-      param.runTimeEnv
+      param.runTimeEnv,
+      param.cloudPlatform
     );
 
     if (!upRes.ok) {
@@ -225,6 +226,7 @@ async function resolveDnsUpstream(
   resolverUrl,
   requestBodyBuffer,
   runTimeEnv,
+  cloudPlatform,
 ) {
   try {
     let u = new URL(request.url);
@@ -237,7 +239,7 @@ async function resolveDnsUpstream(
       Accept: "application/dns-message",
     };
 
-    if (runTimeEnv === "fly") {
+    if (cloudPlatform === "fly") {
       console.debug("using plain dns");
       return await plaindns(requestBodyBuffer);
     }
