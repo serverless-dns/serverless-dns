@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
-import { BlocklistFilter } from "@serverless-dns/blocklist-wrapper";
+import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 
 export class UserOperation {
   constructor() {

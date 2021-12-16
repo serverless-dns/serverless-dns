@@ -22,7 +22,6 @@
   },
   "homepage": "https://github.com/serverless-dns/serverless-dns#readme",
   "dependencies": {
-    "@serverless-dns/blocklist-wrapper": "github:serverless-dns/blocklist-wrapper#v2.3.12",
     "@serverless-dns/cache-wrapper": "github:serverless-dns/cache-wrapper#v2.1.6",
     "@serverless-dns/command-control": "github:serverless-dns/command-control#v2.2.7",
     "@serverless-dns/dns-operation": "github:serverless-dns/dns-blocker#v2.3.29",
