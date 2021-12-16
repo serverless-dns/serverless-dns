@@ -298,7 +298,7 @@ async function plaindns(q) {
   // dynamic imports to avoid deployment issues in workers
   // v8.dev/features/dynamic-import
   const Buffer = (await import("buffer")).Buffer;
-  const q = Buffer.from(q);
+  const bq = Buffer.from(q);
   function lookup(resolve, reject) {
     const client = (await import("dgram")).createSocket("udp6");
 
@@ -314,7 +314,7 @@ async function plaindns(q) {
       }
     });
 
-    client.send(q, 53, flydns6, (err) => {
+    client.send(bq, 53, flydns6, (err) => {
       if (err) {
         console.error("plaindns send fail", err);
         reject(err.message);
