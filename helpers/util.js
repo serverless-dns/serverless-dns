@@ -35,17 +35,17 @@ export function encodeUint8ArrayBE(n, len) {
   return new Uint8Array(a);
 }
 
-function fromBrowser(req) {
+export function fromBrowser(req) {
   if (!req || !req.headers) return false;
   const ua = req.headers.get("User-Agent");
   return ua && ua.startsWith("Mozilla/5.0");
 }
 
-function jsonHeaders(res) {
+export function jsonHeaders(res) {
   res.headers.set("Content-Type", "application/json");
 }
 
-function dnsHeaders(res) {
+export function dnsHeaders(res) {
   res.headers.set("Content-Type", "application/dns-message");
 }
 
