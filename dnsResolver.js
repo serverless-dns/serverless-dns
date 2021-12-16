@@ -119,6 +119,7 @@ export default class DNSResolver {
     if (runTimeEnv !== "worker") {
       return false;
     }
+
     let wCacheUrl = new URL((new URL(reqUrl)).origin + "/" + dn);
     let resp = await this.wCache.match(wCacheUrl);
     if (resp) { // cache hit
@@ -207,9 +208,11 @@ export default class DNSResolver {
     return responseBodyBuffer;
   }
 }
+
 function convertMapToObject(map) {
   return map ? Object.fromEntries(map) : false;
 }
+
 /**
  * @param {Request} request
  * @param {String} resolverUrl
@@ -234,11 +237,12 @@ async function resolveDnsUpstream(
       Accept: "application/dns-message",
     };
 
-    let newRequest;
-    if (runTimeEnv == "fly") {
+    if (runTimeEnv === "fly") {
+      console.debug("using plain dns");
       return await plaindns(requestBodyBuffer);
     }
 
+    let newRequest;
     if (
       request.method === "GET" ||
       (runTimeEnv == "worker" && request.method === "POST")
@@ -290,12 +294,12 @@ function errResponse(e) {
 }
 
 async function plaindns(q) {
-  function dnsreq(resolve, reject) {
+  function lookup(resolve, reject) {
     const client = udp.createSocket("udp6");
 
     client.on("message", (d, addrinfo) => {
       const res = new Response(d)
-      resolve(d);
+      resolve(res);
     });
 
     client.on("error", (err) => {
@@ -312,13 +316,13 @@ async function plaindns(q) {
       }
     });
   }
-  return new Promise(dnsreq);
+  return new Promise(lookup);
 }
 
-function dnsqurl(dnsreq) {
-  return btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
+function dnsqurl(dnsq) {
+  return btoa(String.fromCharCode(...new Uint8Array(dnsq)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
-    .replace(/=/g, "")
+    .replace(/=/g, "");
 }
 
