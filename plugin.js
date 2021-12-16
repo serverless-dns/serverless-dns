@@ -110,6 +110,7 @@ export default class RethinkPlugin {
         "request",
         "dnsResolverUrl",
         "runTimeEnv",
+        "cloudPlatform",
         "requestDecodedDnsPacket",
         "event",
         "blocklistFilter",
@@ -350,7 +351,7 @@ function loadException(response, currentRequest) {
  * @param {String[]} list - Parameters of a plugin
  * @returns - Object of plugin parameters
  */
-function generateParam(parameter,list) {
+function generateParam(parameter, list) {
   const param = {};
   for (const key of list) {
     if (parameter.has(key)) {

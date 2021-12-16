@@ -14,6 +14,7 @@ export default class Env {
   loadEnv() {
     try {
       this.env.set("runTimeEnv", RUNTIME_ENV);
+      this.env.set("cloudPlatform", CLOUD_PLATFORM);
       this.env.set("blocklistUrl", CF_BLOCKLIST_URL);
       this.env.set("latestTimestamp", CF_LATEST_BLOCKLIST_TIMESTAMP);
       this.env.set("dnsResolverUrl", CF_DNS_RESOLVER_URL);
@@ -22,7 +23,7 @@ export default class Env {
       this.env.set(
         "onInvalidFlagStopProcessing",
         (CF_ON_INVALID_FLAG_STOPPROCESSING == "true" ? true : false),
-      );      
+      );
       //adding download timeout with worker time to determine worker's overall timeout
       this.env.set(
         "workerTimeout",
@@ -71,7 +72,7 @@ export default class Env {
     //set to on - off aggressive cache plugin
     //as of now Cache-api is available only on worker
     //so setting to false for DENO
-    this.env.set("isAggCacheReq",false);    
+    this.env.set("isAggCacheReq",false);
     this.isLoaded = true;
   }
   loadEnvNode() {
@@ -96,7 +97,7 @@ export default class Env {
 
     //set to on - off aggressive cache plugin
     //as of now Cache-api is available only on worker
-    //so setting to false for fly 
+    //so setting to false for fly
     this.env.set("isAggCacheReq",false);
     this.isLoaded = true;
   }

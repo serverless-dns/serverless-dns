@@ -8,6 +8,7 @@ compatibility_date = "2021-09-21"
 
 [vars]
 WORKER_TIMEOUT = 10000
+CLOUD_PLATFORM = "cloudflare"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 400
 RUNTIME_ENV = "worker"
 CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"
