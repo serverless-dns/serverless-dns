@@ -146,21 +146,23 @@ export default class RethinkPlugin {
     });
   }
 
-  async executePlugin(currentRequest) {
-    for (const singlePlugin of this.plugin) {
-      if (
-        currentRequest.stopProcessing && !singlePlugin.continueOnStopProcess
-      ) {
+  async executePlugin(req) {
+    for (const p of this.plugin) {
+      if (req.stopProcessing && !p.continueOnStopProcess) {
         continue;
       }
-      log.d(singlePlugin.name);
-      const response = await singlePlugin.module.RethinkModule(
-        generateParam(this.parameter, singlePlugin.param),
-      );
 
-      if (singlePlugin.callBack) {
-        await singlePlugin.callBack.call(this, response, currentRequest);
+      const t = log.starttime(p.name);
+
+      const res = await p.module.RethinkModule(generateParam(this.parameter, p.param));
+
+      log.laptime(t, "response");
+
+      if (p.callBack) {
+        await p.callBack.call(this, res, req);
       }
+
+      log.endtime(t);
     }
   }
 }

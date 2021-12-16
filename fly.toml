@@ -7,6 +7,7 @@ kill_timeout = 5
 [env]
 DENO_ENV = "production"
 NODE_ENV = "production"
+LOG_LEVEL = "debug"
 CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
 TD_NODE_COUNT = "39479810"

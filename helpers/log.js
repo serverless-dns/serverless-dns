@@ -6,12 +6,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-const err = true;
-const warn = err || true;
-const info = warn || true;
-const gen = info || true;
-const debug = g || false;
-const timer = debug || false;
+let debug = false;
+let timer = debug || false;
+let gen = debug || true;
+let info = gen || true;
+let warn = info || true;
+let err = warn || true;
+
+export function level(s) {
+    s = s.toLowerCase().trim();
+    debug = (s === "debug");
+    timer = debug || (s === "timer");
+    gen = debug || (s === "gen");
+    info = gen || (s === "info");
+    warn = info || (s === "warn");
+    err = warn || (s === "error");
+}
 
 export function e() {
     if (err) console.error(...arguments);

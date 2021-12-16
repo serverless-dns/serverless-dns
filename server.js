@@ -49,6 +49,8 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
 
 ( _ => { // main
 
+  log.level(eval(`process.env.LOG_LEVEL`));
+
   const ok = mkswap();
   log.i("mkswap done?", ok);
 
