@@ -5,13 +5,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
+import * as udp from "dgram";
 import DNSParserWrap from "./dnsParserWrap.js";
 import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
 
+const flydns6 = "fdaa::3";
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
 const lfuSize = 2000; // TODO: retrieve this from env
 const debug = false;
+
 export default class DNSResolver {
   constructor() {
     this.dnsParser = new DNSParserWrap();
@@ -62,8 +64,7 @@ export default class DNSResolver {
     let cacheRes = this.dnsResCache.Get(dn);
 
     if (debug) {
-      console.log("Local Cache Data");
-      console.log(JSON.stringify(cacheRes));
+      console.debug("Local Cache Data", JSON.stringify(cacheRes));
     }
     if (!cacheRes || (now >= cacheRes.ttlEndTime)) {
       cacheRes = await this.checkSecondLevelCacheBfrResolve(
@@ -73,8 +74,7 @@ export default class DNSResolver {
         now,
       );
       if (debug) {
-        console.log("Cache Api Response");
-        console.log(cacheRes);
+        console.debug("Cache Api Response", cacheRes);
       }
       if (!cacheRes) { // upstream if not in both lfu (l1) and workers (l2) cache
         cacheRes = {};
@@ -85,8 +85,7 @@ export default class DNSResolver {
           now,
         );
         if (debug) {
-          console.log("resolve update response");
-          console.log(cacheRes);
+          console.debug("resolve update response", cacheRes);
         }
         resp.responseDecodedDnsPacket = cacheRes.decodedDnsPacket;
         this.dnsResCache.Put(dn, cacheRes);
@@ -105,15 +104,13 @@ export default class DNSResolver {
     return resp;
   }
 
-  loadDnsResponseFromCache(decodedDnsPacket, ttlEndTime, now) {
-    const outttl = Math.max(Math.floor((ttlEndTime - now) / 1000), 1); // to verify ttl is not set to 0sec
+  loadDnsResponseFromCache(decodedDnsPacket, end, now) {
+    const outttl = Math.max(Math.floor((end - now) / 1000), 1); // to verify ttl is not set to 0sec
     for (let answer of decodedDnsPacket.answers) {
       answer.ttl = outttl;
     }
     if (debug) {
-      console.log(now, ttlEndTime, "now - ttlEndTime", (ttlEndTime - now));
-      console.log("response decoded packet");
-      console.log(JSON.stringify(decodedDnsPacket));
+      console.debug("ttl", (end - now), "res", JSON.stringify(decodedDnsPacket));
     }
     return this.dnsParser.Encode(decodedDnsPacket);
   }
@@ -153,31 +150,22 @@ export default class DNSResolver {
       param.runTimeEnv
     );
 
-    if (upRes.status >= 500 && upRes.status < 600) {
-      console.error(
-        "Upstream server error =>",
-        upRes.status,
-        upRes.statusText,
-        await upRes.text()
-      );
-      throw new Error();
+    if (!upRes.ok) {
+      console.error("!OK", upRes.status, upRes.statusText, await upRes.text());
+      throw new Error(upRes.status + " http err: " + upRes.statusText);
     }
+
     let responseBodyBuffer = await upRes.arrayBuffer();
 
-    if (!responseBodyBuffer || responseBodyBuffer.byteLength < 12 + 5)
+    if (!responseBodyBuffer || responseBodyBuffer.byteLength < 12 + 5) {
       throw new Error("Null / inadequate response from upstream");
+    }
 
     let decodedDnsPacket = (() => {
       try {
         return this.dnsParser.Decode(responseBodyBuffer);
       } catch (e) {
-        console.error(
-          "@resolveDnsUpdateCache: Failed decoding response body buffer =>",
-          "Upstream resp code:",
-          upRes.status,
-          "resp body buf:",
-          responseBodyBuffer
-        );
+        console.error("decode fail", upRes.status, "cached:", responseBodyBuffer);
         throw e;
       }
     })();
@@ -247,17 +235,15 @@ async function resolveDnsUpstream(
     };
 
     let newRequest;
+    if (runTimeEnv == "fly") {
+      return await plaindns(requestBodyBuffer);
+    }
+
     if (
       request.method === "GET" ||
       (runTimeEnv == "worker" && request.method === "POST")
     ) {
-      u.search = runTimeEnv == "worker" && request.method === "POST"
-        ? "?dns=" +
-          btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=/g, "")
-        : u.search;
+      u.search = "?dns=" + dnsqurl(requestBodyBuffer);
       newRequest = new Request(u.href, {
         method: "GET",
         headers: headers,
@@ -302,3 +288,37 @@ function errResponse(e) {
     data: false,
   };
 }
+
+async function plaindns(q) {
+  function dnsreq(resolve, reject) {
+    const client = udp.createSocket("udp6");
+
+    client.on("message", (d, addrinfo) => {
+      const res = new Response(d)
+      resolve(d);
+    });
+
+    client.on("error", (err) => {
+      if (err) {
+        console.error("plaindns recv fail", err);
+        reject(err.message);
+      }
+    });
+
+    client.send(q, 53, flydns6, (err) => {
+      if (err) {
+        console.error("plaindns send fail", err);
+        reject(err.message);
+      }
+    });
+  }
+  return new Promise(dnsreq);
+}
+
+function dnsqurl(dnsreq) {
+  return btoa(String.fromCharCode(...new Uint8Array(requestBodyBuffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")
+}
+
