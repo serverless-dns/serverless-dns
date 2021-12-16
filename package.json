@@ -29,6 +29,7 @@
     "proxy-protocol-js": "^4.0.5"
   },
   "devDependencies": {
-    "@types/node": "^16.11.7"
+    "@types/node": "^16.11.7",
+    "webpack": "^5.65.0"
   }
 }
