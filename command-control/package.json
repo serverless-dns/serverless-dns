@@ -1,0 +1,12 @@
+{
+  "name": "@serverless-dns/command-control",
+  "version": "2.2.7",
+  "description": "",
+  "main": "cc.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MPL-2.0"
+}
