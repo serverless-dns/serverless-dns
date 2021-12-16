@@ -13,7 +13,7 @@ import {
   DNSBlock,
   DNSResolver,
   DNSResponseBlock,
-} from "@serverless-dns/dns-operation";
+} from "./dns-operation/dnsOperation.js";
 import * as log from "./helpers/log.js";
 
 const blocklistWrapper = new BlocklistWrapper();

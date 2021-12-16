@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as Dns } from "@serverless-dns/dns-operation";
+import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
 
 const dns = new Dns();
 

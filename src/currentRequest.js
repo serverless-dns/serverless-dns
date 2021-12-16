@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as DnsParser } from "@serverless-dns/dns-operation";
+import { DNSParserWrap as DnsParser } from "./dns-operation/dnsOperation.js";
 import * as log from "./helpers/log.js";
 
 export default class CurrentRequest {

@@ -1,0 +1,12 @@
+{
+  "name": "@serverless-dns/dns-operation",
+  "version": "2.3.29",
+  "description": "rethink-dns dns packet blocker",
+  "main": "dnsOperation.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MPL-2.0"
+}
