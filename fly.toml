@@ -8,13 +8,13 @@ kill_timeout = 5
 DENO_ENV = "production"
 NODE_ENV = "production"
 CLOUD_PLATFORM = "fly"
-LOG_LEVEL = "debug"
+LOG_LEVEL = "info"
 CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1636965620445"
-TD_NODE_COUNT = "39479810"
+CF_LATEST_BLOCKLIST_TIMESTAMP = "1638959365361"
+TD_NODE_COUNT = "42112224"
 TD_PARTS = "2"
 CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 10000
+CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 
 [experimental]
 allowed_public_ports = []
