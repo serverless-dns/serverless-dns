@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { BlocklistWrapper } from "./blocklist-wrapper/blocklistWrapper.js";
-import { CommandControl } from "@serverless-dns/command-control";
+import { CommandControl } from "./command-control/cc.js";
 import { UserOperation } from "./basic/basic.js";
 import {
   DNSAggCache,

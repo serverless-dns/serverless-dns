@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { LocalCache as LocalCache } from "@serverless-dns/cache-wrapper";
+import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 
 export class UserOperation {
