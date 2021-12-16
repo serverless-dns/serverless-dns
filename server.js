@@ -406,11 +406,16 @@ async function resolveQuery(q, host, flag) {
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
   const buffers = [];
+
+  const t = log.starttime("recv-https")
+
   for await (const chunk of req) {
     buffers.push(chunk);
   }
   const b = Buffer.concat(buffers);
   const bLen = b.byteLength;
+
+  log.endtime(t);
 
   if (
     req.method == "POST" &&
@@ -456,7 +461,11 @@ async function handleHTTPRequest(b, req, res) {
       body: req.method == "POST" ? b : null,
     });
 
+    log.laptime(t, "upstream-start");
+
     const fRes = await handleRequest({ request: fReq });
+
+    log.laptime(t, "upstream-end");
 
     // Object.assign, Object spread, etc doesn't work with `node-fetch` Headers
     const resHeaders = {};
@@ -465,11 +474,19 @@ async function handleHTTPRequest(b, req, res) {
     });
 
     res.writeHead(fRes.status, resHeaders);
-    res.end(Buffer.from(await fRes.arrayBuffer()));
+
+    log.laptime(t, "send-head");
+
+    const ans = Buffer.from(await fRes.arrayBuffer());
+
+    log.laptime(t, "recv-ans");
+
+    res.end(ans);
   } catch (e) {
     res.end();
     log.w(e);
   }
+
   log.endtime(t);
 }
 
