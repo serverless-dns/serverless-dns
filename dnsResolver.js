@@ -299,9 +299,9 @@ async function plaindns(q) {
   // v8.dev/features/dynamic-import
   const Buffer = (await import("buffer")).Buffer;
   const bq = Buffer.from(q);
+  const udp = (await import("dgram"));
   function lookup(resolve, reject) {
-    const client = (await import("dgram")).createSocket("udp6");
-
+    const client = udp.createSocket("udp6");
     client.on("message", (b, addrinfo) => {
       const res = new Response(arrayBuffer(b));
       resolve(res);
