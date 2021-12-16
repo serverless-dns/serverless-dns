@@ -1,0 +1,12 @@
+{
+  "name": "@serverless-dns/cache-wrapper",
+  "version": "2.1.6",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "main": "cache-wrapper.js",
+  "author": "",
+  "license": "MPL-2.0"
+}

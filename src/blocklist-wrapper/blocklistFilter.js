@@ -7,7 +7,7 @@
  */
 
 import { Buffer } from "buffer";
-import { LocalCache } from "@serverless-dns/cache-wrapper";
+import { LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
 
 import { base32, rbase32 } from "./b32.js";
