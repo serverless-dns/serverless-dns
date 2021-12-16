@@ -27,13 +27,12 @@ const dnsAggCache = new DNSAggCache();
 export default class RethinkPlugin {
   /**
    * @param {{request: Request}} event
-   * @param {Env} env
    */
-  constructor(event, env) {
+  constructor(event) {
     /**
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
-    this.parameter = new Map(env.getEnvMap());
+    this.parameter = new Map(envMap);
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
     this.registerParameter(

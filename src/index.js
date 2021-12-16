@@ -8,25 +8,27 @@
 
 import CurrentRequest from "./currentRequest.js";
 import RethinkPlugin from "./plugin.js";
-import Env from "./env.js";
+import EnvManager from "./env.js";
 import * as log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
-const env = new Env();
+const envManager = new EnvManager();
+globalThis.envMap = envManager.getMap();
 
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
-    if (!env.isLoaded) {
-      env.loadEnv();
+    if (!envManager.isLoaded) {
+      envManager.loadEnv();
     }
     event.respondWith(handleRequest(event));
   });
 }
 
 export function handleRequest(event) {
-  const processingTimeout = env.get("workerTimeout");
-  const respectTimeout = (env.get("runTimeEnv") == "worker" && processingTimeout > 0)
+  const processingTimeout = envManager.get("workerTimeout");
+  const respectTimeout =
+    envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;
 
   if (!respectTimeout) return proxyRequest(event);
 
@@ -35,12 +37,12 @@ export function handleRequest(event) {
       resolve(proxyRequest(event));
     }),
     new Promise((resolve, _) => {
-      setTimeout(() => { // on timeout, send a serv-fail
+      setTimeout(() => {
+        // on timeout, send a serv-fail
         resolve(servfail(event));
       }, processingTimeout);
     }),
   ]);
-
 }
 
 async function proxyRequest(event) {
@@ -52,17 +54,16 @@ async function proxyRequest(event) {
     }
 
     // For environments which don't use FetchEvent to handle request.
-    if (!env.isLoaded) {
-      env.loadEnv();
+    if (!envManager.isLoaded) {
+      envManager.loadEnv();
     }
     const currentRequest = new CurrentRequest();
-    const plugin = new RethinkPlugin(event, env);
+    const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);
 
     util.dohHeaders(event.request, currentRequest.httpResponse);
 
     return currentRequest.httpResponse;
-
   } catch (err) {
     log.e(err.stack);
     return errorOrServfail(event, err);
@@ -83,4 +84,3 @@ function servfail(event) {
   util.dohHeaders(event.request, res);
   return res;
 }
-

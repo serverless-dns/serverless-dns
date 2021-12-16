@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-export default class Env {
+export default class EnvManager {
   constructor() {
     this.env = new Map();
     this.isLoaded = false;
@@ -48,6 +48,9 @@ export default class Env {
         typeof Deno !== "undefined" ? this.loadEnvDeno() : this.loadEnvNode();
       } else throw e;
     }
+
+    // Make env available to all modules, globally
+    globalThis.env = Object.fromEntries(this.env);
   }
   loadEnvDeno() {
     this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
@@ -103,7 +106,7 @@ export default class Env {
     this.env.set("isAggCacheReq",false);
     this.isLoaded = true;
   }
-  getEnvMap() {
+  getMap() {
     return this.env;
   }
   get(key) {
@@ -111,5 +114,6 @@ export default class Env {
   }
   put(key, value) {
     this.env.set(key, value);
+    globalThis.env = Object.fromEntries(this.env);
   }
 }
