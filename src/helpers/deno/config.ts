@@ -6,5 +6,5 @@ try {
   Deno.env.set("RUNTIME_ENV", "deno");
 } catch (e) {
   // throws without --allow-read flag
-  console.error(".env file may not be loaded => ", e.name, ":", e.message);
+  console.warn(".env file may not be loaded => ", e.name, ":", e.message);
 }
