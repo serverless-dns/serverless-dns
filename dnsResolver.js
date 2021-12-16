@@ -303,7 +303,7 @@ async function plaindns(q) {
   function lookup(resolve, reject) {
     const client = udp.createSocket("udp6");
     client.on("message", (b, addrinfo) => {
-      const res = new Response(arrayBuffer(b));
+      const res = new Response(arrayBufferOf(b));
       resolve(res);
     });
 
@@ -332,7 +332,7 @@ function dnsqurl(dnsq) {
 }
 
 // stackoverflow.com/a/12101012
-function arraybuffer(buf) {
+function arrayBufferOf(buf) {
   const ab = new ArrayBuffer(buf.length);
   const view = new Uint8Array(ab);
   for (let i = 0; i < buf.length; i++) {
