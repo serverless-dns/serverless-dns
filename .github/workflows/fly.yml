@@ -31,7 +31,7 @@ jobs:
       - run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-      - name: ⚠️ *B1* Fly App ?
+      - name: ⚠ *B1* Fly App ?
         if: ${{ github.event_name == 'workflow_dispatch' &&
           github.event.inputs.deployment-type == 'b1' }}
         run: |
@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "FLY_APP=${{ secrets.FLY_APP_NAME_LIVE }}" >> $GITHUB_ENV
 
-      - name: 🏗️ Build & 🚢 Ship
+      - name: 🏗 Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
         with:
           args: "deploy --dockerfile node.Dockerfile --image-label ${{ env.GIT_HEAD }}"

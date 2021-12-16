@@ -20,6 +20,8 @@ env:
     ${{ github.event_name == 'workflow_dispatch' &&
       github.event.inputs.deployment-type == 'live' &&
       'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
+  IN_FILE: "http.ts"
+  OUT_FILE: "http.bundle.js"
 
 jobs:
   deploy:
@@ -43,13 +45,13 @@ jobs:
           curl -fsSL https://deno.land/x/install/install.sh | sh
           export DENO_INSTALL="/home/runner/.deno"
           export PATH="$DENO_INSTALL/bin:$PATH"
-          deno bundle --import-map=import_map.json http.ts http.bundle.js
+          deno bundle --import-map=import_map.json ${IN_FILE} ${OUT_FILE}
 
       - name: 🚢 Pushing to build branch
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
-          git add http.bundle.js
+          git add ${OUT_FILE}
           git commit -m "Update bundle for ${GITHUB_SHA}" && \
             echo "::notice::Pushing to ${BUILD_BRANCH}" || \
             echo "::notice::No changes to commit"

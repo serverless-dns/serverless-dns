@@ -28,7 +28,7 @@ RUN ls -Fla
 ENTRYPOINT ["/bin/deno"]
 
 # This is only used while building, on fly.io
-CMD ["run", "--allow-net", "--allow-env", "--allow-read", "http.ts"]
+CMD ["run", "--allow-net", "--allow-env", "--allow-read", "src/http.ts"]
 
 # Run port process as a root privilege user. For say port 53
 # USER root
