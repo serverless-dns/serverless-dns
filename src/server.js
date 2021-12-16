@@ -5,14 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 import net, { isIPv6, Socket } from "net";
-import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as tls from "tls";
 import * as http2 from "http2";
+import { V1ProxyProtocol } from "proxy-protocol-js";
 
 import { handleRequest } from "./index.js";
 import * as log from "./helpers/log.js";
-import { mkswap } from "./helpers/setup.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
@@ -47,13 +47,8 @@ const corsHeaders = {
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
-( _ => { // main
-
-  log.level(eval(`process.env.LOG_LEVEL`));
-
-  const ok = mkswap();
-  log.i("mkswap done?", ok);
-
+// main
+((_) => {
   const dot1 = tls
     .createServer(tlsOptions, serveTLS)
     .listen(DOT_PORT, () => up("DoT", dot1.address()));
@@ -409,7 +404,7 @@ async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
   const buffers = [];
 
-  const t = log.starttime("recv-https")
+  const t = log.starttime("recv-https");
 
   for await (const chunk of req) {
     buffers.push(chunk);
@@ -491,4 +486,3 @@ async function handleHTTPRequest(b, req, res) {
 
   log.endtime(t);
 }
-
