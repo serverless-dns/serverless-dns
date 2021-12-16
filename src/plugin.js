@@ -7,7 +7,7 @@
  */
 import { BlocklistWrapper } from "@serverless-dns/blocklist-wrapper";
 import { CommandControl } from "@serverless-dns/command-control";
-import { UserOperation } from "@serverless-dns/basic";
+import { UserOperation } from "./basic/basic.js";
 import {
   DNSAggCache,
   DNSBlock,

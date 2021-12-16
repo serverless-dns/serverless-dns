@@ -1,6 +1,5 @@
 {
   "imports": {
-    "@serverless-dns/basic": "https://github.com/serverless-dns/basic/raw/v2.2.4/basic.js",
     "@serverless-dns/blocklist-wrapper": "https://github.com/serverless-dns/blocklist-wrapper/raw/v2.3.12/blocklistWrapper.js",
     "@serverless-dns/cache-wrapper": "https://github.com/serverless-dns/cache-wrapper/raw/v2.1.6/cache-wrapper.js",
     "@serverless-dns/command-control": "https://github.com/serverless-dns/command-control/raw/v2.2.7/cc.js",

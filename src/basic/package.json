@@ -1,0 +1,12 @@
+{
+  "name": "@serverless-dns/basic",
+  "version": "2.2.4",
+  "description": "",
+  "main": "basic.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MPL-2.0"
+}
