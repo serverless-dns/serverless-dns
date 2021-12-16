@@ -20,7 +20,7 @@ env:
     ${{ github.event_name == 'workflow_dispatch' &&
       github.event.inputs.deployment-type == 'live' &&
       'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
-  IN_FILE: "http.ts"
+  IN_FILE: "src/http.ts"
   OUT_FILE: "http.bundle.js"
 
 jobs:
