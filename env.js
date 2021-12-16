@@ -51,6 +51,7 @@ export default class Env {
   }
   loadEnvDeno() {
     this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
+    this.env.set("cloudPlatform", Deno.env.get("CLOUD_PLATFORM");
     this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
     this.env.set(
       "latestTimestamp",
@@ -77,6 +78,7 @@ export default class Env {
   }
   loadEnvNode() {
     this.env.set("runTimeEnv", process.env.RUNTIME_ENV);
+    this.env.set("cloudPlatform", process.env.CLOUD_PLATFORM);
     this.env.set("blocklistUrl", process.env.CF_BLOCKLIST_URL);
     this.env.set(
       "latestTimestamp",
