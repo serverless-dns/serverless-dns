@@ -8,6 +8,7 @@
 
 import { DNSParserWrap as DnsParser } from "./dns-operation/dnsOperation.js";
 import * as log from "./helpers/log.js";
+import * as dnsutil from "./helpers/dnsutil.js";
 
 export default class CurrentRequest {
   constructor() {
@@ -28,22 +29,14 @@ export default class CurrentRequest {
     const singleLog = {};
     singleLog.exceptionFrom = this.exceptionFrom;
     singleLog.exceptionStack = this.exceptionStack;
-    const dnsEncodeObj = this.dnsParser.Encode({
-      type: "response",
-      flags: 4098, //sets server fail response
-    });
-    this.httpResponse = new Response(dnsEncodeObj);
-    setResponseCommonHeader.call(this);
+    this.httpResponse = new Response(dnsutil.servfail);
+    this.setHeaders();
     this.httpResponse.headers.set("x-err", JSON.stringify(singleLog));
   }
 
   customResponse(data) {
-    const dnsEncodeObj = this.dnsParser.Encode({
-      type: "response",
-      flags: 1,
-    });
-    this.httpResponse = new Response(dnsEncodeObj);
-    setResponseCommonHeader.call(this);
+    this.httpResponse = new Response(dnsutil);
+    this.setHeaders();
     this.httpResponse.headers.set("x-err", JSON.stringify(data));
   }
 
@@ -53,7 +46,7 @@ export default class CurrentRequest {
    */
   dnsResponse(arrayBuffer) {
     this.httpResponse = new Response(arrayBuffer);
-    setResponseCommonHeader.call(this);
+    this.setHeaders();
   }
   dnsBlockResponse() {
     try {
@@ -84,7 +77,7 @@ export default class CurrentRequest {
       }
       this.decodedDnsPacket.authorities = []
       this.httpResponse = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
-      setResponseCommonHeader.call(this);
+      this.setHeaders();
     } catch (e) {
       log.e(JSON.stringify(this.decodedDnsPacket))
       this.isException = true;
@@ -92,17 +85,20 @@ export default class CurrentRequest {
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
     }
   }
+
+  setHeaders() {
+    this.httpResponse.headers.set("Content-Type", "application/dns-message");
+    this.httpResponse.headers.append("Vary", "Origin");
+    this.httpResponse.headers.delete("expect-ct");
+    this.httpResponse.headers.delete("cf-ray");
+    if(this.isDnsBlock){
+      this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
+    }
+    else if(this.blockedB64Flag !== ""){
+      this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
+    }
+  }
+
 }
 
-function setResponseCommonHeader() {
-  this.httpResponse.headers.set("Content-Type", "application/dns-message");
-  this.httpResponse.headers.append("Vary", "Origin");
-  this.httpResponse.headers.delete("expect-ct");
-  this.httpResponse.headers.delete("cf-ray");
-  if(this.isDnsBlock){
-    this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
-  }
-  else if(this.blockedB64Flag !== ""){
-    this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
-  }
-}
+
