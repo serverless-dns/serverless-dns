@@ -175,8 +175,8 @@ function makeScratchBuffer() {
 }
 
 /**
- * Get RegEx's matching dns names of a CA certificate.
- * A non capturing RegEx is returned if no DNS names are found.
+ * Get RegEx's to match dns names of a CA certificate.
+ * A non matching RegEx is returned if no DNS names are found.
  * @param {tls.TLSSocket} socket - TLS socket to get CA certificate from.
  * @returns [RegEx, RegEx] - [regular, wildcard]
  */
@@ -186,7 +186,7 @@ function getDnRE(socket) {
 
   // Compute DNS RegExs from TLS SAN (subject-alt-names)
   // for max.rethinkdns.com SANs, see: https://crt.sh/?id=5708836299
-  const RegExs = SAN.split(",").reduce(
+  const regExs = SAN.split(",").reduce(
     (arr, entry) => {
       entry = entry.trim();
       // Ignore non-DNS entries
@@ -213,8 +213,8 @@ function getDnRE(socket) {
     [[], []]
   );
 
-  const rgDnRE = new RegExp(RegExs[0].join("|"), "i");
-  const wcDnRE = new RegExp(RegExs[1].join("|"), "i");
+  const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
+  const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
   log.i(rgDnRE, wcDnRE);
   return [rgDnRE, wcDnRE];
 }
