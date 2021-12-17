@@ -30,13 +30,13 @@ export default class CurrentRequest {
     singleLog.exceptionFrom = this.exceptionFrom;
     singleLog.exceptionStack = this.exceptionStack;
     this.httpResponse = new Response(dnsutil.servfail);
-    setHeaders();
+    this.setHeaders();
     this.httpResponse.headers.set("x-err", JSON.stringify(singleLog));
   }
 
   customResponse(data) {
     this.httpResponse = new Response(dnsutil);
-    setHeaders();
+    this.setHeaders();
     this.httpResponse.headers.set("x-err", JSON.stringify(data));
   }
 
@@ -46,7 +46,7 @@ export default class CurrentRequest {
    */
   dnsResponse(arrayBuffer) {
     this.httpResponse = new Response(arrayBuffer);
-    setHeaders();
+    this.setHeaders();
   }
   dnsBlockResponse() {
     try {
@@ -77,7 +77,7 @@ export default class CurrentRequest {
       }
       this.decodedDnsPacket.authorities = []
       this.httpResponse = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
-      setHeaders();
+      this.setHeaders();
     } catch (e) {
       log.e(JSON.stringify(this.decodedDnsPacket))
       this.isException = true;
