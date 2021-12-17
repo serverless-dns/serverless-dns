@@ -319,7 +319,7 @@ function dnsResolverCallBack(response, currentRequest) {
  * @param {*} currentRequest
  */
 function dnsResponseBlockCallBack(response, currentRequest) {
-  log.d("In dnsCnameBlockCallBack", JSON.stringify(response.data));
+  log.d("In dnsResponseBlockCallBack", JSON.stringify(response.data));
 
   if (response.isException) {
     loadException(response, currentRequest);

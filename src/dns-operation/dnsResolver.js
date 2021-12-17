@@ -187,9 +187,8 @@ export default class DNSResolver {
       let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
       let response = new Response(responseBodyBuffer, {
         headers: {
-          "Cache-Control": "s-maxage=" + minttl,
           "Content-Length": responseBodyBuffer.length,
-          "Content-Type": "application/octet-stream",
+          "Content-Type": "application/dns-message",
           "x-rethink-metadata": JSON.stringify({
             ttlEndTime: cacheRes.ttlEndTime,
             bodyUsed: true, //used to identify response is blocked or dns response. if false then response body is empty, use blocklistinfo for dns-blocking.
@@ -202,7 +201,7 @@ export default class DNSResolver {
             ),
           }),
         },
-        cf: { cacheTtl: minttl },
+        cf: { cacheTtl: 604800 }, //setting ttl to 7days 60*60*24*7, because is validated with ttlEndTime
       });
       param.event.waitUntil(this.wCache.put(wCacheUrl, response));
     }
