@@ -25,6 +25,9 @@ export function handleRequest(event) {
   if (!envManager.isLoaded) {
     envManager.loadEnv();
   }
+  if (!globalThis.logLevel) {
+    log.setLogLevel(env.logLevel || "info");
+  }
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =
     envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;

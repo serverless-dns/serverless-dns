@@ -10,6 +10,7 @@ webpack_config = "webpack.config.cjs"
 [vars]
 WORKER_TIMEOUT = 10000
 CLOUD_PLATFORM = "cloudflare"
+LOG_LEVEL = "info"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 400
 RUNTIME_ENV = "worker"
 CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"

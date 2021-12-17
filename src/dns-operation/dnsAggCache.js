@@ -9,7 +9,7 @@
 import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlockOperation from "./dnsBlockOperation.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
-let debug = false;
+
 export default class DNSAggCache {
   constructor() {
     this.dnsParser = new DNSParserWrap();
@@ -65,10 +65,8 @@ export default class DNSAggCache {
         : "").trim().toLowerCase() +
         ":" + response.reqDecodedDnsPacket.questions[0].type;
       let cacheResponse = await getCacheapi(this.wCache, param.request.url, dn);
-      if (debug) {
-        console.log("Cache Api Response");
-        console.log(cacheResponse);
-      }
+      console.debug("Cache Api Response");
+      console.debug(cacheResponse);
       if (cacheResponse) {
         response.aggCacheResponse = await parseCacheapiResponse(
           cacheResponse,
@@ -96,10 +94,8 @@ async function parseCacheapiResponse(
   response.data = {};
   let metaData = JSON.parse(cacheResponse.headers.get("x-rethink-metadata"));
 
-  if (debug) {
-    console.log("Response Found at CacheApi");
-    console.log(JSON.stringify(metaData));
-  }
+  console.debug("Response Found at CacheApi");
+  console.debug(JSON.stringify(metaData));
   //check whether incoming request should be blocked by blocklist filter
   if (
     (reqDecodedDnsPacket.questions[0].type == "A" ||

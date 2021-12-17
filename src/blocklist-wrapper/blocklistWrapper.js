@@ -8,7 +8,7 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
-let debug = false;
+
 class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
@@ -124,11 +124,11 @@ class BlocklistWrapper {
         bl.blocklistFileTag,
       );
 
-      if (debug) {
-        console.log("done blocklist filter");
+      if (logLevel == "debug") {
+        console.debug("done blocklist filter");
         let result = this.blocklistFilter.getDomainInfo("google.com");
-        console.log(JSON.stringify(result));
-        console.log(JSON.stringify(result.searchResult.get("google.com")));
+        console.debug(JSON.stringify(result));
+        console.debug(JSON.stringify(result.searchResult.get("google.com")));
       }
 
       this.isBlocklistUnderConstruction = false;
@@ -169,10 +169,8 @@ async function downloadBuildBlocklist(
 
     let downloads = await Promise.all([buf0, buf1, buf2]);
 
-    if (debug) {
-      console.log("call createBlocklistFilter");
-      console.log(blocklistBasicConfig);
-    }
+    console.debug("call createBlocklistFilter");
+    console.debug(blocklistBasicConfig);
 
     let trie = createBlocklistFilter(
       downloads[1],
@@ -195,9 +193,7 @@ async function fileFetch(url, typ) {
   if (typ !== "buffer" && typ !== "json") {
     throw new Error("Unknown conversion type at fileFetch");
   }
-  if (debug) {
-    console.log("Start Downloading : " + url);
-  }
+  console.debug("Start Downloading : " + url);
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   if (res.status == 200) {
     if (typ == "buffer") {
@@ -221,9 +217,8 @@ const sleep = (ms) => {
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {
-  if (debug) {
-    console.log("Make Td Starts : Tdparts -> " + n);
-  }
+  console.debug("Make Td Starts : Tdparts -> " + n);
+
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
   }
@@ -239,9 +234,7 @@ async function makeTd(baseurl, n) {
   }
   const tds = await Promise.all(tdpromises);
 
-  if (debug) {
-    console.log("all td download successful");
-  }
+  console.debug("all td download successful");
 
   return new Promise((resolve, reject) => {
     resolve(concat(tds));

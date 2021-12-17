@@ -13,7 +13,6 @@ import { Buffer } from "buffer";
 const flydns6 = "fdaa::3";
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
 const lfuSize = 2000; // TODO: retrieve this from env
-const debug = false;
 
 export default class DNSResolver {
   constructor() {
@@ -73,9 +72,7 @@ export default class DNSResolver {
     const now = Date.now();
     let cacheRes = this.dnsResCache.Get(dn);
 
-    if (debug) {
-      console.debug("Local Cache Data", JSON.stringify(cacheRes));
-    }
+    console.debug("Local Cache Data", JSON.stringify(cacheRes));
     if (!cacheRes || now >= cacheRes.ttlEndTime) {
       cacheRes = await this.checkSecondLevelCacheBfrResolve(
         param.runTimeEnv,
@@ -83,9 +80,7 @@ export default class DNSResolver {
         dn,
         now
       );
-      if (debug) {
-        console.debug("Cache Api Response", cacheRes);
-      }
+      console.debug("Cache Api Response", cacheRes);
 
       // upstream if not in both lfu (l1) and workers (l2) cache
       if (!cacheRes) {
@@ -96,9 +91,7 @@ export default class DNSResolver {
           dn,
           now
         );
-        if (debug) {
-          console.debug("resolve update response", cacheRes);
-        }
+        console.debug("resolve update response", cacheRes);
         resp.responseDecodedDnsPacket = cacheRes.decodedDnsPacket;
         this.dnsResCache.Put(dn, cacheRes);
         return resp;
@@ -121,9 +114,7 @@ export default class DNSResolver {
     for (let answer of decodedDnsPacket.answers) {
       answer.ttl = outttl;
     }
-    if (debug) {
-      console.debug("ttl", end - now, "res", JSON.stringify(decodedDnsPacket));
-    }
+    console.debug("ttl", end - now, "res", JSON.stringify(decodedDnsPacket));
     return this.dnsParser.Encode(decodedDnsPacket);
   }
 

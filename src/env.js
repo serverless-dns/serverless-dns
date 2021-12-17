@@ -12,9 +12,15 @@ export default class EnvManager {
     this.isLoaded = false;
   }
   loadEnv() {
+    // try getting env directly from global namespace (as available in
+    // cloudflare workers). All of these variables must be defined in wrangler
+    // config file. Else, they will cause reference error, and possibly
+    // loadNodeEnv() will be called, which won't be able to retrieve env.
+    // variables.
     try {
       this.env.set("runTimeEnv", RUNTIME_ENV);
       this.env.set("cloudPlatform", CLOUD_PLATFORM);
+      this.env.set("logLevel", LOG_LEVEL);
       this.env.set("blocklistUrl", CF_BLOCKLIST_URL);
       this.env.set("latestTimestamp", CF_LATEST_BLOCKLIST_TIMESTAMP);
       this.env.set("dnsResolverUrl", CF_DNS_RESOLVER_URL);
@@ -22,12 +28,12 @@ export default class EnvManager {
       //so type cast is done for necessary variables
       this.env.set(
         "onInvalidFlagStopProcessing",
-        (CF_ON_INVALID_FLAG_STOPPROCESSING == "true" ? true : false),
+        CF_ON_INVALID_FLAG_STOPPROCESSING == "true" ? true : false
       );
       //adding download timeout with worker time to determine worker's overall timeout
       this.env.set(
         "workerTimeout",
-        (parseInt(WORKER_TIMEOUT) + parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)),
+        parseInt(WORKER_TIMEOUT) + parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
       );
       //parallel request wait timeout for download blocklist from s3
       this.env.set("fetchTimeout", parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT));
@@ -39,7 +45,7 @@ export default class EnvManager {
       //set to on - off aggressive cache plugin
       this.env.set(
         "isAggCacheReq",
-        (IS_AGGRESSIVE_CACHE_REQ == "true" ? true : false),
+        IS_AGGRESSIVE_CACHE_REQ == "true" ? true : false
       );
 
       this.isLoaded = true;
@@ -53,17 +59,20 @@ export default class EnvManager {
     globalThis.env = Object.fromEntries(this.env);
   }
   loadEnvDeno() {
+    console.info("Loading env variables from Deno");
+
     this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
     this.env.set("cloudPlatform", Deno.env.get("CLOUD_PLATFORM"));
+    this.env.set("logLevel", Deno.env.get("LOG_LEVEL"));
     this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
     this.env.set(
       "latestTimestamp",
-      Deno.env.get("CF_LATEST_BLOCKLIST_TIMESTAMP"),
+      Deno.env.get("CF_LATEST_BLOCKLIST_TIMESTAMP")
     );
     this.env.set("dnsResolverUrl", Deno.env.get("CF_DNS_RESOLVER_URL"));
     this.env.set(
       "onInvalidFlagStopProcessing",
-      Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING"),
+      Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING")
     );
 
     //env variables for td file split
@@ -76,21 +85,21 @@ export default class EnvManager {
     //set to on - off aggressive cache plugin
     //as of now Cache-api is available only on worker
     //so setting to false for DENO
-    this.env.set("isAggCacheReq",false);
+    this.env.set("isAggCacheReq", false);
     this.isLoaded = true;
   }
   loadEnvNode() {
+    console.info("Loading env variables from Node");
+
     this.env.set("runTimeEnv", process.env.RUNTIME_ENV);
     this.env.set("cloudPlatform", process.env.CLOUD_PLATFORM);
+    this.env.set("logLevel", process.env.LOG_LEVEL);
     this.env.set("blocklistUrl", process.env.CF_BLOCKLIST_URL);
-    this.env.set(
-      "latestTimestamp",
-      process.env.CF_LATEST_BLOCKLIST_TIMESTAMP,
-    );
+    this.env.set("latestTimestamp", process.env.CF_LATEST_BLOCKLIST_TIMESTAMP);
     this.env.set("dnsResolverUrl", process.env.CF_DNS_RESOLVER_URL);
     this.env.set(
       "onInvalidFlagStopProcessing",
-      process.env.CF_ON_INVALID_FLAG_STOPPROCESSING,
+      process.env.CF_ON_INVALID_FLAG_STOPPROCESSING
     );
 
     //env variables for td file split
@@ -103,7 +112,7 @@ export default class EnvManager {
     //set to on - off aggressive cache plugin
     //as of now Cache-api is available only on worker
     //so setting to false for fly
-    this.env.set("isAggCacheReq",false);
+    this.env.set("isAggCacheReq", false);
     this.isLoaded = true;
   }
   getMap() {

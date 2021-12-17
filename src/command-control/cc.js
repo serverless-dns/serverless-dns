@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-let debug = false;
+
 export class CommandControl {
   constructor() {
     this.latestTimestamp = "";
@@ -20,7 +20,7 @@ export class CommandControl {
    * @returns
    */
   async RethinkModule(param) {
-    if(debug) console.log("In CommandControl")
+    console.debug("In CommandControl");
     this.latestTimestamp = param.latestTimestamp;
     let response = {};
     response.isException = false;
