@@ -13,19 +13,18 @@ import * as log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
-const envManager = new EnvManager();
-globalThis.envMap = envManager.getMap();
+globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
-    if (!envManager.isLoaded) {
-      envManager.loadEnv();
-    }
     event.respondWith(handleRequest(event));
   });
 }
 
 export function handleRequest(event) {
+  if (!envManager.isLoaded) {
+    envManager.loadEnv();
+  }
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =
     envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;
@@ -53,10 +52,6 @@ async function proxyRequest(event) {
       return res;
     }
 
-    // For environments which don't use FetchEvent to handle request.
-    if (!envManager.isLoaded) {
-      envManager.loadEnv();
-    }
     const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);

@@ -32,7 +32,7 @@ export default class RethinkPlugin {
     /**
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
-    this.parameter = new Map(envMap);
+    this.parameter = new Map(envManager.getMap());
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
     this.registerParameter(
