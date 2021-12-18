@@ -41,11 +41,6 @@ export default class DNSResolver {
           this.wCache = caches.default;
         }
       }
-      // dynamic imports to avoid imports in workers / deno
-      // v8.dev/features/dynamic-import
-      if (!this.udpCreateSocket)
-        this.udpCreateSocket =
-          env.cloudPlatform == "fly" && (await import("dgram")).createSocket;
       response.data = await this.checkLocalCacheBfrResolve(param);
     } catch (e) {
       response = errResponse(e);
@@ -91,7 +86,7 @@ export default class DNSResolver {
           dn,
           now
         );
-        console.debug("resolve update response", cacheRes);
+        console.debug("resolve update response", JSON.stringify(cacheRes));
         resp.responseDecodedDnsPacket = cacheRes.decodedDnsPacket;
         this.dnsResCache.Put(dn, cacheRes);
         return resp;
@@ -148,6 +143,9 @@ export default class DNSResolver {
    * @returns
    */
   async resolveDnsUpdateCache(param, cacheRes, dn, now) {
+    /**
+     * @type {Response}
+     */
     const upRes = await this.resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
@@ -246,8 +244,25 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       Accept: "application/dns-message",
     };
 
-    if (env.cloudPlatform === "fly") {
-      return await this.resolvePlainDns(requestBodyBuffer);
+    // if (env.cloudPlatform === "fly") {
+    //   return await this.resolvePlainDns(requestBodyBuffer);
+    // }
+
+    if (runTimeEnv == "node") {
+      const reqHeaders =
+        request.method == "POST"
+          ? {
+              ...headers,
+              "Content-Type": "application/dns-message",
+              "Content-Length": requestBodyBuffer.byteLength,
+            }
+          : headers;
+      return await this.resolveH2Dns(
+        u,
+        request.method,
+        requestBodyBuffer,
+        reqHeaders
+      );
     }
 
     let newRequest;
@@ -302,10 +317,14 @@ function errResponse(e) {
 }
 
 DNSResolver.prototype.resolvePlainDns = async function (q) {
-  const self = this;
+  // dynamic imports to avoid imports in workers / deno
+  // v8.dev/features/dynamic-import
+  if (!this.udpCreateSocket)
+    this.udpCreateSocket = (await import("dgram")).createSocket;
+  const createSocket = this.udpCreateSocket;
   const bq = Buffer.from(q);
   function lookup(resolve, reject) {
-    const client = self.udpCreateSocket("udp6");
+    const client = createSocket("udp6");
     client.on("message", (b, addrinfo) => {
       const res = new Response(arrayBufferOf(b));
       resolve(res);
@@ -344,3 +363,58 @@ function arrayBufferOf(buf) {
   }
   return ab;
 }
+
+/**
+ * Resolve DNS request using HTTP/2 API of Node.js
+ * @param {URL} u - Resolver URL
+ * @param {String} method - GET/POST
+ * @param {ArrayBuffer} requestBodyBuffer - request body
+ * @param {Object} headers - Request headers
+ * @returns {Promise<Response>}
+ */
+DNSResolver.prototype.resolveH2Dns = async function (
+  u,
+  method,
+  requestBodyBuffer,
+  headers
+) {
+  if (!this.http2) this.http2 = await import("http2");
+  const http2 = this.http2;
+
+  return new Promise((resolve, reject) => {
+    const c = http2.connect(u.protocol + "//" + u.host);
+    const reqB = Buffer.from(requestBodyBuffer);
+    const req = c.request({
+      [http2.constants.HTTP2_HEADER_METHOD]: method,
+      [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
+      ...headers,
+    });
+    req.end(reqB);
+
+    req.on("response", (headers) => {
+      const resBuffers = [];
+      const resH = {};
+      for (const k in headers) {
+        // Transform http/2 pseudo-headers
+        if (k.startsWith(":")) resH[k.slice(1)] = headers[k];
+        else resH[k] = headers[k];
+      }
+      req.on("data", (chunk) => {
+        resBuffers.push(chunk);
+      });
+      req.on("end", () => {
+        const resB = Buffer.concat(resBuffers);
+        c.close();
+        resolve(new Response(resB, resH));
+      });
+      req.on("error", (err) => {
+        console.error("h2 upstream resolver err => ", err);
+        reject(err);
+      });
+    });
+    c.on("error", (err) => {
+      console.error("h2 upstream resolver err => ", err);
+      reject(err);
+    });
+  });
+};

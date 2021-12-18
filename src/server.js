@@ -403,8 +403,8 @@ async function resolveQuery(q, host, flag) {
 
 /**
  * Services a DNS over HTTPS connection
- * @param {IncomingMessage} req
- * @param {ServerResponse} res
+ * @param {http2.Http2ServerRequest} req
+ * @param {http2.Http2ServerResponse} res
  */
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];

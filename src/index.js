@@ -26,7 +26,7 @@ export function handleRequest(event) {
   if (!envManager.isLoaded) {
     envManager.loadEnv();
   }
-  if (!console.logLevel) {
+  if (!console.level) {
     globalConsoleLevel(env.logLevel || "debug");
   }
   const processingTimeout = envManager.get("workerTimeout");
