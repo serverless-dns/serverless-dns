@@ -17,7 +17,7 @@ if (process.env.NODE_ENV !== "production") (await import("dotenv")).config();
 process.env.RUNTIME_ENV = "node";
 
 /** Logging level */
-globalConsoleLevel(process.env.LOG_LEVEL || "debug");
+globalConsoleLevel(process.env.LOG_LEVEL || "info");
 
 /** Polyfills */
 if (!globalThis.fetch) {

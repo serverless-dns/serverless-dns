@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import { uid } from "./util.js";
 
 /**
  * Configure console log level globally. May be checked with `console.logLevel`.
@@ -34,8 +35,8 @@ export function globalConsoleLevel(level) {
       level = null;
   }
   if (level) {
-    console.log("Global Log level set to :", level);
     globalThis.console.level = level;
+    console.log("log level:", level);
   }
   return level;
 }
@@ -68,7 +69,7 @@ export default class Log {
       case "timer":
         this.lapTime = console.timeLog;
         this.startTime = function (name) {
-          name += id();
+          name += uid();
           console.time(name);
           return name;
         };
@@ -85,8 +86,3 @@ export default class Log {
   }
 }
 
-// stackoverflow.com/a/8084248
-function id() {
-  // ex: ".ww8ja208it"
-  return (Math.random() + 1).toString(36).slice(1);
-}

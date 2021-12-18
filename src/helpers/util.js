@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import { Buffer } from "buffer";
 
 /**
  * Encodes a number to an Uint8Array of length `n` in Big Endian byte order.
@@ -46,6 +47,7 @@ export function jsonHeaders(res) {
 }
 
 export function dnsHeaders(res) {
+  res.headers.set("Accept", "application/dns-message");
   res.headers.set("Content-Type", "application/dns-message");
 }
 
@@ -74,5 +76,75 @@ export function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+// stackoverflow.com/a/31394257
+export function arrayBufferOf(buf) {
+  const offset = buf.byteOffset;
+  const len = buf.byteLength;
+  return buf.buffer.slice(offset, offset + len)
+}
+
+// stackoverflow.com/a/17064149
+export function bufferOf(arrayBuf) {
+  return Buffer.from(new Uint8Array(arrayBuf));
+}
+
+export function recycleBuffer(b) {
+  b.fill(0);
+  return 0;
+}
+
+export function createBuffer(size) {
+  return Buffer.allocUnsafe(size);
+}
+
+export function timedOp(op, ms, cleanup) {
+  let tid = null
+  let resolve = null
+  let reject = null
+  const promiser = (accept, deny) => {
+    resolve = accept
+    reject = deny
+  }
+  const p = new Promise(promiser)
+
+  let timedout = false
+  tid = timeout(ms, () => {
+    timedout = true
+    reject("timeout")
+  })
+
+  try {
+    op((out, err) => {
+      if (tid !== null) clearTimeout(tid)
+      if (err) throw err
+
+      if (timedout) {
+        cleanup(out)
+      } else {
+        resolve(out)
+      }
+    })
+  } catch (ex) {
+    if (!timedout) reject(ex.message)
+  }
+  return p
+}
+
+export function timeout(ms, callback) {
+  return setTimeout(callback, ms);
+}
+
+// stackoverflow.com/a/8084248
+export function uid() {
+  // ex: ".ww8ja208it"
+  return (Math.random() + 1).toString(36).slice(1);
+}
+
+export function safeBox(fn) {
+  try {
+    fn()
+  } catch (ignore) {}
 }
 

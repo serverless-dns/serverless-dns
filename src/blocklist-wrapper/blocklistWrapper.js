@@ -8,6 +8,9 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
+import Log from "../helpers/log.js";
+
+const log = new Log();
 
 class BlocklistWrapper {
   constructor() {
@@ -87,8 +90,7 @@ class BlocklistWrapper {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "blocklistWrapper.js RethinkModule";
-      console.error("Error At -> BlocklistWrapper RethinkModule");
-      console.error(e.stack);
+      log.e("Error At -> BlocklistWrapper RethinkModule", e);
     }
     return response;
   }
@@ -124,11 +126,10 @@ class BlocklistWrapper {
         bl.blocklistFileTag,
       );
 
-      if (console.level == "debug") {
-        console.debug("done blocklist filter");
-        let result = this.blocklistFilter.getDomainInfo("google.com");
-        console.debug(JSON.stringify(result));
-        console.debug(JSON.stringify(result.searchResult.get("google.com")));
+      log.d("done blocklist filter");
+      if (false) { // test
+        const result = this.blocklistFilter.getDomainInfo("google.com");
+        log.d(JSON.stringify(result));
       }
 
       this.isBlocklistUnderConstruction = false;
@@ -140,7 +141,7 @@ class BlocklistWrapper {
       response.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
-      console.error(e.stack);
+      log.e(e);
     }
     return response;
   }
@@ -161,16 +162,14 @@ async function downloadBuildBlocklist(
       tdparts: tdParts || -1,
     };
 
-    tdNodecount == null &&
-      console.error("tdNodecount missing! Blocking won't work");
+    tdNodecount == null && log.e("tdNodecount missing!");
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
     const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
     let downloads = await Promise.all([buf0, buf1, buf2]);
 
-    console.debug("call createBlocklistFilter");
-    console.debug(blocklistBasicConfig);
+    log.d("call createBlocklistFilter", blocklistBasicConfig);
 
     let trie = createBlocklistFilter(
       downloads[1],
@@ -193,7 +192,7 @@ async function fileFetch(url, typ) {
   if (typ !== "buffer" && typ !== "json") {
     throw new Error("Unknown conversion type at fileFetch");
   }
-  console.debug("Start Downloading : " + url);
+  log.d("Start Downloading : " + url);
   const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
   if (res.status == 200) {
     if (typ == "buffer") {
@@ -202,7 +201,7 @@ async function fileFetch(url, typ) {
       return await res.json();
     }
   } else {
-    console.error(url, res);
+    log.e(url, res);
     throw new Error(
       JSON.stringify([url, res, "response status unsuccessful at fileFetch"]),
     );
@@ -217,7 +216,7 @@ const sleep = (ms) => {
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {
-  console.debug("Make Td Starts : Tdparts -> " + n);
+  log.d("Make Td Starts : Tdparts -> " + n);
 
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
@@ -234,7 +233,7 @@ async function makeTd(baseurl, n) {
   }
   const tds = await Promise.all(tdpromises);
 
-  console.debug("all td download successful");
+  log.d("tds downloaded");
 
   return new Promise((resolve, reject) => {
     resolve(concat(tds));

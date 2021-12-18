@@ -6,19 +6,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import DNSParserWrap from "./dnsParserWrap.js";
-import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import { Buffer } from "buffer";
+import DNSParserWrap from "./dnsParserWrap.js";
+import * as dnsutil from "../helpers/dnsutil.js";
+import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
+import Log from "../helpers/log.js";
+import { Transport } from "../helpers/dns/transport.js";
+import * as util from "../helpers/util.js";
 
-const flydns6 = "fdaa::3";
+const log = new Log()
+const quad1 = "1.1.1.2";
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
-const lfuSize = 2000; // TODO: retrieve this from env
+const dnsCacheSize = 10_000; // TODO: retrieve this from env
 
 export default class DNSResolver {
   constructor() {
     this.dnsParser = new DNSParserWrap();
     this.dnsResCache = false;
     this.wCache = false;
+
+    this.transport = new Transport(quad1, 53);
   }
 
   /**
@@ -36,16 +43,15 @@ export default class DNSResolver {
     let response = emptyResponse();
     try {
       if (!this.dnsResCache) {
-        this.dnsResCache = new LocalCache("dns-response-cache", lfuSize);
-        if (param.runTimeEnv == "worker") {
+        this.dnsResCache = new LocalCache("dns-response-cache", dnsCacheSize);
+        if (isWorkers(param.runTimeEnv)) {
           this.wCache = caches.default;
         }
       }
       response.data = await this.checkLocalCacheBfrResolve(param);
     } catch (e) {
       response = errResponse(e);
-      console.error("Error At : DNSResolver -> RethinkModule");
-      console.error(e.stack);
+      log.e("Error At : DNSResolver -> RethinkModule", e);
     }
     return response;
   }
@@ -67,7 +73,7 @@ export default class DNSResolver {
     const now = Date.now();
     let cacheRes = this.dnsResCache.Get(dn);
 
-    console.debug("Local Cache Data", JSON.stringify(cacheRes));
+    log.d("Local Cache Data", JSON.stringify(cacheRes));
     if (!cacheRes || now >= cacheRes.ttlEndTime) {
       cacheRes = await this.checkSecondLevelCacheBfrResolve(
         param.runTimeEnv,
@@ -75,7 +81,7 @@ export default class DNSResolver {
         dn,
         now
       );
-      console.debug("Cache Api Response", cacheRes);
+      log.d("CacheApi response", cacheRes);
 
       // upstream if not in both lfu (l1) and workers (l2) cache
       if (!cacheRes) {
@@ -86,7 +92,7 @@ export default class DNSResolver {
           dn,
           now
         );
-        console.debug("resolve update response", JSON.stringify(cacheRes));
+        log.d("resolver response", JSON.stringify(cacheRes));
         resp.responseDecodedDnsPacket = cacheRes.decodedDnsPacket;
         this.dnsResCache.Put(dn, cacheRes);
         return resp;
@@ -101,6 +107,7 @@ export default class DNSResolver {
       cacheRes.ttlEndTime,
       now
     );
+
     return resp;
   }
 
@@ -109,12 +116,12 @@ export default class DNSResolver {
     for (let answer of decodedDnsPacket.answers) {
       answer.ttl = outttl;
     }
-    console.debug("ttl", end - now, "res", JSON.stringify(decodedDnsPacket));
+    log.d("ttl", end - now, "res", JSON.stringify(decodedDnsPacket));
     return this.dnsParser.Encode(decodedDnsPacket);
   }
 
   async checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
-    if (runTimeEnv !== "worker") {
+    if (!isWorkers(runTimeEnv)) {
       return false;
     }
 
@@ -153,8 +160,12 @@ export default class DNSResolver {
       param.runTimeEnv
     );
 
+    if (!upRes) {
+      throw new Error("no upstream result")
+    }
+
     if (!upRes.ok) {
-      console.error("!OK", upRes.status, upRes.statusText, await upRes.text());
+      log.d("!OK", upRes.status, upRes.statusText, await upRes.text());
       throw new Error(upRes.status + " http err: " + upRes.statusText);
     }
 
@@ -168,12 +179,7 @@ export default class DNSResolver {
       try {
         return this.dnsParser.Decode(responseBodyBuffer);
       } catch (e) {
-        console.error(
-          "decode fail",
-          upRes.status,
-          "cached:",
-          responseBodyBuffer
-        );
+        log.e("decode fail " + upRes.status + " cache? " + responseBodyBuffer);
         throw e;
       }
     })();
@@ -190,34 +196,34 @@ export default class DNSResolver {
     cacheRes.ttlEndTime = minttl * 1000 + now;
 
     // workers cache it
-    if (param.runTimeEnv == "worker") {
+    if (isWorkers(param.runTimeEnv)) {
       let wCacheUrl = new URL(new URL(param.request.url).origin + "/" + dn);
       let response = new Response(responseBodyBuffer, {
         headers: {
           "Content-Length": responseBodyBuffer.length,
-          "Content-Type": "application/dns-message",
-          "x-rethink-metadata": JSON.stringify({
-            ttlEndTime: cacheRes.ttlEndTime,
-            bodyUsed: true, //used to identify response is blocked or dns response. if false then response body is empty, use blocklistinfo for dns-blocking.
-            blocklistInfo: convertMapToObject(
-              param.blocklistFilter.getDomainInfo(
-                decodedDnsPacket.questions.length > 0
-                  ? decodedDnsPacket.questions[0].name
-                  : ""
-              ).searchResult
-            ),
-          }),
+          "x-rethink-metadata": JSON.stringify(
+            cacheMetadata(cacheRes, param.blocklistFilter)
+          ),
         },
-        cf: { cacheTtl: 604800 }, //setting ttl to 7days 60*60*24*7, because is validated with ttlEndTime
+        cf: { cacheTtl: 604800 },
       });
+
+      util.dnsHeaders(response);
       param.event.waitUntil(this.wCache.put(wCacheUrl, response));
     }
     return responseBodyBuffer;
   }
 }
 
-function convertMapToObject(map) {
-  return map ? Object.fromEntries(map) : false;
+function cacheMetadata(cacheRes, blocklistFilter) {
+  const question = cacheRes.decodedDnsPacket.questions.length > 0
+    ? cacheRes.decodedDnsPacket.questions[0].name
+    : ""
+  return {
+    ttlEndTime: cacheRes.ttlEndTime,
+    bodyUsed: true,
+    blocklistInfo: objOf(blocklistFilter.getDomainInfo(question).searchResult),
+  }
 }
 
 /**
@@ -234,53 +240,40 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   runTimeEnv
 ) {
   try {
+    if (onFly()) { // for now, upstream plain-old dns on fly
+      const q = util.bufferOf(requestBodyBuffer)
+
+      let ans = await this.transport.udpquery(q);
+      if (ans && dnsutil.truncated(ans)) {
+        log.i("ans truncated, retrying over tcp")
+        ans = await this.transport.tcpquery(q)
+      }
+
+      return (ans)
+        ? new Response(util.arrayBufferOf(ans))
+        : new Response(null, { status:503 });
+    }
+
     let u = new URL(request.url);
     let dnsResolverUrl = new URL(resolverUrl);
     u.hostname = dnsResolverUrl.hostname; // override host, default cloudflare-dns.com
     u.pathname = dnsResolverUrl.pathname; // override path, default /dns-query
     u.port = dnsResolverUrl.port; // override port, default 443
     u.protocol = dnsResolverUrl.protocol; // override proto, default https
-    const headers = {
-      Accept: "application/dns-message",
-    };
 
-    // if (env.cloudPlatform === "fly") {
-    //   return await this.resolvePlainDns(requestBodyBuffer);
-    // }
-
-    if (runTimeEnv == "node") {
-      const reqHeaders =
-        request.method == "POST"
-          ? {
-              ...headers,
-              "Content-Type": "application/dns-message",
-              "Content-Length": requestBodyBuffer.byteLength,
-            }
-          : headers;
-      return await this.resolveH2Dns(
-        u,
-        request.method,
-        requestBodyBuffer,
-        reqHeaders
-      );
-    }
-
-    let newRequest;
+    let newRequest = null;
     if (
       request.method === "GET" ||
-      (runTimeEnv == "worker" && request.method === "POST")
+      (isWorkers(runTimeEnv) && request.method === "POST")
     ) {
       u.search = "?dns=" + dnsqurl(requestBodyBuffer);
       newRequest = new Request(u.href, {
         method: "GET",
-        headers: headers,
       });
     } else if (request.method === "POST") {
       newRequest = new Request(u.href, {
         method: "POST",
         headers: {
-          ...headers,
-          "Content-Type": "application/dns-message",
           "Content-Length": requestBodyBuffer.byteLength,
         },
         body: requestBodyBuffer,
@@ -289,10 +282,70 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       throw new Error("get/post requests only");
     }
 
-    return await fetch(newRequest);
+    util.dnsHeaders(newRequest)
+
+    return await (isNode(runTimeEnv)) ? this.doh2(newRequest) : fetch(newRequest);
   } catch (e) {
-    throw e;
+    throw e
   }
+};
+
+/**
+ * Resolve DNS request using HTTP/2 API of Node.js
+ * @param {URL} u - Resolver URL
+ * @param {String} method - GET/POST
+ * @param {ArrayBuffer} requestBodyBuffer - request body
+ * @param {Object} headers - Request headers
+ * @returns {Promise<Response>}
+ */
+DNSResolver.prototype.doh2 = async function (request) {
+  if (!this.http2) this.http2 = await import("http2");
+
+  const http2 = this.http2;
+  const u = new URL(request.url);
+  const reqB = util.bufferOf(await request.arrayBuffer());
+  const headers = request.headers;
+
+  return new Promise((resolve, reject) => {
+    // TODO: h2 connection pool
+    const c = http2.connect(
+        u.protocol + "//" + u.hostname,
+      );
+
+    c.on("error", (err) => {
+      reject(err.message);
+    });
+
+    const req = c.request({
+      [http2.constants.HTTP2_HEADER_METHOD]: request.method,
+      [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
+      ...headers
+    });
+
+    req.on("response", (headers) => {
+      const resBuffers = [];
+      const resH = {};
+      for (const k in headers) {
+        // Transform http/2 pseudo-headers
+        if (k.startsWith(":")) resH[k.slice(1)] = headers[k];
+        else resH[k] = headers[k];
+      }
+      req.on("data", (chunk) => {
+        resBuffers.push(chunk);
+      });
+      req.on("end", () => {
+        const resB = Buffer.concat(resBuffers);
+        c.close();
+        resolve(new Response(resB, resH));
+      });
+      req.on("error", (err) => {
+        reject(err.message);
+      });
+    });
+
+    req.end(reqB);
+
+  });
 };
 
 function emptyResponse() {
@@ -316,37 +369,6 @@ function errResponse(e) {
   };
 }
 
-DNSResolver.prototype.resolvePlainDns = async function (q) {
-  // dynamic imports to avoid imports in workers / deno
-  // v8.dev/features/dynamic-import
-  if (!this.udpCreateSocket)
-    this.udpCreateSocket = (await import("dgram")).createSocket;
-  const createSocket = this.udpCreateSocket;
-  const bq = Buffer.from(q);
-  function lookup(resolve, reject) {
-    const client = createSocket("udp6");
-    client.on("message", (b, addrinfo) => {
-      const res = new Response(arrayBufferOf(b));
-      resolve(res);
-    });
-
-    client.on("error", (err) => {
-      if (err) {
-        console.error("plaindns recv fail", err);
-        reject(err.message);
-      }
-    });
-
-    client.send(bq, 53, flydns6, (err) => {
-      if (err) {
-        console.error("plaindns send fail", err);
-        reject(err.message);
-      }
-    });
-  }
-  return new Promise(lookup);
-};
-
 function dnsqurl(dnsq) {
   return btoa(String.fromCharCode(...new Uint8Array(dnsq)))
     .replace(/\+/g, "-")
@@ -354,67 +376,19 @@ function dnsqurl(dnsq) {
     .replace(/=/g, "");
 }
 
-// stackoverflow.com/a/12101012
-function arrayBufferOf(buf) {
-  const ab = new ArrayBuffer(buf.length);
-  const view = new Uint8Array(ab);
-  for (let i = 0; i < buf.length; i++) {
-    view[i] = buf[i];
-  }
-  return ab;
+function onFly() {
+  return (env && env.cloudPlatform === "fly")
 }
 
-/**
- * Resolve DNS request using HTTP/2 API of Node.js
- * @param {URL} u - Resolver URL
- * @param {String} method - GET/POST
- * @param {ArrayBuffer} requestBodyBuffer - request body
- * @param {Object} headers - Request headers
- * @returns {Promise<Response>}
- */
-DNSResolver.prototype.resolveH2Dns = async function (
-  u,
-  method,
-  requestBodyBuffer,
-  headers
-) {
-  if (!this.http2) this.http2 = await import("http2");
-  const http2 = this.http2;
+function isWorkers(runtime) {
+  return (runtime === "worker")
+}
 
-  return new Promise((resolve, reject) => {
-    const c = http2.connect(u.protocol + "//" + u.host);
-    const reqB = Buffer.from(requestBodyBuffer);
-    const req = c.request({
-      [http2.constants.HTTP2_HEADER_METHOD]: method,
-      [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
-      ...headers,
-    });
-    req.end(reqB);
+function isNode(runtime) {
+  return (runtime === "node")
+}
 
-    req.on("response", (headers) => {
-      const resBuffers = [];
-      const resH = {};
-      for (const k in headers) {
-        // Transform http/2 pseudo-headers
-        if (k.startsWith(":")) resH[k.slice(1)] = headers[k];
-        else resH[k] = headers[k];
-      }
-      req.on("data", (chunk) => {
-        resBuffers.push(chunk);
-      });
-      req.on("end", () => {
-        const resB = Buffer.concat(resBuffers);
-        c.close();
-        resolve(new Response(resB, resH));
-      });
-      req.on("error", (err) => {
-        console.error("h2 upstream resolver err => ", err);
-        reject(err);
-      });
-    });
-    c.on("error", (err) => {
-      console.error("h2 upstream resolver err => ", err);
-      reject(err);
-    });
-  });
-};
+function objOf(map) {
+  return map ? Object.fromEntries(map) : false;
+}
+
