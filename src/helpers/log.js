@@ -46,8 +46,8 @@ export default class Log {
    * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
    */
   constructor(level) {
-    this.setLevel(level);
     this.logLevels = ["error", "warn", "info", "timer", "debug"];
+    this.setLevel(level);
   }
   resetLevel() {
     this.l = console.log;
