@@ -9,10 +9,11 @@
 import CurrentRequest from "./currentRequest.js";
 import RethinkPlugin from "./plugin.js";
 import EnvManager from "./env.js";
-import * as log from "./helpers/log.js";
+import Log, { globalConsoleLevel } from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
+const log = new Log();
 globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
@@ -25,8 +26,8 @@ export function handleRequest(event) {
   if (!envManager.isLoaded) {
     envManager.loadEnv();
   }
-  if (!globalThis.logLevel) {
-    log.setLogLevel(env.logLevel || "info");
+  if (!console.logLevel) {
+    globalConsoleLevel(env.logLevel || "debug");
   }
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =

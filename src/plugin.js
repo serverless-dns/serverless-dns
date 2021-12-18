@@ -14,8 +14,9 @@ import {
   DNSResolver,
   DNSResponseBlock,
 } from "./dns-operation/dnsOperation.js";
-import * as log from "./helpers/log.js";
+import Log from "./helpers/log.js";
 
+const log = new Log();
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();
@@ -147,25 +148,25 @@ export default class RethinkPlugin {
   }
 
   async executePlugin(req) {
-    const t = log.starttime("exec-plugin");
+    const t = log.startTime("exec-plugin");
     for (const p of this.plugin) {
       if (req.stopProcessing && !p.continueOnStopProcess) {
         continue;
       }
 
-      log.laptime(t, p.name, "send-req");
+      log.lapTime(t, p.name, "send-req");
 
       const res = await p.module.RethinkModule(generateParam(this.parameter, p.param));
 
-      log.laptime(t, p.name, "got-res");
+      log.lapTime(t, p.name, "got-res");
 
       if (p.callBack) {
         await p.callBack.call(this, res, req);
       }
 
-      log.laptime(t, p.name, "post-callback")
+      log.lapTime(t, p.name, "post-callback")
     }
-    log.endtime(t);
+    log.endTime(t);
   }
 }
 

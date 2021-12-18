@@ -6,8 +6,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-export function setLogLevel(level) {
+/**
+ * Configure console log level globally. May be checked with `console.logLevel`.
+ * `console` methods are made non-functional accordingly.
+ * Call this only once.
+ * @param {'error'|'warn'|'info'|'timer'|'debug'} level - log level
+ * @returns
+ */
+export function globalConsoleLevel(level) {
   level = level.toLowerCase().trim();
+  if (console.level) throw new Error("Log level already configured");
   switch (level) {
     case "error":
       globalThis.console.warn = () => null;
@@ -27,43 +35,54 @@ export function setLogLevel(level) {
   }
   if (level) {
     console.log("Global Log level set to :", level);
-    globalThis.logLevel = level;
+    globalThis.console.level = level;
   }
   return level;
 }
 
-export function e() {
-  console.error(...arguments);
-}
-
-export function w() {
-  console.warn(...arguments);
-}
-
-export function i() {
-  console.info(...arguments);
-}
-
-export function g() {
-  console.log(...arguments);
-}
-
-export function d() {
-  console.debug(...arguments);
-}
-
-export function laptime() {
-  console.timeLog(...arguments);
-}
-
-export function starttime(name) {
-  name += id();
-  console.time(name);
-  return name;
-}
-
-export function endtime(name) {
-  console.timeEnd(name);
+export default class Log {
+  /**
+   * Sets log level for the current instance. Defaults to `debug`.
+   * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
+   */
+  constructor(level) {
+    this.setLevel(level);
+    this.logLevels = ["error", "warn", "info", "timer", "debug"];
+  }
+  resetLevel() {
+    this.l = console.log;
+    this.d = () => null;
+    this.lapTime = () => null;
+    this.startTime = () => null;
+    this.endTime = () => null;
+    this.i = () => null;
+    this.w = () => null;
+    this.e = () => null;
+  }
+  setLevel(level) {
+    this.resetLevel();
+    switch (level) {
+      default:
+      case "debug":
+        this.d = console.debug;
+      case "timer":
+        this.lapTime = console.timeLog;
+        this.startTime = function (name) {
+          name += id();
+          console.time(name);
+          return name;
+        };
+        this.endTime = console.timeEnd;
+      case "info":
+        this.i = console.info;
+      case "warn":
+        this.w = console.warn;
+      case "error":
+        this.e = console.error;
+    }
+    if (this.logLevels.indexOf(level) < 0) this.logLevel = "debug";
+    else this.logLevel = level;
+  }
 }
 
 // stackoverflow.com/a/8084248

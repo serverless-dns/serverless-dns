@@ -12,7 +12,7 @@ import * as http2 from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 
 import { handleRequest } from "./index.js";
-import * as log from "./helpers/log.js";
+import Log from "./helpers/log.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
@@ -46,6 +46,8 @@ const corsHeaders = {
 
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
+
+const log = new Log();
 
 // main
 ((_) => {
@@ -261,6 +263,10 @@ function getMetadataFromSni(socket) {
  * @param {tls.TLSSocket} socket
  */
 function serveTLS(socket) {
+  console.debug(
+    `(${socket.getProtocol()}), session reused: ${socket.isSessionReused()}}`
+  );
+
   const [flag, host] = getMetadataFromSni(socket);
   if (host === null) {
     close(socket);
@@ -350,7 +356,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
   if (socket.destroyed) return;
 
-  const t = log.starttime("handle-tcp-query");
+  const t = log.startTime("handle-tcp-query");
   try {
     const r = await resolveQuery(q, host, flag);
     const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
@@ -363,7 +369,7 @@ async function handleTCPQuery(q, socket, host, flag) {
     ok = false;
     log.w(e);
   }
-  log.endtime(t);
+  log.endTime(t);
 
   // Only close socket on error, else it would break pipelining of queries.
   if (!ok && !socket.destroyed) {
@@ -404,7 +410,7 @@ async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
   const buffers = [];
 
-  const t = log.starttime("recv-https");
+  const t = log.startTime("recv-https");
 
   for await (const chunk of req) {
     buffers.push(chunk);
@@ -412,7 +418,7 @@ async function serveHTTPS(req, res) {
   const b = Buffer.concat(buffers);
   const bLen = b.byteLength;
 
-  log.endtime(t);
+  log.endTime(t);
 
   if (
     req.method == "POST" &&
@@ -437,7 +443,7 @@ async function serveHTTPS(req, res) {
  * @param {ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
-  const t = log.starttime("handle-http-req");
+  const t = log.startTime("handle-http-req");
   try {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
@@ -458,11 +464,11 @@ async function handleHTTPRequest(b, req, res) {
       body: req.method == "POST" ? b : null,
     });
 
-    log.laptime(t, "upstream-start");
+    log.lapTime(t, "upstream-start");
 
     const fRes = await handleRequest({ request: fReq });
 
-    log.laptime(t, "upstream-end");
+    log.lapTime(t, "upstream-end");
 
     // Object.assign, Object spread, etc doesn't work with `node-fetch` Headers
     const resHeaders = {};
@@ -472,11 +478,11 @@ async function handleHTTPRequest(b, req, res) {
 
     res.writeHead(fRes.status, resHeaders);
 
-    log.laptime(t, "send-head");
+    log.lapTime(t, "send-head");
 
     const ans = Buffer.from(await fRes.arrayBuffer());
 
-    log.laptime(t, "recv-ans");
+    log.lapTime(t, "recv-ans");
 
     res.end(ans);
   } catch (e) {
@@ -484,5 +490,5 @@ async function handleHTTPRequest(b, req, res) {
     log.w(e);
   }
 
-  log.endtime(t);
+  log.endTime(t);
 }

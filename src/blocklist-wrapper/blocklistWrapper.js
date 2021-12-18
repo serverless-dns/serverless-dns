@@ -124,7 +124,7 @@ class BlocklistWrapper {
         bl.blocklistFileTag,
       );
 
-      if (logLevel == "debug") {
+      if (console.level == "debug") {
         console.debug("done blocklist filter");
         let result = this.blocklistFilter.getDomainInfo("google.com");
         console.debug(JSON.stringify(result));
