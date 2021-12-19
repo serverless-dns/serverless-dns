@@ -232,6 +232,7 @@ function getMetadata(sni) {
   // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
   const flag = s[0].replace(/-/g, "+");
 
+  console.debug(`flag: ${flag}, host: ${host}`);
   return [flag, host];
 }
 
@@ -250,8 +251,8 @@ function serveTLS(socket) {
   if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
     [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
 
-  const isOurWcDn = OUR_RG_DN_RE.test(sni);
-  const isOurRgDn = OUR_WC_DN_RE.test(sni);
+    const isOurRgDn = OUR_RG_DN_RE.test(sni);
+    const isOurWcDn = OUR_WC_DN_RE.test(sni);
 
   if (!isOurWcDn && !isOurRgDn) {
     log.w("Not our DNS name, closing client connection");
