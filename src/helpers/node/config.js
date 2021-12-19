@@ -1,5 +1,6 @@
 /**
  * Configuration file for node runtime
+ * TODO?: Remove all side-effects and use a constructor?
  * - This module has side effects, sequentially setting up the environment.
  * - Only variables may be exported from this module.
  * - Don't define functions here, import functions if required.
@@ -9,6 +10,7 @@ import { atob, btoa } from "buffer";
 import fetch, { Headers, Request, Response } from "node-fetch";
 import { getTLSfromEnv } from "./util.js";
 import { globalConsoleLevel } from "../log.js";
+import Log from "../log.js";
 
 /** Environment Variables */
 // Load env variables from .env file to process.env (if file exists)
@@ -18,6 +20,7 @@ process.env.RUNTIME_ENV = "node";
 
 /** Logging level */
 globalConsoleLevel(process.env.LOG_LEVEL || "debug");
+globalThis.log = new Log();
 
 /** Polyfills */
 if (!globalThis.fetch) {

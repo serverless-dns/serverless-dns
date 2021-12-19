@@ -13,7 +13,6 @@ import Log, { globalConsoleLevel } from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
-const log = new Log();
 globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
@@ -23,12 +22,10 @@ if (typeof addEventListener !== "undefined") {
 }
 
 export function handleRequest(event) {
-  if (!envManager.isLoaded) {
-    envManager.loadEnv();
-  }
-  if (!console.level) {
-    globalConsoleLevel(env.logLevel || "debug");
-  }
+  if (!envManager.isLoaded) envManager.loadEnv();
+  if (!console.level) globalConsoleLevel(env.logLevel || "debug");
+  if (!globalThis.log) globalThis.log = new Log();
+
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =
     envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;

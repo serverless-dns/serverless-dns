@@ -6,9 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { spawnSync } from 'child_process'
-import Log from './log.js'
-
-const log = new Log()
 
 const swapfile = 'swap__'
 const swapsize = '128M'
