@@ -230,15 +230,18 @@ export class UdpTx {
   }
 
   onMessage(b, addrinfo) {
+    if (this.done) return // no-op
     this.yes(b)
   }
 
   onError(err) {
-    if (err) this.no(err.message)
+    if (this.done) return // no-op
+    this.no(err.message)
   }
 
   onClose(err) {
-    if (err) this.no(err.message)
+    if (this.done) return // no-op
+    return (err) ? this.no(err.message) : this.no("close")
   }
 
   promisedRead() {

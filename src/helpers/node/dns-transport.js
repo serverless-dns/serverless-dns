@@ -42,6 +42,7 @@ export class Transport {
 
       this.parkConn(sock, "udp")
     } catch(ex) {
+      this.closeUdp(sock)
       log.e(ex)
     }
     log.endTime(t)
@@ -64,6 +65,7 @@ export class Transport {
 
       this.parkConn(sock, "tcp")
     } catch(ex) {
+      this.closeTcp(sock)
       log.e(ex)
     }
     log.endtime(t)
@@ -101,11 +103,11 @@ export class Transport {
   }
 
   closeTcp(sock) {
-    if (!sock.destroyed) sock.destroy()
+    if (sock && !sock.destroyed) util.safeBox(() => sock.destroy())
   }
 
   closeUdp(sock) {
-    util.safeBox(() => sock.close())
+    if (sock) util.safeBox(() => sock.close())
   }
 
 }

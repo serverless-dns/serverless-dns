@@ -120,12 +120,16 @@ export function timedOp(op, ms, cleanup) {
   })
 
   try {
-    op((out, err) => {
-      if (tid !== null) clearTimeout(tid)
-      if (err) throw err
-
+    op((out, ex) => {
       if (timedout) {
         cleanup(out)
+        return
+      }
+
+      clearTimeout(tid)
+
+      if (ex) {
+        reject(ex.message)
       } else {
         resolve(out)
       }
