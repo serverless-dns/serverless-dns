@@ -1,9 +1,13 @@
-name: 🦕 Deno deploy
+name: 🦕 Deno
 
 on:
   push:
     branches:
       - "main"
+    paths-ignore:
+      - "README.md"
+      - ".github"
+      - "!.github/workflows/deno-deploy.yml"
   workflow_dispatch:
     inputs:
       git-ref:
