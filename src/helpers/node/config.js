@@ -22,7 +22,8 @@ globalThis.envManager = new EnvManager();
 envManager.loadEnv();
 
 /** Logging level */
-globalThis.log = new Log(process.env.LOG_LEVEL || "info", true);
+// Don't hardcode console level, it will hinder level on `Log` instances.
+globalThis.log = new Log(process.env.LOG_LEVEL, true);
 
 /** Polyfills */
 if (!globalThis.fetch) {

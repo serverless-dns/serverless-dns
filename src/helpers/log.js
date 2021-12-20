@@ -64,7 +64,7 @@ export default class Log {
     if (isConsoleLevel && !console.level) _setConsoleLevel(level);
     this.setLevel(level);
   }
-  resetLevel() {
+  _resetLevel() {
     this.l = console.log;
     this.d = () => null;
     this.lapTime = () => null;
@@ -91,7 +91,7 @@ export default class Log {
       );
     }
 
-    this.resetLevel();
+    this._resetLevel();
     switch (level) {
       default:
       case "debug":
