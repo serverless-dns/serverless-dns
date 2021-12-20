@@ -234,7 +234,9 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     // for now, upstream plain-old dns on fly
     if (isNode() && onFly()) {
       if (!this.transport)
-        this.transport = new "../helpers/dns/transport.js".Transport(quad1, 53);
+        this.transport = new (
+          await import("../helpers/dns/transport.js")
+        ).Transport(quad1, 53);
 
       const q = util.bufferOf(requestBodyBuffer);
 
