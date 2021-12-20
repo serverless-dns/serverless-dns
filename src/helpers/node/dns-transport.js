@@ -8,8 +8,8 @@
 
 import * as dnsutil from "../dnsutil.js"
 import * as util from "../util.js"
-import { TcpConnPool, UdpConnPool } from "./conns.js"
-import { TcpTx, UdpTx } from "./transact.js"
+import { TcpConnPool, UdpConnPool } from "../dns/conns.js"
+import { TcpTx, UdpTx } from "../dns/transact.js"
 import net from "net";
 import dgram from "dgram";
 
