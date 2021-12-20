@@ -7,16 +7,19 @@
  */
 import { uid } from "./util.js";
 
+// high "error" (4); low "debug" (0)
+const _LOG_LEVELS = new Map(
+  ["error", "warn", "info", "timer", "debug"].reverse().map((l, i) => [l, i])
+);
+
 /**
- * Configure console log level globally. May be checked with `console.logLevel`.
+ * Configure console log level globally. May be checked with `console.level`.
  * `console` methods are made non-functional accordingly.
- * Call this only once.
  * @param {'error'|'warn'|'info'|'timer'|'debug'} level - log level
- * @returns
+ * @returns level
  */
-export function globalConsoleLevel(level) {
-  level = level.toLowerCase().trim();
-  if (console.level) throw new Error("Console level already configured");
+function _setConsoleLevel(level) {
+  level = level;
   switch (level) {
     case "error":
       globalThis.console.warn = () => null;
@@ -31,11 +34,11 @@ export function globalConsoleLevel(level) {
     case "debug":
       break;
     default:
-      console.error("Unknown console level", level);
+      console.error("Unknown console level: ", level);
       level = null;
   }
   if (level) {
-    console.log("Global console level :", level);
+    console.log("Console level set: ", level);
     globalThis.console.level = level;
   }
   return level;
@@ -45,13 +48,13 @@ export default class Log {
   /**
    * Provide console methods alias and similar meta methods.
    * Sets log level for the current instance. Default: `debug`.
-   * Global console level has to be set first, functionality of Log instance
-   * will not exceed it.
+   * If console level has been set, log level cannot be lower than it.
    * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
+   * @param {boolean} [consoleLevel=false] - Set console level to `level`
    */
-  constructor(level) {
-    if (!console.level) throw new Error("Console level not configured");
-    this.logLevels = ["error", "warn", "info", "timer", "debug"];
+  constructor(level, consoleLevel) {
+    if (!_LOG_LEVELS.has(level)) level = "debug";
+    if (consoleLevel && !console.level) _setConsoleLevel(level);
     this.setLevel(level);
   }
   resetLevel() {
@@ -65,6 +68,17 @@ export default class Log {
     this.e = () => null;
   }
   setLevel(level) {
+    if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
+
+    if (
+      console.level &&
+      _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)
+    ) {
+      throw new Error(
+        `Cannot set (log.level='${level}') < (console.level = '${console.level}')`
+      );
+    }
+
     this.resetLevel();
     switch (level) {
       default:
@@ -85,8 +99,6 @@ export default class Log {
       case "error":
         this.e = console.error;
     }
-    if (this.logLevels.indexOf(level) < 0) this.logLevel = "debug";
-    else this.logLevel = level;
+    this.level = level;
   }
 }
-
