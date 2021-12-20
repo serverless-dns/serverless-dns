@@ -22,7 +22,7 @@ globalThis.envManager = new EnvManager();
 envManager.loadEnv();
 
 /** Logging level */
-globalThis.log = new Log(process.env.LOG_LEVEL, true);
+globalThis.log = new Log(process.env.LOG_LEVEL || "info", true);
 
 /** Polyfills */
 if (!globalThis.fetch) {

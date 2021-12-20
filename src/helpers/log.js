@@ -7,19 +7,25 @@
  */
 import { uid } from "./util.js";
 
+/**
+ * @typedef {'error'|'warn'|'info'|'timer'|'debug'} logLevels
+ */
+
 // high "error" (4); low "debug" (0)
 const _LOG_LEVELS = new Map(
   ["error", "warn", "info", "timer", "debug"].reverse().map((l, i) => [l, i])
 );
 
 /**
- * Configure console log level globally. May be checked with `console.level`.
+ * Configure console level.
  * `console` methods are made non-functional accordingly.
- * @param {'error'|'warn'|'info'|'timer'|'debug'} level - log level
+ * May be checked with `console.level`.
+ * Has no default value, to prevent accidentally nullifying console methods. So,
+ * the de facto console level is 'debug`.
+ * @param {logLevels} level - log level
  * @returns level
  */
 function _setConsoleLevel(level) {
-  level = level;
   switch (level) {
     case "error":
       globalThis.console.warn = () => null;
@@ -47,14 +53,15 @@ function _setConsoleLevel(level) {
 export default class Log {
   /**
    * Provide console methods alias and similar meta methods.
-   * Sets log level for the current instance. Default: `debug`.
+   * Sets log level for the current instance.
+   * Default='debug', so as default instance (`new Log()`) is a pure alias.
    * If console level has been set, log level cannot be lower than it.
-   * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
-   * @param {boolean} [consoleLevel=false] - Set console level to `level`
+   * @param {logLevels} [level] - log level
+   * @param {boolean} [isConsoleLevel=false] - Set console level to `level`
    */
-  constructor(level, consoleLevel) {
+  constructor(level, isConsoleLevel) {
     if (!_LOG_LEVELS.has(level)) level = "debug";
-    if (consoleLevel && !console.level) _setConsoleLevel(level);
+    if (isConsoleLevel && !console.level) _setConsoleLevel(level);
     this.setLevel(level);
   }
   resetLevel() {
@@ -67,6 +74,11 @@ export default class Log {
     this.w = () => null;
     this.e = () => null;
   }
+  /**
+   * Modify log level of this instance. Unlike the constructor, this has no
+   * default value.
+   * @param {logLevels} level
+   */
   setLevel(level) {
     if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
 

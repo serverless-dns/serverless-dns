@@ -24,7 +24,7 @@ if (typeof addEventListener !== "undefined") {
 export function handleRequest(event) {
   if (!envManager.isLoaded) envManager.loadEnv();
   if (!globalThis.log || !console.level)
-    globalThis.log = new Log(env.logLevel, true);
+    globalThis.log = new Log(env.logLevel || "info", true);
 
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =
