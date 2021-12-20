@@ -6,9 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import CurrentRequest from "./currentRequest.js";
-import RethinkPlugin from "./plugin.js";
-import EnvManager from "./env.js";
+import CurrentRequest from "./helpers/currentRequest.js";
+import RethinkPlugin from "./helpers/plugin.js";
+import EnvManager from "./helpers/env.js";
 import Log, { globalConsoleLevel } from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";

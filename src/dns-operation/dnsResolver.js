@@ -235,7 +235,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     if (isNode() && onFly()) {
       if (!this.transport)
         this.transport = new (
-          await import("../helpers/dns/transport.js")
+          await import("../helpers/node/dns-transport.js")
         ).Transport(quad1, 53);
 
       const q = util.bufferOf(requestBodyBuffer);

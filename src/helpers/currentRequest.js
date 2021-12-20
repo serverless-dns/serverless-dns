@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as DnsParser } from "./dns-operation/dnsOperation.js";
-import * as dnsutil from "./helpers/dnsutil.js";
+import { DNSParserWrap as DnsParser } from "../dns-operation/dnsOperation.js";
+import * as dnsutil from "../helpers/dnsutil.js";
 
 export default class CurrentRequest {
   constructor() {

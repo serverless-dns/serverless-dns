@@ -5,15 +5,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { BlocklistWrapper } from "./blocklist-wrapper/blocklistWrapper.js";
-import { CommandControl } from "./command-control/cc.js";
-import { UserOperation } from "./basic/basic.js";
+import { BlocklistWrapper } from "../blocklist-wrapper/blocklistWrapper.js";
+import { CommandControl } from "../command-control/cc.js";
+import { UserOperation } from "../basic/basic.js";
 import {
   DNSAggCache,
   DNSBlock,
   DNSResolver,
   DNSResponseBlock,
-} from "./dns-operation/dnsOperation.js";
+} from "../dns-operation/dnsOperation.js";
 
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();

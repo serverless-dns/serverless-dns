@@ -54,7 +54,7 @@ if not already present.
 ### Flow
 
 The flow of rethink dns is based on plugin module, current
-[plugin flow](./plugin.js) is as below. Five plugins are currently loaded.
+[plugin flow](src/helpers/plugin.js) is as below. Five plugins are currently loaded.
 
 1. [CommandControl](https://github.com/serverless-dns/command-control)<br> This
 	 is optional plugin used to provide command to rethink serverless dns using
@@ -105,7 +105,7 @@ export class CustomPlugin {
 - Inside `RethinkModule` method your custom logic can be build for your rethink
 	serverless dns.
 - example if published to npm as `@your-plugin/plugin`
-- add your plugin to rethink serverless dns at [plugin.js](./plugin.js)
+- add your plugin to rethink serverless dns at [src/helpers/plugin.js](src/helpers/plugin.js)
 
 ```javascript
 /**

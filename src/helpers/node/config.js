@@ -52,6 +52,6 @@ export const [TLS_KEY, TLS_CRT] =
 
 /** Swap on fly */
 if (process.env.CLOUD_PLATFORM == "fly") {
-  const ok = (await import("../setup.js")).mkswap();
+  const ok = (await import("../linux/swap.js")).mkswap();
   console.info("mkswap done?", ok);
 }
