@@ -78,6 +78,10 @@ export function sleep(ms) {
   });
 }
 
+export function objOf(map) {
+  return map.entries ? Object.fromEntries(map) : false;
+}
+
 // stackoverflow.com/a/31394257
 export function arrayBufferOf(buf) {
   const offset = buf.byteOffset;
@@ -142,9 +146,30 @@ export function uid() {
   return (Math.random() + 1).toString(36).slice(1);
 }
 
-export function safeBox(fn) {
+export function safeBox(fn, defaultResponse = null) {
   try {
-    fn()
+    return fn()
   } catch (ignore) {}
+  return defaultResponse
 }
 
+export function emptyResponse() {
+  return {
+    isException: false,
+    exceptionStack: "",
+    exceptionFrom: "",
+    data: {
+      responseDecodedDnsPacket: null,
+      responseBodyBuffer: null,
+    },
+  }
+}
+
+export function errResponse(id, err) {
+  return {
+    isException: true,
+    exceptionStack: err.stack,
+    exceptionFrom: id,
+    data: false,
+  }
+}

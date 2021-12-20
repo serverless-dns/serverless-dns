@@ -10,7 +10,8 @@ import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
 
 // dns packet constants (in bytes)
 export const dnsHeaderSize = 2
-export const minDNSPacketSize = 12 + 5
+export const dnsPacketHeaderSize = 12
+export const minDNSPacketSize = dnsPacketHeaderSize + 5
 export const maxDNSPacketSize = 4096
 
 const dns = new Dns();
@@ -22,10 +23,37 @@ export const servfail = dns.Encode({
 });
 
 export function truncated(ans) {
-  if (ans.length < 12) return false
+  if (ans.length < dnsPacketHeaderSize) return false
   // first 2 bytes are query-id
   const flags = ans.readUInt16BE(2)
   // github.com/mafintosh/dns-packet/blob/8e6d91c0/index.js#L147
   const tc = (flags >> 9) & 0x1
   return tc === 1
+}
+
+export function validResponseSize(r) {
+  return r &&
+    r.byteLength >= minDNSPacketSize &&
+    r.byteLength <= maxDNSPacketSize
+}
+
+export function hasAnswers(packet) {
+  return packet && packet.answers && packet.answers.length > 0
+}
+
+export function rcodeNoError(packet) {
+  // github.com/mafintosh/dns-packet/blob/8e6d91c07/rcodes.js
+  return packet && packet.rcode === "NOERROR"
+}
+
+export function dnsqurl(dnsq) {
+  return btoa(String.fromCharCode(...new Uint8Array(dnsq)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "")
+}
+
+export function optAnswer(a) {
+  // github.com/serverless-dns/dns-parser/blob/7de73303/index.js#L1770
+  return a && a.type && a.type.toUpperCase() === "OPT"
 }
