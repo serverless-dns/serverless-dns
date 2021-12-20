@@ -7,14 +7,11 @@
  */
 
 import * as dnsutil from "../dnsutil.js"
-import Log from "../log.js"
 import * as util from "../util.js"
 import { TcpConnPool, UdpConnPool } from "./conns.js"
 import { TcpTx, UdpTx } from "./transact.js"
 import net from "net";
 import dgram from "dgram";
-
-const log = new Log()
 
 export class Transport {
 

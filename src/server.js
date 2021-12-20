@@ -12,7 +12,6 @@ import * as http2 from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 
 import { handleRequest } from "./index.js";
-import Log from "./helpers/log.js";
 import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
@@ -46,8 +45,6 @@ const corsHeaders = {
 
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
-
-const log = new Log();
 
 // main
 ((_) => {

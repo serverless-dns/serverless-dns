@@ -14,9 +14,7 @@ import {
   DNSResolver,
   DNSResponseBlock,
 } from "./dns-operation/dnsOperation.js";
-import Log from "./helpers/log.js";
 
-const log = new Log();
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();

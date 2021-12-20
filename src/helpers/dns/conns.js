@@ -6,10 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import Log from "../log.js"
 import * as util from "../util.js"
-
-const log = new Log()
 
 export class TcpConnPool {
 

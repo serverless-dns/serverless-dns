@@ -10,11 +10,9 @@ import { Buffer } from "buffer";
 import DNSParserWrap from "./dnsParserWrap.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
-import Log from "../helpers/log.js";
 import { Transport } from "../helpers/dns/transport.js";
 import * as util from "../helpers/util.js";
 
-const log = new Log()
 const quad1 = "1.1.1.2";
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
 const dnsCacheSize = 10_000; // TODO: retrieve this from env

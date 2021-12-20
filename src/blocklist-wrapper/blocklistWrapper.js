@@ -8,9 +8,6 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
-import Log from "../helpers/log.js";
-
-const log = new Log();
 
 class BlocklistWrapper {
   constructor() {

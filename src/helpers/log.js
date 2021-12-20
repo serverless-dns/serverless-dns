@@ -16,7 +16,7 @@ import { uid } from "./util.js";
  */
 export function globalConsoleLevel(level) {
   level = level.toLowerCase().trim();
-  if (console.level) throw new Error("Log level already configured");
+  if (console.level) throw new Error("Console level already configured");
   switch (level) {
     case "error":
       globalThis.console.warn = () => null;
@@ -31,22 +31,26 @@ export function globalConsoleLevel(level) {
     case "debug":
       break;
     default:
-      console.error("Unknown log level", level);
+      console.error("Unknown console level", level);
       level = null;
   }
   if (level) {
+    console.log("Global console level :", level);
     globalThis.console.level = level;
-    console.log("log level:", level);
   }
   return level;
 }
 
 export default class Log {
   /**
-   * Sets log level for the current instance. Defaults to `debug`.
+   * Provide console methods alias and similar meta methods.
+   * Sets log level for the current instance. Default: `debug`.
+   * Global console level has to be set first, functionality of Log instance
+   * will not exceed it.
    * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
    */
   constructor(level) {
+    if (!console.level) throw new Error("Console level not configured");
     this.logLevels = ["error", "warn", "info", "timer", "debug"];
     this.setLevel(level);
   }

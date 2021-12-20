@@ -7,10 +7,7 @@
  */
 
 import { DNSParserWrap as DnsParser } from "./dns-operation/dnsOperation.js";
-import Log from "./helpers/log.js";
 import * as dnsutil from "./helpers/dnsutil.js";
-
-const log = new Log();
 
 export default class CurrentRequest {
   constructor() {
