@@ -10,20 +10,19 @@ import { Buffer } from "buffer";
 import DNSParserWrap from "./dnsParserWrap.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
-import { Transport } from "../helpers/dns/transport.js";
 import * as util from "../helpers/util.js";
 
 const quad1 = "1.1.1.2";
 const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
-const dnsCacheSize = 10_000; // TODO: retrieve this from env
+const dnsCacheSize = 10000; // 10_000; // TODO: retrieve this from env
 
 export default class DNSResolver {
   constructor() {
     this.dnsParser = new DNSParserWrap();
     this.dnsResCache = false;
     this.wCache = false;
-
-    this.transport = new Transport(quad1, 53);
+    this.http2 = null;
+    this.transport = null;
   }
 
   /**
@@ -42,7 +41,7 @@ export default class DNSResolver {
     try {
       if (!this.dnsResCache) {
         this.dnsResCache = new LocalCache("dns-response-cache", dnsCacheSize);
-        if (isWorkers(param.runTimeEnv)) {
+        if (isWorkers()) {
           this.wCache = caches.default;
         }
       }
@@ -119,9 +118,7 @@ export default class DNSResolver {
   }
 
   async checkSecondLevelCacheBfrResolve(runTimeEnv, reqUrl, dn, now) {
-    if (!isWorkers(runTimeEnv)) {
-      return false;
-    }
+    if (!isWorkers()) return false;
 
     let wCacheUrl = new URL(new URL(reqUrl).origin + "/" + dn);
     let resp = await this.wCache.match(wCacheUrl);
@@ -154,13 +151,10 @@ export default class DNSResolver {
     const upRes = await this.resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
-      param.requestBodyBuffer,
-      param.runTimeEnv
+      param.requestBodyBuffer
     );
 
-    if (!upRes) {
-      throw new Error("no upstream result")
-    }
+    if (!upRes) throw new Error("no upstream result");
 
     if (!upRes.ok) {
       log.d("!OK", upRes.status, upRes.statusText, await upRes.text());
@@ -194,7 +188,7 @@ export default class DNSResolver {
     cacheRes.ttlEndTime = minttl * 1000 + now;
 
     // workers cache it
-    if (isWorkers(param.runTimeEnv)) {
+    if (isWorkers()) {
       let wCacheUrl = new URL(new URL(param.request.url).origin + "/" + dn);
       let response = new Response(responseBodyBuffer, {
         headers: {
@@ -214,42 +208,45 @@ export default class DNSResolver {
 }
 
 function cacheMetadata(cacheRes, blocklistFilter) {
-  const question = cacheRes.decodedDnsPacket.questions.length > 0
-    ? cacheRes.decodedDnsPacket.questions[0].name
-    : ""
+  const question =
+    cacheRes.decodedDnsPacket.questions.length > 0
+      ? cacheRes.decodedDnsPacket.questions[0].name
+      : "";
   return {
     ttlEndTime: cacheRes.ttlEndTime,
     bodyUsed: true,
     blocklistInfo: objOf(blocklistFilter.getDomainInfo(question).searchResult),
-  }
+  };
 }
 
 /**
  * @param {Request} request
  * @param {String} resolverUrl
  * @param {ArrayBuffer} requestBodyBuffer
- * @param {String} runTimeEnv
  * @returns
  */
 DNSResolver.prototype.resolveDnsUpstream = async function (
   request,
   resolverUrl,
-  requestBodyBuffer,
-  runTimeEnv
+  requestBodyBuffer
 ) {
   try {
-    if (onFly()) { // for now, upstream plain-old dns on fly
-      const q = util.bufferOf(requestBodyBuffer)
+    // for now, upstream plain-old dns on fly
+    if (isNode() && onFly()) {
+      if (!this.transport)
+        this.transport = new "../helpers/dns/transport.js".Transport(quad1, 53);
+
+      const q = util.bufferOf(requestBodyBuffer);
 
       let ans = await this.transport.udpquery(q);
       if (ans && dnsutil.truncated(ans)) {
-        log.i("ans truncated, retrying over tcp")
-        ans = await this.transport.tcpquery(q)
+        log.w("ans truncated, retrying over tcp");
+        ans = await this.transport.tcpquery(q);
       }
 
-      return (ans)
+      return ans
         ? new Response(util.arrayBufferOf(ans))
-        : new Response(null, { status:503 });
+        : new Response(null, { status: 503 });
     }
 
     let u = new URL(request.url);
@@ -262,7 +259,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     let newRequest = null;
     if (
       request.method === "GET" ||
-      (isWorkers(runTimeEnv) && request.method === "POST")
+      (isWorkers() && request.method === "POST")
     ) {
       u.search = "?dns=" + dnsqurl(requestBodyBuffer);
       newRequest = new Request(u.href, {
@@ -280,35 +277,35 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       throw new Error("get/post requests only");
     }
 
-    util.dnsHeaders(newRequest)
+    util.dnsHeaders(newRequest);
 
-    return await (isNode(runTimeEnv)) ? this.doh2(newRequest) : fetch(newRequest);
+    return isNode() ? this.doh2(newRequest) : fetch(newRequest);
   } catch (e) {
-    throw e
+    throw e;
   }
 };
 
 /**
  * Resolve DNS request using HTTP/2 API of Node.js
- * @param {URL} u - Resolver URL
- * @param {String} method - GET/POST
- * @param {ArrayBuffer} requestBodyBuffer - request body
- * @param {Object} headers - Request headers
+ * @param {Request} request - Request object
  * @returns {Promise<Response>}
  */
 DNSResolver.prototype.doh2 = async function (request) {
+  console.debug("upstream using h2");
   if (!this.http2) this.http2 = await import("http2");
-
   const http2 = this.http2;
+
   const u = new URL(request.url);
   const reqB = util.bufferOf(await request.arrayBuffer());
-  const headers = request.headers;
+  const headers = {};
+  request.headers.forEach((v, k) => {
+    headers[k] = v;
+  });
 
   return new Promise((resolve, reject) => {
     // TODO: h2 connection pool
-    const c = http2.connect(
-        u.protocol + "//" + u.hostname,
-      );
+    const authority = u.origin;
+    const c = http2.connect(authority);
 
     c.on("error", (err) => {
       reject(err.message);
@@ -317,7 +314,7 @@ DNSResolver.prototype.doh2 = async function (request) {
     const req = c.request({
       [http2.constants.HTTP2_HEADER_METHOD]: request.method,
       [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
-      ...headers
+      ...headers,
     });
 
     req.on("response", (headers) => {
@@ -342,7 +339,6 @@ DNSResolver.prototype.doh2 = async function (request) {
     });
 
     req.end(reqB);
-
   });
 };
 
@@ -375,18 +371,17 @@ function dnsqurl(dnsq) {
 }
 
 function onFly() {
-  return (env && env.cloudPlatform === "fly")
+  return env.cloudPlatform === "fly";
 }
 
-function isWorkers(runtime) {
-  return (runtime === "worker")
+function isWorkers() {
+  return env.runTimeEnv === "worker";
 }
 
-function isNode(runtime) {
-  return (runtime === "node")
+function isNode() {
+  return env.runTimeEnv === "node";
 }
 
 function objOf(map) {
   return map ? Object.fromEntries(map) : false;
 }
-
