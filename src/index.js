@@ -23,13 +23,15 @@ if (typeof addEventListener !== "undefined") {
 
 export function handleRequest(event) {
   if (!envManager.isLoaded) envManager.loadEnv();
-  if (!globalThis.log || !console.level)
-    // Don't hardcode console level, it will hinder level on `Log` instances.
-    globalThis.log = new Log(env.logLevel, true);
+  if (!globalThis.log)
+    globalThis.log = new Log(
+      env.logLevel,
+      env.runTimeEnv == "production" // Set Console level only in production.
+    );
 
   const processingTimeout = envManager.get("workerTimeout");
   const respectTimeout =
-    envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;
+    envManager.get("runTime") == "worker" && processingTimeout > 0;
 
   if (!respectTimeout) return proxyRequest(event);
 

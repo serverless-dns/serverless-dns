@@ -7,9 +7,9 @@
  */
 
 export function isWorkers() {
-  return env && env.runTimeEnv === "worker";
+  return env && env.runTime === "worker";
 }
 
 export function isNode() {
-  return env && env.runTimeEnv === "node";
+  return env && env.runTime === "node";
 }

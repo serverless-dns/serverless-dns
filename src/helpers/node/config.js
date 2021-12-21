@@ -16,14 +16,16 @@ import Log from "../log.js";
 // Load env variables from .env file to process.env (if file exists)
 // NOTE: this won't overwrite existing
 if (process.env.NODE_ENV !== "production") (await import("dotenv")).config();
-process.env.RUNTIME_ENV = "node";
+process.env.RUNTIME = "node";
 
 globalThis.envManager = new EnvManager();
 envManager.loadEnv();
 
 /** Logging level */
-// Don't hardcode console level, it will hinder level on `Log` instances.
-globalThis.log = new Log(process.env.LOG_LEVEL, true);
+globalThis.log = new Log(
+  env.logLevel,
+  env.runTimeEnv == "production" // Set Console level only in production.
+);
 
 /** Polyfills */
 if (!globalThis.fetch) {

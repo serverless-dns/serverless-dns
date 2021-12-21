@@ -107,7 +107,6 @@ export default class RethinkPlugin {
         "requestBodyBuffer",
         "request",
         "dnsResolverUrl",
-        "runTimeEnv",
         "cloudPlatform",
         "requestDecodedDnsPacket",
         "event",

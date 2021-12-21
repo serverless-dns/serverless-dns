@@ -11,6 +11,9 @@ export default class EnvManager {
     this.env = new Map();
     this.isLoaded = false;
   }
+  /**
+   * Loads env variables and is made globally available through `env` namespace.
+   */
   loadEnv() {
     // try getting env directly from global namespace (as available in
     // cloudflare workers). All of these variables must be defined in wrangler
@@ -18,7 +21,8 @@ export default class EnvManager {
     // loadNodeEnv() will be called, which won't be able to retrieve env.
     // variables.
     try {
-      this.env.set("runTimeEnv", RUNTIME_ENV);
+      this.env.set("runTime", RUNTIME);
+      this.env.set("runTimeEnv", WORKER_ENV);
       this.env.set("cloudPlatform", CLOUD_PLATFORM);
       this.env.set("logLevel", LOG_LEVEL);
       this.env.set("blocklistUrl", CF_BLOCKLIST_URL);
@@ -61,7 +65,8 @@ export default class EnvManager {
   loadEnvDeno() {
     console.info("Loading env variables from Deno");
 
-    this.env.set("runTimeEnv", Deno.env.get("RUNTIME_ENV"));
+    this.env.set("runTime", Deno.env.get("RUNTIME"));
+    this.env.set("runTimeEnv", Deno.env.get("DENO_ENV"));
     this.env.set("cloudPlatform", Deno.env.get("CLOUD_PLATFORM"));
     this.env.set("logLevel", Deno.env.get("LOG_LEVEL"));
     this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
@@ -91,7 +96,8 @@ export default class EnvManager {
   loadEnvNode() {
     console.info("Loading env variables from Node");
 
-    this.env.set("runTimeEnv", process.env.RUNTIME_ENV);
+    this.env.set("runTime", process.env.RUNTIME);
+    this.env.set("runTimeEnv", process.env.NODE_ENV);
     this.env.set("cloudPlatform", process.env.CLOUD_PLATFORM);
     this.env.set("logLevel", process.env.LOG_LEVEL);
     this.env.set("blocklistUrl", process.env.CF_BLOCKLIST_URL);

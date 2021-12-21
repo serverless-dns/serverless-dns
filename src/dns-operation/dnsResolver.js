@@ -49,7 +49,6 @@ export default class DNSResolver {
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {String} param.dnsResolverUrl
-   * @param {String} param.runTimeEnv
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
    * @param {Worker-Event} param.event
    * @param {} param.blocklistFilter
