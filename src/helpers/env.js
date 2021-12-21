@@ -6,129 +6,120 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+const _ENV_VARIABLES = {
+  runTime: "RUNTIME",
+  runTimeEnv: {
+    worker: "WORKER_ENV",
+    node: "NODE_ENV",
+    deno: "DENO_ENV",
+  },
+  cloudPlatform: "CLOUD_PLATFORM",
+  logLevel: "LOG_LEVEL",
+  blocklistUrl: "CF_BLOCKLIST_URL",
+  latestTimestamp: "CF_LATEST_BLOCKLIST_TIMESTAMP",
+  dnsResolverUrl: "CF_DNS_RESOLVER_URL",
+  onInvalidFlagStopProcessing: {
+    type: "boolean",
+    all: "CF_ON_INVALID_FLAG_STOPPROCESSING",
+  },
+
+  //parallel request wait timeout for download blocklist from s3
+  fetchTimeout: {
+    type: "number",
+    all: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
+  },
+
+  //env variables for td file split
+  tdNodecount: {
+    type: "number",
+    all: "TD_NODE_COUNT",
+  },
+  tdParts: {
+    type: "number",
+    all: "TD_PARTS",
+  },
+
+  //set to on - off aggressive cache plugin
+  //as of now Cache-api is available only on worker
+  //so _loadEnv will set this to false for other runtime.
+  isAggCacheReq: {
+    type: "boolean",
+    worker: "IS_AGGRESSIVE_CACHE_REQ",
+  },
+};
+
+function _loadEnv(runtime) {
+  console.info("Loading env. from runtime: ", runtime);
+
+  const env = {};
+  for (const [key, value] of Object.entries(_ENV_VARIABLES)) {
+    let name = null;
+    let type = "string";
+
+    if (typeof value === "string") {
+      name = value;
+    } else if (typeof value === "object") {
+      name = value.all || value[runtime];
+      type = value.type || "string";
+    }
+
+    if (runtime === "node") env[key] = process.env[name];
+    else if (runtime === "deno") env[key] = name && Deno.env.get(name);
+    else if (runtime === "worker") env[key] = globalThis[name];
+    else throw new Error(`Unknown runtime: ${runtime}`);
+
+    // All env are assumed to be strings, so typecast them.
+    if (type === "boolean") env[key] = !!env[key];
+    else if (type === "number") env[key] = Number(env[key]);
+  }
+
+  return env;
+}
+
+function _getRuntime() {
+  // As `process` also exists in worker, we need to check for worker first.
+  if (globalThis.RUNTIME == "worker") return "worker";
+  if (typeof Deno !== "undefined") return "deno";
+  if (typeof process !== "undefined") return "node";
+}
+
 export default class EnvManager {
   constructor() {
-    this.env = new Map();
+    this.envMap = new Map();
     this.isLoaded = false;
   }
   /**
-   * Loads env variables and is made globally available through `env` namespace.
+   * Loads env variables from runtime env. and is made globally available
+   * through `env` namespace.
    */
   loadEnv() {
-    // try getting env directly from global namespace (as available in
-    // cloudflare workers). All of these variables must be defined in wrangler
-    // config file. Else, they will cause reference error, and possibly
-    // loadNodeEnv() will be called, which won't be able to retrieve env.
-    // variables.
-    try {
-      this.env.set("runTime", RUNTIME);
-      this.env.set("runTimeEnv", WORKER_ENV);
-      this.env.set("cloudPlatform", CLOUD_PLATFORM);
-      this.env.set("logLevel", LOG_LEVEL);
-      this.env.set("blocklistUrl", CF_BLOCKLIST_URL);
-      this.env.set("latestTimestamp", CF_LATEST_BLOCKLIST_TIMESTAMP);
-      this.env.set("dnsResolverUrl", CF_DNS_RESOLVER_URL);
-      //at worker all env variables are treated as plain text
-      //so type cast is done for necessary variables
-      this.env.set(
-        "onInvalidFlagStopProcessing",
-        CF_ON_INVALID_FLAG_STOPPROCESSING == "true" ? true : false
-      );
-      //adding download timeout with worker time to determine worker's overall timeout
-      this.env.set(
-        "workerTimeout",
-        parseInt(WORKER_TIMEOUT) + parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
-      );
-      //parallel request wait timeout for download blocklist from s3
-      this.env.set("fetchTimeout", parseInt(CF_BLOCKLIST_DOWNLOAD_TIMEOUT));
-
-      //env variables for td file split
-      this.env.set("tdNodecount", parseInt(TD_NODE_COUNT));
-      this.env.set("tdParts", parseInt(TD_PARTS));
-
-      //set to on - off aggressive cache plugin
-      this.env.set(
-        "isAggCacheReq",
-        IS_AGGRESSIVE_CACHE_REQ == "true" ? true : false
-      );
-
-      this.isLoaded = true;
-    } catch (e) {
-      if (e instanceof ReferenceError) {
-        typeof Deno !== "undefined" ? this.loadEnvDeno() : this.loadEnvNode();
-      } else throw e;
+    const runtime = _getRuntime();
+    const env = _loadEnv(runtime);
+    for (const [key, value] of Object.entries(env)) {
+      this.envMap.set(key, value);
     }
 
-    // Make env available to all modules, globally
-    globalThis.env = Object.fromEntries(this.env);
-  }
-  loadEnvDeno() {
-    console.info("Loading env variables from Deno");
+    //adding download timeout with worker time to determine worker's overall timeout
+    runtime == "worker" &&
+      this.envMap.set(
+        "workerTimeout",
+        Number(WORKER_TIMEOUT) + Number(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
+      );
 
-    this.env.set("runTime", Deno.env.get("RUNTIME"));
-    this.env.set("runTimeEnv", Deno.env.get("DENO_ENV"));
-    this.env.set("cloudPlatform", Deno.env.get("CLOUD_PLATFORM"));
-    this.env.set("logLevel", Deno.env.get("LOG_LEVEL"));
-    this.env.set("blocklistUrl", Deno.env.get("CF_BLOCKLIST_URL"));
-    this.env.set(
-      "latestTimestamp",
-      Deno.env.get("CF_LATEST_BLOCKLIST_TIMESTAMP")
-    );
-    this.env.set("dnsResolverUrl", Deno.env.get("CF_DNS_RESOLVER_URL"));
-    this.env.set(
-      "onInvalidFlagStopProcessing",
-      Deno.env.get("CF_ON_INVALID_FLAG_STOPPROCESSING")
-    );
-
-    //env variables for td file split
-    this.env.set("tdNodecount", Deno.env.get("TD_NODE_COUNT"));
-    this.env.set("tdParts", Deno.env.get("TD_PARTS"));
-
-    //parallel request wait timeout for download blocklist from s3
-    this.env.set("fetchTimeout", Deno.env.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT"));
-
-    //set to on - off aggressive cache plugin
-    //as of now Cache-api is available only on worker
-    //so setting to false for DENO
-    this.env.set("isAggCacheReq", false);
-    this.isLoaded = true;
-  }
-  loadEnvNode() {
-    console.info("Loading env variables from Node");
-
-    this.env.set("runTime", process.env.RUNTIME);
-    this.env.set("runTimeEnv", process.env.NODE_ENV);
-    this.env.set("cloudPlatform", process.env.CLOUD_PLATFORM);
-    this.env.set("logLevel", process.env.LOG_LEVEL);
-    this.env.set("blocklistUrl", process.env.CF_BLOCKLIST_URL);
-    this.env.set("latestTimestamp", process.env.CF_LATEST_BLOCKLIST_TIMESTAMP);
-    this.env.set("dnsResolverUrl", process.env.CF_DNS_RESOLVER_URL);
-    this.env.set(
-      "onInvalidFlagStopProcessing",
-      process.env.CF_ON_INVALID_FLAG_STOPPROCESSING
-    );
-
-    //env variables for td file split
-    this.env.set("tdNodecount", process.env.TD_NODE_COUNT);
-    this.env.set("tdParts", process.env.TD_PARTS);
-
-    //parallel request wait timeout for download blocklist from s3
-    this.env.set("fetchTimeout", process.env.CF_BLOCKLIST_DOWNLOAD_TIMEOUT);
-
-    //set to on - off aggressive cache plugin
-    //as of now Cache-api is available only on worker
-    //so setting to false for fly
-    this.env.set("isAggCacheReq", false);
+    globalThis.env = Object.fromEntries(this.envMap); // Global `env` namespace.
     this.isLoaded = true;
   }
   getMap() {
-    return this.env;
+    return this.envMap;
+  }
+  toObject() {
+    return Object.fromEntries(this.envMap);
   }
   get(key) {
-    return this.env.get(key);
+    return this.envMap.get(key);
   }
   put(key, value) {
-    this.env.set(key, value);
-    globalThis.env = Object.fromEntries(this.env);
+    this.envMap.set(key, value);
+    globalThis.env = Object.fromEntries(this.envMap);
   }
 }
