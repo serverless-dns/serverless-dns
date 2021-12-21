@@ -6,25 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
+import { UserCache } from "./userCache.js";
+import { DomainNameCache } from "./domainNameCache.js";
+import { DnsCache } from "./dnsCache.js";
 
-export class LocalCache {
-  constructor(
-    cacheName,
-    size,
-  ) {
-    this.localCache = new Cache(cacheName, size);
-  }
-
-  Get(key) {
-    return this.localCache.Get(key);
-  }
-  Put(key, data) {
-    try {
-      this.localCache.Put(key, data);
-    } catch (e) {
-      console.error("Error At : LocalCache -> Put");
-      console.error(e.stack);
-    }
-  }
-}
+export { DnsCache, DomainNameCache, UserCache };

@@ -6,13 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlockOperation from "./dnsBlockOperation.js";
 import * as util from "../helpers/util.js";
 
 export default class DNSBlock {
   constructor() {
-    this.dnsParser = new DNSParserWrap();
     this.dnsBlockOperation = new DNSBlockOperation();
   }
   /**

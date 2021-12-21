@@ -48,7 +48,7 @@ export default class DNSAggCache {
 
   async aggCache(param) {
     let response = {};
-    response.reqDecodedDnsPacket = dnsutil.dnsDecode(param.requestBodyBuffer);
+    response.reqDecodedDnsPacket = dnsutil.decode(param.requestBodyBuffer);
     response.aggCacheResponse = {};
     response.aggCacheResponse.type = "none";
 
@@ -58,8 +58,7 @@ export default class DNSAggCache {
         : "").trim().toLowerCase() +
         ":" + response.reqDecodedDnsPacket.questions[0].type;
       let cacheResponse = await param.dnsCache.get(key, param.request.url);
-      console.debug("Cache Response");
-      console.debug(JSON.stringify(cacheResponse));
+      console.debug("Cache Response", JSON.stringify(cacheResponse));
       if (cacheResponse) {
         response.aggCacheResponse = await parseCacheResponse(
           cacheResponse,
@@ -120,7 +119,7 @@ async function parseCacheResponse(
       for (let answer of response.data.decodedDnsPacket.answers) {
         answer.ttl = outttl;
       }
-      response.data.bodyBuffer = dnsutil.dnsEncode(
+      response.data.bodyBuffer = dnsutil.encode(
         response.data.decodedDnsPacket,
       );
     }

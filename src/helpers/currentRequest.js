@@ -101,7 +101,7 @@ export default class CurrentRequest {
       }
       this.decodedDnsPacket.authorities = [];
       this.httpResponse = new Response(
-        this.dnsParser.Encode(this.decodedDnsPacket),
+        dnsutil.encode(this.decodedDnsPacket),
         { headers: this.headers() }
       );
     } catch (e) {

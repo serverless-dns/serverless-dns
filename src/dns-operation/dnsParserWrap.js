@@ -11,7 +11,7 @@ import { Buffer } from "buffer";
 export default class DNSParserWrap {
   constructor() {}
 
-  Decode(arrayBuffer) {
+  decode(arrayBuffer) {
     try {
       return DnsParser.decode(Buffer.from(new Uint8Array(arrayBuffer)));
     } catch (e) {
@@ -19,7 +19,7 @@ export default class DNSParserWrap {
       throw e;
     }
   }
-  Encode(DecodedDnsPacket) {
+  encode(DecodedDnsPacket) {
     try {
       return DnsParser.encode(DecodedDnsPacket);
     } catch (e) {

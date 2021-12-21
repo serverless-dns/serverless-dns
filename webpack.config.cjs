@@ -7,4 +7,7 @@ module.exports = {
         /(^dgram$)|(^http2$)|(\/node\/.*\.js$)|(.*_node\.js$)|(.*\.node\.js$)/,
     }),
   ],
+  optimization: {
+    minimize: false,
+  },
 };

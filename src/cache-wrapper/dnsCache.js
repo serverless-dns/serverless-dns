@@ -19,18 +19,23 @@ export class DnsCache {
 
   async get(key, url) {
     let entry = this.getLocalCache(key);
-    if (entry && Date.now() <= entry.metaData.ttlEndTime) {
+    if(entry){
+      console.debug(Date.now(),entry.metaData.ttlEndTime,(Date.now() <= entry.metaData.ttlEndTime),(Date.now()-entry.metaData.ttlEndTime))
+    }
+    if (entry && (Date.now() <= entry.metaData.ttlEndTime)) {
       return entry;
     }
+    console.debug("is workerset : ",envutil.isWorkers(),(url && envutil.isWorkers()))
     if (url && envutil.isWorkers()) {
       entry = await validateCacheApiResponse(
         await this.cacheApi.get(makeCacheApiKey(key, url)),
       );
       if (entry) {
         this.putLocalCache(key, entry);
-      }
+        return entry;
+      }      
     }
-    return entry;
+    return false;
   }
 
   async put(key, data, url, buf) {
@@ -63,21 +68,22 @@ function createResponse(buf, metaData) {
       "Content-Length": buf.length,
       "x-rethink-metadata": JSON.stringify(metaData),
     },
-    cf: { cacheTtl: 604800 },
+    cf: { cacheTtl: 604800 }, //1w hold
   });
 }
 
 async function validateCacheApiResponse(response) {
+  console.debug("came at validateCacheApiResponse");
   if (!response) return false;
   console.debug("Response found in Cache api");
   const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
   console.debug(metaData);
-  if (metaData.bodyUsed && Date.now() >= metaData.ttlEndTime) {
+  if (metaData.bodyUsed && (Date.now() >= metaData.ttlEndTime)) {
     return false;
   }
 
   let data = {};
-  data.decodedDnsPacket = metaData.bodyUsed ? dnsutil.dnsDecode(await response.arrayBuffer()) : {};
+  data.decodedDnsPacket = metaData.bodyUsed ? dnsutil.decode(await response.arrayBuffer()) : {};
   data.metaData = metaData;
   console.debug(JSON.stringify(data));
   return data;

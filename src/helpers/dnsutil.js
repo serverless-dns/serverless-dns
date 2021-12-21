@@ -24,7 +24,7 @@ const dns = new Dns()
 export function servfail(qid, qs) {
   if (!qid || !qs) return null
 
-  return dns.Encode({
+  return encode({
     id: qid,
     type: "response",
     flags: 4098, // servfail
@@ -84,10 +84,10 @@ export function dohStatusCode(b) {
   if (b.byteLength < minDNSPacketSize) return 400
   return 200
 }
-export function dnsEncode(obj){
-  return dns.Encode(obj)
+export function encode(obj){
+  return dns.encode(obj)
 }
 
-export function dnsDecode(buf){
-  return dns.Decode(buf)
+export function decode(buf){
+  return dns.decode(buf)
 }
