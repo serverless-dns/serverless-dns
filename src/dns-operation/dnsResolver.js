@@ -94,13 +94,14 @@ export default class DNSResolver {
   async resolveFromCache(param) {
     const key = this.cacheKey(param.requestDecodedDnsPacket);
     const qid = param.requestDecodedDnsPacket.id;
+    const url = param.request.url;
 
     if (!key) return null;
 
     let cacheRes = this.resolveFromLocalCache(qid, key);
 
     if (!cacheRes) {
-      cacheRes = await this.resolveFromHttpCache(qid, key);
+      cacheRes = await this.resolveFromHttpCache(qid, url, key);
       this.updateLocalCacheIfNeeded(key, cacheRes);
     }
 
@@ -114,10 +115,10 @@ export default class DNSResolver {
     return this.makeCacheResponse(queryId, cacheRes.dnsPacket, cacheRes.ttlEndTime);
   }
 
-  async resolveFromHttpCache(queryId, key) {
+  async resolveFromHttpCache(queryId, url, key) {
     if (!this.httpCache) return false; // no http-cache
 
-    const hKey = this.httpCacheKey(param.request.url, key);
+    const hKey = this.httpCacheKey(url, key);
     const resp = await this.httpCache.match(hKey);
 
     if (!resp) return false; // cache-miss
@@ -196,17 +197,22 @@ export default class DNSResolver {
 
     const cacheUrl = this.httpCacheKey(param.request.url, k);
     const value = new Response(cacheRes.dnsPacket, {
-      headers: {
-        "Content-Length": cacheRes.dnsPacket.byteLength,
-        "x-rethink-metadata": JSON.stringify(
-          this.httpCacheMetadata(cacheRes, param.blocklistFilter)
-        ),
-      },
-      cf: { cacheTtl: httpCacheTtl },
+      headers: this.httpCacheHeaders(cacheRes, param.blocklistFilter),
     });
 
-    util.dnsHeaders(value);
     param.event.waitUntil(this.httpCache.put(cacheUrl, value));
+  }
+
+  httpCacheHeaders(cres, blFilter) {
+    return util.concatHeaders(
+      {
+        "x-rethink-metadata": JSON.stringify(
+          this.httpCacheMetadata(cres, blFilter))
+      },
+      util.contentLengthHeader(cres.dnsPacket),
+      util.dnsHeaders(),
+      { cf: { cacheTtl: httpCacheTtl } },
+    );
   }
 
   /**
@@ -360,16 +366,16 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     } else if (request.method === "POST") {
       newRequest = new Request(u.href, {
         method: "POST",
-        headers: {
-          "Content-Length": requestBodyBuffer.byteLength,
-        },
+        headers: util.concatHeaders(
+          util.contentLengthHeader(requestBodyBuffer),
+          util.dnsHeaders(),
+        ),
         body: requestBodyBuffer,
       });
     } else {
       throw new Error("get/post requests only");
     }
 
-    util.dnsHeaders(newRequest);
 
     return this.http2 ? this.doh2(newRequest) : fetch(newRequest);
   } catch (e) {

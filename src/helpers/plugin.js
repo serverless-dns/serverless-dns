@@ -14,6 +14,7 @@ import {
   DNSResolver,
   DNSResponseBlock,
 } from "../dns-operation/dnsOperation.js";
+import * as util from "./util.js";
 
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
@@ -34,11 +35,7 @@ export default class RethinkPlugin {
     this.parameter = new Map(envManager.getMap());
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
-    this.registerParameter(
-      "isDnsMsg",
-      (event.request.headers.get("Accept") == "application/dns-message" ||
-        event.request.headers.get("Content-Type") == "application/dns-message"),
-    );
+    this.registerParameter("isDnsMsg", util.isDnsMsg(event.request));
 
     this.plugin = [];
 
@@ -82,7 +79,12 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       commandControl,
-      ["request", "blocklistFilter", "latestTimestamp"],
+      [
+        "request",
+        "blocklistFilter",
+        "latestTimestamp",
+        "isDnsMsg",
+      ],
       commandControlCallBack,
       false,
     );
@@ -241,6 +243,7 @@ function dnsAggCacheCallBack(response, currentRequest) {
   if (response.isException) {
     loadException(response, currentRequest);
   } else if (response.data !== null) {
+
     this.registerParameter(
       "requestDecodedDnsPacket",
       response.data.reqDecodedDnsPacket,

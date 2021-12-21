@@ -51,16 +51,17 @@ export function handleRequest(event) {
 async function proxyRequest(event) {
   try {
     if (event.request.method === "OPTIONS") {
-      const res = new Response(null, { status: 204 });
-      util.corsHeaders(res);
+      const res = new Response(null, {
+        status: 204,
+        headers: util.corsHeaders(),
+      });
+
       return res;
     }
 
     const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);
-
-    util.dohHeaders(event.request, currentRequest.httpResponse);
 
     return currentRequest.httpResponse;
   } catch (err) {
@@ -71,15 +72,19 @@ async function proxyRequest(event) {
 
 function errorOrServfail(event, err) {
   if (util.fromBrowser(event)) {
-    const res = new Response(JSON.stringify(e.stack));
-    util.browserHeaders(res);
+    const res = new Response(
+      JSON.stringify(e.stack),
+      { headers: util.browserHeaders() }
+    );
     return res;
   }
   return servfail(event);
 }
 
 function servfail(event) {
-  const res = new Response(dnsutil.servfail);
-  util.dohHeaders(event.request, res);
+  const res = new Response(
+    dnsutil.servfail,
+    { headers: util.dohHeaders(event.request) }
+  );
   return res;
 }

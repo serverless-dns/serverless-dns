@@ -8,6 +8,7 @@
 
 import { DNSParserWrap as DnsParser } from "../dns-operation/dnsOperation.js";
 import * as dnsutil from "../helpers/dnsutil.js";
+import * as util from "../helpers/util.js";
 
 export default class CurrentRequest {
   constructor() {
@@ -28,15 +29,26 @@ export default class CurrentRequest {
     const singleLog = {};
     singleLog.exceptionFrom = this.exceptionFrom;
     singleLog.exceptionStack = this.exceptionStack;
-    this.httpResponse = new Response(dnsutil.servfail);
-    this.setHeaders();
-    this.httpResponse.headers.set("x-err", JSON.stringify(singleLog));
+    this.httpResponse = new Response(
+      dnsutil.servfail,
+      {
+        headers : util.concatHeaders(
+          this.headers(),
+          this.additionalHeader(JSON.stringify(singleLog)),
+        )
+      },
+    );
   }
 
   customResponse(data) {
-    this.httpResponse = new Response(dnsutil);
-    this.setHeaders();
-    this.httpResponse.headers.set("x-err", JSON.stringify(data));
+    this.httpResponse = new Response(null,
+      {
+        headers : util.concatHeaders(
+          this.headers(),
+          this.additionalHeader(JSON.stringify(data)),
+        )
+      },
+    );
   }
 
   /**
@@ -44,9 +56,12 @@ export default class CurrentRequest {
    * @returns Web API Response
    */
   dnsResponse(arrayBuffer) {
-    this.httpResponse = new Response(arrayBuffer);
-    this.setHeaders();
+    this.httpResponse = new Response(
+      arrayBuffer,
+      { headers : this.headers() },
+    );
   }
+
   dnsBlockResponse() {
     try {
       this.decodedDnsPacket.type = "response";
@@ -75,8 +90,10 @@ export default class CurrentRequest {
         this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
       this.decodedDnsPacket.authorities = []
-      this.httpResponse = new Response(this.dnsParser.Encode(this.decodedDnsPacket));
-      this.setHeaders();
+      this.httpResponse = new Response(
+        this.dnsParser.Encode(this.decodedDnsPacket),
+        { headers : this.headers() },
+      );
     } catch (e) {
       log.e(JSON.stringify(this.decodedDnsPacket))
       this.isException = true;
@@ -85,17 +102,25 @@ export default class CurrentRequest {
     }
   }
 
-  setHeaders() {
-    this.httpResponse.headers.set("Content-Type", "application/dns-message");
-    this.httpResponse.headers.append("Vary", "Origin");
-    this.httpResponse.headers.delete("expect-ct");
-    this.httpResponse.headers.delete("cf-ray");
-    if(this.isDnsBlock){
-      this.httpResponse.headers.set("x-nile-flags", this.blockedB64Flag);
-    }
-    else if(this.blockedB64Flag !== ""){
-      this.httpResponse.headers.set('x-nile-flag-notblocked', this.blockedB64Flag)
-    }
+  headers() {
+    const xNileFlags = (this.isDnsBlock) ?
+      { "x-nile-flags" : this.blockedB64Flag } : null;
+    const xNileFlagsAllowed = (this.blockedB64Flag) ?
+      { "x-nile-flags-allowed" : this.blockedB64Flag } : null;
+
+    return util.concatHeaders(
+      util.dnsHeaders(),
+      xNileFlags,
+      xNileFlagsAllowed,
+    );
+  }
+
+  additionalHeader(json) {
+    if (!json) return null;
+
+    return {
+      "x-nile-add" : json,
+    };
   }
 
 }

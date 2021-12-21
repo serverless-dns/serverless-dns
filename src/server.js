@@ -12,7 +12,8 @@ import http2, { Http2ServerRequest, Http2ServerResponse } from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 
 import { handleRequest } from "./index.js";
-import { encodeUint8ArrayBE, sleep } from "./helpers/util.js";
+import * as dnsutil from "./helpers/dnsutil.js";
+import * as util from "./helpers/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
@@ -30,17 +31,6 @@ const DOH_PORT = DOH_ENTRY_PORT;
 const tlsOptions = {
   key: TLS_KEY,
   cert: TLS_CRT,
-};
-
-const minDNSPacketSize = 12 + 5;
-const maxDNSPacketSize = 4096;
-
-// A dns message over TCP stream has a header indicating length.
-const dnsHeaderSize = 2;
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "*",
 };
 
 let OUR_RG_DN_RE = null; // regular dns name match
@@ -152,18 +142,9 @@ function serveDoTProxyProto(clientSocket) {
   });
 }
 
-function recycleBuffer(b) {
-  b.fill(0);
-  return 0;
-}
-
-function createBuffer(size) {
-  return Buffer.allocUnsafe(size);
-}
-
 function makeScratchBuffer() {
-  const qlenBuf = createBuffer(dnsHeaderSize);
-  const qlenBufOffset = recycleBuffer(qlenBuf);
+  const qlenBuf = util.createBuffer(dnsutil.dnsHeaderSize);
+  const qlenBufOffset = util.recycleBuffer(qlenBuf);
 
   return {
     qlenBuf: qlenBuf,
@@ -277,7 +258,6 @@ function serveTLS(socket) {
     handleTCPData(socket, data, sb, host, flag);
   });
   socket.on("end", () => {
-    log.d("TLS socket clean half shutdown");
     socket.end();
   });
   socket.on("error", (e) => {
@@ -295,7 +275,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   if (cl <= 0) return;
 
   // read header first which contains length(dns-query)
-  const rem = dnsHeaderSize - sb.qlenBufOffset;
+  const rem = dnsutil.dnsHeaderSize - sb.qlenBufOffset;
   if (rem > 0) {
     const seek = Math.min(rem, cl);
     const read = chunk.slice(0, seek);
@@ -304,10 +284,10 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   }
 
   // header has not been read fully, yet
-  if (sb.qlenBufOffset !== dnsHeaderSize) return;
+  if (sb.qlenBufOffset !== dnsutil.dnsHeaderSize) return;
 
   const qlen = sb.qlenBuf.readUInt16BE();
-  if (qlen < minDNSPacketSize || qlen > maxDNSPacketSize) {
+  if (!dnsutil.validateSize(qlen)) {
     log.w(`query range err: ql:${qlen} cl:${cl} rem:${rem}`);
     close(socket);
     return;
@@ -322,8 +302,8 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   const data = chunk.slice(rem);
 
   if (sb.qBuf === null) {
-    sb.qBuf = createBuffer(qlen);
-    sb.qBufOffset = recycleBuffer(sb.qBuf);
+    sb.qBuf = util.createBuffer(qlen);
+    sb.qBufOffset = util.recycleBuffer(sb.qBuf);
   }
 
   sb.qBuf.fill(data, sb.qBufOffset);
@@ -333,7 +313,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   if (sb.qBufOffset === qlen) {
     handleTCPQuery(sb.qBuf, socket, host, flag);
     // reset qBuf and qlenBuf states
-    sb.qlenBufOffset = recycleBuffer(sb.qlenBuf);
+    sb.qlenBufOffset = util.recycleBuffer(sb.qlenBuf);
     sb.qBuf = null;
     sb.qBufOffset = 0;
   } else if (sb.qBufOffset > qlen) {
@@ -356,7 +336,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   const t = log.startTime("handle-tcp-query");
   try {
     const r = await resolveQuery(q, host, flag);
-    const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
+    const rlBuf = util.encodeUint8ArrayBE(r.byteLength, 2);
     const chunk = new Uint8Array([...rlBuf, ...r]);
 
     // Don't write to a closed socket, else it will crash nodejs
@@ -386,11 +366,10 @@ async function resolveQuery(q, host, flag) {
   const r = await handleRequest({
     request: new Request(`https://${host}/${flag}`, {
       method: "POST",
-      headers: {
-        Accept: "application/dns-message",
-        "Content-Type": "application/dns-message",
-        "Content-Length": q.byteLength.toString(),
-      },
+      headers: util.concatHeaders(
+        util.dnsHeaders(),
+        util.contentLengthHeader(q),
+      ),
       body: q,
     }),
   });
@@ -404,7 +383,6 @@ async function resolveQuery(q, host, flag) {
  * @param {Http2ServerResponse} res
  */
 async function serveHTTPS(req, res) {
-  const ua = req.headers["user-agent"];
   const buffers = [];
 
   const t = log.startTime("recv-https");
@@ -417,13 +395,10 @@ async function serveHTTPS(req, res) {
 
   log.endTime(t);
 
-  if (
-    req.method == "POST" &&
-    (bLen < minDNSPacketSize || bLen > maxDNSPacketSize)
-  ) {
+  if (req.method == "POST" && !dnsutil.validReponseSize(b)) {
     res.writeHead(
-      bLen > maxDNSPacketSize ? 413 : 400,
-      ua && ua.startsWith("Mozilla/5.0") ? corsHeaders : {}
+      dnsutil.dohStatusCode(b),
+      util.corsHeadersIfNeeded(req),
     );
     res.end();
     log.w(`HTTP req body length out of bounds: ${bLen}`);
@@ -445,18 +420,11 @@ async function handleHTTPRequest(b, req, res) {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
 
-    let reqHeaders = {};
-    // Drop http/2 pseudo-headers
-    for (const key in req.headers) {
-      if (key.startsWith(":")) continue;
-      reqHeaders[key] = req.headers[key];
-    }
-
     const fReq = new Request(new URL(req.url, `https://${host}`), {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
-      headers: reqHeaders,
+      headers: util.copyNonPseudoHeaders(req),
       method: req.method,
       body: req.method == "POST" ? b : null,
     });
@@ -467,13 +435,7 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "upstream-end");
 
-    // Object.assign, Object spread, etc doesn't work with `node-fetch` Headers
-    const resHeaders = {};
-    fRes.headers.forEach((v, k) => {
-      resHeaders[k] = v;
-    });
-
-    res.writeHead(fRes.status, resHeaders);
+    res.writeHead(fRes.status, util.copyHeaders(fRes));
 
     log.lapTime(t, "send-head");
 
