@@ -32,7 +32,7 @@ if (!globalThis.fetch) {
   globalThis.fetch =
     process.env.NODE_ENV !== "production"
       ? (await import("./util-dev.js")).fetchPlus
-      : null;
+      : fetch;
   globalThis.Headers = Headers;
   globalThis.Request = Request;
   globalThis.Response = Response;

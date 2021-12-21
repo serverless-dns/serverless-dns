@@ -16,9 +16,10 @@ export const dnsPacketHeaderSize = 12
 export const minDNSPacketSize = dnsPacketHeaderSize + 5
 export const maxDNSPacketSize = 4096
 
-const minRequestTimeout = 5_000 // 5s
-const maxRequestTimeout = 30_000 // 30s
-const dns = new Dns();
+const minRequestTimeout = 5000 // 7s
+const defaultRequestTimeout = 15000 // 15s
+const maxRequestTimeout = 30000 // 30s
+const dns = new Dns()
 
 export function servfail(qid, qs) {
   if (!qid || !qs) return null
@@ -32,7 +33,7 @@ export function servfail(qid, qs) {
 }
 
 export function requestTimeout() {
-  const t = envutil.workersTimeout()
+  const t = envutil.workersTimeout(defaultRequestTimeout)
   return (t > minRequestTimeout) ?
     Math.min(t, maxRequestTimeout) :
     minRequestTimeout
