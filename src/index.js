@@ -23,7 +23,7 @@ if (typeof addEventListener !== "undefined") {
 
 export function handleRequest(event) {
   if (!envManager.isLoaded) envManager.loadEnv();
-  if (!globalThis.log)
+  if (!globalThis.log && !console.level)
     globalThis.log = new Log(
       env.logLevel,
       env.runTimeEnv == "production" // Set Console level only in production.

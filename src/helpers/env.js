@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-const _ENV_VARIABLES = {
+const _ENV_MAPPINGS = {
   runTime: "RUNTIME",
   runTimeEnv: {
     worker: "WORKER_ENV",
@@ -52,7 +52,7 @@ function _loadEnv(runtime) {
   console.info("Loading env. from runtime: ", runtime);
 
   const env = {};
-  for (const [key, value] of Object.entries(_ENV_VARIABLES)) {
+  for (const [key, value] of Object.entries(_ENV_MAPPINGS)) {
     let name = null;
     let type = "string";
 
@@ -105,6 +105,13 @@ export default class EnvManager {
         "workerTimeout",
         Number(WORKER_TIMEOUT) + Number(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
       );
+
+    console.debug(
+      "Loaded env: ",
+      (runtime == "worker" &&
+        JSON.stringify(Object.fromEntries(this.envMap))) ||
+        Object.fromEntries(this.envMap)
+    );
 
     globalThis.env = Object.fromEntries(this.envMap); // Global `env` namespace.
     this.isLoaded = true;
