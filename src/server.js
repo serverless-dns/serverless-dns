@@ -7,8 +7,8 @@
  */
 
 import net, { isIPv6, Socket } from "net";
-import * as tls from "tls";
-import * as http2 from "http2";
+import tls, { TLSSocket } from "tls";
+import http2, { Http2ServerRequest, Http2ServerResponse } from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 
 import { handleRequest } from "./index.js";
@@ -86,7 +86,7 @@ function proxySockets(a, b) {
 
 /**
  * Proxies connection to DOT server, retrieving proxy proto header.
- * @param {net.Socket} clientSocket
+ * @param {Socket} clientSocket
  */
 function serveDoTProxyProto(clientSocket) {
   let ppHandled = false;
@@ -176,7 +176,7 @@ function makeScratchBuffer() {
 /**
  * Get RegEx's to match dns names of a CA certificate.
  * A non matching RegEx is returned if no DNS names are found.
- * @param {tls.TLSSocket} socket - TLS socket to get CA certificate from.
+ * @param {TLSSocket} socket - TLS socket to get CA certificate from.
  * @returns [RegEx, RegEx] - [regular, wildcard]
  */
 function getDnRE(socket) {
@@ -220,7 +220,7 @@ function getDnRE(socket) {
 
 /**
  * Gets flag and hostname from TLS socket.
- * @param {tls.TLSSocket} socket - TLS socket to get SNI from.
+ * @param {TLSSocket} socket - TLS socket to get SNI from.
  * @returns [flag, hostname]
  */
 function getMetadataFromSni(socket) {
@@ -257,7 +257,7 @@ function getMetadataFromSni(socket) {
 
 /**
  * Services a DNS over TLS connection
- * @param {tls.TLSSocket} socket
+ * @param {TLSSocket} socket
  */
 function serveTLS(socket) {
   console.debug(
@@ -345,7 +345,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
 
 /**
  * @param {Buffer} q
- * @param {tls.TLSSocket} socket
+ * @param {TLSSocket} socket
  * @param {String} host
  * @param {String} flag
  */
@@ -400,8 +400,8 @@ async function resolveQuery(q, host, flag) {
 
 /**
  * Services a DNS over HTTPS connection
- * @param {http2.Http2ServerRequest} req
- * @param {http2.Http2ServerResponse} res
+ * @param {Http2ServerRequest} req
+ * @param {Http2ServerResponse} res
  */
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
