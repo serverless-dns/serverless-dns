@@ -5,13 +5,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
+import { UserCache } from "../cache-wrapper/cache-wrapper.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 import * as util from "../helpers/util.js";
 
 export class UserOperation {
   constructor() {
-    this.userConfigCache = false;
+    this.userConfigCache = new UserCache(1000);
     this.blocklistFilter = new BlocklistFilter();
   }
   /**
@@ -37,17 +37,10 @@ export class UserOperation {
       if (!param.isDnsMsg) {
         return response;
       }
-
-      if (!this.userConfigCache) {
-        this.userConfigCache = new LocalCache(
-          "User-Config-Cache",
-          1000,
-        );
-      }
       let userBlocklistInfo = {};
       userBlocklistInfo.from = "Cache";
       let blocklistFlag = getBlocklistFlag(param.request.url);
-      let currentUser = this.userConfigCache.Get(blocklistFlag);
+      let currentUser = this.userConfigCache.get(blocklistFlag);
       if (!currentUser) {
         currentUser = {};
         currentUser.userBlocklistFlagUint = "";
@@ -68,7 +61,7 @@ export class UserOperation {
           blocklistFlag = "";
         }
         userBlocklistInfo.from = "Generated";
-        this.userConfigCache.Put(blocklistFlag, currentUser);
+        this.userConfigCache.put(blocklistFlag, currentUser);
       }
       userBlocklistInfo.userBlocklistFlagUint =
         currentUser.userBlocklistFlagUint;

@@ -6,8 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+export function onFly() {
+  return env && env.cloudPlatform === "fly";
+}
+
 export function isWorkers() {
-  return env && env.runTime === "worker";
+  return env && env.runTimeEnv === "worker";
 }
 
 export function isNode() {

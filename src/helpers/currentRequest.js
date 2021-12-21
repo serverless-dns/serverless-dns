@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as DnsParser } from "../dns-operation/dnsOperation.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as util from "../helpers/util.js";
 
@@ -22,7 +21,6 @@ export default class CurrentRequest {
     this.isDnsBlock = false;
     this.isInvalidFlagBlock = false;
     this.stopProcessing = false;
-    this.dnsParser = new DnsParser();
   }
 
   emptyDecodedDnsPacket() {

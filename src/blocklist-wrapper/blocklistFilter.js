@@ -7,7 +7,7 @@
  */
 
 import { Buffer } from "buffer";
-import { LocalCache } from "../cache-wrapper/cache-wrapper.js";
+import { DomainNameCache } from "../cache-wrapper/cache-wrapper.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
 import * as util from "../helpers/util.js";
 import { base32, rbase32 } from "./b32.js";
@@ -50,20 +50,17 @@ export class BlocklistFilter {
     this.ft = ft;
     this.blocklistBasicConfig = blocklistBasicConfig;
     this.blocklistFileTag = blocklistFileTag;
-    this.domainNameCache = new LocalCache(
-      "Domain-Name-Cache",
-      5000,
-    );
+    this.domainNameCache = new DomainNameCache(20000);
   }
 
   getDomainInfo(domainName) {
     domainName = domainName.trim().toLowerCase();
-    let domainNameInfo = this.domainNameCache.Get(domainName);
+    let domainNameInfo = this.domainNameCache.get(domainName);
 
     if (!domainNameInfo) {
       domainNameInfo = {};
       domainNameInfo.searchResult = this.hadDomainName(domainName);
-      this.domainNameCache.Put(domainName, domainNameInfo);
+      this.domainNameCache.put(domainName, domainNameInfo);
     }
 
     return domainNameInfo;

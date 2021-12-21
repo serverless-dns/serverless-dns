@@ -16,6 +16,8 @@ import {
 } from "../dns-operation/dnsOperation.js";
 import * as util from "./util.js";
 
+import { DnsCache } from "../cache-wrapper/cache-wrapper.js";
+
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();
@@ -23,6 +25,8 @@ const dnsBlock = new DNSBlock();
 const dnsResolver = new DNSResolver();
 const dnsResponseBlock = new DNSResponseBlock();
 const dnsAggCache = new DNSAggCache();
+//dns cache used accross 3plugins so passed as parameter
+const dnsCache = new DnsCache(10000);
 
 export default class RethinkPlugin {
   /**
@@ -36,6 +40,8 @@ export default class RethinkPlugin {
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
     this.registerParameter("isDnsMsg", util.isDnsMsg(event.request));
+
+    this.registerParameter("dnsCache", dnsCache);
 
     this.plugin = [];
 
@@ -56,6 +62,7 @@ export default class RethinkPlugin {
         "requestBodyBuffer",
         "isAggCacheReq",
         "isDnsMsg",
+        "dnsCache"
       ],
       dnsAggCacheCallBack,
       false,
@@ -98,6 +105,7 @@ export default class RethinkPlugin {
         "isAggCacheReq",
         "event",
         "request",
+        "dnsCache"
       ],
       dnsBlockCallBack,
       false,
@@ -109,10 +117,10 @@ export default class RethinkPlugin {
         "requestBodyBuffer",
         "request",
         "dnsResolverUrl",
-        "cloudPlatform",
         "requestDecodedDnsPacket",
         "event",
         "blocklistFilter",
+        "dnsCache"
       ],
       dnsResolverCallBack,
       false,
@@ -163,7 +171,7 @@ export default class RethinkPlugin {
         await p.callBack.call(this, res, req);
       }
 
-      log.lapTime(t, p.name, "post-callback")
+      log.lapTime(t, p.name, "post-callback");
     }
     log.endTime(t);
   }

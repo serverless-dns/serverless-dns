@@ -6,17 +6,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlockOperation from "./dnsBlockOperation.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 import * as util from "../helpers/util.js";
+import * as dnsutil from "../helpers/dnsutil.js";
 
 export default class DNSAggCache {
   constructor() {
-    this.dnsParser = new DNSParserWrap();
     this.dnsBlockOperation = new DNSBlockOperation();
     this.blocklistFilter = new BlocklistFilter();
-    this.wCache = null;
   }
   /**
    * @param {*} param
@@ -25,6 +23,7 @@ export default class DNSAggCache {
    * @param {*} param.requestBodyBuffer
    * @param {*} param.isAggCacheReq
    * @param {*} param.isDnsMsg
+   * @param {*} param.dnsCache
    * @returns
    */
   async RethinkModule(param) {
@@ -49,27 +48,21 @@ export default class DNSAggCache {
 
   async aggCache(param) {
     let response = {};
-    response.reqDecodedDnsPacket = this.dnsParser.Decode(
-      param.requestBodyBuffer,
-    );
+    response.reqDecodedDnsPacket = dnsutil.dnsDecode(param.requestBodyBuffer);
     response.aggCacheResponse = {};
     response.aggCacheResponse.type = "none";
 
-    if (param.isAggCacheReq && this.wCache === null) {
-      this.wCache = caches.default;
-    }
-
     if (param.isAggCacheReq) {
-      const dn = (response.reqDecodedDnsPacket.questions.length > 0
+      const key = (response.reqDecodedDnsPacket.questions.length > 0
         ? response.reqDecodedDnsPacket.questions[0].name
         : "").trim().toLowerCase() +
         ":" + response.reqDecodedDnsPacket.questions[0].type;
-      let cacheResponse = await getCacheapi(this.wCache, param.request.url, dn);
-      log.d("Cache Api Response", cacheResponse);
+      let cacheResponse = await param.dnsCache.get(key, param.request.url);
+      console.debug("Cache Response");
+      console.debug(JSON.stringify(cacheResponse));
       if (cacheResponse) {
-        response.aggCacheResponse = await parseCacheapiResponse(
+        response.aggCacheResponse = await parseCacheResponse(
           cacheResponse,
-          this.dnsParser,
           this.dnsBlockOperation,
           this.blocklistFilter,
           param.userBlocklistInfo,
@@ -80,9 +73,8 @@ export default class DNSAggCache {
     return response;
   }
 }
-async function parseCacheapiResponse(
+async function parseCacheResponse(
   cacheResponse,
-  dnsParser,
   dnsBlockOperation,
   blocklistFilter,
   userBlocklistInfo,
@@ -91,10 +83,6 @@ async function parseCacheapiResponse(
   let response = {};
   response.type = "none";
   response.data = {};
-  let metaData = JSON.parse(cacheResponse.headers.get("x-rethink-metadata"));
-
-  console.debug("Response Found at CacheApi");
-  console.debug(JSON.stringify(metaData));
   //check whether incoming request should be blocked by blocklist filter
   if (
     (reqDecodedDnsPacket.questions[0].type == "A" ||
@@ -105,12 +93,12 @@ async function parseCacheapiResponse(
     metaData.blocklistInfo &&
     !util.emptyString(userBlocklistInfo.userBlocklistFlagUint)
   ) {
-    metaData.blocklistInfo = new Map(Object.entries(metaData.blocklistInfo));
+    const blocklistInfoMap = new Map(Object.entries(cacheResponse.metaData.blocklistInfo));
     let blockResponse = dnsBlockOperation.checkDomainBlocking(
       userBlocklistInfo.userBlocklistFlagUint,
       userBlocklistInfo.userServiceListUint,
       userBlocklistInfo.flagVersion,
-      metaData.blocklistInfo,
+      blocklistInfoMap,
       blocklistFilter,
       reqDecodedDnsPacket.questions[0].name.trim().toLowerCase(),
     );
@@ -120,30 +108,23 @@ async function parseCacheapiResponse(
       return response;
     }
   }
-  if (metaData.bodyUsed) {
+  if (cacheResponse.metaData.bodyUsed) {
     const now = Date.now();
-    if (now <= (metaData.ttlEndTime)) {
+    if (now <= (cacheResponse.metaData.ttlEndTime)) {
       response.type = "response";
-      response.data.decodedDnsPacket = dnsParser.Decode(
-        await cacheResponse.arrayBuffer(),
-      );
+      response.data.decodedDnsPacket = cacheResponse.decodedDnsPacket
       const outttl = Math.max(
-        Math.floor((metaData.ttlEndTime - now) / 1000),
+        Math.floor((cacheResponse.metaData.ttlEndTime - now) / 1000),
         1,
       ); // to verify ttl is not set to 0sec
       for (let answer of response.data.decodedDnsPacket.answers) {
         answer.ttl = outttl;
       }
-      response.data.bodyBuffer = dnsParser.Encode(
+      response.data.bodyBuffer = dnsutil.dnsEncode(
         response.data.decodedDnsPacket,
       );
     }
   }
 
   return response;
-}
-
-async function getCacheapi(wCache, reqUrl, key) {
-  let wCacheUrl = new URL((new URL(reqUrl)).origin + "/" + key);
-  return await wCache.match(wCacheUrl);
 }

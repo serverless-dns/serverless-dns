@@ -14,7 +14,6 @@ export default class DNSBlock {
   constructor() {
     this.dnsParser = new DNSParserWrap();
     this.dnsBlockOperation = new DNSBlockOperation();
-    this.wCache = null;
   }
   /**
    * @param {*} param
@@ -24,6 +23,7 @@ export default class DNSBlock {
    * @param {*} param.isAggCacheReq
    * @param {*} param.event
    * @param {*} param.request
+   * @param {*} param.dnsCache
    * @returns
    */
   async RethinkModule(param) {
@@ -58,10 +58,8 @@ export default class DNSBlock {
               param.requestDecodedDnsPacket.questions[0].name,
             );
             if (response.data.isBlocked && param.isAggCacheReq) {
-              if (this.wCache === null) {
-                this.wCache = caches.default;
-              }
-              toCacheApi(param, this.wCache, domainNameBlocklistInfo);
+              console.debug("blocked dns response add to cache api")
+              toCacheApi(param, domainNameBlocklistInfo);
             }
           }
         }
@@ -83,20 +81,16 @@ function hasBlocklistStamp(param) {
     !util.emptyString(param.userBlocklistInfo.userBlocklistFlagUint);
 }
 
-function toCacheApi(param, wCache, domainNameBlocklistInfo) {
+function toCacheApi(param, domainNameBlocklistInfo) {
   const dn =
     param.requestDecodedDnsPacket.questions[0].name.trim().toLowerCase() + ":" +
     param.requestDecodedDnsPacket.questions[0].type;
-  let wCacheUrl = new URL((new URL(param.request.url)).origin + "/" + dn);
-  let response = new Response("", {
-    headers: {
-      "x-rethink-metadata": JSON.stringify({
-        ttlEndTime: 0,
-        bodyUsed: false,
-        blocklistInfo: Object.fromEntries(domainNameBlocklistInfo.searchResult),
-      }),
-    },
-    cf: { cacheTtl: 604800 }, //setting ttl to 7days 60*60*24*7
-  });
-  param.event.waitUntil(wCache.put(wCacheUrl, response));
+  let metaData = {
+    ttlEndTime: 0,
+    bodyUsed: false,
+    blocklistInfo: Object.fromEntries(domainNameBlocklistInfo.searchResult),
+  };
+  param.event.waitUntil(
+    param.dnsCache.putCacheApi(key, param.request.url, "", metaData),
+  );
 }

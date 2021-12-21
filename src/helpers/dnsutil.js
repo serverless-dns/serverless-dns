@@ -84,3 +84,10 @@ export function dohStatusCode(b) {
   if (b.byteLength < minDNSPacketSize) return 400
   return 200
 }
+export function dnsEncode(obj){
+  return dns.Encode(obj)
+}
+
+export function dnsDecode(buf){
+  return dns.Decode(buf)
+}
