@@ -6,7 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
+import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js"
+import * as envutil from "./envutil.js"
 
 // dns packet constants (in bytes)
 // A dns message over TCP stream has a header indicating length.
@@ -15,13 +16,27 @@ export const dnsPacketHeaderSize = 12
 export const minDNSPacketSize = dnsPacketHeaderSize + 5
 export const maxDNSPacketSize = 4096
 
+const minRequestTimeout = 5_000 // 5s
+const maxRequestTimeout = 30_000 // 30s
 const dns = new Dns();
 
-// FIXME: must contain a question section
-export const servfail = dns.Encode({
-  type: "response",
-  flags: 4098, // sets serv-fail flag
-});
+export function servfail(qid, qs) {
+  if (!qid || !qs) return null
+
+  return dns.Encode({
+    id: qid,
+    type: "response",
+    flags: 4098, // servfail
+    questions: qs,
+  })
+}
+
+export function requestTimeout() {
+  const t = envutil.workersTimeout()
+  return (t > minRequestTimeout) ?
+    Math.min(t, maxRequestTimeout) :
+    minRequestTimeout
+}
 
 export function truncated(ans) {
   if (ans.length < dnsPacketHeaderSize) return false

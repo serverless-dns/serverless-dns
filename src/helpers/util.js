@@ -131,6 +131,8 @@ export function objOf(map) {
 
 // stackoverflow.com/a/31394257
 export function arrayBufferOf(buf) {
+  if (!buf) return null
+
   const offset = buf.byteOffset
   const len = buf.byteLength
   return buf.buffer.slice(offset, offset + len)
@@ -138,6 +140,8 @@ export function arrayBufferOf(buf) {
 
 // stackoverflow.com/a/17064149
 export function bufferOf(arrayBuf) {
+  if (!arrayBuf) return null
+
   return Buffer.from(new Uint8Array(arrayBuf))
 }
 

@@ -32,7 +32,7 @@ export class Transport {
     log.d("udp pooled?", sock !== null)
 
     const t = log.startTime("udp-query")
-    let ans = dnsutil.servfail
+    let ans = null
     try {
       sock = sock || await this.makeConn("udp")
       log.lapTime(t, "make-conn")
@@ -55,7 +55,7 @@ export class Transport {
     log.d("tcp pooled?", sock !== null)
 
     const t = log.starttime("tcp-query")
-    let ans = dnsutil.servfail
+    let ans = null
     try {
       sock = sock || await this.makeConn("tcp")
       log.laptime(t, "make-conn")

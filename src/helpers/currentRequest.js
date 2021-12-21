@@ -26,26 +26,30 @@ export default class CurrentRequest {
   }
 
   dnsExceptionResponse() {
-    const singleLog = {};
-    singleLog.exceptionFrom = this.exceptionFrom;
-    singleLog.exceptionStack = this.exceptionStack;
+    const qid = this.decodedDnsPacket.id;
+    const questions = this.decodedDnsPacket.questions;
+    const ex = {
+      exceptionFrom: this.exceptionFrom,
+      exceptionStack: this.exceptionStack,
+    };
     this.httpResponse = new Response(
-      dnsutil.servfail,
+      dnsutil.servfail(qid, questions),
       {
         headers : util.concatHeaders(
           this.headers(),
-          this.additionalHeader(JSON.stringify(singleLog)),
-        )
+          this.additionalHeader(JSON.stringify(ex)),
+        ),
+        status : 200, // rfc8484 section-4.2.1
       },
     );
   }
 
-  customResponse(data) {
+  customResponse(x) {
     this.httpResponse = new Response(null,
       {
         headers : util.concatHeaders(
           this.headers(),
-          this.additionalHeader(JSON.stringify(data)),
+          this.additionalHeader(JSON.stringify(x)),
         )
       },
     );

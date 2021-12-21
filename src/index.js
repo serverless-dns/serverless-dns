@@ -13,6 +13,7 @@ import Log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
+// move this to initEnv?
 if (!globalThis.envManager) globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
@@ -21,43 +22,42 @@ if (typeof addEventListener !== "undefined") {
   });
 }
 
-export function handleRequest(event) {
-  if (!envManager.isLoaded) envManager.loadEnv();
-  if (!globalThis.log && !console.level)
+function initEnvIfNeeded() {
+  if (!envManager.isLoaded) {
+    envManager.loadEnv();
+  }
+
+  if (!globalThis.log && !console.level) {
     globalThis.log = new Log(
       env.logLevel,
-      env.runTimeEnv == "production" // Set Console level only in production.
+      env.runTimeEnv === "production" // set only in production.
     );
+  }
+}
 
-  const processingTimeout = envManager.get("workerTimeout");
-  const respectTimeout =
-    envManager.get("runTime") == "worker" && processingTimeout > 0;
-
-  if (!respectTimeout) return proxyRequest(event);
+export function handleRequest(event) {
+  initEnvIfNeeded();
 
   return Promise.race([
-    new Promise((resolve, _) => {
-      resolve(proxyRequest(event));
+
+    new Promise((accept, _) => {
+      accept(proxyRequest(event));
     }),
-    new Promise((resolve, _) => {
-      setTimeout(() => {
-        // on timeout, send a serv-fail
-        resolve(servfail(event));
-      }, processingTimeout);
+
+    new Promise((accept, _) => {
+      // on timeout, servfail
+      util.timeout(
+        dnsutil.requestTimeout(),
+        () => accept(servfail(event.request))
+      );
     }),
+
   ]);
 }
 
 async function proxyRequest(event) {
   try {
-    if (event.request.method === "OPTIONS") {
-      const res = new Response(null, {
-        status: 204,
-        headers: util.corsHeaders(),
-      });
-
-      return res;
-    }
+    if (optionsRequest(event.request)) return respond204();
 
     const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
@@ -66,25 +66,40 @@ async function proxyRequest(event) {
     return currentRequest.httpResponse;
   } catch (err) {
     log.e(err.stack);
-    return errorOrServfail(event, err);
+    return errorOrServfail(req, err);
   }
 }
 
-function errorOrServfail(event, err) {
-  if (util.fromBrowser(event)) {
-    const res = new Response(
-      JSON.stringify(e.stack),
-      { headers: util.browserHeaders() }
-    );
-    return res;
-  }
-  return servfail(event);
+function optionsRequest(req) {
+  return req.method === "OPTIONS";
 }
 
-function servfail(event) {
+function respond204() {
+  return new Response(null, {
+    status: 204, // no content
+    headers: util.corsHeaders(),
+  });
+}
+
+function errorOrServfail(req, err) {
+  if (!util.fromBrowser(req)) return servfail();
+
   const res = new Response(
-    dnsutil.servfail,
-    { headers: util.dohHeaders(event.request) }
+    JSON.stringify(err.stack),
+    {
+      status: 503, // unavailable
+      headers: util.browserHeaders(),
+    }
   );
   return res;
+}
+
+function servfail() {
+  return new Response(
+    dnsutil.servfail(), // null response
+    {
+      status: 503, // unavailable
+      headers: util.dnsHeaders(),
+    }
+  );
 }

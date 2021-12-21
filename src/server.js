@@ -395,7 +395,7 @@ async function serveHTTPS(req, res) {
 
   log.endTime(t);
 
-  if (req.method == "POST" && !dnsutil.validReponseSize(b)) {
+  if (req.method == "POST" && !dnsutil.validResponseSize(b)) {
     res.writeHead(
       dnsutil.dohStatusCode(b),
       util.corsHeadersIfNeeded(req),
