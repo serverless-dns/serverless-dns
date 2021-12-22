@@ -200,39 +200,20 @@ function getDnRE(socket) {
 }
 
 /**
- * Gets flag and hostname from TLS socket.
- * @param {TLSSocket} socket - TLS socket to get SNI from.
+ * Gets flag and hostname from the wildcard domain name.
+ * @param {String} sni - Wildcard SNI
  * @returns [flag, hostname]
  */
-function getMetadataFromSni(socket) {
-  if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
-    [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
+function getMetadata(sni) {
+  // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
+  let s = sni.split(".");
+  // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
+  const host = s.splice(1).join(".");
+  // replace "-" with "+" as doh handlers use "+" to differentiate between
+  // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
+  const flag = s[0].replace(/-/g, "+");
 
-  let flag = null;
-  let host = null;
-
-  const sni = socket.servername;
-  if (!sni) {
-    return [flag, host];
-  }
-
-  const isWc = OUR_WC_DN_RE.test(sni);
-  const isReg = OUR_RG_DN_RE.test(sni);
-
-  if (isWc) {
-    // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
-    let s = sni.split(".");
-    // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
-    host = s.splice(1).join(".");
-    // replace "-" with "+" as doh handlers use "+" to differentiate between
-    // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
-    flag = s[0].replace(/-/g, "+");
-  } else if (isReg) {
-    // max.rethinkdns.com => max.rethinkdns.com
-    host = sni;
-    flag = "";
-  } // nothing to extract
-
+  console.debug(`flag: ${flag}, host: ${host}`);
   return [flag, host];
 }
 
@@ -241,17 +222,30 @@ function getMetadataFromSni(socket) {
  * @param {TLSSocket} socket
  */
 function serveTLS(socket) {
+  const sni = socket.servername;
+  if (!sni) {
+    log.w("No SNI, closing client connection");
+    close(socket);
+    return;
+  }
+
+  if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
+    [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
+
+    const isOurRgDn = OUR_RG_DN_RE.test(sni);
+    const isOurWcDn = OUR_WC_DN_RE.test(sni);
+
+  if (!isOurWcDn && !isOurRgDn) {
+    log.w("Not our DNS name, closing client connection");
+    close(socket);
+    return;
+  }
+
   console.debug(
     `(${socket.getProtocol()}), session reused: ${socket.isSessionReused()}}`
   );
 
-  const [flag, host] = getMetadataFromSni(socket);
-  if (host === null) {
-    close(socket);
-    log.w("hostname not found, abort session");
-    return;
-  }
-
+  const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = makeScratchBuffer();
 
   socket.on("data", (data) => {
