@@ -14,8 +14,8 @@ import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import * as util from "../helpers/util.js";
 
 const quad1 = "1.1.1.2";
-const ttlGraceSec = 30; //30 sec grace time for expired ttl answer
-const dnsCacheSize = 10000; // 10_000; // TODO: retrieve this from env
+const ttlGraceSec = 30; // 30s cache extra time
+const dnsCacheSize = 10000; // TODO: retrieve this from env?
 const httpCacheTtl = 604800; // 1w
 
 export default class DNSResolver {

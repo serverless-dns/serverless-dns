@@ -13,7 +13,6 @@ import Log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
-// move this to initEnv?
 if (!globalThis.envManager) globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
@@ -30,7 +29,7 @@ function initEnvIfNeeded() {
   if (!globalThis.log && !console.level) {
     globalThis.log = new Log(
       env.logLevel,
-      env.runTimeEnv === "production" // set only in production.
+      env.runTimeEnv === "production" // set console level only in prod
     );
   }
 }
