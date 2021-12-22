@@ -66,17 +66,23 @@ export default class Log {
   constructor(level, isConsoleLevel) {
     if (!_LOG_LEVELS.has(level)) level = "debug";
     if (isConsoleLevel && !console.level) _setConsoleLevel(level);
+
+    this.l = console.log;
+    this.log = console.log;
     this.setLevel(level);
   }
   _resetLevel() {
-    this.l = console.log;
     this.d = () => null;
+    this.debug = () => null;
     this.lapTime = () => null;
     this.startTime = () => null;
     this.endTime = () => null;
     this.i = () => null;
+    this.info = () => null;
     this.w = () => null;
+    this.warn = () => null;
     this.e = () => null;
+    this.error = () => null;
   }
 
   /**
