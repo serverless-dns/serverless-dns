@@ -109,10 +109,10 @@ export default class DNSResolver {
   }
 
   resolveFromLocalCache(queryId, key) {
-    const cacheRes = this.dnsResCache.Get(key);
-    if (!cacheRes) return false; // cache-miss
+    const cres = this.dnsResCache.Get(key);
+    if (!cres) return false; // cache-miss
 
-    return this.makeCacheResponse(queryId, cacheRes.dnsPacket, cacheRes.ttlEndTime);
+    return this.makeCacheResponse(queryId, cres.dnsPacket, cres.ttlEndTime);
   }
 
   async resolveFromHttpCache(queryId, url, key) {
@@ -130,40 +130,42 @@ export default class DNSResolver {
   }
 
   makeCacheResponse(queryId, dnsPacket, expiry = null) {
+    if (expiry !== null && expiry < Date.now()) { // stale, expired entry
+      log.d("mkcache stale", expiry)
+      return false;
+    }
+
     const decodedDnsPacket = util.safeBox(() => {
       return this.dnsParser.Decode(dnsPacket);
     });
 
     if (!decodedDnsPacket) { // can't decode
-      log.d("mkcache decode failed", expiry);
+      log.w("mkcache decode failed", expiry);
       return false;
     }
 
-    if (expiry === null) {
+    if (expiry === null) { // new cache entrant
       expiry = this.determineCacheExpiry(decodedDnsPacket);
     }
 
-    if (expiry < Date.now()) { // stale, expired entry
-      log.d("mkcache stale", expiry)
-      return false;
-    }
-
-    this.updateTtl(decodedDnsPacket, expiry);
-    this.updateQueryId(decodedDnsPacket, queryId);
+    let reencode = this.updateTtl(decodedDnsPacket, expiry);
+    reencode = this.updateQueryId(decodedDnsPacket, queryId) || reencode;
 
     const updatedDnsPacket = util.safeBox(() => {
-      return this.dnsParser.Encode(decodedDnsPacket);
+      return (reencode) ?
+        this.dnsParser.Encode(decodedDnsPacket) :
+        dnsPacket;
     })
 
     if (!updatedDnsPacket) { // can't re-encode
-      log.w("mkcache encode failed", decodedDnsPacket, expiry);
+      log.w("mkcache re-encode failed", decodedDnsPacket, expiry);
       return false;
     }
 
     const cacheRes = {
       dnsPacket: updatedDnsPacket,
       decodedDnsPacket : decodedDnsPacket,
-      ttlEndTime: expiry,
+      ttlEndTime: expiry, // may be zero
     }
 
     return cacheRes;
@@ -181,6 +183,7 @@ export default class DNSResolver {
 
   updateLocalCacheIfNeeded(k, v) {
     if (!k || !v) return; // nothing to cache
+    if (!v.ttlEndTime) return; // zero ttl
 
     // strike out redundant decoded packet
     const nv = {
@@ -194,6 +197,7 @@ export default class DNSResolver {
   updateHttpCacheIfNeeded(param, k, cacheRes) {
     if (!this.httpCache) return; // only on Workers
     if (!k || !cacheRes) return; // nothing to cache
+    if (!cacheRes.ttlEndTime) return; // zero ttl
 
     const cacheUrl = this.httpCacheKey(param.request.url, k);
     const value = new Response(cacheRes.dnsPacket, {
@@ -290,15 +294,27 @@ export default class DNSResolver {
   }
 
   updateQueryId(decodedDnsPacket, queryId) {
+    if (queryId === 0) return false; // doh reqs are qid free
+    if (queryId === decodedDnsPacket.id) return false; // no change
     decodedDnsPacket.id = queryId;
+    return true;
   }
 
   updateTtl(decodedDnsPacket, end) {
+    let updated = false;
     const now = Date.now();
-    const outttl = Math.max(Math.floor((end - now) / 1000), ttlGraceSec); // at least 30s
+
+    if (end < now) return updated; // negative ttl
+
+    const outttl = Math.max(Math.floor((end - now) / 1000), ttlGraceSec);
     for (let a of decodedDnsPacket.answers) {
-      if (!dnsutil.optAnswer(a)) a.ttl = outttl;
+      if (dnsutil.optAnswer(a)) continue;
+      if (a.ttl === outttl) continue;
+      updated = true;
+      a.ttl = outttl;
     }
+
+    return updated;
   }
 
 }
