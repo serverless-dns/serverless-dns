@@ -18,10 +18,10 @@ export class Transport {
   constructor(host, port, opts = {}) {
     this.host = host
     this.port = port
-    this.connectTimeout = opts.connectTimeout || 3_000 // 3s
-    this.ioTimeout = opts.ioTimeout || 10_000 // 10s
+    this.connectTimeout = opts.connectTimeout || 3000 // 3s
+    this.ioTimeout = opts.ioTimeout || 10000 // 10s
     const poolSize = opts.poolSize || 100 // conns
-    const poolTtl = opts.poolTtl || 60_000 // 1m
+    const poolTtl = opts.poolTtl || 60000 // 1m
     this.tcpconns = new TcpConnPool(poolSize, poolTtl)
     this.udpconns = new UdpConnPool(poolSize, poolTtl)
     log.i("transport", host, port, "pool", poolSize, poolTtl)

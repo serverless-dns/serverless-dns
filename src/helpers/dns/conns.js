@@ -13,7 +13,7 @@ export class TcpConnPool {
   constructor(size, ttl) {
     this.size = size
     this.ttl = ttl // ms
-    this.keepalive = Math.min(60_000, Math.ceil(ttl / 2)) // ms
+    this.keepalive = Math.min(/*60s*/ 60000, Math.ceil(ttl / 2)) // ms
     this.pool = new Map()
   }
 
@@ -114,7 +114,7 @@ export class UdpConnPool {
 
   constructor(size, ttl) {
     this.size = size
-    this.ttl = Math.max(60_000, ttl) // no more than 60s
+    this.ttl = Math.max(60000, ttl) // no more than 60s
     this.pool = new Map()
   }
 
