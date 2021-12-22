@@ -18,13 +18,13 @@ import Log from "../log.js";
 if (process.env.NODE_ENV !== "production") (await import("dotenv")).config();
 process.env.RUNTIME = "node";
 
-globalThis.envManager = new EnvManager();
+if (!globalThis.envManager) globalThis.envManager = new EnvManager();
 envManager.loadEnv();
 
 /** Logging level */
 globalThis.log = new Log(
   env.logLevel,
-  env.runTimeEnv == "production" // Set Console level only in production.
+  env.runTimeEnv == "production" // set console level only in prod.
 );
 
 /** Polyfills */

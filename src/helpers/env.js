@@ -1,4 +1,13 @@
-/*
+/**
+ * Internal environment variables manager.
+ *
+ * Instantiation of this class will make a global variable `env` available.
+ * So, this class can be instantiated only once.
+ * Variables can get() or set() into the `env` object.
+ * Environment variables of runtime (deno, node, worker) can be loaded via
+ * loadEnv().
+ *
+ * @license
  * Copyright (c) 2021 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -6,7 +15,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-const _ENV_MAPPINGS = {
+// "internal-name": "Runtime specific variable name(s)".
+const _RUNTIME_ENV_MAPPINGS = {
   runTime: "RUNTIME",
   runTimeEnv: {
     worker: "WORKER_ENV",
@@ -48,11 +58,16 @@ const _ENV_MAPPINGS = {
   },
 };
 
-function _loadEnv(runtime) {
-  console.info("Loading env. from runtime: ", runtime);
+/**
+ * Get runtime specific environment variables.
+ * @param {String} runtime - Runtime name (deno, node, worker).
+ * @returns {Object} Runtime environment variables.
+ */
+function _getRuntimeEnv(runtime) {
+  console.info("Loading env. from runtime:", runtime);
 
   const env = {};
-  for (const [key, value] of Object.entries(_ENV_MAPPINGS)) {
+  for (const [key, value] of Object.entries(_RUNTIME_ENV_MAPPINGS)) {
     let name = null;
     let type = "string";
 
@@ -84,17 +99,24 @@ function _getRuntime() {
 }
 
 export default class EnvManager {
+  /**
+   * Initializes the env manager.
+   */
   constructor() {
+    if (globalThis.env) throw new Error("envManager is already initialized.");
+
+    globalThis.env = {};
     this.envMap = new Map();
     this.isLoaded = false;
   }
+
   /**
    * Loads env variables from runtime env. and is made globally available
-   * through `env` namespace.
+   * through `env` namespace. Existing env variables will be overwritten.
    */
   loadEnv() {
     const runtime = _getRuntime();
-    const env = _loadEnv(runtime);
+    const env = _getRuntimeEnv(runtime);
     for (const [key, value] of Object.entries(env)) {
       this.envMap.set(key, value);
     }
@@ -108,25 +130,42 @@ export default class EnvManager {
 
     console.debug(
       "Loaded env: ",
-      (runtime == "worker" &&
-        JSON.stringify(Object.fromEntries(this.envMap))) ||
-        Object.fromEntries(this.envMap)
+      (runtime == "worker" && JSON.stringify(this.toObject())) ||
+        this.toObject()
     );
 
-    globalThis.env = Object.fromEntries(this.envMap); // Global `env` namespace.
+    globalThis.env = this.toObject(); // Global `env` namespace.
     this.isLoaded = true;
   }
+
+  /**
+   * @returns {Map} - Map of env variables.
+   */
   getMap() {
     return this.envMap;
   }
+
+  /**
+   * @returns {Object} - Object of currently loaded env variables.
+   */
   toObject() {
     return Object.fromEntries(this.envMap);
   }
+
+  /**
+   * @param {String} key - env variable name
+   * @returns {*} - env variable value
+   */
   get(key) {
     return this.envMap.get(key);
   }
-  put(key, value) {
+
+  /**
+   * @param {String} key - env variable name
+   * @param {*} value - env variable value
+   */
+  set(key, value) {
     this.envMap.set(key, value);
-    globalThis.env = Object.fromEntries(this.envMap);
+    globalThis.env = this.toObject();
   }
 }
