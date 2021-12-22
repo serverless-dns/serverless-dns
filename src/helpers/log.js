@@ -1,10 +1,14 @@
-/*
+/**
+ * Logging utilities.
+ *
+ * @license
  * Copyright (c) 2021 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 import { uid } from "./util.js";
 
 /**
@@ -74,6 +78,7 @@ export default class Log {
     this.w = () => null;
     this.e = () => null;
   }
+
   /**
    * Modify log level of this instance. Unlike the constructor, this has no
    * default value.
@@ -96,6 +101,7 @@ export default class Log {
       default:
       case "debug":
         this.d = console.debug;
+        this.debug = console.debug;
       case "timer":
         this.lapTime = console.timeLog;
         this.startTime = function (name) {
@@ -106,10 +112,13 @@ export default class Log {
         this.endTime = console.timeEnd;
       case "info":
         this.i = console.info;
+        this.info = console.info;
       case "warn":
         this.w = console.warn;
+        this.warn = console.warn;
       case "error":
         this.e = console.error;
+        this.error = console.error;
     }
     this.level = level;
   }

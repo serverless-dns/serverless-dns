@@ -213,7 +213,7 @@ function getMetadata(sni) {
   // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
   const flag = s[0].replace(/-/g, "+");
 
-  console.debug(`flag: ${flag}, host: ${host}`);
+  log.debug(`flag: ${flag}, host: ${host}`);
   return [flag, host];
 }
 
@@ -232,8 +232,8 @@ function serveTLS(socket) {
   if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
     [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
 
-    const isOurRgDn = OUR_RG_DN_RE.test(sni);
-    const isOurWcDn = OUR_WC_DN_RE.test(sni);
+  const isOurRgDn = OUR_RG_DN_RE.test(sni);
+  const isOurWcDn = OUR_WC_DN_RE.test(sni);
 
   if (!isOurWcDn && !isOurRgDn) {
     log.w("Not our DNS name, closing client connection");
@@ -241,7 +241,7 @@ function serveTLS(socket) {
     return;
   }
 
-  console.debug(
+  log.debug(
     `(${socket.getProtocol()}), session reused: ${socket.isSessionReused()}}`
   );
 
@@ -362,7 +362,7 @@ async function resolveQuery(q, host, flag) {
       method: "POST",
       headers: util.concatHeaders(
         util.dnsHeaders(),
-        util.contentLengthHeader(q),
+        util.contentLengthHeader(q)
       ),
       body: q,
     }),
@@ -390,10 +390,7 @@ async function serveHTTPS(req, res) {
   log.endTime(t);
 
   if (req.method == "POST" && !dnsutil.validResponseSize(b)) {
-    res.writeHead(
-      dnsutil.dohStatusCode(b),
-      util.corsHeadersIfNeeded(req),
-    );
+    res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(req));
     res.end();
     log.w(`HTTP req body length out of bounds: ${bLen}`);
     return;
