@@ -9,18 +9,23 @@
 import { atob, btoa } from "buffer";
 import fetch, { Headers, Request, Response } from "node-fetch";
 import { getTLSfromEnv } from "./util.js";
-import { globalConsoleLevel } from "../log.js";
+import EnvManager from "../env.js";
 import Log from "../log.js";
 
 /** Environment Variables */
 // Load env variables from .env file to process.env (if file exists)
 // NOTE: this won't overwrite existing
 if (process.env.NODE_ENV !== "production") (await import("dotenv")).config();
-process.env.RUNTIME_ENV = "node";
+process.env.RUNTIME = "node";
+
+globalThis.envManager = new EnvManager();
+envManager.loadEnv();
 
 /** Logging level */
-globalConsoleLevel(process.env.LOG_LEVEL || "debug");
-globalThis.log = new Log();
+globalThis.log = new Log(
+  env.logLevel,
+  env.runTimeEnv == "production" // Set Console level only in production.
+);
 
 /** Polyfills */
 if (!globalThis.fetch) {
@@ -52,6 +57,6 @@ export const [TLS_KEY, TLS_CRT] =
 
 /** Swap on fly */
 if (process.env.CLOUD_PLATFORM == "fly") {
-  const ok = (await import("../setup.js")).mkswap();
+  const ok = (await import("../linux/swap.js")).mkswap();
   console.info("mkswap done?", ok);
 }

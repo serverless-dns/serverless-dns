@@ -41,8 +41,7 @@ export default class DNSAggCache {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSAggCache RethinkModule";
-      console.error("Error At : DNSAggCache -> RethinkModule");
-      console.error(e.stack);
+      console.error("Error At : DNSAggCache -> RethinkModule", e);
     }
     return response;
   }
@@ -65,8 +64,7 @@ export default class DNSAggCache {
         : "").trim().toLowerCase() +
         ":" + response.reqDecodedDnsPacket.questions[0].type;
       let cacheResponse = await getCacheapi(this.wCache, param.request.url, dn);
-      console.debug("Cache Api Response");
-      console.debug(cacheResponse);
+      log.d("Cache Api Response", cacheResponse);
       if (cacheResponse) {
         response.aggCacheResponse = await parseCacheapiResponse(
           cacheResponse,

@@ -3,7 +3,8 @@ module.exports = {
   target: "webworker",
   plugins: [
     new webpack.IgnorePlugin({
-      resourceRegExp: /(^dgram$)|(^http2$)/,
+      resourceRegExp:
+        /(^dgram$)|(^http2$)|(\/node\/.*\.js$)|(.*_node\.js$)|(.*\.node\.js$)/,
     }),
   ],
 };

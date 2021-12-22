@@ -6,14 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import CurrentRequest from "./currentRequest.js";
-import RethinkPlugin from "./plugin.js";
-import EnvManager from "./env.js";
-import Log, { globalConsoleLevel } from "./helpers/log.js";
+import CurrentRequest from "./helpers/currentRequest.js";
+import RethinkPlugin from "./helpers/plugin.js";
+import EnvManager from "./helpers/env.js";
+import Log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 
-globalThis.envManager = new EnvManager();
+if (!globalThis.envManager) globalThis.envManager = new EnvManager();
 
 if (typeof addEventListener !== "undefined") {
   addEventListener("fetch", (event) => {
@@ -21,62 +21,84 @@ if (typeof addEventListener !== "undefined") {
   });
 }
 
+function initEnvIfNeeded() {
+  if (!envManager.isLoaded) {
+    envManager.loadEnv();
+  }
+
+  if (!globalThis.log && !console.level) {
+    globalThis.log = new Log(
+      env.logLevel,
+      env.runTimeEnv === "production" // set console level only in prod
+    );
+  }
+}
+
 export function handleRequest(event) {
-  if (!envManager.isLoaded) envManager.loadEnv();
-  if (!console.level) globalConsoleLevel(env.logLevel || "debug");
-  if (!globalThis.log) globalThis.log = new Log();
-
-  const processingTimeout = envManager.get("workerTimeout");
-  const respectTimeout =
-    envManager.get("runTimeEnv") == "worker" && processingTimeout > 0;
-
-  if (!respectTimeout) return proxyRequest(event);
+  initEnvIfNeeded();
 
   return Promise.race([
-    new Promise((resolve, _) => {
-      resolve(proxyRequest(event));
+
+    new Promise((accept, _) => {
+      accept(proxyRequest(event));
     }),
-    new Promise((resolve, _) => {
-      setTimeout(() => {
-        // on timeout, send a serv-fail
-        resolve(servfail(event));
-      }, processingTimeout);
+
+    new Promise((accept, _) => {
+      // on timeout, servfail
+      util.timeout(
+        dnsutil.requestTimeout(),
+        () => accept(servfail(event.request))
+      );
     }),
+
   ]);
 }
 
 async function proxyRequest(event) {
   try {
-    if (event.request.method === "OPTIONS") {
-      const res = new Response(null, { status: 204 });
-      util.corsHeaders(res);
-      return res;
-    }
+    if (optionsRequest(event.request)) return respond204();
 
     const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);
 
-    util.dohHeaders(event.request, currentRequest.httpResponse);
-
     return currentRequest.httpResponse;
   } catch (err) {
     log.e(err.stack);
-    return errorOrServfail(event, err);
+    return errorOrServfail(req, err);
   }
 }
 
-function errorOrServfail(event, err) {
-  if (util.fromBrowser(event)) {
-    const res = new Response(JSON.stringify(e.stack));
-    util.browserHeaders(res);
-    return res;
-  }
-  return servfail(event);
+function optionsRequest(req) {
+  return req.method === "OPTIONS";
 }
 
-function servfail(event) {
-  const res = new Response(dnsutil.servfail);
-  util.dohHeaders(event.request, res);
+function respond204() {
+  return new Response(null, {
+    status: 204, // no content
+    headers: util.corsHeaders(),
+  });
+}
+
+function errorOrServfail(req, err) {
+  if (!util.fromBrowser(req)) return servfail();
+
+  const res = new Response(
+    JSON.stringify(err.stack),
+    {
+      status: 503, // unavailable
+      headers: util.browserHeaders(),
+    }
+  );
   return res;
+}
+
+function servfail() {
+  return new Response(
+    dnsutil.servfail(), // null response
+    {
+      status: 503, // unavailable
+      headers: util.dnsHeaders(),
+    }
+  );
 }

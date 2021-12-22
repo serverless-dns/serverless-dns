@@ -5,17 +5,27 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import { uid } from "./util.js";
 
 /**
- * Configure console log level globally. May be checked with `console.logLevel`.
- * `console` methods are made non-functional accordingly.
- * Call this only once.
- * @param {'error'|'warn'|'info'|'timer'|'debug'} level - log level
- * @returns
+ * @typedef {'error'|'warn'|'info'|'timer'|'debug'} logLevels
  */
-export function globalConsoleLevel(level) {
-  level = level.toLowerCase().trim();
-  if (console.level) throw new Error("Console level already configured");
+
+// high "error" (4); low "debug" (0)
+const _LOG_LEVELS = new Map(
+  ["error", "warn", "info", "timer", "debug"].reverse().map((l, i) => [l, i])
+);
+
+/**
+ * Configure console level.
+ * `console` methods are made non-functional accordingly.
+ * May be checked with `console.level`.
+ * Has no default value, to prevent accidentally nullifying console methods. So,
+ * the de facto console level is 'debug`.
+ * @param {logLevels} level - log level
+ * @returns level
+ */
+function _setConsoleLevel(level) {
   switch (level) {
     case "error":
       globalThis.console.warn = () => null;
@@ -30,11 +40,11 @@ export function globalConsoleLevel(level) {
     case "debug":
       break;
     default:
-      console.error("Unknown console level", level);
+      console.error("Unknown console level: ", level);
       level = null;
   }
   if (level) {
-    console.log("Global console level :", level);
+    console.log("Console level set: ", level);
     globalThis.console.level = level;
   }
   return level;
@@ -43,17 +53,18 @@ export function globalConsoleLevel(level) {
 export default class Log {
   /**
    * Provide console methods alias and similar meta methods.
-   * Sets log level for the current instance. Default: `debug`.
-   * Global console level has to be set first, functionality of Log instance
-   * will not exceed it.
-   * @param {'error'|'warn'|'info'|'timer'|'debug'} [level] - log level
+   * Sets log level for the current instance.
+   * Default='debug', so as default instance (`new Log()`) is a pure alias.
+   * If console level has been set, log level cannot be lower than it.
+   * @param {logLevels} [level] - log level
+   * @param {boolean} [isConsoleLevel=false] - Set console level to `level`
    */
-  constructor(level) {
-    if (!console.level) throw new Error("Console level not configured");
-    this.logLevels = ["error", "warn", "info", "timer", "debug"];
+  constructor(level, isConsoleLevel) {
+    if (!_LOG_LEVELS.has(level)) level = "debug";
+    if (isConsoleLevel && !console.level) _setConsoleLevel(level);
     this.setLevel(level);
   }
-  resetLevel() {
+  _resetLevel() {
     this.l = console.log;
     this.d = () => null;
     this.lapTime = () => null;
@@ -63,8 +74,24 @@ export default class Log {
     this.w = () => null;
     this.e = () => null;
   }
+  /**
+   * Modify log level of this instance. Unlike the constructor, this has no
+   * default value.
+   * @param {logLevels} level
+   */
   setLevel(level) {
-    this.resetLevel();
+    if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
+
+    if (
+      console.level &&
+      _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)
+    ) {
+      throw new Error(
+        `Cannot set (log.level='${level}') < (console.level = '${console.level}')`
+      );
+    }
+
+    this._resetLevel();
     switch (level) {
       default:
       case "debug":
@@ -72,7 +99,7 @@ export default class Log {
       case "timer":
         this.lapTime = console.timeLog;
         this.startTime = function (name) {
-          name += id();
+          name += uid();
           console.time(name);
           return name;
         };
@@ -84,13 +111,6 @@ export default class Log {
       case "error":
         this.e = console.error;
     }
-    if (this.logLevels.indexOf(level) < 0) this.logLevel = "debug";
-    else this.logLevel = level;
+    this.level = level;
   }
-}
-
-// stackoverflow.com/a/8084248
-function id() {
-  // ex: ".ww8ja208it"
-  return (Math.random() + 1).toString(36).slice(1);
 }

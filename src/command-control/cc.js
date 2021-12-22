@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import * as util from "../helpers/util.js";
 
 export class CommandControl {
   constructor() {
@@ -84,7 +85,7 @@ export class CommandControl {
         if (pathSplit.length >= 3) {
           b64UserFlag = pathSplit[2];
         }
-        response.data.httpResponse = configRedirect(          
+        response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
           this.latestTimestamp
@@ -103,13 +104,7 @@ export class CommandControl {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "CommandControl commandOperation";
-      response.data.httpResponse = new Response(
-        JSON.stringify(response.exceptionStack),
-      );
-      response.data.httpResponse.headers.set(
-        "Content-Type",
-        "application/json",
-      );
+      response.data.httpResponse = jsonResponse(response.exceptionStack);
     }
     return response;
   }
@@ -144,9 +139,7 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     returndata.list = false;
   }
 
-  let response = new Response(JSON.stringify(returndata));
-  response.headers.set("Content-Type", "application/json");
-  return response;
+  return jsonResponse(returndata);
 }
 
 function domainNameToUint(queryString, blocklistFilter) {
@@ -163,9 +156,7 @@ function domainNameToUint(queryString, blocklistFilter) {
     returndata.list = false;
   }
 
-  let response = new Response(JSON.stringify(returndata));
-  response.headers.set("Content-Type", "application/json");
-  return response;
+  return jsonResponse(returndata);
 }
 
 function listToB64(queryString, blocklistFilter) {
@@ -179,9 +170,7 @@ function listToB64(queryString, blocklistFilter) {
     list.split(","),
     flagVersion,
   );
-  let response = new Response(JSON.stringify(returndata));
-  response.headers.set("Content-Type", "application/json");
-  return response;
+  return jsonResponse(returndata);
 }
 
 function b64ToList(queryString, blocklistFilter) {
@@ -200,7 +189,13 @@ function b64ToList(queryString, blocklistFilter) {
   } else {
     returndata.list = "Invalid B64 String";
   }
-  response = new Response(JSON.stringify(returndata));
-  response.headers.set("Content-Type", "application/json");
-  return response;
+  return jsonResponse(returndata);
 }
+
+function jsonResponse(obj) {
+  return new Response(
+    JSON.stringify(obj),
+    { headers : util.jsonHeaders() },
+  );
+}
+
