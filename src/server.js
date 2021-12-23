@@ -224,7 +224,7 @@ function getMetadata(sni) {
 function serveTLS(socket) {
   const sni = socket.servername;
   if (!sni) {
-    log.w("No SNI, closing client connection");
+    log.debug("No SNI, closing client connection");
     close(socket);
     return;
   }
