@@ -51,18 +51,24 @@ export class CommandControl {
     const emptyFlag = "";
     const p = url.pathname.split("/"); // ex: max.rethinkdns.com/cmd/XYZ
     const d = url.host.split("."); // ex: XYZ.max.rethinkdns.com
+
+    // "configure" cmd, blockstamp (userFlag) must be at p[2]
     if (this.isConfigureCmd(p[1])) {
       return (p.length >= 3) ? p[2] : emptyFlag;
     }
-    if (isDnsCmd) { // command-control does not act on dns msgs
-      return emptyFlag;
-    } else {
-      if (p[1]) { // has path, possibly doh
-        return p[1]; // ex: max.rethinkdns.com/XYZ
-      } else { // no path, possibly dot
-        return (d.length > 1) ? d[0] : emptyFlag;
-      }
-    }
+
+    // Redirect to the configure webpage when _no commands_ are set.
+    // This happens when user clicks, say XYZ.max.rethinkdns.com or
+    // max.rethinkdns.com/XYZ and it opens in a browser.
+
+    // When incoming request is a dns-msg, all cmds are no-op
+    if (isDnsCmd) return emptyFlag;
+
+    // has path, possibly doh
+    if (p[1]) return p[1]; // ex: max.rethinkdns.com/XYZ
+
+    // no path, possibly dot
+    return (d.length > 1) ? d[0] : emptyFlag;
   }
 
   commandOperation(url, blocklistFilter, isDnsMsg) {
@@ -145,7 +151,7 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
   let q = "?tstamp=" + timestamp;
   q += (!isRethinkDns(origin)) ? "&v=ext&u=" + origin : "";
   q += (highlight) ? "&s=added" : "";
-  q += "#" + userFlag;
+  q += (userFlag) ? "#" + userFlag : "";
   return Response.redirect(u + q, 302);
 }
 
