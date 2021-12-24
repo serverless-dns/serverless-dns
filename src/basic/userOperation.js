@@ -7,6 +7,7 @@
  */
 import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
+import * as util from "../helpers/util.js";
 
 export class UserOperation {
   constructor() {
@@ -23,7 +24,7 @@ export class UserOperation {
   async RethinkModule(param) {
     return this.loadUser(param);
   }
-  
+
   loadUser(param) {
     let response = {};
     response.isException = false;
@@ -57,7 +58,7 @@ export class UserOperation {
         currentUser.userBlocklistFlagUint = response.userBlocklistFlagUint;
         currentUser.flagVersion = response.flagVersion;
 
-        if (currentUser.userBlocklistFlagUint !== "") {
+        if (!util.emptyString(currentUser.userBlocklistFlagUint)) {
           currentUser.userServiceListUint = this.blocklistFilter
             .flagIntersection(
               currentUser.userBlocklistFlagUint,

@@ -8,6 +8,7 @@
 
 import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlockOperation from "./dnsBlockOperation.js";
+import * as util from "../helpers/util.js";
 
 export default class DNSBlock {
   constructor() {
@@ -34,9 +35,8 @@ export default class DNSBlock {
     response.data.isBlocked = false;
     response.data.blockedB64Flag = "";
     try {
-      if (param.userBlocklistInfo.userBlocklistFlagUint.length !== "") {
+      if (hasBlocklistStamp(param)) {
         let domainNameBlocklistInfo;
-        // FIXME: handle HTTPS/SVCB
         if (
           (param.requestDecodedDnsPacket.questions.length >= 1) &&
           (param.requestDecodedDnsPacket.questions[0].type == "A" ||
@@ -75,6 +75,12 @@ export default class DNSBlock {
     }
     return response;
   }
+}
+
+function hasBlocklistStamp(param) {
+  return param &&
+    param.userBlocklistInfo &&
+    !util.emptyString(param.userBlocklistInfo.userBlocklistFlagUint);
 }
 
 function toCacheApi(param, wCache, domainNameBlocklistInfo) {

@@ -7,11 +7,13 @@
  */
 
 import DNSBlockOperation from "./dnsBlockOperation.js";
+import * as util from "../helpers/util.js";
 
 export default class DNSResponseBlock {
   constructor() {
     this.dnsBlockOperation = new DNSBlockOperation();
   }
+
   /**
    * @param {*} param
    * @param {*} param.userBlocklistInfo
@@ -28,7 +30,7 @@ export default class DNSResponseBlock {
     response.data.isBlocked = false;
     response.data.blockedB64Flag = "";
     try {
-      if (param.userBlocklistInfo.userBlocklistFlagUint !== "") {
+      if (hasBlocklistStamp(param)) {
         if (
           param.responseDecodedDnsPacket.answers.length > 0 &&
           param.responseDecodedDnsPacket.answers[0].type == "CNAME"
@@ -76,6 +78,7 @@ function checkHttpsSvcbBlock(
     }
   }
 }
+
 function checkCnameBlock(param, response, dnsBlockOperation) {
   let cname = param.responseDecodedDnsPacket.answers[0].data.trim().toLowerCase();
   let domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
@@ -111,3 +114,10 @@ function checkCnameBlock(param, response, dnsBlockOperation) {
     }
   }
 }
+
+function hasBlocklistStamp(param) {
+  return param &&
+    param.userBlocklistInfo &&
+    !util.emptyString(param.userBlocklistInfo.userBlocklistFlagUint);
+}
+

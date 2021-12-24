@@ -13,7 +13,7 @@ import * as util from "../helpers/util.js";
 export default class CurrentRequest {
   constructor() {
     this.blockedB64Flag = "";
-    this.decodedDnsPacket = undefined;
+    this.decodedDnsPacket = this.emptyDecodedDnsPacket();
     this.httpResponse = undefined;
     this.isException = false;
     this.exceptionStack = undefined;
@@ -25,21 +25,34 @@ export default class CurrentRequest {
     this.dnsParser = new DnsParser();
   }
 
+  emptyDecodedDnsPacket() {
+    return { id: 0, questions: null };
+  }
+
+  initDecodedDnsPacketIfNeeded() {
+    if (!this.decodedDnsPacket) {
+      this.decodedDnsPacket = this.emptyDecodedDnsPacket();
+    }
+  }
+
   dnsExceptionResponse() {
+    this.initDecodedDnsPacketIfNeeded();
+
     const qid = this.decodedDnsPacket.id;
     const questions = this.decodedDnsPacket.questions;
     const ex = {
       exceptionFrom: this.exceptionFrom,
       exceptionStack: this.exceptionStack,
     };
+    const servfail = dnsutil.servfail(qid, questions);
     this.httpResponse = new Response(
-      dnsutil.servfail(qid, questions),
       {
+        servfail,
         headers : util.concatHeaders(
           this.headers(),
           this.additionalHeader(JSON.stringify(ex)),
         ),
-        status : 200, // rfc8484 section-4.2.1
+        status : (servfail) ? 200 : 500, // rfc8484 section-4.2.1
       },
     );
   }
@@ -67,6 +80,7 @@ export default class CurrentRequest {
   }
 
   dnsBlockResponse() {
+    this.initDecodedDnsPacketIfNeeded();
     try {
       this.decodedDnsPacket.type = "response";
       this.decodedDnsPacket.rcode = "NOERROR";

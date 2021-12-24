@@ -68,7 +68,7 @@ export function corsHeaders() {
 
 /**
  * @param {String} ua - User Agent string
- * @returns 
+ * @returns
  */
 export function corsHeadersIfNeeded(ua) {
   // allow cors when user agents claiming to be browsers
@@ -104,7 +104,7 @@ export function concatHeaders() {
 
 /**
  * @param {Request} request - Request
- * @returns 
+ * @returns
  */
 export function copyHeaders(request) {
   const headers = {}
@@ -213,7 +213,7 @@ export function safeBox(fn, defaultResponse = null) {
 
 /**
  * @param {Request} req - Request
- * @returns 
+ * @returns
  */
 export function isDnsMsg(req) {
   return req.headers.get("Accept") === "application/dns-message" ||
@@ -240,3 +240,8 @@ export function errResponse(id, err) {
     data: false,
   }
 }
+
+export function emptyString(str) {
+    return !str || str.length === 0
+}
+

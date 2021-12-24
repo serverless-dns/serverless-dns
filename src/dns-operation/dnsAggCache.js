@@ -9,6 +9,7 @@
 import DNSParserWrap from "./dnsParserWrap.js";
 import DNSBlockOperation from "./dnsBlockOperation.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
+import * as util from "../helpers/util.js";
 
 export default class DNSAggCache {
   constructor() {
@@ -102,7 +103,7 @@ async function parseCacheapiResponse(
       reqDecodedDnsPacket.questions[0].type == "HTTPS" ||
       reqDecodedDnsPacket.questions[0].type == "SVCB") &&
     metaData.blocklistInfo &&
-    userBlocklistInfo.userBlocklistFlagUint !== ""
+    !util.emptyString(userBlocklistInfo.userBlocklistFlagUint)
   ) {
     metaData.blocklistInfo = new Map(Object.entries(metaData.blocklistInfo));
     let blockResponse = dnsBlockOperation.checkDomainBlocking(

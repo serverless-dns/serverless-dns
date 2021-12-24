@@ -9,7 +9,7 @@
 import { Buffer } from "buffer";
 import { LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
-
+import * as util from "../helpers/util.js";
 import { base32, rbase32 } from "./b32.js";
 
 export class BlocklistFilter {
@@ -83,12 +83,14 @@ export class BlocklistFilter {
   }
 
   flagIntersection(flag1, flag2) {
+    // handle empty flags
+    if (util.emptyString(flag1) || util.emptyString(flag2)) return false;
+
     try {
       let flag1Header = flag1[0];
       let flag2Header = flag2[0];
       let intersectHeader = flag1Header & flag2Header;
       if (intersectHeader == 0) {
-        //console.log("first return")
         return false;
       }
       let flag1Length = flag1.length - 1;
@@ -101,7 +103,6 @@ export class BlocklistFilter {
         if ((flag1Header & 1) == 1) {
           if ((tmpInterectHeader & 1) == 1) {
             tmpBodyIntersect = flag1[flag1Length] & flag2[flag2Length];
-            //console.log(flag1[flag1Length] + " :&: " + flag2[flag2Length] + " -- " + tmpBodyIntersect)
             if (tmpBodyIntersect == 0) {
               intersectHeader = intersectHeader ^ maskHeaderForBodyEmpty;
             } else {
@@ -118,9 +119,7 @@ export class BlocklistFilter {
         flag2Header = flag2Header >>> 1;
         maskHeaderForBodyEmpty = maskHeaderForBodyEmpty * 2;
       }
-      //console.log(intersectBody)
       if (intersectHeader == 0) {
-        //console.log("Second Return")
         return false;
       }
       const intersectFlag = new Uint16Array(intersectBody.length + 1);
