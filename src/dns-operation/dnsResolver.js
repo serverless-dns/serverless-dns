@@ -12,6 +12,7 @@ import * as dnsutil from "../helpers/dnsutil.js";
 import * as envutil from "../helpers/envutil.js";
 import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import * as util from "../helpers/util.js";
+import { transformPseudoHeaders } from "../helpers/node/util.js";
 
 const quad1 = "1.1.1.2";
 const ttlGraceSec = 30; // 30s cache extra time
@@ -130,8 +131,9 @@ export default class DNSResolver {
   }
 
   makeCacheResponse(queryId, dnsPacket, expiry = null) {
-    if (expiry !== null && expiry < Date.now()) { // stale, expired entry
-      log.d("mkcache stale", expiry)
+    if (expiry !== null && expiry < Date.now()) {
+      // stale, expired entry
+      log.d("mkcache stale", expiry);
       return false;
     }
 
@@ -139,12 +141,14 @@ export default class DNSResolver {
       return this.dnsParser.Decode(dnsPacket);
     });
 
-    if (!decodedDnsPacket) { // can't decode
+    if (!decodedDnsPacket) {
+      // can't decode
       log.w("mkcache decode failed", expiry);
       return false;
     }
 
-    if (expiry === null) { // new cache entrant
+    if (expiry === null) {
+      // new cache entrant
       expiry = this.determineCacheExpiry(decodedDnsPacket);
     }
 
@@ -152,21 +156,20 @@ export default class DNSResolver {
     reencode = this.updateQueryId(decodedDnsPacket, queryId) || reencode;
 
     const updatedDnsPacket = util.safeBox(() => {
-      return (reencode) ?
-        this.dnsParser.Encode(decodedDnsPacket) :
-        dnsPacket;
-    })
+      return reencode ? this.dnsParser.Encode(decodedDnsPacket) : dnsPacket;
+    });
 
-    if (!updatedDnsPacket) { // can't re-encode
+    if (!updatedDnsPacket) {
+      // can't re-encode
       log.w("mkcache re-encode failed", decodedDnsPacket, expiry);
       return false;
     }
 
     const cacheRes = {
       dnsPacket: updatedDnsPacket,
-      decodedDnsPacket : decodedDnsPacket,
+      decodedDnsPacket: decodedDnsPacket,
       ttlEndTime: expiry, // may be zero
-    }
+    };
 
     return cacheRes;
   }
@@ -187,9 +190,9 @@ export default class DNSResolver {
 
     // strike out redundant decoded packet
     const nv = {
-      dnsPacket : v.dnsPacket,
-      ttlEndTime : v.ttlEndTime,
-    }
+      dnsPacket: v.dnsPacket,
+      ttlEndTime: v.ttlEndTime,
+    };
 
     this.dnsResCache.Put(k, nv);
   }
@@ -211,11 +214,12 @@ export default class DNSResolver {
     return util.concatHeaders(
       {
         "x-rethink-metadata": JSON.stringify(
-          this.httpCacheMetadata(cres, blFilter))
+          this.httpCacheMetadata(cres, blFilter)
+        ),
       },
       util.contentLengthHeader(cres.dnsPacket),
       util.dnsHeaders(),
-      { cf: { cacheTtl: httpCacheTtl } },
+      { cf: { cacheTtl: httpCacheTtl } }
     );
   }
 
@@ -237,14 +241,16 @@ export default class DNSResolver {
 
     if (!upRes) throw new Error("no upstream result"); // no answer
 
-    if (!upRes.ok) { // serv-fail
+    if (!upRes.ok) {
+      // serv-fail
       log.d("!OK", upRes.status, upRes.statusText, await upRes.text());
       throw new Error(upRes.status + " http err: " + upRes.statusText);
     }
 
     const dnsPacket = await upRes.arrayBuffer();
 
-    if (!dnsutil.validResponseSize(dnsPacket)) { // invalid answer
+    if (!dnsutil.validResponseSize(dnsPacket)) {
+      // invalid answer
       throw new Error("inadequate response from upstream");
     }
 
@@ -272,7 +278,7 @@ export default class DNSResolver {
     if (minttl === 1 << 30) return expiresImmediately;
 
     minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
-    const expiry = Date.now() + (minttl * 1000);
+    const expiry = Date.now() + minttl * 1000;
 
     return expiry;
   }
@@ -282,9 +288,7 @@ export default class DNSResolver {
     // stackoverflow.com/a/55093896
     if (packet.questions.length != 1) return null;
 
-    const name = packet.questions[0].name
-        .trim()
-        .toLowerCase();
+    const name = packet.questions[0].name.trim().toLowerCase();
     const type = packet.questions[0].type;
     return name + ":" + type;
   }
@@ -316,7 +320,6 @@ export default class DNSResolver {
 
     return updated;
   }
-
 }
 
 function httpCacheMetadata(cacheRes, blFilter) {
@@ -326,7 +329,7 @@ function httpCacheMetadata(cacheRes, blFilter) {
     throw new Error("cache expects just the one dns question");
   }
 
-  const name = cacheRes.decodedDnsPacket.questions[0].name
+  const name = cacheRes.decodedDnsPacket.questions[0].name;
   return {
     ttlEndTime: cacheRes.ttlEndTime,
     bodyUsed: true,
@@ -349,7 +352,6 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   try {
     // for now, upstream plain-old dns on fly
     if (this.transport) {
-
       const q = util.bufferOf(requestBodyBuffer);
 
       let ans = await this.transport.udpquery(q);
@@ -384,14 +386,13 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
         method: "POST",
         headers: util.concatHeaders(
           util.contentLengthHeader(requestBodyBuffer),
-          util.dnsHeaders(),
+          util.dnsHeaders()
         ),
         body: requestBodyBuffer,
       });
     } else {
       throw new Error("get/post requests only");
     }
-
 
     return this.http2 ? this.doh2(newRequest) : fetch(newRequest);
   } catch (e) {
@@ -410,10 +411,7 @@ DNSResolver.prototype.doh2 = async function (request) {
 
   const u = new URL(request.url);
   const reqB = util.bufferOf(await request.arrayBuffer());
-  const headers = {};
-  request.headers.forEach((v, k) => {
-    headers[k] = v;
-  });
+  const headers = util.copyHeaders(request);
 
   return new Promise((resolve, reject) => {
     // TODO: h2 connection pool
@@ -432,12 +430,7 @@ DNSResolver.prototype.doh2 = async function (request) {
 
     req.on("response", (headers) => {
       const resBuffers = [];
-      const resH = {};
-      for (const k in headers) {
-        // Transform http/2 pseudo-headers
-        if (k.startsWith(":")) resH[k.slice(1)] = headers[k];
-        else resH[k] = headers[k];
-      }
+      const resH = transformPseudoHeaders(headers);
       req.on("data", (chunk) => {
         resBuffers.push(chunk);
       });
@@ -454,4 +447,3 @@ DNSResolver.prototype.doh2 = async function (request) {
     req.end(reqB);
   });
 };
-

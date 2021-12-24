@@ -19,3 +19,35 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
       .map((v) => Buffer.from(v.substring(v.indexOf("=") + 1), "base64"));
   } else throw new Error("TLS cert / key malformed");
 }
+
+/**
+ * @param {Object} headers
+ * @returns
+ */
+export function copyNonPseudoHeaders(headers) {
+  const resH = {};
+  if (!headers) return resH;
+
+  // drop http/2 pseudo-headers
+  for (const name in headers) {
+    if (name.startsWith(":")) continue;
+    resH[name] = headers[name];
+  }
+  return resH;
+}
+
+/**
+ * @param {Object} headers
+ * @returns
+ */
+export function transformPseudoHeaders(headers) {
+  const resH = {};
+  if (!headers) return resH;
+
+  // Transform http/2 pseudo-headers
+  for (const name in headers) {
+    if (name.startsWith(":")) resH[name.slice(1)] = headers[name];
+    else resH[name] = headers[name];
+  }
+  return resH;
+}

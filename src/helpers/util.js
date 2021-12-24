@@ -1,10 +1,16 @@
-/*
+/**
+ * Generic utility functions, shared between all runtime.
+ * Functions dependent on runtime apis of deno / node.js may to be put here, but
+ * should be node.js or deno specific util files.
+ * 
+ * @license
  * Copyright (c) 2021 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 import { Buffer } from "buffer"
 
 /**
@@ -36,10 +42,7 @@ export function encodeUint8ArrayBE(n, len) {
   return new Uint8Array(a)
 }
 
-export function fromBrowser(req) {
-  if (!req || !req.headers) return false
-
-  const ua = req.headers.get("User-Agent")
+export function fromBrowser(ua) {
   return ua && ua.startsWith("Mozilla/5.0")
 }
 
@@ -63,9 +66,13 @@ export function corsHeaders() {
   }
 }
 
-export function corsHeadersIfNeeded(req) {
-  // allow cors when reqs from agents claiming to be browsers
-  return (fromBrowser(req)) ? corsHeaders() : {}
+/**
+ * @param {String} ua - User Agent string
+ * @returns 
+ */
+export function corsHeadersIfNeeded(ua) {
+  // allow cors when user agents claiming to be browsers
+  return (fromBrowser(ua)) ? corsHeaders() : {}
 }
 
 export function browserHeaders() {
@@ -75,10 +82,14 @@ export function browserHeaders() {
   );
 }
 
-export function dohHeaders(req) {
+/**
+ * @param {String} ua - User Agent string
+ * @returns {Object} - Headers
+ */
+export function dohHeaders(ua) {
   return Object.assign(
     dnsHeaders(),
-    corsHeadersIfNeeded(req),
+    corsHeadersIfNeeded(ua),
   )
 }
 
@@ -91,26 +102,18 @@ export function concatHeaders() {
   return Object.assign(...arguments)
 }
 
-export function copyHeaders(req) {
+/**
+ * @param {Request} request - Request
+ * @returns 
+ */
+export function copyHeaders(request) {
   const headers = {}
-  if (!req || !req.headers) return headers
+  if (!request || !request.headers) return headers
 
   // Object.assign, Object spread, etc don't work
-  req.headers.forEach((val, name) => {
+  request.headers.forEach((val, name) => {
     headers[name] = val
   })
-  return headers
-}
-
-export function copyNonPseudoHeaders(req) {
-  const headers = {}
-  if (!req || !req.headers) return headers
-
-  // drop http/2 pseudo-headers
-  for (const name in req.headers) {
-    if (name.startsWith(":")) continue
-    headers[name] = req.headers[name]
-  }
   return headers
 }
 
@@ -208,6 +211,10 @@ export function safeBox(fn, defaultResponse = null) {
   return defaultResponse
 }
 
+/**
+ * @param {Request} req - Request
+ * @returns 
+ */
 export function isDnsMsg(req) {
   return req.headers.get("Accept") === "application/dns-message" ||
     req.headers.get("Content-Type") === "application/dns-message"

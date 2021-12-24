@@ -38,19 +38,16 @@ export function handleRequest(event) {
   initEnvIfNeeded();
 
   return Promise.race([
-
     new Promise((accept, _) => {
       accept(proxyRequest(event));
     }),
 
     new Promise((accept, _) => {
       // on timeout, servfail
-      util.timeout(
-        dnsutil.requestTimeout(),
-        () => accept(servfail(event.request))
+      util.timeout(dnsutil.requestTimeout(), () =>
+        accept(servfail(event.request))
       );
     }),
-
   ]);
 }
 
@@ -65,12 +62,12 @@ async function proxyRequest(event) {
     return currentRequest.httpResponse;
   } catch (err) {
     log.e(err.stack);
-    return errorOrServfail(req, err);
+    return errorOrServfail(event.request, err);
   }
 }
 
-function optionsRequest(req) {
-  return req.method === "OPTIONS";
+function optionsRequest(request) {
+  return request.method === "OPTIONS";
 }
 
 function respond204() {
@@ -80,16 +77,14 @@ function respond204() {
   });
 }
 
-function errorOrServfail(req, err) {
-  if (!util.fromBrowser(req)) return servfail();
+function errorOrServfail(request, err) {
+  const UA = request.headers.get("User-Agent");
+  if (!util.fromBrowser(UA)) return servfail();
 
-  const res = new Response(
-    JSON.stringify(err.stack),
-    {
-      status: 503, // unavailable
-      headers: util.browserHeaders(),
-    }
-  );
+  const res = new Response(JSON.stringify(err.stack), {
+    status: 503, // unavailable
+    headers: util.browserHeaders(),
+  });
   return res;
 }
 

@@ -14,6 +14,7 @@ import { V1ProxyProtocol } from "proxy-protocol-js";
 import { handleRequest } from "./index.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 import * as util from "./helpers/util.js";
+import { copyNonPseudoHeaders } from "./helpers/node/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
@@ -377,6 +378,7 @@ async function resolveQuery(q, host, flag) {
  * @param {Http2ServerResponse} res
  */
 async function serveHTTPS(req, res) {
+  const ua = req.headers["user-agent"];
   const buffers = [];
 
   const t = log.startTime("recv-https");
@@ -390,7 +392,7 @@ async function serveHTTPS(req, res) {
   log.endTime(t);
 
   if (req.method == "POST" && !dnsutil.validResponseSize(b)) {
-    res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(req));
+    res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
     res.end();
     log.w(`HTTP req body length out of bounds: ${bLen}`);
     return;
@@ -402,8 +404,8 @@ async function serveHTTPS(req, res) {
 
 /**
  * @param {Buffer} b - Request body
- * @param {IncomingMessage} req
- * @param {ServerResponse} res
+ * @param {Http2ServerRequest} req
+ * @param {Http2ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
   const t = log.startTime("handle-http-req");
@@ -415,7 +417,7 @@ async function handleHTTPRequest(b, req, res) {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
-      headers: util.copyNonPseudoHeaders(req),
+      headers: copyNonPseudoHeaders(req.headers),
       method: req.method,
       body: req.method == "POST" ? b : null,
     });
