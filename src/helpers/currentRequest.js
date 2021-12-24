@@ -45,9 +45,8 @@ export default class CurrentRequest {
       exceptionStack: this.exceptionStack,
     };
     const servfail = dnsutil.servfail(qid, questions);
-    this.httpResponse = new Response(
+    this.httpResponse = new Response(servfail,
       {
-        servfail,
         headers : util.concatHeaders(
           this.headers(),
           this.additionalHeader(JSON.stringify(ex)),

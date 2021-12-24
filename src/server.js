@@ -59,7 +59,7 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
 })();
 
 function close(sock) {
-  sock.destroy();
+  util.safeBox(() => sock.destroy());
 }
 
 /**
@@ -116,13 +116,9 @@ function serveDoTProxyProto(clientSocket) {
       log.d(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
 
       // remaining data from first tcp segment
-      let ok = !dotSock.destroyed && dotSock.write(buf.slice(delim));
-      if (!ok)
-        throw new Error(
-          proto + " err dotSock write len(buf): " + buf.byteLength
-        );
+      if (!dotSock.destroyed) dotSock.write(buf.slice(delim));
 
-      ok = proxySockets(clientSocket, dotSock);
+      const ok = proxySockets(clientSocket, dotSock);
       if (!ok) throw new Error(proto + " err clientSock <> dotSock proxy");
     } catch (e) {
       log.w(e);
@@ -334,9 +330,8 @@ async function handleTCPQuery(q, socket, host, flag) {
     const rlBuf = util.encodeUint8ArrayBE(r.byteLength, 2);
     const chunk = new Uint8Array([...rlBuf, ...r]);
 
-    // Don't write to a closed socket, else it will crash nodejs
-    if (!socket.destroyed) ok = socket.write(chunk);
-    if (!ok) log.e(`res write incomplete: < ${r.byteLength + 2}`);
+    // writing to a destroyed socket crashes nodejs
+    if (!socket.destroyed) socket.write(chunk);
   } catch (e) {
     ok = false;
     log.w(e);
