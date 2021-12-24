@@ -12,7 +12,6 @@ import * as dnsutil from "../helpers/dnsutil.js";
 import * as envutil from "../helpers/envutil.js";
 import { LocalCache as LocalCache } from "../cache-wrapper/cache-wrapper.js";
 import * as util from "../helpers/util.js";
-import { transformPseudoHeaders } from "../helpers/node/util.js";
 
 const quad1 = "1.1.1.2";
 const ttlGraceSec = 30; // 30s cache extra time
@@ -25,6 +24,7 @@ export default class DNSResolver {
     this.dnsResCache = null;
     this.httpCache = null;
     this.http2 = null;
+    this.nodeUtil = null;
     this.transport = null;
   }
 
@@ -37,6 +37,7 @@ export default class DNSResolver {
     }
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
+      this.nodeUtil = await import("../helpers/node/util.js");
     }
     if (envutil.isNode() && !this.transport) {
       this.transport = new (
@@ -408,6 +409,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
 DNSResolver.prototype.doh2 = async function (request) {
   console.debug("upstream using h2");
   const http2 = this.http2;
+  const transformPseudoHeaders = this.nodeUtil.transformPseudoHeaders;
 
   const u = new URL(request.url);
   const reqB = util.bufferOf(await request.arrayBuffer());

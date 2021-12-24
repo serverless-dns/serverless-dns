@@ -1,8 +1,8 @@
 /**
  * Generic utility functions, shared between all runtime.
- * Functions dependent on runtime apis of deno / node.js may to be put here, but
- * should be node.js or deno specific util files.
- * 
+ * Functions dependent on runtime apis of deno / node.js may not be put here,
+ * but should be node.js or deno specific util files.
+ *
  * @license
  * Copyright (c) 2021 RethinkDNS and its authors.
  *
