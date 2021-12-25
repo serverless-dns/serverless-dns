@@ -54,21 +54,21 @@ export class Transport {
     let sock = this.tcpconns.take()
     log.d("tcp pooled?", sock !== null)
 
-    const t = log.starttime("tcp-query")
+    const t = log.startTime("tcp-query")
     let ans = null
     try {
       sock = sock || await this.makeConn("tcp")
-      log.laptime(t, "make-conn")
+      log.lapTime(t, "make-conn")
 
       ans = await TcpTx.begin(sock).exchange(q, this.ioTimeout)
-      log.laptime(t, "get-ans")
+      log.lapTime(t, "get-ans")
 
       this.parkConn(sock, "tcp")
     } catch(ex) {
       this.closeTcp(sock)
       log.e(ex)
     }
-    log.endtime(t)
+    log.endTime(t)
 
     return ans
   }
