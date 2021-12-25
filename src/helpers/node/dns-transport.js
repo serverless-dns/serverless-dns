@@ -13,6 +13,13 @@ import { TcpTx, UdpTx } from "../dns/transact.js"
 import net from "net";
 import dgram from "dgram";
 
+// Transport upstreams plain-old DNS queries over both UDPv4 and TCPv4.
+// Host and port constructor parameters are IPv4 addresses of the upstream.
+// TCP and UDP connections are pooled for reuse, but DNS queries are not
+// multiplexed. IO timeout, connection pool size, connection expiry are other
+// constructor parameters to configure the pooling behaviour. Methods udpquery
+// and tcpquery are the main entry points which forward a raw dns-packet as
+// and return non-null dns-answers, if recieved on-time and without errors.
 export class Transport {
 
   constructor(host, port, opts = {}) {
@@ -91,6 +98,7 @@ export class Transport {
       }
       return util.timedOp(tcpconnect, this.connectTimeout, this.closeTcp)
     } else if (proto === "udp") {
+      // connected udp-sockets: archive.is/JJxaV
       const udpconnect = (cb) => {
         const sock = dgram.createSocket("udp4")
         // connect error, if any, is sent to the connection-callback

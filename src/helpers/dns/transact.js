@@ -9,6 +9,10 @@
 import * as util from "../util.js"
 import * as dnsutil from "../dnsutil.js"
 
+// TcpTx implements a single DNS question-answer exchange over TCP. It doesn't
+// multiplex multiple DNS questions over the same socket. It doesn't take the
+// ownership of the socket, but requires exclusive use of it. The socket may
+// close itself on errors, however.
 export class TcpTx {
 
   constructor(socket) {
@@ -21,7 +25,7 @@ export class TcpTx {
   }
 
   static begin(sock) {
-    return new Tx(sock)
+    return new TcpTx(sock)
   }
 
   async exchange(query, timeout) {
@@ -178,19 +182,24 @@ export class TcpTx {
   }
 }
 
+// UdpTx implements a single DNS question-answer exchange over UDP. It does not
+// multiplex multiple DNS queries over the same socket. It doesn't take the
+// ownership of the socket, but requires exclusive access to it. The socket
+// may close itself on errors, however.
 export class UdpTx {
 
   constructor(socket) {
     this.sock = socket
     // only one transaction allowed
     this.done = false
+    // ticks socket io timeout
+    this.timeoutTimerId = null
   }
 
   static begin(sock) {
     return new UdpTx(sock)
   }
 
-  // TODO: timeouts using util.timedOp
   async exchange(query, timeout) {
     if (this.done) {
       log.w("no exchange, tx is done")
@@ -208,7 +217,7 @@ export class UdpTx {
     }
 
     try {
-      const ans = this.promisedRead()
+      const ans = this.promisedRead(timeout)
 
       this.sock.on("message", onMessage)
       this.sock.on("close", onClose)
@@ -226,11 +235,12 @@ export class UdpTx {
   }
 
   write(query) {
+    if (this.done) return // discard
     this.sock.send(query) // err-on-write handled by onError
   }
 
   onMessage(b, addrinfo) {
-    if (this.done) return // no-op
+    if (this.done) return // discard
     this.yes(b)
   }
 
@@ -244,21 +254,33 @@ export class UdpTx {
     return (err) ? this.no(err.message) : this.no("close")
   }
 
-  promisedRead() {
+  promisedRead(timeout = 0) {
     const that = this
     return new Promise((resolve, reject) => {
       that.resolve = resolve
       that.reject = reject
     })
+
+    if (timeout > 0) {
+      that.timeoutTimerId = util.timeout(timeout, () => {
+        that.no("timeout")
+      })
+    }
   }
 
   yes(val) {
+    if (this.done) return
+
     this.done = true
+    clearTimeout(this.timeoutTimerId)
     this.resolve(val)
   }
 
   no(reason) {
+    if (this.done) return
+
     this.done = true
+    clearTimeout(this.timeoutTimerId)
     this.reject(reason)
   }
 
