@@ -16,8 +16,8 @@ export class CommandControl {
    * @param {Object} param
    * @param {Request} param.request
    * @param {*} param.blocklistFilter
-   * @param {*} param.latestTimestamp
-   * @param {*} param.isDnsMsg
+   * @param {String | Number} param.latestTimestamp
+   * @param {Boolean} param.isDnsMsg
    * @returns
    */
   async RethinkModule(param) {
@@ -35,6 +35,12 @@ export class CommandControl {
         param.blocklistFilter,
         param.isDnsMsg
       );
+    } else if (param.request.method !== "POST") {
+      // only GET and POST are supported
+      response.data.httpResponse = new Response(null, {
+        status: 405,
+        statusText: "Method Not Allowed",
+      });
     }
     return response;
   }
@@ -54,7 +60,7 @@ export class CommandControl {
 
     // "configure" cmd, blockstamp (userFlag) must be at p[2]
     if (this.isConfigureCmd(p[1])) {
-      return (p.length >= 3) ? p[2] : emptyFlag;
+      return p.length >= 3 ? p[2] : emptyFlag;
     }
 
     // Redirect to the configure webpage when _no commands_ are set.
@@ -68,7 +74,7 @@ export class CommandControl {
     if (p[1]) return p[1]; // ex: max.rethinkdns.com/XYZ
 
     // no path, possibly dot
-    return (d.length > 1) ? d[0] : emptyFlag;
+    return d.length > 1 ? d[0] : emptyFlag;
   }
 
   commandOperation(url, blocklistFilter, isDnsMsg) {
@@ -87,7 +93,7 @@ export class CommandControl {
       const queryString = reqUrl.searchParams;
       const pathSplit = reqUrl.pathname.split("/");
 
-      const isDnsCmd = (isDnsMsg || this.isDohGetRequest(queryString));
+      const isDnsCmd = isDnsMsg || this.isDohGetRequest(queryString);
 
       if (isDnsCmd) {
         response.data.stopProcessing = false;
@@ -98,32 +104,26 @@ export class CommandControl {
       const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
 
       if (command == "listtob64") {
-        response.data.httpResponse = listToB64(
-          queryString,
-          blocklistFilter,
-        );
+        response.data.httpResponse = listToB64(queryString, blocklistFilter);
       } else if (command == "b64tolist") {
-        response.data.httpResponse = b64ToList(
-          queryString,
-          blocklistFilter,
-        );
+        response.data.httpResponse = b64ToList(queryString, blocklistFilter);
       } else if (command == "dntolist") {
         response.data.httpResponse = domainNameToList(
           queryString,
           blocklistFilter,
-          this.latestTimestamp,
+          this.latestTimestamp
         );
       } else if (command == "dntouint") {
         response.data.httpResponse = domainNameToUint(
           queryString,
-          blocklistFilter,
+          blocklistFilter
         );
       } else if (command == "config" || command == "configure" || !isDnsCmd) {
         response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
           this.latestTimestamp,
-          !isDnsCmd,
+          !isDnsCmd
         );
       } else {
         response.data.httpResponse = new Response(null, {
@@ -142,16 +142,17 @@ export class CommandControl {
 }
 
 function isRethinkDns(hostname) {
-  return hostname.indexOf("rethinkdns") >= 0 ||
-    hostname.indexOf("bravedns") >= 0;
+  return (
+    hostname.indexOf("rethinkdns") >= 0 || hostname.indexOf("bravedns") >= 0
+  );
 }
 
 function configRedirect(userFlag, origin, timestamp, highlight) {
   const u = "https://rethinkdns.com/configure";
   let q = "?tstamp=" + timestamp;
-  q += (!isRethinkDns(origin)) ? "&v=ext&u=" + origin : "";
-  q += (highlight) ? "&s=added" : "";
-  q += (userFlag) ? "#" + userFlag : "";
+  q += !isRethinkDns(origin) ? "&v=ext&u=" + origin : "";
+  q += highlight ? "&s=added" : "";
+  q += userFlag ? "#" + userFlag : "";
   return Response.redirect(u + q, 302);
 }
 
@@ -206,7 +207,7 @@ function listToB64(queryString, blocklistFilter) {
   returndata.flagVersion = flagVersion;
   returndata.b64String = blocklistFilter.getB64FlagFromTag(
     list.split(","),
-    flagVersion,
+    flagVersion
   );
   return jsonResponse(returndata);
 }
@@ -231,9 +232,5 @@ function b64ToList(queryString, blocklistFilter) {
 }
 
 function jsonResponse(obj) {
-  return new Response(
-    JSON.stringify(obj),
-    { headers : util.jsonHeaders() },
-  );
+  return new Response(JSON.stringify(obj), { headers: util.jsonHeaders() });
 }
-

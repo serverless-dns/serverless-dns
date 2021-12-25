@@ -45,26 +45,22 @@ export default class CurrentRequest {
       exceptionStack: this.exceptionStack,
     };
     const servfail = dnsutil.servfail(qid, questions);
-    this.httpResponse = new Response(servfail,
-      {
-        headers : util.concatHeaders(
-          this.headers(),
-          this.additionalHeader(JSON.stringify(ex)),
-        ),
-        status : (servfail) ? 200 : 500, // rfc8484 section-4.2.1
-      },
-    );
+    this.httpResponse = new Response(servfail, {
+      headers: util.concatHeaders(
+        this.headers(),
+        this.additionalHeader(JSON.stringify(ex))
+      ),
+      status: servfail ? 200 : 500, // rfc8484 section-4.2.1
+    });
   }
 
   customResponse(x) {
-    this.httpResponse = new Response(null,
-      {
-        headers : util.concatHeaders(
-          this.headers(),
-          this.additionalHeader(JSON.stringify(x)),
-        )
-      },
-    );
+    this.httpResponse = new Response(null, {
+      headers: util.concatHeaders(
+        this.headers(),
+        this.additionalHeader(JSON.stringify(x))
+      ),
+    });
   }
 
   /**
@@ -72,10 +68,7 @@ export default class CurrentRequest {
    * @returns Web API Response
    */
   dnsResponse(arrayBuffer) {
-    this.httpResponse = new Response(
-      arrayBuffer,
-      { headers : this.headers() },
-    );
+    this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
   }
 
   dnsBlockResponse() {
@@ -97,22 +90,24 @@ export default class CurrentRequest {
       this.decodedDnsPacket.answers[0].flush = false;
       if (this.decodedDnsPacket.questions[0].type == "A") {
         this.decodedDnsPacket.answers[0].data = "0.0.0.0";
-      } else if(this.decodedDnsPacket.questions[0].type == "AAAA") {
+      } else if (this.decodedDnsPacket.questions[0].type == "AAAA") {
         this.decodedDnsPacket.answers[0].data = "::";
-      }
-      else if(this.decodedDnsPacket.questions[0].type == "HTTPS" || this.decodedDnsPacket.questions[0].type == "SVCB") {
-        this.decodedDnsPacket.answers[0].data = {}
+      } else if (
+        this.decodedDnsPacket.questions[0].type == "HTTPS" ||
+        this.decodedDnsPacket.questions[0].type == "SVCB"
+      ) {
+        this.decodedDnsPacket.answers[0].data = {};
         this.decodedDnsPacket.answers[0].data.svcPriority = 0;
         this.decodedDnsPacket.answers[0].data.targetName = ".";
         this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
-      this.decodedDnsPacket.authorities = []
+      this.decodedDnsPacket.authorities = [];
       this.httpResponse = new Response(
         this.dnsParser.Encode(this.decodedDnsPacket),
-        { headers : this.headers() },
+        { headers: this.headers() }
       );
     } catch (e) {
-      log.e(JSON.stringify(this.decodedDnsPacket))
+      log.e(JSON.stringify(this.decodedDnsPacket));
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
@@ -120,26 +115,27 @@ export default class CurrentRequest {
   }
 
   headers() {
-    const xNileFlags = (this.isDnsBlock) ?
-      { "x-nile-flags" : this.blockedB64Flag } : null;
-    const xNileFlagsAllowed = (this.blockedB64Flag) ?
-      { "x-nile-flags-allowed" : this.blockedB64Flag } : null;
+    const xNileFlags = this.isDnsBlock
+      ? { "x-nile-flags": this.blockedB64Flag }
+      : null;
+    const xNileFlagsAllowed = this.blockedB64Flag
+      ? { "x-nile-flags-allowed": this.blockedB64Flag }
+      : null;
 
-    return util.concatHeaders(
-      util.dnsHeaders(),
-      xNileFlags,
-      xNileFlagsAllowed,
-    );
+    return util.concatHeaders(util.dnsHeaders(), xNileFlags, xNileFlagsAllowed);
   }
 
   additionalHeader(json) {
     if (!json) return null;
 
     return {
-      "x-nile-add" : json,
+      "x-nile-add": json,
     };
   }
 
+  setCorsHeaders() {
+    for (const [name, value] of Object.entries(util.corsHeaders())) {
+      this.httpResponse.headers.set(name, value);
+    }
+  }
 }
-
-

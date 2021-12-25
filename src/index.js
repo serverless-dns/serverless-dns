@@ -59,6 +59,9 @@ async function proxyRequest(event) {
     const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);
 
+    if (util.fromBrowser(event.request.headers.get("User-Agent")))
+      currentRequest.setCorsHeaders();
+
     return currentRequest.httpResponse;
   } catch (err) {
     log.e(err.stack);
