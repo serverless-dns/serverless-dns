@@ -18,7 +18,7 @@ import { Buffer } from "buffer"
  * https://stackoverflow.com/questions/55583037/
  * @param {Number} n - Number to encode
  * @param {Number} len - Length of Array required
- * @returns
+ * @return {Uint8Array}
  */
 export function encodeUint8ArrayBE(n, len) {
   const o = n;
@@ -69,7 +69,7 @@ export function corsHeaders() {
 
 /**
  * @param {String} ua - User Agent string
- * @returns
+ * @return {Object}
  */
 export function corsHeadersIfNeeded(ua) {
   // allow cors when user agents claiming to be browsers
@@ -85,7 +85,7 @@ export function browserHeaders() {
 
 /**
  * @param {String} ua - User Agent string
- * @returns {Object} - Headers
+ * @return {Object} - Headers
  */
 export function dohHeaders(ua) {
   return Object.assign(
@@ -105,7 +105,7 @@ export function concatHeaders() {
 
 /**
  * @param {Request} request - Request
- * @returns
+ * @return {Object} - Headers
  */
 export function copyHeaders(request) {
   const headers = {}
@@ -121,7 +121,7 @@ export function copyHeaders(request) {
 /**
  * Promise that resolves after `ms`
  * @param {number} ms - Milliseconds to sleep
- * @returns
+ * @return {Promise}
  */
 export function sleep(ms) {
   return new Promise((resolve) => {
@@ -214,7 +214,7 @@ export function safeBox(fn, defaultResponse = null) {
 
 /**
  * @param {Request} req - Request
- * @returns
+ * @return {Boolean}
  */
 export function isDnsMsg(req) {
   return req.headers.get("Accept") === "application/dns-message" ||

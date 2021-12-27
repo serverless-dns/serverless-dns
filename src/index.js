@@ -26,10 +26,12 @@ function initEnvIfNeeded() {
     envManager.loadEnv();
   }
 
-  if (!globalThis.log && !console.level) {
+  if (!globalThis.log) {
     globalThis.log = new Log(
       env.logLevel,
-      env.runTimeEnv === "production" // set console level only in prod
+
+      // set console level only in production
+      !console.level && env.runTimeEnv === "production"
     );
   }
 }
@@ -59,8 +61,8 @@ async function proxyRequest(event) {
     const plugin = new RethinkPlugin(event);
     await plugin.executePlugin(currentRequest);
 
-    if (util.fromBrowser(event.request.headers.get("User-Agent")))
-      currentRequest.setCorsHeaders();
+    const ua = event.request.headers.get("User-Agent");
+    if (util.fromBrowser(ua)) currentRequest.setCorsHeaders();
 
     return currentRequest.httpResponse;
   } catch (err) {

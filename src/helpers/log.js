@@ -12,7 +12,7 @@
 import { uid } from "./util.js";
 
 /**
- * @typedef {'error'|'warn'|'info'|'timer'|'debug'} logLevels
+ * @typedef {'error'|'warn'|'info'|'timer'|'debug'} LogLevels
  */
 
 // high "error" (4); low "debug" (0)
@@ -26,8 +26,8 @@ const _LOG_LEVELS = new Map(
  * May be checked with `console.level`.
  * Has no default value, to prevent accidentally nullifying console methods. So,
  * the de facto console level is 'debug`.
- * @param {logLevels} level - log level
- * @returns level
+ * @param {LogLevels} level - log level
+ * @return {LogLevels} level
  */
 function _setConsoleLevel(level) {
   switch (level) {
@@ -60,7 +60,7 @@ export default class Log {
    * Sets log level for the current instance.
    * Default='debug', so as default instance (`new Log()`) is a pure alias.
    * If console level has been set, log level cannot be lower than it.
-   * @param {logLevels} [level] - log level
+   * @param {LogLevels} [level] - log level
    * @param {boolean} [isConsoleLevel=false] - Set console level to `level`
    */
   constructor(level, isConsoleLevel) {
@@ -88,7 +88,7 @@ export default class Log {
   /**
    * Modify log level of this instance. Unlike the constructor, this has no
    * default value.
-   * @param {logLevels} level
+   * @param {LogLevels} level
    */
   setLevel(level) {
     if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);

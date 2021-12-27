@@ -24,7 +24,9 @@ envManager.loadEnv();
 /** Logging level */
 globalThis.log = new Log(
   env.logLevel,
-  env.runTimeEnv == "production" // set console level only in prod.
+
+  // set console level only in production
+  !console.level && env.runTimeEnv === "production"
 );
 
 /** Polyfills */

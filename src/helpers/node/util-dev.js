@@ -8,7 +8,7 @@ import * as fs from "fs";
  * node-fetch with support for file:// urls
  * @param {RequestInfo} url
  * @param {RequestInit} [init]
- * @returns {Promise<Response>}
+ * @return {Promise<Response>}
  */
 export function fetchPlus(url, init) {
   const request = new Request(url, init);
@@ -17,9 +17,7 @@ export function fetchPlus(url, init) {
       const filePath = path.normalize(url.substring("file://".length));
 
       if (!fs.existsSync(filePath)) {
-        reject(
-          new Error(`File not found: ${filePath}`),
-        );
+        reject(new Error(`File not found: ${filePath}`));
       } else {
         const readStream = fs.createReadStream(filePath);
         readStream.on("open", () => {
@@ -35,11 +33,8 @@ export function fetchPlus(url, init) {
 /**
  * @param {String} TLS_KEY_PATH
  * @param {String} TLS_CRT_PATH
- * @returns [TLS_KEY, TLS_CRT]
+ * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
  */
 export function getTLSfromFile(TLS_KEY_PATH, TLS_CRT_PATH) {
-  return [
-    fs.readFileSync(TLS_KEY_PATH),
-    fs.readFileSync(TLS_CRT_PATH),
-  ];
+  return [fs.readFileSync(TLS_KEY_PATH), fs.readFileSync(TLS_CRT_PATH)];
 }

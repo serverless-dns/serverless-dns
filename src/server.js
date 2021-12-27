@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+/* eslint-disable no-unused-vars */
 import net, { isIPv6, Socket } from "net";
 import tls, { TLSSocket } from "tls";
 import http2, { Http2ServerRequest, Http2ServerResponse } from "http2";
@@ -16,6 +17,7 @@ import * as dnsutil from "./helpers/dnsutil.js";
 import * as util from "./helpers/util.js";
 import { copyNonPseudoHeaders } from "./helpers/node/util.js";
 import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
+/* eslint-enable no-unused-vars */
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 const DOT_ENTRY_PORT = 10000;
@@ -66,7 +68,7 @@ function close(sock) {
  * Creates a duplex pipe between `a` and `b` sockets.
  * @param {Socket} a
  * @param {Socket} b
- * @returns - true if pipe created, false if error
+ * @return {Boolean} - true if pipe created, false if error
  */
 function proxySockets(a, b) {
   if (a.destroyed || b.destroyed) return false;
@@ -99,8 +101,8 @@ function serveDoTProxyProto(clientSocket) {
     // So, further tcp segments return here.
     if (ppHandled) return;
 
-    let chunk = buf.toString("ascii");
-    let delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
+    const chunk = buf.toString("ascii");
+    const delim = chunk.indexOf("\r\n") + 2; // CRLF = \x0D \x0A
     ppHandled = true;
 
     if (delim < 0) {
@@ -155,7 +157,7 @@ function makeScratchBuffer() {
  * Get RegEx's to match dns names of a CA certificate.
  * A non matching RegEx is returned if no DNS names are found.
  * @param {TLSSocket} socket - TLS socket to get CA certificate from.
- * @returns [RegEx, RegEx] - [regular, wildcard]
+ * @return {Array<[String]>} [regular RegExs, wildcard RegExs]
  */
 function getDnRE(socket) {
   const SAN_DNS_PREFIX = "DNS:";
@@ -199,11 +201,11 @@ function getDnRE(socket) {
 /**
  * Gets flag and hostname from the wildcard domain name.
  * @param {String} sni - Wildcard SNI
- * @returns [flag, hostname]
+ * @return {Array<String>} [flag, hostname]
  */
 function getMetadata(sni) {
   // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
-  let s = sni.split(".");
+  const s = sni.split(".");
   // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
   const host = s.splice(1).join(".");
   // replace "-" with "+" as doh handlers use "+" to differentiate between
@@ -226,8 +228,9 @@ function serveTLS(socket) {
     return;
   }
 
-  if (!OUR_RG_DN_RE || !OUR_WC_DN_RE)
+  if (!OUR_RG_DN_RE || !OUR_WC_DN_RE) {
     [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
+  }
 
   const isOurRgDn = OUR_RG_DN_RE.test(sni);
   const isOurWcDn = OUR_WC_DN_RE.test(sni);
@@ -259,7 +262,11 @@ function serveTLS(socket) {
 
 /**
  * Handle DNS over TCP/TLS data stream.
+ * @param {TLSSocket} socket
  * @param {Buffer} chunk - A TCP data segment
+ * @param {Object} sb - Scratch buffer
+ * @param {String} host - Hostname
+ * @param {String} flag - Blocklist Flag
  */
 function handleTCPData(socket, chunk, sb, host, flag) {
   const cl = chunk.byteLength;
@@ -348,7 +355,7 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @param {Buffer} q
  * @param {String} host
  * @param {String} flag
- * @returns
+ * @return {Promise<Uint8Array>}
  */
 async function resolveQuery(q, host, flag) {
   // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
