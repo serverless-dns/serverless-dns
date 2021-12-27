@@ -15,6 +15,7 @@ TD_NODE_COUNT = "42112224"
 TD_PARTS = "2"
 CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
+# DOT_HAS_PROXY_PROTO = "true"
 
 [experimental]
 allowed_public_ports = []
@@ -65,3 +66,9 @@ script_checks = []
   [[services.ports]]
   # handlers = ["proxy_proto"]
   port = 853
+
+  [[services.tcp_checks]]
+  grace_period = "1s"
+  interval = "15s"
+  restart_limit = 6
+  timeout = "2s"
