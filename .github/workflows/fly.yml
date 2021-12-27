@@ -52,6 +52,8 @@ jobs:
       - name: 🏗 Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
         with:
-          args: "deploy --dockerfile node.Dockerfile --image-label ${{ env.GIT_HEAD }}"
+          args:
+            "deploy --dockerfile node.Dockerfile --image-label ${{ env.GIT_HEAD }}
+            --strategy bluegreen"
       - run: |
           echo "::notice::Image @ registry.fly.io/${{ env.FLY_APP }}:${{ env.GIT_HEAD }}"
