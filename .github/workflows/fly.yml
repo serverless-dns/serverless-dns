@@ -5,9 +5,13 @@ on:
     branches:
       - "main"
     paths-ignore:
-      - "README.md"
-      - ".github"
+      - ".github/**"
       - "!.github/workflows/fly.yml"
+      - ".env.example"
+      - ".eslintrc.cjs"
+      - ".prettierignore"
+      - "wrangler.toml"
+      - "README.md"
   workflow_dispatch:
     inputs:
       git-ref:
@@ -52,8 +56,10 @@ jobs:
       - name: 🏗 Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
         with:
-          args:
-            "deploy --dockerfile node.Dockerfile --image-label ${{ env.GIT_HEAD }}
-            --strategy bluegreen"
+          args: "deploy
+            --dockerfile node.Dockerfile
+            --image-label ${{ env.GIT_HEAD }}
+            --strategy rolling
+            "
       - run: |
           echo "::notice::Image @ registry.fly.io/${{ env.FLY_APP }}:${{ env.GIT_HEAD }}"

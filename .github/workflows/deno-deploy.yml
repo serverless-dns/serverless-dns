@@ -5,9 +5,13 @@ on:
     branches:
       - "main"
     paths-ignore:
-      - "README.md"
-      - ".github"
+      - ".github/**"
       - "!.github/workflows/deno-deploy.yml"
+      - ".env.example"
+      - ".eslintrc.cjs"
+      - ".prettierignore"
+      - "README.md"
+      - "wrangler.toml"
   workflow_dispatch:
     inputs:
       git-ref:

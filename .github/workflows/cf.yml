@@ -4,9 +4,13 @@ on:
     branches:
       - main
     paths-ignore:
-      - "README.md"
-      - ".github"
+      - ".github/**"
       - "!.github/workflows/cf.yml"
+      - ".env.example"
+      - ".eslintrc.cjs"
+      - ".prettierignore"
+      - "fly.toml"
+      - "README.md"
   repository_dispatch:
 jobs:
   deploy:

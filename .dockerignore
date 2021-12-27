@@ -5,6 +5,7 @@
 .github
 .vscode
 .prettierrc
+.prettierignore
 
 node_modules/
 worker/
