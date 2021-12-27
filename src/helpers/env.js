@@ -2,10 +2,11 @@
  * Internal environment variables manager.
  *
  * Instantiation of this class will make a global variable `env` available.
- * So, this class can be instantiated only once.
- * Variables can get() or set() into the `env` object.
+ * This class is recommended to globally available, as it can be instantiated
+ * only once.
+ * EnvManager.get() or EnvManager.set() allow manipulation of `env` object.
  * Environment variables of runtime (deno, node, worker) can be loaded via
- * loadEnv().
+ * EnvManager.loadEnv().
  *
  * @license
  * Copyright (c) 2021 RethinkDNS and its authors.
@@ -51,7 +52,7 @@ const _RUNTIME_ENV_MAPPINGS = {
 
   //set to on - off aggressive cache plugin
   //as of now Cache-api is available only on worker
-  //so _loadEnv will set this to false for other runtime.
+  //so _getRuntimeEnv will set this to false for other runtime.
   isAggCacheReq: {
     type: "boolean",
     worker: "IS_AGGRESSIVE_CACHE_REQ",
@@ -86,6 +87,7 @@ function _getRuntimeEnv(runtime) {
     // All env are assumed to be strings, so typecast them.
     if (type === "boolean") env[key] = !!env[key];
     else if (type === "number") env[key] = Number(env[key]);
+    else if (type === "string") env[key] = env[key] || ""; // null -> ""
   }
 
   return env;
