@@ -5,13 +5,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
-import DNSBlockOperation from "./dnsBlockOperation.js";
-import * as util from "../helpers/util.js";
+import * as dnsutil from "../helpers/dnsutil.js";
+import * as dnsCacheUtil from "../helpers/cacheutil.js";
+import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 
 export default class DNSResponseBlock {
   constructor() {
-    this.dnsBlockOperation = new DNSBlockOperation();
   }
 
   /**
@@ -19,6 +18,10 @@ export default class DNSResponseBlock {
    * @param {*} param.userBlocklistInfo
    * @param {*} param.blocklistFilter
    * @param {DnsDecodedObject} param.responseDecodedDnsPacket
+   * @param {} param.responseBodyBuffer
+   * @param {} param.event
+   * @param {} param.dnsCache
+   * @param {} param.request
    * @returns
    */
   async RethinkModule(param) {
@@ -26,24 +29,23 @@ export default class DNSResponseBlock {
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
-    response.data = {};
-    response.data.isBlocked = false;
-    response.data.blockedB64Flag = "";
+    response.data = false;
     try {
-      if (hasBlocklistStamp(param)) {
-        if (
-          param.responseDecodedDnsPacket.answers.length > 0 &&
-          param.responseDecodedDnsPacket.answers[0].type == "CNAME"
-        ) {
-          checkCnameBlock(param, response, this.dnsBlockOperation);
-        } else if (
-          param.responseDecodedDnsPacket.answers.length > 0 &&
-          (param.responseDecodedDnsPacket.answers[0].type == "HTTPS" ||
-            param.responseDecodedDnsPacket.answers[0].type == "SVCB")
-        ) {
-          checkHttpsSvcbBlock(param, response, this.dnsBlockOperation);
-        }
-      }
+      response.data = this.performBlocking(
+        param.userBlocklistInfo,
+        param.responseDecodedDnsPacket,
+        param.blocklistFilter,
+        false,
+      );
+
+      putCache(
+        param.dnsCache,
+        param.request.url,
+        param.blocklistFilter,
+        param.responseDecodedDnsPacket,
+        param.responseBodyBuffer,
+        param.event,
+      );
     } catch (e) {
       response.isException = true;
       response.exceptionStack = e.stack;
@@ -53,71 +55,46 @@ export default class DNSResponseBlock {
     }
     return response;
   }
-}
 
-function checkHttpsSvcbBlock(
-  param,
-  response,
-  dnsBlockOperation,
-) {
-  let targetName = param.responseDecodedDnsPacket.answers[0].data.targetName.trim()
-    .toLowerCase();
-  if (targetName != ".") {
-    let domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-      targetName,
-    );
-    if (domainNameBlocklistInfo.searchResult) {
-      response.data = dnsBlockOperation.checkDomainBlocking(
-        param.userBlocklistInfo.userBlocklistFlagUint,
-        param.userBlocklistInfo.userServiceListUint,
-        param.userBlocklistInfo.flagVersion,
-        domainNameBlocklistInfo.searchResult,
-        param.blocklistFilter,
-        targetName
-      );
+  performBlocking(blockInfo, dnsPacket, blf, cf) {
+    if (
+      !blockInfo.userBlocklistFlagUint || blockInfo.userBlocklistFlagUint === ""
+    ) {
+      return false;
     }
-  }
-}
-
-function checkCnameBlock(param, response, dnsBlockOperation) {
-  let cname = param.responseDecodedDnsPacket.answers[0].data.trim().toLowerCase();
-  let domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-    cname,
-  );
-  if (domainNameBlocklistInfo.searchResult) {
-    response.data = dnsBlockOperation.checkDomainBlocking(
-      param.userBlocklistInfo.userBlocklistFlagUint,
-      param.userBlocklistInfo.userServiceListUint,
-      param.userBlocklistInfo.flagVersion,
-      domainNameBlocklistInfo.searchResult,
-      param.blocklistFilter,
-      cname
-    );
-  }
-
-  if (!response.data.isBlocked) {
-    cname = param.responseDecodedDnsPacket
-      .answers[param.responseDecodedDnsPacket.answers.length - 1].name.trim()
-      .toLowerCase();
-    domainNameBlocklistInfo = param.blocklistFilter.getDomainInfo(
-      cname,
-    );
-    if (domainNameBlocklistInfo.searchResult) {
-      response.data = dnsBlockOperation.checkDomainBlocking(
-        param.userBlocklistInfo.userBlocklistFlagUint,
-        param.userBlocklistInfo.userServiceListUint,
-        param.userBlocklistInfo.flagVersion,
-        domainNameBlocklistInfo.searchResult,
-        param.blocklistFilter,
-        cname
-      );
+    if (dnsutil.isCname(dnsPacket)) {
+      return doCnameBlock(dnsPacket, blf, blockInfo, cf);
     }
+    if (dnsutil.isHttps(dnsPacket)) {
+      return doHttpsBlock(dnsPacket, blf, blockInfo, cf);
+    }
+    return false;
   }
 }
 
-function hasBlocklistStamp(param) {
-  return param &&
-    param.userBlocklistInfo &&
-    !util.emptyString(param.userBlocklistInfo.userBlocklistFlagUint);
+function doHttpsBlock(dnsPacket, blf, blockInfo, cf) {
+  console.debug("At Https-Svcb dns Block");
+  let tn = dnsutil.getTargetName(dnsPacket.answers);
+  if (!tn) return false;
+  return dnsBlockUtil.doBlock(blf, blockInfo, tn, cf);
 }
 
+function doCnameBlock(dnsPacket, blf, blockInfo, cf) {
+  console.debug("At Cname dns Block");
+  let cn = dnsutil.getCname(dnsPacket.answers);
+  let response = false;
+  for (let n of cn) {
+    response = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
+    if (response.isBlocked) break;
+  }
+  return response;
+}
+
+function putCache(cache, url, blf, dnsPacket, buf, event) {
+  if (!dnsCacheUtil.isCacheable(dnsPacket)) return;
+  const key = dnsutil.cacheKey(dnsPacket);
+  if (!key) return;
+  let input = dnsCacheUtil.createCacheInput(dnsPacket, blf, true);
+  console.debug("Cache Input ", JSON.stringify(input));
+  event.waitUntil(cache.put(key, input, url, buf));
+}

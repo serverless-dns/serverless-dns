@@ -117,6 +117,17 @@ export function copyHeaders(request) {
   })
   return headers
 }
+export function copyNonPseudoHeaders(req) {
+  const headers = {};
+  if (!req || !req.headers) return headers;
+
+  // drop http/2 pseudo-headers
+  for (const name in req.headers) {
+    if (name.startsWith(":")) continue;
+    headers[name] = req.headers[name];
+  }
+  return headers;
+}
 
 /**
  * Promise that resolves after `ms`
@@ -159,40 +170,40 @@ export function createBuffer(size) {
 }
 
 export function timedOp(op, ms, cleanup) {
-  let tid = null
-  let resolve = null
-  let reject = null
+  let tid = null;
+  let resolve = null;
+  let reject = null;
   const promiser = (accept, deny) => {
-    resolve = accept
-    reject = deny
-  }
-  const p = new Promise(promiser)
+    resolve = accept;
+    reject = deny;
+  };
+  const p = new Promise(promiser);
 
-  let timedout = false
+  let timedout = false;
   tid = timeout(ms, () => {
-    timedout = true
-    reject("timeout")
-  })
+    timedout = true;
+    reject("timeout");
+  });
 
   try {
     op((out, ex) => {
       if (timedout) {
-        cleanup(out)
-        return
+        cleanup(out);
+        return;
       }
 
-      clearTimeout(tid)
+      clearTimeout(tid);
 
       if (ex) {
-        reject(ex.message)
+        reject(ex.message);
       } else {
-        resolve(out)
+        resolve(out);
       }
-    })
+    });
   } catch (ex) {
-    if (!timedout) reject(ex.message)
+    if (!timedout) reject(ex.message);
   }
-  return p
+  return p;
 }
 
 export function timeout(ms, callback) {
@@ -207,9 +218,9 @@ export function uid() {
 
 export function safeBox(fn, defaultResponse = null) {
   try {
-    return fn()
+    return fn();
   } catch (ignore) {}
-  return defaultResponse
+  return defaultResponse;
 }
 
 /**
@@ -226,11 +237,8 @@ export function emptyResponse() {
     isException: false,
     exceptionStack: "",
     exceptionFrom: "",
-    data: {
-      responseDecodedDnsPacket: null,
-      responseBodyBuffer: null,
-    },
-  }
+    data: false,
+  };
 }
 
 export function errResponse(id, err) {
@@ -239,7 +247,11 @@ export function errResponse(id, err) {
     exceptionStack: err.stack,
     exceptionFrom: id,
     data: false,
-  }
+  };
+}
+
+export function mapOf(obj) {
+  return new Map(Object.entries(obj));
 }
 
 export function emptyString(str) {

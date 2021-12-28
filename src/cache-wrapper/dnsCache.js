@@ -10,6 +10,7 @@ import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
 import { CacheApi as CacheApi } from "./cacheApi.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as envutil from "../helpers/envutil.js";
+import * as util from "../helpers/util.js";
 
 export class DnsCache {
   constructor(size) {
@@ -19,34 +20,40 @@ export class DnsCache {
 
   async get(key, url) {
     let entry = this.getLocalCache(key);
-    if(entry){
-      console.debug(Date.now(),entry.metaData.ttlEndTime,(Date.now() <= entry.metaData.ttlEndTime),(Date.now()-entry.metaData.ttlEndTime))
-    }
-    if (entry && (Date.now() <= entry.metaData.ttlEndTime)) {
+    if (
+      entry && entry.metaData &&
+      (!entry.metaData.bodyUsed || (Date.now() <= entry.metaData.ttlEndTime))
+    ) {
       return entry;
     }
-    console.debug("is workerset : ",envutil.isWorkers(),(url && envutil.isWorkers()))
-    if (url && envutil.isWorkers()) {
-      entry = await validateCacheApiResponse(
-        await this.cacheApi.get(makeCacheApiKey(key, url)),
-      );
-      if (entry) {
-        this.putLocalCache(key, entry);
-        return entry;
-      }      
-    }
-    return false;
+
+    //cache api not set
+    if (!url || !envutil.isWorkers()) return false;
+
+    const cacheApiKey = makeCacheApiKey(key, url);
+    entry = await parseCacheApiResponse(await this.getCacheApi(cacheApiKey));
+    //cache not available from cache api
+    if (!entry) return false;
+    this.putLocalCache(key, entry);
+    return entry;
   }
 
   async put(key, data, url, buf) {
-    this.putLocalCache(key, data);
-    if (url && envutil.isWorkers()) {
-      await this.putCacheApi(key, url, buf, data.metaData);
+    try {
+      this.putLocalCache(key, data);
+      //check for cache api availability
+      if (url && envutil.isWorkers()) {
+        console.debug("Adding to cache api");
+        this.putCacheApi(key, url, buf, data.metaData);
+      }
+    } catch (e) {
+      console.error(e.stack);
     }
   }
 
   putLocalCache(key, data) {
     try {
+      console.debug("Adding to local cache");
       this.localCache.Put(key, data);
     } catch (e) {
       console.error("Error At : DnsCache -> put");
@@ -57,33 +64,32 @@ export class DnsCache {
     return this.localCache.Get(key);
   }
 
-  async putCacheApi(key, url, buf, metadata) {
-    let response = createResponse(buf, metadata);
-    this.cacheApi.put(makeCacheApiKey(key, url), response);
+  async getCacheApi(key) {
+    return await this.cacheApi.get(key);
+  }
+  putCacheApi(key, url, buf, metaData) {
+    let response = createResponse(buf, metaData, 604800); //1w ttl set based on blocklist update
+    const cacheApiKey = makeCacheApiKey(key, url);
+    this.cacheApi.put(cacheApiKey, response);
   }
 }
-function createResponse(buf, metaData) {
-  return new Response(buf, {
-    headers: {
-      "Content-Length": buf.length,
-      "x-rethink-metadata": JSON.stringify(metaData),
-    },
-    cf: { cacheTtl: 604800 }, //1w hold
-  });
+function createResponse(buf, metaData, ttl) {
+  return new Response(buf, httpHeaders(buf, metaData, ttl));
 }
 
-async function validateCacheApiResponse(response) {
-  console.debug("came at validateCacheApiResponse");
+async function parseCacheApiResponse(response) {
   if (!response) return false;
   console.debug("Response found in Cache api");
   const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
   console.debug(metaData);
-  if (metaData.bodyUsed && (Date.now() >= metaData.ttlEndTime)) {
+  if (!metaData || (metaData.bodyUsed && Date.now() >= metaData.ttlEndTime)) {
     return false;
   }
 
   let data = {};
-  data.decodedDnsPacket = metaData.bodyUsed ? dnsutil.decode(await response.arrayBuffer()) : {};
+  data.dnsPacket = metaData.bodyUsed
+    ? dnsutil.decode(await response.arrayBuffer())
+    : {};
   data.metaData = metaData;
   console.debug(JSON.stringify(data));
   return data;
@@ -91,4 +97,16 @@ async function validateCacheApiResponse(response) {
 
 function makeCacheApiKey(key, url) {
   return new URL(new URL(url).origin + "/" + env.latestTimestamp + "/" + key);
+}
+
+function httpHeaders(buf, metaData, ttl) {
+  return {
+    headers: util.concatHeaders(
+      {
+        "x-rethink-metadata": JSON.stringify(metaData),
+      },
+      util.contentLengthHeader(buf),
+    ),
+    cf: util.concatHeaders({ cacheTtl: ttl }),
+  };
 }

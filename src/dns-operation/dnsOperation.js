@@ -7,9 +7,8 @@
  */
 
 import DNSParserWrap from "./dnsParserWrap.js";
-import DNSBlock from "./dnsBlock.js";
+import DNSQuestionBlock from "./dnsBlock.js";
 import DNSResponseBlock from "./dnsResponseBlock.js";
 import DNSResolver from "./dnsResolver.js";
-import DNSBlockOperation from "./dnsBlockOperation.js"
-import DNSAggCache from "./dnsAggCache.js"
-export { DNSBlock, DNSParserWrap, DNSResolver, DNSResponseBlock, DNSBlockOperation, DNSAggCache };
+import DNSCacheResponse from "./cacheResponse.js"
+export { DNSQuestionBlock, DNSParserWrap, DNSResolver, DNSResponseBlock, DNSCacheResponse };

@@ -8,6 +8,7 @@
 import { UserCache } from "../cache-wrapper/cache-wrapper.js";
 import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 import * as util from "../helpers/util.js";
+import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 
 export class UserOperation {
   constructor() {
@@ -52,11 +53,10 @@ export class UserOperation {
         currentUser.flagVersion = response.flagVersion;
 
         if (!util.emptyString(currentUser.userBlocklistFlagUint)) {
-          currentUser.userServiceListUint = this.blocklistFilter
-            .flagIntersection(
-              currentUser.userBlocklistFlagUint,
-              this.blocklistFilter.wildCardUint,
-            );
+          currentUser.userServiceListUint = dnsBlockUtil.flagIntersection(
+            currentUser.userBlocklistFlagUint,
+            this.blocklistFilter.wildCardUint,
+          );
         } else {
           blocklistFlag = "";
         }

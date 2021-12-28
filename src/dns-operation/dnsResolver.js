@@ -11,14 +11,13 @@ import * as dnsutil from "../helpers/dnsutil.js";
 import * as util from "../helpers/util.js";
 import * as envutil from "../helpers/envutil.js";
 import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
-
 const quad1 = "1.1.1.2";
 export default class DNSResolver {
   constructor() {
     this.http2 = null;
     this.nodeUtil = null;
     this.transport = null;
-    this.dnsParser = new Dns();    
+    this.dnsParser = new Dns();
   }
 
   async lazyInit() {
@@ -58,73 +57,40 @@ export default class DNSResolver {
 
   async resolveDns(param) {
     let resp = {};
-    const key =
-      (param.requestDecodedDnsPacket.questions.length > 0
-        ? param.requestDecodedDnsPacket.questions[0].name
-        : "")
-        .trim()
-        .toLowerCase() +
-      ":" +
-      param.requestDecodedDnsPacket.questions[0].type;
-    let cacheResponse = await param.dnsCache.get(key, param.request.url);
-    const now = Date.now();
-    if (cacheResponse) {
-      console.debug("Response Found in cache", JSON.stringify(cacheResponse));
-      resp.responseDecodedDnsPacket = cacheResponse.decodedDnsPacket;
-      resp.responseDecodedDnsPacket.id = param.requestDecodedDnsPacket.id;
-      this.updateTtl(cacheResponse.decodedDnsPacket, cacheResponse.metaData.ttlEndTime);
-      resp.responseBodyBuffer = this.dnsParser.encode(cacheResponse.decodedDnsPacket);
-      return resp;
-    }
-
     const upRes = await this.resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer,
     );
-
-    resp = await decodeResponse(upRes, this.dnsParser);
-
-    // TODO: only cache noerror / nxdomain responses
-    // TODO: nxdomain ttls are in the authority section
-    let minttl = 0;
-    for (let answer of resp.responseDecodedDnsPacket.answers) {
-      minttl = minttl <= 0 || minttl > answer.ttl ? answer.ttl : minttl;
-    }
-
-    const ttlEndTime = minttl * 1000 + now;
-
-    let cacheInput = {};
-    cacheInput.metaData = cacheMetadata(
-      resp.responseDecodedDnsPacket,
-      ttlEndTime,
-      param.blocklistFilter,
-    );
-    cacheInput.decodedDnsPacket = resp.responseDecodedDnsPacket;
-    param.event.waitUntil(param.dnsCache.put(key, cacheInput, param.request.url, resp.responseBodyBuffer));
-    return resp
+    resp = await decodeResponse(upRes, this.dnsParser); 
+    return resp;
   }
-
-  updateTtl(decodedDnsPacket, end) {
-    const now = Date.now();
-    const outttl = Math.max(Math.floor((end - now) / 1000), 30); // ttl grace already set during cache put
-    for (let a of decodedDnsPacket.answers) {
-      if (!dnsutil.optAnswer(a)) a.ttl = outttl;
-    }
-  }
-
 }
 
-function cacheMetadata(dnsPacket, ttlEndTime, blocklistFilter) {
-  const question = dnsPacket.questions.length > 0
-    ? dnsPacket.questions[0].name
-    : "";
-  return {
-    ttlEndTime: ttlEndTime,
-    bodyUsed: true,
-    // TODO: Why not store blocklist-info in LocalCache?
-    blocklistInfo: util.objOf(blocklistFilter.getDomainInfo(question).searchResult),
-  };
+async function decodeResponse(response, dnsParser) {
+  if (!response) throw new Error("no upstream result");
+
+  if (!response.ok) {
+    log.d(JSON.stringify(response));
+    log.d("!OK", response.status, response.statusText, await response.text());
+    throw new Error(response.status + " http err: " + response.statusText);
+  }
+  let data = {};
+  data.dnsBuffer = await response.arrayBuffer();
+
+  if (!dnsutil.validResponseSize(data.dnsBuffer)) {
+    throw new Error("Null / invalid response from upstream");
+  }
+  try {
+    //Todo: call dnsutil.encode makes answer[0].ttl as some big number need to debug.
+    data.dnsPacket = dnsParser.decode(
+      data.dnsBuffer,
+    );
+  } catch (e) {
+    log.e("decode fail " + response.status + " cache? " + data.dnsBuffer);
+    throw e;
+  }
+  return data;
 }
 
 /**
@@ -237,28 +203,3 @@ DNSResolver.prototype.doh2 = async function (request) {
     req.end(reqB);
   });
 };
-
-async function decodeResponse(response, dnsParser) {
-  if (!response) throw new Error("no upstream result");
-
-  if (!response.ok) {
-    log.d("!OK", response.status, response.statusText, await response.text());
-    throw new Error(response.status + " http err: " + response.statusText);
-  }
-  let retResponse = {};
-  retResponse.responseBodyBuffer = await response.arrayBuffer();
-
-  if (!dnsutil.validResponseSize(retResponse.responseBodyBuffer)) {
-    throw new Error("Null / invalid response from upstream");
-  }
-  try {
-    //Todo: call dnsutil.encode makes answer[0].ttl as some big number need to debug.
-    retResponse.responseDecodedDnsPacket = dnsParser.decode(
-      retResponse.responseBodyBuffer,
-    );
-  } catch (e) {
-    log.e("decode fail " + response.status + " cache? " + responseBodyBuffer);
-    throw e;
-  }
-  return retResponse;
-}

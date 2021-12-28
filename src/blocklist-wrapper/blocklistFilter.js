@@ -9,7 +9,6 @@
 import { Buffer } from "buffer";
 import { DomainNameCache } from "../cache-wrapper/cache-wrapper.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
-import * as util from "../helpers/util.js";
 import { base32, rbase32 } from "./b32.js";
 
 export class BlocklistFilter {
@@ -79,59 +78,6 @@ export class BlocklistFilter {
     return toUint(flag);
   }
 
-  flagIntersection(flag1, flag2) {
-    // handle empty flags
-    if (util.emptyString(flag1) || util.emptyString(flag2)) return false;
-
-    try {
-      let flag1Header = flag1[0];
-      let flag2Header = flag2[0];
-      let intersectHeader = flag1Header & flag2Header;
-      if (intersectHeader == 0) {
-        return false;
-      }
-      let flag1Length = flag1.length - 1;
-      let flag2Length = flag2.length - 1;
-      const intersectBody = [];
-      let tmpInterectHeader = intersectHeader;
-      let maskHeaderForBodyEmpty = 1;
-      let tmpBodyIntersect;
-      for (; tmpInterectHeader != 0;) {
-        if ((flag1Header & 1) == 1) {
-          if ((tmpInterectHeader & 1) == 1) {
-            tmpBodyIntersect = flag1[flag1Length] & flag2[flag2Length];
-            if (tmpBodyIntersect == 0) {
-              intersectHeader = intersectHeader ^ maskHeaderForBodyEmpty;
-            } else {
-              intersectBody.push(tmpBodyIntersect);
-            }
-          }
-          flag1Length = flag1Length - 1;
-        }
-        if ((flag2Header & 1) == 1) {
-          flag2Length = flag2Length - 1;
-        }
-        flag1Header = flag1Header >>> 1;
-        tmpInterectHeader = tmpInterectHeader >>> 1;
-        flag2Header = flag2Header >>> 1;
-        maskHeaderForBodyEmpty = maskHeaderForBodyEmpty * 2;
-      }
-      if (intersectHeader == 0) {
-        return false;
-      }
-      const intersectFlag = new Uint16Array(intersectBody.length + 1);
-      let count = 0;
-      intersectFlag[count++] = intersectHeader;
-      let bodyData;
-      while ((bodyData = intersectBody.pop()) != undefined) {
-        intersectFlag[count++] = bodyData;
-      }
-      return intersectFlag;
-    } catch (e) {
-      throw e;
-    }
-  }
-
   customTagToFlag(tagList) {
     return _customTagToFlag(tagList, this.blocklistFileTag);
   }
@@ -161,28 +107,6 @@ export class BlocklistFilter {
       throw e;
     }
   }
-
-  getB64FlagFromUint16(arr, flagVersion) {
-    try {
-      if (flagVersion == "0") {
-        return encodeURIComponent(Buffer.from(arr).toString("base64"));
-      } else if (flagVersion == "1") {
-        return "1:" +
-          encodeURI(
-            btoa(encodeUint16arrToBinary(arr)).replace(/\//g, "_").replace(
-              /\+/g,
-              "-",
-            ),
-          );
-      }
-    } catch (e) {
-      throw e;
-    }
-  }
-}
-
-function encodeUint16arrToBinary(uint16Arr) {
-  return String.fromCharCode(...new Uint8Array(uint16Arr.buffer));
 }
 
 function encodeToBinary(s) {

@@ -9,22 +9,23 @@ import { BlocklistWrapper } from "../blocklist-wrapper/blocklistWrapper.js";
 import { CommandControl } from "../command-control/cc.js";
 import { UserOperation } from "../basic/basic.js";
 import {
-  DNSAggCache,
-  DNSBlock,
+  DNSCacheResponse,
+  DNSQuestionBlock,
   DNSResolver,
   DNSResponseBlock,
 } from "../dns-operation/dnsOperation.js";
 import * as util from "./util.js";
 
 import { DnsCache } from "../cache-wrapper/cache-wrapper.js";
+import * as dnsutil from "../helpers/dnsutil.js";
 
 const blocklistWrapper = new BlocklistWrapper();
 const commandControl = new CommandControl();
 const userOperation = new UserOperation();
-const dnsBlock = new DNSBlock();
+const dnsQuestionBlock = new DNSQuestionBlock();
 const dnsResolver = new DNSResolver();
 const dnsResponseBlock = new DNSResponseBlock();
-const dnsAggCache = new DNSAggCache();
+const dnsCacheHandler = new DNSCacheResponse();
 //dns cache used accross 3plugins so passed as parameter
 const dnsCache = new DnsCache(10000);
 
@@ -39,8 +40,8 @@ export default class RethinkPlugin {
     this.parameter = new Map(envManager.getMap());
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
-    this.registerParameter("isDnsMsg", util.isDnsMsg(event.request));
-
+    this.registerParameter("dnsQuestionBlock", dnsQuestionBlock);
+    this.registerParameter("dnsResponseBlock", dnsResponseBlock);
     this.registerParameter("dnsCache", dnsCache);
 
     this.plugin = [];
@@ -55,14 +56,15 @@ export default class RethinkPlugin {
 
     this.registerPlugin(
       "AggressiveCaching",
-      dnsAggCache,
+      dnsCacheHandler,
       [
         "userBlocklistInfo",
         "request",
-        "requestBodyBuffer",
-        "isAggCacheReq",
+        "requestDecodedDnsPacket",
         "isDnsMsg",
-        "dnsCache"
+        "dnsCache",
+        "dnsQuestionBlock",
+        "dnsResponseBlock",
       ],
       dnsAggCacheCallBack,
       false,
@@ -86,28 +88,22 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       commandControl,
-      [
-        "request",
-        "blocklistFilter",
-        "latestTimestamp",
-        "isDnsMsg",
-      ],
+      ["request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
       commandControlCallBack,
       false,
     );
     this.registerPlugin(
-      "dnsBlock",
-      dnsBlock,
+      "dnsQuestionBlock",
+      dnsQuestionBlock,
       [
         "requestDecodedDnsPacket",
         "blocklistFilter",
         "userBlocklistInfo",
-        "isAggCacheReq",
         "event",
         "request",
-        "dnsCache"
+        "dnsCache",
       ],
-      dnsBlockCallBack,
+      dnsQuestionBlockCallBack,
       false,
     );
     this.registerPlugin(
@@ -120,7 +116,7 @@ export default class RethinkPlugin {
         "requestDecodedDnsPacket",
         "event",
         "blocklistFilter",
-        "dnsCache"
+        "dnsCache",
       ],
       dnsResolverCallBack,
       false,
@@ -128,14 +124,22 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "DNSResponseBlock",
       dnsResponseBlock,
-      ["userBlocklistInfo", "blocklistFilter", "responseDecodedDnsPacket"],
+      [
+        "userBlocklistInfo",
+        "blocklistFilter",
+        "responseDecodedDnsPacket",
+        "responseBodyBuffer",
+        "event",
+        "request",
+        "dnsCache",
+      ],
       dnsResponseBlockCallBack,
       false,
     );
   }
 
-  registerParameter(key, parameter) {
-    this.parameter.set(key, parameter);
+  registerParameter(k, v) {
+    this.parameter.set(k, v);
   }
 
   registerPlugin(
@@ -155,6 +159,7 @@ export default class RethinkPlugin {
   }
 
   async executePlugin(req) {
+    await setRequest(this.parameter, req);
     const t = log.startTime("exec-plugin");
     for (const p of this.plugin) {
       if (req.stopProcessing && !p.continueOnStopProcess) {
@@ -163,7 +168,9 @@ export default class RethinkPlugin {
 
       log.lapTime(t, p.name, "send-req");
 
-      const res = await p.module.RethinkModule(generateParam(this.parameter, p.param));
+      const res = await p.module.RethinkModule(
+        generateParam(this.parameter, p.param),
+      );
 
       log.lapTime(t, p.name, "got-res");
 
@@ -216,24 +223,7 @@ async function userOperationCallBack(response, currentRequest) {
 
   if (response.isException) {
     loadException(response, currentRequest);
-  } else if (
-    !this.parameter.get("isDnsMsg") &&
-    this.parameter.get("request").method === "POST"
-  ) {
-    currentRequest.httpResponse = new Response(null, {
-      status: 400,
-      statusText: "Bad Request",
-    });
-    currentRequest.stopProcessing = true;
   } else {
-    this.registerParameter(
-      "requestBodyBuffer",
-      await getBodyBuffer(
-        this.parameter.get("request"),
-        this.parameter.get("isDnsMsg"),
-      ),
-    );
-
     this.registerParameter(
       "userBlocklistInfo",
       response.data.userBlocklistInfo,
@@ -250,45 +240,25 @@ function dnsAggCacheCallBack(response, currentRequest) {
 
   if (response.isException) {
     loadException(response, currentRequest);
-  } else if (response.data !== null) {
-
-    this.registerParameter(
-      "requestDecodedDnsPacket",
-      response.data.reqDecodedDnsPacket,
-    );
-    currentRequest.decodedDnsPacket = response.data.reqDecodedDnsPacket;
-    if (response.data.aggCacheResponse.type === "blocked") {
-      currentRequest.isDnsBlock = response.data.aggCacheResponse.data.isBlocked;
-      currentRequest.blockedB64Flag =
-        response.data.aggCacheResponse.data.blockedB64Flag;
-      currentRequest.stopProcessing = true;
-      currentRequest.dnsBlockResponse();
-    } else if (response.data.aggCacheResponse.type === "response") {
-      this.registerParameter(
-        "responseBodyBuffer",
-        response.data.aggCacheResponse.data.bodyBuffer,
-      );
-
-      this.registerParameter(
-        "responseDecodedDnsPacket",
-        response.data.aggCacheResponse.data.decodedDnsPacket,
-      );
-      currentRequest.dnsResponse(
-        response.data.aggCacheResponse.data.bodyBuffer,
-      );
-      currentRequest.decodedDnsPacket =
-        response.data.aggCacheResponse.data.decodedDnsPacket;
-      currentRequest.stopProcessing = true;
-    }
+  } else if (response.data && response.data.isBlocked) {
+    currentRequest.isDnsBlock = response.data.isBlocked;
+    currentRequest.blockedB64Flag = response.data.blockedB64Flag;
+    currentRequest.stopProcessing = true;
+    currentRequest.dnsBlockResponse();
+  } else if (response.data && response.data.dnsBuffer) {
+    this.registerParameter("responseDecodedDnsPacket", response.data.dnsPacket);
+    currentRequest.dnsResponse(response.data.dnsBuffer);
+    currentRequest.decodedDnsPacket = response.data.dnsPacket;
+    currentRequest.stopProcessing = true;
   }
 }
 
-function dnsBlockCallBack(response, currentRequest) {
-  log.d("In dnsBlockCallBack", JSON.stringify(response.data));
+function dnsQuestionBlockCallBack(response, currentRequest) {
+  log.d("In dnsQuestionBlockCallBack", JSON.stringify(response.data));
 
   if (response.isException) {
     loadException(response, currentRequest);
-  } else {
+  } else if (response.data) {
     currentRequest.isDnsBlock = response.data.isBlocked;
     currentRequest.blockedB64Flag = response.data.blockedB64Flag;
     if (currentRequest.isDnsBlock) {
@@ -309,16 +279,9 @@ function dnsResolverCallBack(response, currentRequest) {
   if (response.isException) {
     loadException(response, currentRequest);
   } else {
-    this.registerParameter(
-      "responseBodyBuffer",
-      response.data.responseBodyBuffer,
-    );
+    this.registerParameter("responseBodyBuffer", response.data.dnsBuffer);
 
-    this.registerParameter(
-      "responseDecodedDnsPacket",
-      response.data.responseDecodedDnsPacket,
-    );
-    currentRequest.decodedDnsPacket = response.data.responseDecodedDnsPacket;
+    this.registerParameter("responseDecodedDnsPacket", response.data.dnsPacket);
   }
 }
 
@@ -332,16 +295,19 @@ function dnsResponseBlockCallBack(response, currentRequest) {
 
   if (response.isException) {
     loadException(response, currentRequest);
-  } else {
+  } else if (response.data && response.data.isBlocked) {
     currentRequest.isDnsBlock = response.data.isBlocked;
-    currentRequest.blockedB64Flag = response.data.blockedB64Flag;
-    if (currentRequest.isDnsBlock) {
-      currentRequest.stopProcessing = true;
-      currentRequest.dnsBlockResponse();
-    } else {
-      currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
-      currentRequest.stopProcessing = true;
-    }
+    currentRequest.blockedB64Flag = response.data.blockedB64Flag !== ""
+      ? response.data.blockedB64Flag
+      : currentRequest.blockedB64Flag;
+    currentRequest.stopProcessing = true;
+    currentRequest.dnsBlockResponse();
+  } else {
+    currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
+    currentRequest.decodedDnsPacket = this.parameter.get(
+      "responseDecodedDnsPacket",
+    );
+    currentRequest.stopProcessing = true;
   }
 }
 
@@ -369,10 +335,27 @@ function generateParam(parameter, list) {
   return param;
 }
 
-async function getBodyBuffer(request, isDnsMsg) {
-  if (!isDnsMsg) {
-    return "";
+async function setRequest(parameter, currentRequest) {
+  let request = parameter.get("request");
+  parameter.set("isDnsMsg", util.isDnsMsg(request))
+  const isDnsMsg = parameter.get("isDnsMsg");
+
+  if (!isValidRequest(isDnsMsg, request)) {
+    setInvalidResponse(currentRequest);
+    return;
   }
+
+  if (!isDnsMsg) {
+    return;
+  }
+
+  let buf = await getBodyBuffer(request);
+  parameter.set("requestBodyBuffer", buf);
+  parameter.set("requestDecodedDnsPacket", dnsutil.decode(buf));
+  currentRequest.decodedDnsPacket = parameter.get("requestDecodedDnsPacket");
+}
+
+async function getBodyBuffer(request) {
   if (request.method.toUpperCase() === "GET") {
     const QueryString = (new URL(request.url)).searchParams;
     return base64ToArrayBuffer(
@@ -381,6 +364,19 @@ async function getBodyBuffer(request, isDnsMsg) {
   } else {
     return await request.arrayBuffer();
   }
+}
+
+function setInvalidResponse(currentRequest) {
+  currentRequest.httpResponse = new Response(null, {
+    status: 400,
+    statusText: "Bad Request",
+  });
+  currentRequest.stopProcessing = true;
+}
+
+function isValidRequest(isDnsMsg, req) {
+  if (!isDnsMsg && req.method.toUpperCase() === "POST") return false;
+  return true;
 }
 
 function base64ToArrayBuffer(base64) {
