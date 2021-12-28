@@ -98,7 +98,8 @@ export default class Log {
       _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)
     ) {
       throw new Error(
-        `Cannot set (log.level='${level}') < (console.level = '${console.level}')`
+        "Cannot set " +
+          `(log.level='${level}') < (console.level = '${console.level}')`
       );
     }
 

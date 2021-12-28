@@ -34,13 +34,13 @@ const _RUNTIME_ENV_MAPPINGS = {
     all: "CF_ON_INVALID_FLAG_STOPPROCESSING",
   },
 
-  //parallel request wait timeout for download blocklist from s3
+  // parallel request wait timeout for download blocklist from s3
   fetchTimeout: {
     type: "number",
     all: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
   },
 
-  //env variables for td file split
+  // env variables for td file split
   tdNodecount: {
     type: "number",
     all: "TD_NODE_COUNT",
@@ -50,9 +50,9 @@ const _RUNTIME_ENV_MAPPINGS = {
     all: "TD_PARTS",
   },
 
-  //set to on - off aggressive cache plugin
-  //as of now Cache-api is available only on worker
-  //so _getRuntimeEnv will set this to false for other runtime.
+  // set to on - off aggressive cache plugin
+  // as of now Cache-api is available only on worker
+  // so _getRuntimeEnv will set this to false for other runtime.
   isAggCacheReq: {
     type: "boolean",
     worker: "IS_AGGRESSIVE_CACHE_REQ",
@@ -62,7 +62,7 @@ const _RUNTIME_ENV_MAPPINGS = {
 /**
  * Get runtime specific environment variables.
  * @param {String} runtime - Runtime name (deno, node, worker).
- * @returns {Object} Runtime environment variables.
+ * @return {Object} Runtime environment variables.
  */
 function _getRuntimeEnv(runtime) {
   console.info("Loading env. from runtime:", runtime);
@@ -123,7 +123,8 @@ export default class EnvManager {
       this.envMap.set(key, value);
     }
 
-    //adding download timeout with worker time to determine worker's overall timeout
+    // adding download timeout with worker time to determine worker's overall
+    // timeout
     runtime == "worker" &&
       this.envMap.set(
         "workerTimeout",
@@ -141,14 +142,14 @@ export default class EnvManager {
   }
 
   /**
-   * @returns {Map} - Map of env variables.
+   * @return {Map} - Map of env variables.
    */
   getMap() {
     return this.envMap;
   }
 
   /**
-   * @returns {Object} - Object of currently loaded env variables.
+   * @return {Object} - Object of currently loaded env variables.
    */
   toObject() {
     return Object.fromEntries(this.envMap);
@@ -156,7 +157,7 @@ export default class EnvManager {
 
   /**
    * @param {String} key - env variable name
-   * @returns {*} - env variable value
+   * @return {*} - env variable value
    */
   get(key) {
     return this.envMap.get(key);

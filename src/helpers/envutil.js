@@ -7,14 +7,14 @@
  */
 
 export function isWorkers() {
-  return env && env.runTime === "worker"
+  return env && env.runTime === "worker";
 }
 
 export function isNode() {
-  return env && env.runTime === "node"
+  return env && env.runTime === "node";
 }
 
 export function workersTimeout(defaultValue = 0) {
-  if (envManager) return envManager.get("workerTimeout") || defaultValue
-  return defaultValue
+  if (envManager) return envManager.get("workerTimeout") || defaultValue;
+  return defaultValue;
 }

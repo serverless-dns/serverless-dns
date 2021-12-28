@@ -6,6 +6,7 @@
 .vscode
 .prettierrc
 .prettierignore
+.eslintrc.cjs
 
 node_modules/
 worker/
@@ -16,3 +17,4 @@ log/
 *.md
 LICENSE
 wrangler.toml
+package-lock.json

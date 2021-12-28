@@ -2,7 +2,7 @@
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and
  * certificate files seprated by a newline (\n) and described by `KEY=` and
  * `CRT=` respectively. Ex: `TLS_="KEY=encoded_string\nCRT=encoded_string"`
- * @returns [TLS_KEY, TLS_CRT]
+ * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
  */
 export function getTLSfromEnv(TLS_CRT_KEY) {
   if (TLS_CRT_KEY == undefined) throw new Error("TLS cert / key not found");
@@ -22,7 +22,7 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
 
 /**
  * @param {Object} headers
- * @returns
+ * @return {Object}
  */
 export function copyNonPseudoHeaders(headers) {
   const resH = {};
@@ -38,7 +38,7 @@ export function copyNonPseudoHeaders(headers) {
 
 /**
  * @param {Object} headers
- * @returns
+ * @return {Object}
  */
 export function transformPseudoHeaders(headers) {
   const resH = {};
