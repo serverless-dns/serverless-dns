@@ -1,0 +1,38 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  lint-fmt:
+    name: Lint & fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: 🔧 Run eslint
+        run: |
+          npm install
+          npx eslint --cache --fix --ext **/*.js
+
+      - name: 👀 Looking for changes
+        id: lint-changes
+        run: |
+          echo ::set-output name=changes::$( \
+            if git diff-index --quiet HEAD --; \
+            then echo "false"; \
+            else echo "true"; \
+            fi)
+
+      - name: 🚢 Pushing to PR branch
+        if: steps.lint-changes.outputs.changes == 'true'
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit --no-verify -am "Automatic lint & fmt"
+          git push
