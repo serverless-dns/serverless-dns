@@ -2,7 +2,8 @@
 dist/
 node_modules/
 worker/
-test/data/cache
+test/data/cache/
+
 package-lock.json
 
 # IDE
@@ -10,3 +11,6 @@ package-lock.json
 
 # Local enviroment variables
 .env
+
+# Cache
+.eslintcache

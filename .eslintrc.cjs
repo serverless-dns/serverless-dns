@@ -7,6 +7,7 @@ module.exports = {
   },
 
   extends: [
+    // Google JS Style Guide Rules
     // See: https://github.com/google/eslint-config-google
     "google",
   ],
@@ -18,6 +19,9 @@ module.exports = {
 
   plugins: ["prettier"],
   rules: {
+    // Google JS rules, missing in "eslint-config-google" package
+    "eqeqeq": ["error", "smart"],
+
     // Rules disabled to avoid conflicts with prettier
     // See: https://github.com/prettier/eslint-config-prettier
     "indent": 0,
@@ -34,6 +38,6 @@ module.exports = {
     // Enforces rules from .prettierrc file.
     // These should be fixed automatically with formatting.
     // See: https://github.com/prettier/eslint-plugin-prettier
-    "prettier/prettier": "warn",
+    "prettier/prettier": "error",
   },
 };

@@ -1,12 +1,13 @@
-.git
+.git/
 .gitignore
 .env
 .env.example
-.github
-.vscode
-.prettierrc
+.github/
+.vscode/
+.prettierrc.json
 .prettierignore
 .eslintrc.cjs
+.eslintcache
 
 node_modules/
 worker/
