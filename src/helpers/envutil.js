@@ -11,7 +11,7 @@ export function onFly() {
 }
 
 export function isWorkers() {
-  return env && env.runTimeEnv === "worker";
+  return env && env.runTime === "worker";
 }
 
 export function isNode() {
@@ -19,6 +19,5 @@ export function isNode() {
 }
 
 export function workersTimeout(defaultValue = 0) {
-  if (envManager) return envManager.get("workerTimeout") || defaultValue;
-  return defaultValue;
+  return (env && env.workerTimeout) || defaultValue;
 }
