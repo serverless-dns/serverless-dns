@@ -50,7 +50,7 @@ const _TLS_CRT_KEY =
   eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
 
 export const [TLS_KEY, TLS_CRT] =
-  process.env.NODE_ENV == "production" || _TLS_CRT_KEY != undefined
+  process.env.NODE_ENV === "production" || _TLS_CRT_KEY != null
     ? getTLSfromEnv(_TLS_CRT_KEY)
     : (await import("./util-dev.js")).getTLSfromFile(
         process.env.TLS_KEY_PATH,
@@ -58,7 +58,7 @@ export const [TLS_KEY, TLS_CRT] =
       );
 
 /** Swap on fly */
-if (process.env.CLOUD_PLATFORM == "fly") {
+if (process.env.CLOUD_PLATFORM === "fly") {
   const ok = (await import("../linux/swap.js")).mkswap();
   console.info("mkswap done?", ok);
 }

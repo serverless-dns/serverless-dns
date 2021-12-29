@@ -393,7 +393,7 @@ async function serveHTTPS(req, res) {
 
   log.endTime(t);
 
-  if (req.method == "POST" && !dnsutil.validResponseSize(b)) {
+  if (req.method === "POST" && !dnsutil.validResponseSize(b)) {
     res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
     res.end();
     log.w(`HTTP req body length out of bounds: ${bLen}`);
@@ -421,7 +421,7 @@ async function handleHTTPRequest(b, req, res) {
       ...req,
       headers: copyNonPseudoHeaders(req.headers),
       method: req.method,
-      body: req.method == "POST" ? b : null,
+      body: req.method === "POST" ? b : null,
     });
 
     log.lapTime(t, "upstream-start");

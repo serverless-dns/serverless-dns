@@ -1,7 +1,7 @@
 /**
  * Internal environment variables manager.
  *
- * Instantiation of this class will make a global variable `env` available.
+ * Instantiation of EnvManager class will make a global variable `env` available
  * This class is recommended to globally available, as it can be instantiated
  * only once.
  * EnvManager.get() or EnvManager.set() allow manipulation of `env` object.
@@ -16,8 +16,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-// "internal-name": "Runtime specific variable name(s)".
-const _RUNTIME_ENV_MAPPINGS = {
+/**
+ * "internal-name": is mapped to a runtime (deno | node | worker) specific
+ * variable name. Right hand side can be a string (variable named the same on
+ * all runtimes) or an object which can give it different names on different
+ * runtimes or / and specify a type, if not string.
+ */
+const _ENV_VAR_MAPPINGS = {
   runTime: "RUNTIME",
   runTimeEnv: {
     worker: "WORKER_ENV",
@@ -68,16 +73,16 @@ function _getRuntimeEnv(runtime) {
   console.info("Loading env. from runtime:", runtime);
 
   const env = {};
-  for (const [key, value] of Object.entries(_RUNTIME_ENV_MAPPINGS)) {
+  for (const [key, mapping] of Object.entries(_ENV_VAR_MAPPINGS)) {
     let name = null;
     let type = "string";
 
-    if (typeof value === "string") {
-      name = value;
-    } else if (typeof value === "object") {
-      name = value.all || value[runtime];
-      type = value.type || "string";
-    }
+    if (typeof mapping === "string") {
+      name = mapping;
+    } else if (typeof mapping === "object") {
+      name = mapping.all || mapping[runtime];
+      type = mapping.type || type;
+    } else throw new Error("Unfamiliar mapping");
 
     if (runtime === "node") env[key] = process.env[name];
     else if (runtime === "deno") env[key] = name && Deno.env.get(name);
@@ -87,7 +92,8 @@ function _getRuntimeEnv(runtime) {
     // All env are assumed to be strings, so typecast them.
     if (type === "boolean") env[key] = !!env[key];
     else if (type === "number") env[key] = Number(env[key]);
-    else if (type === "string") env[key] = env[key] || ""; // null -> ""
+    else if (type === "string") env[key] = env[key] || "";
+    else throw new Error(`Unsupported type: ${type}`);
   }
 
   return env;
@@ -95,7 +101,7 @@ function _getRuntimeEnv(runtime) {
 
 function _getRuntime() {
   // As `process` also exists in worker, we need to check for worker first.
-  if (globalThis.RUNTIME == "worker") return "worker";
+  if (globalThis.RUNTIME === "worker") return "worker";
   if (typeof Deno !== "undefined") return "deno";
   if (typeof process !== "undefined") return "node";
 }
@@ -125,7 +131,7 @@ export default class EnvManager {
 
     // adding download timeout with worker time to determine worker's overall
     // timeout
-    runtime == "worker" &&
+    runtime === "worker" &&
       this.envMap.set(
         "workerTimeout",
         Number(WORKER_TIMEOUT) + Number(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
@@ -133,7 +139,7 @@ export default class EnvManager {
 
     console.debug(
       "Loaded env: ",
-      (runtime == "worker" && JSON.stringify(this.toObject())) ||
+      (runtime === "worker" && JSON.stringify(this.toObject())) ||
         this.toObject()
     );
 

@@ -5,7 +5,7 @@
  * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
  */
 export function getTLSfromEnv(TLS_CRT_KEY) {
-  if (TLS_CRT_KEY == undefined) throw new Error("TLS cert / key not found");
+  if (TLS_CRT_KEY == null) throw new Error("TLS cert / key not found");
 
   TLS_CRT_KEY = TLS_CRT_KEY.replace(/\\n/g, "\n");
 
