@@ -96,5 +96,5 @@ function putCache(cache, url, blf, dnsPacket, buf, event) {
   if (!key) return;
   let input = dnsCacheUtil.createCacheInput(dnsPacket, blf, true);
   console.debug("Cache Input ", JSON.stringify(input));
-  event.waitUntil(cache.put(key, input, url, buf));
+  cache.put(key, input, url, buf, event);
 }

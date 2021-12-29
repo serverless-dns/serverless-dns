@@ -38,13 +38,13 @@ export class DnsCache {
     return entry;
   }
 
-  async put(key, data, url, buf) {
+  put(key, data, url, buf, event) {
     try {
       this.putLocalCache(key, data);
       //check for cache api availability
-      if (url && envutil.isWorkers()) {
+      if (url && envutil.isWorkers() && event && event.waitUntil) {
         console.debug("Adding to cache api");
-        this.putCacheApi(key, url, buf, data.metaData);
+        event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
       }
     } catch (e) {
       console.error(e.stack);
@@ -67,7 +67,7 @@ export class DnsCache {
   async getCacheApi(key) {
     return await this.cacheApi.get(key);
   }
-  putCacheApi(key, url, buf, metaData) {
+  async putCacheApi(key, url, buf, metaData) {
     let response = createResponse(buf, metaData, 604800); //1w ttl set based on blocklist update
     const cacheApiKey = makeCacheApiKey(key, url);
     this.cacheApi.put(cacheApiKey, response);

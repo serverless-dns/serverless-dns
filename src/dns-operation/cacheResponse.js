@@ -60,7 +60,7 @@ export default class DNSCacheResponse {
   }
 }
 async function parseCacheResponse(cr, blockInfo, reqDnsPacket, qb, rb) {
-  //question block check
+  //check dns-block for incoming request against blocklist metadata from cache
   let response = checkDnsBlock(
     qb,
     reqDnsPacket,
@@ -71,8 +71,9 @@ async function parseCacheResponse(cr, blockInfo, reqDnsPacket, qb, rb) {
   if (response && response.isBlocked) {
     return response;
   }
-  const now = Date.now();
-  if (!cr.metaData.bodyUsed || (now > cr.metaData.ttlEndTime)) {
+  //cache response contains only metadata information
+  //return false to resolve dns request.
+  if (!cr.metaData.bodyUsed) {
     return false;
   }
 
