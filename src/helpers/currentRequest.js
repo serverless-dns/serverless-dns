@@ -86,13 +86,13 @@ export default class CurrentRequest {
       this.decodedDnsPacket.answers[0].class = "IN";
       this.decodedDnsPacket.answers[0].data = "";
       this.decodedDnsPacket.answers[0].flush = false;
-      if (this.decodedDnsPacket.questions[0].type == "A") {
+      if (this.decodedDnsPacket.questions[0].type === "A") {
         this.decodedDnsPacket.answers[0].data = "0.0.0.0";
-      } else if (this.decodedDnsPacket.questions[0].type == "AAAA") {
+      } else if (this.decodedDnsPacket.questions[0].type === "AAAA") {
         this.decodedDnsPacket.answers[0].data = "::";
       } else if (
-        this.decodedDnsPacket.questions[0].type == "HTTPS" ||
-        this.decodedDnsPacket.questions[0].type == "SVCB"
+        this.decodedDnsPacket.questions[0].type === "HTTPS" ||
+        this.decodedDnsPacket.questions[0].type === "SVCB"
       ) {
         this.decodedDnsPacket.answers[0].data = {};
         this.decodedDnsPacket.answers[0].data.svcPriority = 0;
@@ -100,10 +100,9 @@ export default class CurrentRequest {
         this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
       this.decodedDnsPacket.authorities = [];
-      this.httpResponse = new Response(
-        dnsutil.encode(this.decodedDnsPacket),
-        { headers: this.headers() }
-      );
+      this.httpResponse = new Response(dnsutil.encode(this.decodedDnsPacket), {
+        headers: this.headers(),
+      });
     } catch (e) {
       log.e(JSON.stringify(this.decodedDnsPacket));
       this.isException = true;
@@ -132,8 +131,12 @@ export default class CurrentRequest {
   }
 
   setCorsHeaders() {
-    for (const [name, value] of Object.entries(util.corsHeaders())) {
-      this.httpResponse.headers.set(name, value);
+    // CORS headers are only allowed on ok status.
+    // https://fetch.spec.whatwg.org/#cors-preflight-fetch (Step 7)
+    if (this.httpResponse.ok) {
+      for (const [name, value] of Object.entries(util.corsHeaders())) {
+        this.httpResponse.headers.set(name, value);
+      }
     }
   }
 }
