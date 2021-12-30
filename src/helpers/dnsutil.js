@@ -15,11 +15,17 @@ export const dnsHeaderSize = 2
 export const dnsPacketHeaderSize = 12
 export const minDNSPacketSize = dnsPacketHeaderSize + 5
 export const maxDNSPacketSize = 4096
+export const cacheSize = 10000
 
 const minRequestTimeout = 5000 // 7s
 const defaultRequestTimeout = 15000 // 15s
 const maxRequestTimeout = 30000 // 30s
+
 const dns = new Dns()
+
+export function cacheSize() {
+  return cacheSize;
+}
 
 export function servfail(qid, qs) {
   if (!qid || !qs) return null

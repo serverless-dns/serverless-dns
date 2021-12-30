@@ -23,44 +23,68 @@
  * runtimes or / and specify a type, if not string.
  */
 const _ENV_VAR_MAPPINGS = {
-  runTime: "RUNTIME",
+// "internal-name": "Runtime specific variable name(s)".
+  runTime: {
+    name: "RUNTIME",
+    type: "string",
+  },
   runTimeEnv: {
-    worker: "WORKER_ENV",
-    node: "NODE_ENV",
-    deno: "DENO_ENV",
+    name: {
+      worker: "WORKER_ENV",
+      node: "NODE_ENV",
+      deno: "DENO_ENV",
+    },
+    type: "string",
   },
-  cloudPlatform: "CLOUD_PLATFORM",
-  logLevel: "LOG_LEVEL",
-  blocklistUrl: "CF_BLOCKLIST_URL",
-  latestTimestamp: "CF_LATEST_BLOCKLIST_TIMESTAMP",
-  dnsResolverUrl: "CF_DNS_RESOLVER_URL",
+  cloudPlatform: {
+    name: "CLOUD_PLATFORM",
+    type: "string",
+  },
+  logLevel: {
+    name: "LOG_LEVEL",
+    type: "string",
+  },
+  blocklistUrl: {
+    name: "CF_BLOCKLIST_URL",
+    type: "string",
+  },
+  latestTimestamp: {
+    name: "CF_LATEST_BLOCKLIST_TIMESTAMP",
+    type: "string",
+  },
+  dnsResolverUrl: {
+    name: "CF_DNS_RESOLVER_URL",
+    type: "string",
+  },
   onInvalidFlagStopProcessing: {
+    name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
     type: "boolean",
-    all: "CF_ON_INVALID_FLAG_STOPPROCESSING",
   },
-
-  // parallel request wait timeout for download blocklist from s3
+  workerTimeout: {
+    name: "WORKER_TIMEOUT",
+    type: "number",
+  },
   fetchTimeout: {
+    name: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
     type: "number",
-    all: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
   },
-
-  // env variables for td file split
   tdNodecount: {
+    name: "TD_NODE_COUNT",
     type: "number",
-    all: "TD_NODE_COUNT",
   },
   tdParts: {
+    name: "TD_PARTS",
     type: "number",
-    all: "TD_PARTS",
   },
 
-  // set to on - off aggressive cache plugin
-  // as of now Cache-api is available only on worker
-  // so _getRuntimeEnv will set this to false for other runtime.
+  //set to on - off aggressive cache plugin
+  //as of now Cache-api is available only on worker
+  //so _loadEnv will set this to false for other runtime.
   isAggCacheReq: {
+    name: {
+      worker: "IS_AGGRESSIVE_CACHE_REQ",
+    },
     type: "boolean",
-    worker: "IS_AGGRESSIVE_CACHE_REQ",
   },
 };
 
@@ -73,37 +97,53 @@ function _getRuntimeEnv(runtime) {
   console.info("Loading env. from runtime:", runtime);
 
   const env = {};
-  for (const [key, mapping] of Object.entries(_ENV_VAR_MAPPINGS)) {
+  for (const [key, mappedKey] of Object.entries(_ENV_VAR_MAPPINGS)) {
     let name = null;
-    let type = "string";
+    let type = null;
 
-    if (typeof mapping === "string") {
-      name = mapping;
-    } else if (typeof mapping === "object") {
-      name = mapping.all || mapping[runtime];
-      type = mapping.type || type;
-    } else throw new Error("Unfamiliar mapping");
+    if (typeof mappedKey !== "object") continue;
+
+    if (typeof mappedKey.name === "object") {
+      name = mappedKey.name[runtime];
+    } else {
+      name = mappedKey.name;
+    }
+    type = mappedKey.type;
+
+    if (!name || !type) {
+      console.debug(runtime, "unnamed / untyped env mapping", key, mappedKey);
+      continue;
+    }
 
     if (runtime === "node") env[key] = process.env[name];
-    else if (runtime === "deno") env[key] = name && Deno.env.get(name);
+    else if (runtime === "deno") env[key] = Deno.env.get(name);
     else if (runtime === "worker") env[key] = globalThis[name];
-    else throw new Error(`Unknown runtime: ${runtime}`);
+    else throw new Error(`unsupported runtime: ${runtime}`);
 
-    // All env are assumed to be strings, so typecast them.
+    // env vars are strings by default, typecast to their respective types
     if (type === "boolean") env[key] = !!env[key];
     else if (type === "number") env[key] = Number(env[key]);
     else if (type === "string") env[key] = env[key] || "";
-    else throw new Error(`Unsupported type: ${type}`);
+    else throw new Error(`unsupported type: ${type}`);
+
+    console.debug("added", key, mappedKey, env[key]);
   }
 
   return env;
 }
 
 function _getRuntime() {
-  // As `process` also exists in worker, we need to check for worker first.
-  if (globalThis.RUNTIME === "worker") return "worker";
-  if (typeof Deno !== "undefined") return "deno";
-  if (typeof process !== "undefined") return "node";
+  if (typeof Deno !== "undefined") {
+    return "deno";
+  }
+
+  if (typeof process !== "undefined") {
+    // process also exists in Workers, where RUNTIME is defined
+    if (globalThis.RUNTIME) return globalThis.RUNTIME;
+    if (process.env) return process.env.RUNTIME || "node";
+  }
+
+  throw new Error("unknown runtime");
 }
 
 export default class EnvManager {
@@ -111,40 +151,25 @@ export default class EnvManager {
    * Initializes the env manager.
    */
   constructor() {
-    if (globalThis.env) throw new Error("envManager is already initialized.");
-
-    globalThis.env = {};
     this.envMap = new Map();
-    this.isLoaded = false;
+    this.load();
   }
 
   /**
    * Loads env variables from runtime env. and is made globally available
    * through `env` namespace. Existing env variables will be overwritten.
    */
-  loadEnv() {
+  load() {
     const runtime = _getRuntime();
-    const env = _getRuntimeEnv(runtime);
-    for (const [key, value] of Object.entries(env)) {
-      this.envMap.set(key, value);
+    const renv = _getRuntimeEnv(runtime);
+
+    globalThis.env = renv // Global `env` namespace.
+
+    for (const [k, v] of Object.entries(renv)) {
+      this.envMap.set(k, v);
     }
 
-    // adding download timeout with worker time to determine worker's overall
-    // timeout
-    runtime === "worker" &&
-      this.envMap.set(
-        "workerTimeout",
-        Number(WORKER_TIMEOUT) + Number(CF_BLOCKLIST_DOWNLOAD_TIMEOUT)
-      );
-
-    console.debug(
-      "Loaded env: ",
-      (runtime === "worker" && JSON.stringify(this.toObject())) ||
-        this.toObject()
-    );
-
-    globalThis.env = this.toObject(); // Global `env` namespace.
-    this.isLoaded = true;
+    console.debug("env loaded: ", JSON.stringify(renv));
   }
 
   /**
@@ -175,6 +200,6 @@ export default class EnvManager {
    */
   set(key, value) {
     this.envMap.set(key, value);
-    globalThis.env = this.toObject();
+    globalThis.env[key] = value;
   }
 }

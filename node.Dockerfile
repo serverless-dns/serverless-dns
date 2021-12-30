@@ -22,4 +22,4 @@ RUN rm -f *Dockerfile .dockerignore
 
 RUN ls -Fla
 
-CMD ["node", "src/server.js"]
+CMD ["node", "src/server-node.js"]

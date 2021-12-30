@@ -12,32 +12,9 @@ import EnvManager from "./helpers/env.js";
 import Log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
-
-if (!globalThis.envManager) globalThis.envManager = new EnvManager();
-
-if (typeof addEventListener !== "undefined") {
-  addEventListener("fetch", (event) => {
-    event.respondWith(handleRequest(event));
-  });
-}
-
-function initEnvIfNeeded() {
-  if (!envManager.isLoaded) {
-    envManager.loadEnv();
-  }
-
-  if (!globalThis.log) {
-    globalThis.log = new Log(
-      env.logLevel,
-
-      // set console level only in production
-      !console.level && env.runTimeEnv === "production"
-    );
-  }
-}
+import * as system from "./system.js";
 
 export function handleRequest(event) {
-  initEnvIfNeeded();
 
   return Promise.race([
     new Promise((accept, _) => {
@@ -51,6 +28,7 @@ export function handleRequest(event) {
       );
     }),
   ]);
+
 }
 
 async function proxyRequest(event) {

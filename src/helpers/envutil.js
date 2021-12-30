@@ -10,6 +10,15 @@ export function onFly() {
   return env && env.cloudPlatform === "fly";
 }
 
+export function hasDisk() {
+  // got disk on test nodejs envs and on fly
+  return onFly() || (isNode() && !isProd());
+}
+
+export function isProd() {
+  return env && env.runTimeEnv === "production";
+}
+
 export function isWorkers() {
   return env && env.runTime === "worker";
 }
@@ -21,3 +30,24 @@ export function isNode() {
 export function workersTimeout(defaultValue = 0) {
   return (env && env.workerTimeout) || defaultValue;
 }
+
+export function blocklistUrl() {
+  if (!env) return null;
+  return env.blocklistUrl;
+}
+
+export function timestamp() {
+  if (!env) return null;
+  return env.latestTimestamp;
+}
+
+export function tdNodeCount() {
+  if (!env) return null;
+  return env.tdNodecount;
+}
+
+export function tdParts() {
+  if (!env) return null;
+  return env.tdParts;
+}
+

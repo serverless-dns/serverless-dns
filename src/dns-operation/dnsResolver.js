@@ -21,14 +21,24 @@ export default class DNSResolver {
   }
 
   async lazyInit() {
+    if (!this.dnsResCache) {
+      this.dnsResCache = new LocalCache("dns-response-cache", dnsCacheSize);
+      log.i("create dnscache", dnsCacheSize);
+    }
+    if (envutil.isWorkers() && !this.httpCache) {
+      this.httpCache = caches.default;
+      log.i("init http-cache");
+    }
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
       this.nodeUtil = await import("../helpers/node/util.js");
+      log.i("create custom http2 client");
     }
     if (envutil.isNode() && !this.transport) {
       this.transport = new (
         await import("../helpers/node/dns-transport.js")
       ).Transport(quad1, 53);
+      log.i("create udp/tcp transport", quad1);
     }
   }
 
@@ -62,7 +72,7 @@ export default class DNSResolver {
       param.dnsResolverUrl,
       param.requestBodyBuffer,
     );
-    resp = await decodeResponse(upRes, this.dnsParser); 
+    resp = await decodeResponse(upRes, this.dnsParser);
     return resp;
   }
 }

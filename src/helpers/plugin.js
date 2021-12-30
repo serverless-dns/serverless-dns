@@ -15,21 +15,44 @@ import {
   DNSResponseBlock,
 } from "../dns-operation/dnsOperation.js";
 import * as util from "./util.js";
+import * as envutil from "./envutil.js";
+import * as system from "../system.js";
 
 import { DnsCache } from "../cache-wrapper/cache-wrapper.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 
-const blocklistWrapper = new BlocklistWrapper();
-const commandControl = new CommandControl();
-const userOperation = new UserOperation();
-const dnsQuestionBlock = new DNSQuestionBlock();
-const dnsResolver = new DNSResolver();
-const dnsResponseBlock = new DNSResponseBlock();
-const dnsCacheHandler = new DNSCacheResponse();
-//dns cache used accross 3plugins so passed as parameter
-const dnsCache = new DnsCache(10000);
+const services = {};
+
+(main => {
+  system.sub("ready", systemReady)
+})();
+
+async function systemReady() {
+  if (services.ready) return;
+
+  log.i("plugin.js: systemReady");
+
+  services.blocklistWrapper = new BlocklistWrapper();
+  services.commandControl = new CommandControl();
+  services.userOperation = new UserOperation();
+  services.dnsQuestionBlock = new DNSQuestionBlock();
+  services.dnsResolver = new DNSResolver();
+  services.dnsResponseBlock = new DNSResponseBlock();
+  services.dnsCacheHandler = new DNSCacheResponse();
+  services.dnsCache = new DnsCache(dnsutil.cacheSize());
+
+  if (envutil.isNode()) {
+    const blocklists = await import ("./node/blocklists.js");
+    await blocklists.setup(services.blocklistWrapper);
+  }
+
+  system.pub("go");
+
+  services.ready = true;
+}
 
 export default class RethinkPlugin {
+
   /**
    * @param {{request: Request}} event
    */
@@ -40,15 +63,15 @@ export default class RethinkPlugin {
     this.parameter = new Map(envManager.getMap());
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
-    this.registerParameter("dnsQuestionBlock", dnsQuestionBlock);
-    this.registerParameter("dnsResponseBlock", dnsResponseBlock);
+    this.registerParameter("dnsQuestionBlock", services.dnsQuestionBlock);
+    this.registerParameter("dnsResponseBlock", services.dnsResponseBlock);
     this.registerParameter("dnsCache", dnsCache);
 
     this.plugin = [];
 
     this.registerPlugin(
       "userOperation",
-      userOperation,
+      services.userOperation,
       ["dnsResolverUrl", "request", "isDnsMsg"],
       userOperationCallBack,
       false,
@@ -56,7 +79,7 @@ export default class RethinkPlugin {
 
     this.registerPlugin(
       "AggressiveCaching",
-      dnsCacheHandler,
+      services.dnsCacheHandler,
       [
         "userBlocklistInfo",
         "request",
@@ -72,7 +95,7 @@ export default class RethinkPlugin {
 
     this.registerPlugin(
       "blocklistFilter",
-      blocklistWrapper,
+      services.blocklistWrapper,
       [
         "blocklistUrl",
         "latestTimestamp",
@@ -87,14 +110,19 @@ export default class RethinkPlugin {
 
     this.registerPlugin(
       "commandControl",
-      commandControl,
-      ["request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
+      services.commandControl,
+      [
+        "request",
+        "blocklistFilter",
+        "latestTimestamp",
+        "isDnsMsg",
+      ],
       commandControlCallBack,
       false,
     );
     this.registerPlugin(
       "dnsQuestionBlock",
-      dnsQuestionBlock,
+      services.dnsQuestionBlock,
       [
         "requestDecodedDnsPacket",
         "blocklistFilter",
@@ -108,7 +136,7 @@ export default class RethinkPlugin {
     );
     this.registerPlugin(
       "dnsResolver",
-      dnsResolver,
+      services.dnsResolver,
       [
         "requestBodyBuffer",
         "request",
@@ -123,7 +151,7 @@ export default class RethinkPlugin {
     );
     this.registerPlugin(
       "DNSResponseBlock",
-      dnsResponseBlock,
+      services.dnsResponseBlock,
       [
         "userBlocklistInfo",
         "blocklistFilter",
@@ -388,3 +416,4 @@ function base64ToArrayBuffer(base64) {
   }
   return bytes.buffer;
 }
+

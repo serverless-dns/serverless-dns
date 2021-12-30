@@ -1,64 +1,88 @@
 /**
  * Configuration file for node runtime
- * TODO?: Remove all side-effects and use a constructor?
- * - This module has side effects, sequentially setting up the environment.
- * - Only variables may be exported from this module.
- * - Don't define functions here, import functions if required.
+ * TODO: Remove all side-effects and use a constructor?
+ * This module has side effects, sequentially setting up the environment.
  */
 
 import { atob, btoa } from "buffer";
 import fetch, { Headers, Request, Response } from "node-fetch";
 import { getTLSfromEnv } from "./util.js";
-import EnvManager from "../env.js";
 import Log from "../log.js";
+import * as system from "../../system.js";
+import EnvManager from "../env.js";
+import * as swap from "../linux/swap.js";
 
-/** Environment Variables */
-// Load env variables from .env file to process.env (if file exists)
-// NOTE: this won't overwrite existing
-if (process.env.NODE_ENV !== "production") (await import("dotenv")).config();
-process.env.RUNTIME = "node";
+(async main => {
 
-if (!globalThis.envManager) globalThis.envManager = new EnvManager();
-envManager.loadEnv();
+  // if this file execs... assume we're on nodejs.
+  const runtime = "node";
+  const isProd = process.env.NODE_ENV === "production";
+  const onFly = process.env.CLOUD_PLATFORM === "fly";
+  let devutils = null;
 
-/** Logging level */
-globalThis.log = new Log(
-  env.logLevel,
+  // dev utilities
+  if (!isProd) {
+    devutils = await import("./util-dev.js");
+  }
 
-  // set console level only in production
-  !console.level && env.runTimeEnv === "production"
-);
+  /** Environment Variables */
+  console.log("override runtime, from", process.env.RUNTIME, "to", runtime);
+  process.env.RUNTIME = runtime; // must call before creating env-manager
 
-/** Polyfills */
-if (!globalThis.fetch) {
-  globalThis.fetch =
-    process.env.NODE_ENV !== "production"
-      ? (await import("./util-dev.js")).fetchPlus
-      : fetch;
-  globalThis.Headers = Headers;
-  globalThis.Request = Request;
-  globalThis.Response = Response;
-}
+  // Load env variables from .env file to process.env (if file exists)
+  // NOTE: this won't overwrite existing
+  if (!isProd) {
+    (await import("dotenv")).config();
+    console.log("loading local .env")
+  }
 
-if (!globalThis.atob || !globalThis.btoa) {
-  globalThis.atob = atob;
-  globalThis.btoa = btoa;
-}
+  globalThis.envManager = new EnvManager();
 
-/** TLS crt and key */
-const _TLS_CRT_KEY =
-  eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
+  /** Logger */
+  globalThis.log = new Log(
+    env.logLevel,
+    isProd // set console level only in prod.
+  );
 
-export const [TLS_KEY, TLS_CRT] =
-  process.env.NODE_ENV === "production" || _TLS_CRT_KEY != null
-    ? getTLSfromEnv(_TLS_CRT_KEY)
-    : (await import("./util-dev.js")).getTLSfromFile(
+  /** TLS crt and key */
+  const _TLS_CRT_KEY =
+    eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
+
+  const [TLS_KEY, TLS_CRT] =
+    isProd || _TLS_CRT_KEY != undefined
+      ? getTLSfromEnv(_TLS_CRT_KEY)
+      : devutils.getTLSfromFile(
         process.env.TLS_KEY_PATH,
         process.env.TLS_CRT_PATH
       );
+  envManager.set("tlsKey", TLS_KEY);
+  envManager.set("tlsCrt", TLS_CRT);
 
-/** Swap on fly */
-if (process.env.CLOUD_PLATFORM === "fly") {
-  const ok = (await import("../linux/swap.js")).mkswap();
-  console.info("mkswap done?", ok);
-}
+  console.info("tls setup")
+
+  /** Polyfills */
+  if (!globalThis.fetch) {
+    globalThis.fetch = isProd ? fetch : devutils.fetchPlus
+    globalThis.Headers = Headers;
+    globalThis.Request = Request;
+    globalThis.Response = Response;
+    log.i("polyfill fetch web api")
+  }
+
+  if (!globalThis.atob || !globalThis.btoa) {
+    globalThis.atob = atob;
+    globalThis.btoa = btoa;
+    log.i("polyfill atob / btoa")
+  }
+
+  /** Swap on Fly */
+  if (onFly) {
+    const ok = swap.mkswap();
+    console.info("mkswap done?", ok);
+  }
+
+  /** signal up */
+  system.pub("ready");
+
+})();
+
