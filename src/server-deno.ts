@@ -21,8 +21,7 @@ async function systemUp() {
     : Deno.listen({
       port: HTTP_PORT,
     });
-  console.log(
-    `Running HTTP webserver at: http://${(l.addr as Deno.NetAddr).hostname}:${
+  console.log(`deno up at: http://${(l.addr as Deno.NetAddr).hostname}:${
       (l.addr as Deno.NetAddr).port
     }/`,
   );

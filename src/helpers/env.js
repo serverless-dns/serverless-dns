@@ -23,7 +23,7 @@
  * runtimes or / and specify a type, if not string.
  */
 const _ENV_VAR_MAPPINGS = {
-// "internal-name": "Runtime specific variable name(s)".
+  // "internal-name": "Runtime specific variable name(s)".
   runTime: {
     name: "RUNTIME",
     type: "string",
@@ -77,9 +77,9 @@ const _ENV_VAR_MAPPINGS = {
     type: "number",
   },
 
-  //set to on - off aggressive cache plugin
-  //as of now Cache-api is available only on worker
-  //so _loadEnv will set this to false for other runtime.
+  // set to on - off aggressive cache plugin
+  // as of now Cache-api is available only on worker
+  // so _loadEnv will set this to false for other runtime.
   isAggCacheReq: {
     name: {
       worker: "IS_AGGRESSIVE_CACHE_REQ",
@@ -151,6 +151,7 @@ export default class EnvManager {
    * Initializes the env manager.
    */
   constructor() {
+    this.runtime = _getRuntime();
     this.envMap = new Map();
     this.load();
   }
@@ -160,10 +161,9 @@ export default class EnvManager {
    * through `env` namespace. Existing env variables will be overwritten.
    */
   load() {
-    const runtime = _getRuntime();
-    const renv = _getRuntimeEnv(runtime);
+    const renv = _getRuntimeEnv(this.runtime);
 
-    globalThis.env = renv // Global `env` namespace.
+    globalThis.env = renv; // Global `env` namespace.
 
     for (const [k, v] of Object.entries(renv)) {
       this.envMap.set(k, v);
@@ -191,7 +191,18 @@ export default class EnvManager {
    * @return {*} - env variable value
    */
   get(key) {
-    return this.envMap.get(key);
+    const v = this.envMap.get(key);
+    if (v) return v;
+
+    if (this.runtime === "node") {
+      return process.env[key];
+    } else if (this.runtime === "deno") {
+      return Deno.env.get(key);
+    } else if (this.runtime === "worker") {
+      return globalThis[key];
+    }
+
+    return null;
   }
 
   /**

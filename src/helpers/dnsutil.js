@@ -6,43 +6,50 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js"
-import * as envutil from "./envutil.js"
+import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
+import * as envutil from "./envutil.js";
 
 // dns packet constants (in bytes)
 // A dns message over TCP stream has a header indicating length.
-export const dnsHeaderSize = 2
-export const dnsPacketHeaderSize = 12
-export const minDNSPacketSize = dnsPacketHeaderSize + 5
-export const maxDNSPacketSize = 4096
-export const cacheSize = 10000
+export const dnsHeaderSize = 2;
+export const dnsPacketHeaderSize = 12;
+export const minDNSPacketSize = dnsPacketHeaderSize + 5;
+export const maxDNSPacketSize = 4096;
 
-const minRequestTimeout = 5000 // 7s
-const defaultRequestTimeout = 15000 // 15s
-const maxRequestTimeout = 30000 // 30s
+export const dnsCloudflareSec = "1.1.1.2";
+export const dnsCacheSize = 10000;
+export const ttlGraceSec = 30;
 
-const dns = new Dns()
+const minRequestTimeout = 5000; // 7s
+const defaultRequestTimeout = 15000; // 15s
+const maxRequestTimeout = 30000; // 30s
+
+const dns = new Dns();
+
+export function dnsIpv4() {
+  return dnsCloudflareSec;
+}
 
 export function cacheSize() {
-  return cacheSize;
+  return dnsCacheSize;
 }
 
 export function servfail(qid, qs) {
-  if (!qid || !qs) return null
+  if (!qid || !qs) return null;
 
   return encode({
     id: qid,
     type: "response",
     flags: 4098, // servfail
     questions: qs,
-  })
+  });
 }
 
 export function requestTimeout() {
-  const t = envutil.workersTimeout(defaultRequestTimeout)
-  return (t > minRequestTimeout) ?
-    Math.min(t, maxRequestTimeout) :
-    minRequestTimeout
+  const t = envutil.workersTimeout(defaultRequestTimeout);
+  return t > minRequestTimeout
+    ? Math.min(t, maxRequestTimeout)
+    : minRequestTimeout;
 }
 
 export function truncated(ans) {
@@ -55,12 +62,11 @@ export function truncated(ans) {
 }
 
 export function validResponseSize(r) {
-  return r && validateSize(r.byteLength)
+  return r && validateSize(r.byteLength);
 }
 
 export function validateSize(sz) {
-  return sz >= minDNSPacketSize &&
-    sz <= maxDNSPacketSize
+  return sz >= minDNSPacketSize && sz <= maxDNSPacketSize;
 }
 
 export function hasAnswers(packet) {
@@ -97,11 +103,14 @@ export function decode(buf) {
 }
 
 export function isBlockable(packet) {
-  return hasSingleQuestion(packet) && (packet.questions[0].type == "A" ||
-    packet.questions[0].type == "AAAA" ||
-    packet.questions[0].type == "CNAME" ||
-    packet.questions[0].type == "HTTPS" ||
-    packet.questions[0].type == "SVCB");
+  return (
+    hasSingleQuestion(packet) &&
+    (packet.questions[0].type === "A" ||
+      packet.questions[0].type === "AAAA" ||
+      packet.questions[0].type === "CNAME" ||
+      packet.questions[0].type === "HTTPS" ||
+      packet.questions[0].type === "SVCB")
+  );
 }
 
 export function cacheKey(packet) {
@@ -109,17 +118,16 @@ export function cacheKey(packet) {
   // stackoverflow.com/a/55093896
   if (!hasSingleQuestion(packet)) return null;
 
-  const name = packet.questions[0].name
-      .trim()
-      .toLowerCase();
+  const name = packet.questions[0].name.trim().toLowerCase();
   const type = packet.questions[0].type;
   return name + ":" + type;
 }
 
+// TODO: move this function to cacheutil
 export function updateTtl(decodedDnsPacket, end) {
   const now = Date.now();
-  const outttl = Math.max(Math.floor((end - now) / 1000), 30); // ttl grace already set during cache put
-  for (let a of decodedDnsPacket.answers) {
+  const outttl = Math.max(Math.floor((end - now) / 1000), /* grace*/ 30);
+  for (const a of decodedDnsPacket.answers) {
     if (!optAnswer(a)) a.ttl = outttl;
   }
 }
@@ -132,37 +140,38 @@ export function updateQueryId(decodedDnsPacket, queryId) {
 }
 
 export function isCname(packet) {
-  return (hasAnswers(packet) && packet.answers[0].type == "CNAME");
+  return hasAnswers(packet) && packet.answers[0].type === "CNAME";
 }
 
 export function isHttps(packet) {
-  return (hasAnswers(packet) &&
-    (packet.answers[0].type == "HTTPS" || packet.answers[0].type == "SVCB"));
+  return (
+    hasAnswers(packet) &&
+    (packet.answers[0].type === "HTTPS" || packet.answers[0].type === "SVCB")
+  );
 }
 
 export function getCname(answers) {
-  let li = [];
+  const li = [];
   li[0] = answers[0].data.trim().toLowerCase();
-  li[1] = answers[answers.length - 1].name.trim()
-    .toLowerCase();
+  li[1] = answers[answers.length - 1].name.trim().toLowerCase();
   return li;
 }
 
 export function dohStatusCode(b) {
-  if (!b || !b.byteLength) return 412
-  if (b.byteLength > maxDNSPacketSize) return 413
-  if (b.byteLength < minDNSPacketSize) return 400
-  return 200
+  if (!b || !b.byteLength) return 412;
+  if (b.byteLength > maxDNSPacketSize) return 413;
+  if (b.byteLength < minDNSPacketSize) return 400;
+  return 200;
 }
 
 export function getTargetName(answers) {
-  let tn = answers[0].data.targetName.trim().toLowerCase();
+  const tn = answers[0].data.targetName.trim().toLowerCase();
   if (tn === ".") return false;
   return tn;
 }
 
 export function getQueryName(questions) {
-  let qn = questions[0].name.trim().toLowerCase();
+  const qn = questions[0].name.trim().toLowerCase();
   if (qn === "") return false;
   return qn;
 }

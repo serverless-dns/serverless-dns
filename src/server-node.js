@@ -44,8 +44,6 @@ function systemUp() {
     cert: env.tlsCrt,
   };
 
-  log.d("system up with tls", tlsOpts);
-
   const dot1 = tls
     .createServer(tlsOpts, serveTLS)
     .listen(DOT_PORT, () => up("DoT", dot1.address()));

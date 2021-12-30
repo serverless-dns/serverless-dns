@@ -11,7 +11,7 @@ import * as dnsutil from "../helpers/dnsutil.js";
 import * as util from "../helpers/util.js";
 import * as envutil from "../helpers/envutil.js";
 import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
-const quad1 = "1.1.1.2";
+
 export default class DNSResolver {
   constructor() {
     this.http2 = null;
@@ -21,24 +21,17 @@ export default class DNSResolver {
   }
 
   async lazyInit() {
-    if (!this.dnsResCache) {
-      this.dnsResCache = new LocalCache("dns-response-cache", dnsCacheSize);
-      log.i("create dnscache", dnsCacheSize);
-    }
-    if (envutil.isWorkers() && !this.httpCache) {
-      this.httpCache = caches.default;
-      log.i("init http-cache");
-    }
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
       this.nodeUtil = await import("../helpers/node/util.js");
       log.i("create custom http2 client");
     }
     if (envutil.isNode() && !this.transport) {
+      const plainOldDnsIp = dnsutil.dnsIpv4();
       this.transport = new (
         await import("../helpers/node/dns-transport.js")
-      ).Transport(quad1, 53);
-      log.i("create udp/tcp transport", quad1);
+      ).Transport(plainOldDnsIp, 53);
+      log.i("create udp/tcp transport", plainOldDnsIp);
     }
   }
 
@@ -70,7 +63,7 @@ export default class DNSResolver {
     const upRes = await this.resolveDnsUpstream(
       param.request,
       param.dnsResolverUrl,
-      param.requestBodyBuffer,
+      param.requestBodyBuffer
     );
     resp = await decodeResponse(upRes, this.dnsParser);
     return resp;
@@ -85,17 +78,15 @@ async function decodeResponse(response, dnsParser) {
     log.d("!OK", response.status, response.statusText, await response.text());
     throw new Error(response.status + " http err: " + response.statusText);
   }
-  let data = {};
+  const data = {};
   data.dnsBuffer = await response.arrayBuffer();
 
   if (!dnsutil.validResponseSize(data.dnsBuffer)) {
     throw new Error("Null / invalid response from upstream");
   }
   try {
-    //Todo: call dnsutil.encode makes answer[0].ttl as some big number need to debug.
-    data.dnsPacket = dnsParser.decode(
-      data.dnsBuffer,
-    );
+    // TODO: at times, dnsutil.encode sets answer[0].ttl to some large number
+    data.dnsPacket = dnsParser.decode(data.dnsBuffer);
   } catch (e) {
     log.e("decode fail " + response.status + " cache? " + data.dnsBuffer);
     throw e;
@@ -112,7 +103,7 @@ async function decodeResponse(response, dnsParser) {
 DNSResolver.prototype.resolveDnsUpstream = async function (
   request,
   resolverUrl,
-  requestBodyBuffer,
+  requestBodyBuffer
 ) {
   try {
     // for now, upstream plain-old dns on fly
@@ -130,9 +121,9 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
         : new Response(null, { status: 503 });
     }
 
-    let u = new URL(request.url);
-    let dnsResolverUrl = new URL(resolverUrl);
-    u.hostname = dnsResolverUrl.hostname; // override host, default cloudflare-dns.com
+    const u = new URL(request.url);
+    const dnsResolverUrl = new URL(resolverUrl);
+    u.hostname = dnsResolverUrl.hostname; // default cloudflare-dns.com
     u.pathname = dnsResolverUrl.pathname; // override path, default /dns-query
     u.port = dnsResolverUrl.port; // override port, default 443
     u.protocol = dnsResolverUrl.protocol; // override proto, default https
