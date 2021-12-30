@@ -20,15 +20,13 @@ const events = new Set();
 const listeners = new Map();
 
 (() => {
-
-  for (let e of events) {
+  for (const e of events) {
     listeners.set(e, new Set());
   }
 
-  for (let se of stickyEvents) {
+  for (const se of stickyEvents) {
     listeners.set(se, new Set());
   }
-
 })();
 
 export function pub(event) {
@@ -41,10 +39,9 @@ export function pub(event) {
     listeners.delete(event);
   }
 
-  for (let cb of eventCallbacks) {
+  for (const cb of eventCallbacks) {
     util.safeBox(() => cb());
   }
-
 }
 
 export function sub(event, cb) {
@@ -63,4 +60,3 @@ export function sub(event, cb) {
 
   return true;
 }
-

@@ -2,8 +2,8 @@ import * as system from "./system.js";
 import "./helpers/workers/config.js";
 import { handleRequest } from "./index.js";
 
-(main => {
-  system.sub("go", systemUp)
+((main) => {
+  system.sub("go", systemUp);
 })();
 
 function systemUp() {
@@ -14,4 +14,3 @@ function systemUp() {
     event.respondWith(handleRequest(event));
   });
 }
-

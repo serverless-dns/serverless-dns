@@ -34,14 +34,11 @@ const DOH_PORT = DOH_ENTRY_PORT;
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
-(main => {
-
+((main) => {
   system.sub("go", systemUp);
-
 })();
 
 function systemUp() {
-
   const tlsOpts = {
     key: env.tlsKey,
     cert: env.tlsCrt,
