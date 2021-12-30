@@ -4,12 +4,11 @@ import "./helpers/deno/config.ts";
 import { handleRequest } from "./index.js";
 import * as system from "./system.js";
 
-(main => {
+((main) => {
   system.sub("go", systemUp);
 })();
 
-function systemUp() {
-
+async function systemUp() {
   const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
   const HTTP_PORT = 8080;
 
@@ -33,7 +32,6 @@ function systemUp() {
     // To not be blocking, handle each connection without awaiting
     handleHttp(conn);
   }
-
 }
 
 async function handleHttp(conn: Deno.Conn) {
@@ -58,4 +56,3 @@ async function handleHttp(conn: Deno.Conn) {
     }
   }
 }
-

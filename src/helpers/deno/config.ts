@@ -1,8 +1,9 @@
 import { config as dotEnvConfig } from "dotenv";
 import * as system from "../../system.js";
 import Log from "../log.js";
+import EnvManager from "../env.js";
 
-(main => {
+((main) => {
   if (!Deno) throw new Error("failed loading deno-specific config");
 
   const isProd = Deno.env.get("DENO_ENV") === "production";
@@ -21,9 +22,8 @@ import Log from "../log.js";
 
   globalThis.log = new Log(
     env.logLevel,
-    isProd // set console level only in prod.
+    isProd, // set console level only in prod.
   );
 
   system.pub("ready");
-}();
-
+})();
