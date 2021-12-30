@@ -17,6 +17,8 @@ module.exports = {
     sourceType: "module",
   },
 
+  ignorePatterns: ["node_modules/", "dist/", "worker/", "test/data/cache/"],
+
   plugins: ["prettier"],
   rules: {
     // Google JS rules, missing in "eslint-config-google" package
