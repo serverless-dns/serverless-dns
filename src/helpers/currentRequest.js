@@ -131,8 +131,9 @@ export default class CurrentRequest {
   }
 
   setCorsHeaders() {
-    // CORS headers only for successful responses
-    if (this.httpResponse.status >= 200 && this.httpResponse.status < 300) {
+    // CORS headers are only allowed on ok status.
+    // https://fetch.spec.whatwg.org/#cors-preflight-fetch (Step 7)
+    if (this.httpResponse.ok) {
       for (const [name, value] of Object.entries(util.corsHeaders())) {
         this.httpResponse.headers.set(name, value);
       }
