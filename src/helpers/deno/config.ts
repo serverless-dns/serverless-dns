@@ -3,7 +3,11 @@ import * as system from "../../system.js";
 import Log from "../log.js";
 import EnvManager from "../env.js";
 
+// In global scope.
 declare global {
+  // TypeScript compiler needs to know type of every variable / property.
+  // So, we extend the window object (globalThis) with declaration merging.
+  // See: https://www.typescriptlang.org/docs/handbook/declaration-merging.html
   interface Window {
     envManager?: EnvManager;
     log?: Log;
