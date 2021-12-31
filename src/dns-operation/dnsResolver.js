@@ -23,15 +23,18 @@ export default class DNSResolver {
   async lazyInit() {
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
+      log.i("created custom http2 client");
+    }
+    if (envutil.isNode() && !this.nodeUtil) {
       this.nodeUtil = await import("../helpers/node/util.js");
-      log.i("create custom http2 client");
+      log.i("imported node-util");
     }
     if (envutil.isNode() && !this.transport) {
       const plainOldDnsIp = dnsutil.dnsIpv4();
       this.transport = new (
         await import("../helpers/node/dns-transport.js")
       ).Transport(plainOldDnsIp, 53);
-      log.i("create udp/tcp transport", plainOldDnsIp);
+      log.i("created udp/tcp dns transport", plainOldDnsIp);
     }
   }
 
@@ -162,7 +165,11 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
  * @returns {Promise<Response>}
  */
 DNSResolver.prototype.doh2 = async function (request) {
-  console.debug("upstream using h2");
+  if (!this.http2 || !this.nodeUtil) {
+    throw new Error("h2 / node-util not setup, bailing");
+  }
+
+  log.d("upstream with doh2");
   const http2 = this.http2;
   const transformPseudoHeaders = this.nodeUtil.transformPseudoHeaders;
 

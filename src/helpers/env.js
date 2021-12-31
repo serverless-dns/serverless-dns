@@ -79,7 +79,7 @@ const _ENV_VAR_MAPPINGS = {
 
   // set to on - off aggressive cache plugin
   // as of now Cache-api is available only on worker
-  // so _loadEnv will set this to false for other runtime.
+  // so load() will set this to false for other runtime.
   isAggCacheReq: {
     name: {
       worker: "IS_AGGRESSIVE_CACHE_REQ",
@@ -132,9 +132,9 @@ function _getRuntimeEnv(runtime) {
   return env;
 }
 
-function _getRuntime() {
+function _determineRuntimeIfPossible() {
   if (typeof Deno !== "undefined") {
-    return "deno";
+    return Deno.env.get("RUNTIME") || "deno";
   }
 
   if (typeof process !== "undefined") {
@@ -143,7 +143,7 @@ function _getRuntime() {
     if (process.env) return process.env.RUNTIME || "node";
   }
 
-  throw new Error("unknown runtime");
+  return null;
 }
 
 export default class EnvManager {
@@ -151,7 +151,7 @@ export default class EnvManager {
    * Initializes the env manager.
    */
   constructor() {
-    this.runtime = _getRuntime();
+    this.runtime = _determineRuntimeIfPossible();
     this.envMap = new Map();
     this.load();
   }
@@ -163,7 +163,7 @@ export default class EnvManager {
   load() {
     const renv = _getRuntimeEnv(this.runtime);
 
-    globalThis.env = renv; // Global `env` namespace.
+    globalThis.env = renv; // global `env` namespace.
 
     for (const [k, v] of Object.entries(renv)) {
       this.envMap.set(k, v);

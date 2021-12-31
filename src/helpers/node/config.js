@@ -46,20 +46,27 @@ import * as swap from "../linux/swap.js";
   );
 
   /** TLS crt and key */
-  const _TLS_CRT_KEY =
+  // Raw TLS CERT and KEY are stored (base64) in an env var for fly deploys
+  // (fly deploys are dev/prod nodejs deploys where env TLS_CN or TLS_ is set).
+  // Otherwise, retrieve KEY and CERT from the filesystem (this is the case
+  // for local non-prod nodejs deploys with self-signed certs).
+  const _TLS_CRT_AND_KEY =
     eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
 
-  const [TLS_KEY, TLS_CRT] =
-    isProd || _TLS_CRT_KEY !== undefined
-      ? getTLSfromEnv(_TLS_CRT_KEY)
-      : devutils.getTLSfromFile(
-          process.env.TLS_KEY_PATH,
-          process.env.TLS_CRT_PATH
-        );
-  envManager.set("tlsKey", TLS_KEY);
-  envManager.set("tlsCrt", TLS_CRT);
-
-  console.info("tls setup");
+  if (isProd || _TLS_CRT_AND_KEY) {
+    const [tlsKey, tlsCrt] = getTLSfromEnv(_TLS_CRT_AND_KEY);
+    envManager.set("tlsKey", tlsKey);
+    envManager.set("tlsCrt", tlsCrt);
+    console.log("env (fly) tls setup");
+  } else {
+    const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
+      process.env.TLS_KEY_PATH,
+      process.env.TLS_CRT_PATH
+    );
+    envManager.set("tlsKey", tlsKey);
+    envManager.set("tlsCrt", tlsCrt);
+    console.info("dev (local) tls setup");
+  }
 
   /** Polyfills */
   if (!globalThis.fetch) {

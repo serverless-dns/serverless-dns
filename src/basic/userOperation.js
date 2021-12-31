@@ -15,6 +15,7 @@ export class UserOperation {
     this.userConfigCache = new UserCache(1000);
     this.blocklistFilter = new BlocklistFilter();
   }
+
   /**
    * @param {*} param
    * @param {*} param.dnsResolverUrl
@@ -27,7 +28,7 @@ export class UserOperation {
   }
 
   loadUser(param) {
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
@@ -38,7 +39,7 @@ export class UserOperation {
       if (!param.isDnsMsg) {
         return response;
       }
-      let userBlocklistInfo = {};
+      const userBlocklistInfo = {};
       userBlocklistInfo.from = "Cache";
       let blocklistFlag = getBlocklistFlag(param.request.url);
       let currentUser = this.userConfigCache.get(blocklistFlag);
@@ -48,14 +49,14 @@ export class UserOperation {
         currentUser.flagVersion = 0;
         currentUser.userServiceListUint = false;
 
-        let response = this.blocklistFilter.unstamp(blocklistFlag);
+        const response = this.blocklistFilter.unstamp(blocklistFlag);
         currentUser.userBlocklistFlagUint = response.userBlocklistFlagUint;
         currentUser.flagVersion = response.flagVersion;
 
         if (!util.emptyString(currentUser.userBlocklistFlagUint)) {
           currentUser.userServiceListUint = dnsBlockUtil.flagIntersection(
             currentUser.userBlocklistFlagUint,
-            this.blocklistFilter.wildCardUint,
+            this.blocklistFilter.wildCardUint
           );
         } else {
           blocklistFlag = "";
@@ -80,6 +81,7 @@ export class UserOperation {
     return response;
   }
 }
+
 /**
  * Get the blocklist flag from `Request` URL
  * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
@@ -88,12 +90,12 @@ export class UserOperation {
  */
 function getBlocklistFlag(url) {
   let blocklistFlag = "";
-  let reqUrl = new URL(url);
+  const reqUrl = new URL(url);
 
   // Check if pathname has `/dns-query`
-  let tmpsplit = reqUrl.pathname.split("/");
+  const tmpsplit = reqUrl.pathname.split("/");
   if (tmpsplit.length > 1) {
-    if (tmpsplit[1].toLowerCase() == "dns-query") {
+    if (tmpsplit[1].toLowerCase() === "dns-query") {
       blocklistFlag = tmpsplit[2] || "";
     } else {
       blocklistFlag = tmpsplit[1] || "";

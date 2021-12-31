@@ -19,6 +19,7 @@ export default class DNSParserWrap {
       throw e;
     }
   }
+
   encode(DecodedDnsPacket) {
     try {
       return DnsParser.encode(DecodedDnsPacket);

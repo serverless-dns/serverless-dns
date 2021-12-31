@@ -16,22 +16,21 @@ export const dnsPacketHeaderSize = 12;
 export const minDNSPacketSize = dnsPacketHeaderSize + 5;
 export const maxDNSPacketSize = 4096;
 
-export const dnsCloudflareSec = "1.1.1.2";
-export const dnsCacheSize = 10000;
-export const ttlGraceSec = 30;
+const _dnsCloudflareSec = "1.1.1.2";
+const _dnsCacheSize = 10000;
 
-const minRequestTimeout = 5000; // 7s
-const defaultRequestTimeout = 15000; // 15s
-const maxRequestTimeout = 30000; // 30s
+const _minRequestTimeout = 5000; // 7s
+const _defaultRequestTimeout = 15000; // 15s
+const _maxRequestTimeout = 30000; // 30s
 
 const dns = new Dns();
 
 export function dnsIpv4() {
-  return dnsCloudflareSec;
+  return _dnsCloudflareSec;
 }
 
 export function cacheSize() {
-  return dnsCacheSize;
+  return _dnsCacheSize;
 }
 
 export function servfail(qid, qs) {
@@ -46,10 +45,10 @@ export function servfail(qid, qs) {
 }
 
 export function requestTimeout() {
-  const t = envutil.workersTimeout(defaultRequestTimeout);
-  return t > minRequestTimeout
-    ? Math.min(t, maxRequestTimeout)
-    : minRequestTimeout;
+  const t = envutil.workersTimeout(_defaultRequestTimeout);
+  return t > _minRequestTimeout
+    ? Math.min(t, _maxRequestTimeout)
+    : _minRequestTimeout;
 }
 
 export function truncated(ans) {
@@ -133,7 +132,6 @@ export function updateTtl(decodedDnsPacket, end) {
 }
 
 export function updateQueryId(decodedDnsPacket, queryId) {
-  if (queryId === 0) return false; // doh reqs are qid free
   if (queryId === decodedDnsPacket.id) return false; // no change
   decodedDnsPacket.id = queryId;
   return true;

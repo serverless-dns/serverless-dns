@@ -39,6 +39,7 @@ export function pub(event) {
     listeners.delete(event);
   }
 
+  // callbacks are called async and don't block the caller
   for (const cb of eventCallbacks) {
     util.safeBox(() => cb());
   }

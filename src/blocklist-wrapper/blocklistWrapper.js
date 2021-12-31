@@ -10,7 +10,6 @@ import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
 
 class BlocklistWrapper {
-
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
     this.startTime;
@@ -33,7 +32,7 @@ class BlocklistWrapper {
    * @returns
    */
   async RethinkModule(param) {
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
@@ -53,18 +52,19 @@ class BlocklistWrapper {
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
-          param.tdParts,
+          param.tdParts
         );
-      } else if ((now - this.startTime) > (param.workerTimeout * 2)) {
+      } else if (now - this.startTime > param.workerTimeout * 2) {
         // it has been a while, queue another blocklist-construction
         return await this.initBlocklistConstruction(
           now,
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
-          param.tdParts,
+          param.tdParts
         );
-      } else { // someone's constructing... wait till finished
+      } else {
+        // someone's constructing... wait till finished
         // res.arrayBuffer() is the most expensive op, taking anywhere
         // between 700ms to 1.2s for trie. But: We don't want all incoming
         // reqs to wait until the trie becomes available. 400ms is 1/3rd of
@@ -82,10 +82,10 @@ class BlocklistWrapper {
           totalWaitms += waitms;
         }
         response.isException = true;
-        response.exceptionStack = this.exceptionStack ||
-          "blocklist filter not ready";
-        response.exceptionFrom = this.exceptionFrom ||
-          "blocklistWrapper.js RethinkModule";
+        response.exceptionStack =
+          this.exceptionStack || "blocklist filter not ready";
+        response.exceptionFrom =
+          this.exceptionFrom || "blocklistWrapper.js RethinkModule";
       }
     } catch (e) {
       response.isException = true;
@@ -103,16 +103,16 @@ class BlocklistWrapper {
   initBlocklistFilterConstruction(td, rd, ft, config) {
     this.isBlocklistUnderConstruction = true;
     const filter = createBlocklistFilter(
-      /*trie*/ td,
-      /*rank-dir*/ rd,
-      /*file-tags*/ ft,
-      /*basic-config*/ config
+      /* trie*/ td,
+      /* rank-dir*/ rd,
+      /* file-tags*/ ft,
+      /* basic-config*/ config
     );
     this.blocklistFilter.loadFilter(
-      /*trie*/ filter.t,
-      /*frozen-trie*/ filter.ft,
-      /*basic-config*/ filter.blocklistBasicConfig,
-      /*file-tags*/ filter.blocklistFileTag
+      /* trie*/ filter.t,
+      /* frozen-trie*/ filter.ft,
+      /* basic-config*/ filter.blocklistBasicConfig,
+      /* file-tags*/ filter.blocklistFileTag
     );
     this.isBlocklistUnderConstruction = false;
   }
@@ -122,12 +122,12 @@ class BlocklistWrapper {
     blocklistUrl,
     latestTimestamp,
     tdNodecount,
-    tdParts,
+    tdParts
   ) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = when;
 
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
@@ -138,18 +138,19 @@ class BlocklistWrapper {
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
-        tdParts,
+        tdParts
       );
 
       this.blocklistFilter.loadFilter(
         bl.t,
         bl.ft,
         bl.blocklistBasicConfig,
-        bl.blocklistFileTag,
+        bl.blocklistFileTag
       );
 
       log.d("done blocklist filter");
-      if (false) { // test
+      if (false) {
+        // test
         const result = this.blocklistFilter.getDomainInfo("google.com");
         log.d(JSON.stringify(result));
       }
@@ -173,17 +174,18 @@ class BlocklistWrapper {
     blocklistUrl,
     latestTimestamp,
     tdNodecount,
-    tdParts,
+    tdParts
   ) {
     try {
-      let resp = {};
+      !tdNodecount && log.e("tdNodecount zero or missing!");
+
+      const resp = {};
       const baseurl = blocklistUrl + latestTimestamp;
-      let blocklistBasicConfig = {
+      const blocklistBasicConfig = {
         nodecount: tdNodecount || -1,
         tdparts: tdParts || -1,
       };
 
-      tdNodecount == null && log.e("tdNodecount missing!");
       const buf0 = fileFetch(baseurl + "/filetag.json", "json");
       const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
       const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
@@ -197,10 +199,10 @@ class BlocklistWrapper {
       this.ft = downloads[0];
 
       const trie = createBlocklistFilter(
-        /*trie*/ this.td,
-        /*rank-dir*/ this.rd,
-        /*file-tags*/ this.ft,
-        /*basic-config*/ blocklistBasicConfig
+        /* trie*/ this.td,
+        /* rank-dir*/ this.rd,
+        /* file-tags*/ this.ft,
+        /* basic-config*/ blocklistBasicConfig
       );
 
       resp.t = trie.t; // tags
@@ -219,18 +221,16 @@ async function fileFetch(url, typ) {
     throw new Error("Unknown conversion type at fileFetch");
   }
   log.d("Start Downloading : " + url);
-  const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
-  if (res.status == 200) {
-    if (typ == "buffer") {
+  const res = await fetch(url, { cf: { cacheTtl: /* 2w*/ 1209600 } });
+  if (res.status === 200) {
+    if (typ === "buffer") {
       return await res.arrayBuffer();
-    } else if (typ == "json") {
+    } else if (typ === "json") {
       return await res.json();
     }
   } else {
     log.e(url, res);
-    throw new Error(
-      JSON.stringify([url, res, "response status unsuccessful at fileFetch"]),
-    );
+    throw new Error(JSON.stringify([url, res, "fileFetch fail"]));
   }
 }
 
@@ -250,11 +250,14 @@ async function makeTd(baseurl, n) {
   const tdpromises = [];
   for (let i = 0; i <= n; i++) {
     // td00.txt, td01.txt, td02.txt, ... , td98.txt, td100.txt, ...
-    const f = baseurl + "/td" +
-      (i).toLocaleString("en-US", {
+    const f =
+      baseurl +
+      "/td" +
+      i.toLocaleString("en-US", {
         minimumIntegerDigits: 2,
         useGrouping: false,
-      }) + ".txt";
+      }) +
+      ".txt";
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
@@ -269,14 +272,11 @@ async function makeTd(baseurl, n) {
 // stackoverflow.com/a/40108543/
 // Concatenate a mix of typed arrays
 function concat(arraybuffers) {
-  let sz = arraybuffers.reduce(
-    (sum, a) => sum + a.byteLength,
-    0,
-  );
-  let buf = new ArrayBuffer(sz);
-  let cat = new Uint8Array(buf);
+  const sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0);
+  const buf = new ArrayBuffer(sz);
+  const cat = new Uint8Array(buf);
   let offset = 0;
-  for (let a of arraybuffers) {
+  for (const a of arraybuffers) {
     // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17
     const v = new Uint8Array(a);
     cat.set(v, offset);
