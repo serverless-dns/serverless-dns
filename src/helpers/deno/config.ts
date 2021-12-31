@@ -3,6 +3,14 @@ import * as system from "../../system.js";
 import Log from "../log.js";
 import EnvManager from "../env.js";
 
+declare global {
+  interface Window {
+    envManager?: EnvManager;
+    log?: Log;
+    env?: any;
+  }
+}
+
 ((main) => {
   if (!Deno) throw new Error("failed loading deno-specific config");
 
@@ -18,10 +26,10 @@ import EnvManager from "../env.js";
     console.warn(".env file may not be loaded => ", e.name, ":", e.message);
   }
 
-  globalThis.envManager = new EnvManager();
+  window.envManager = new EnvManager();
 
-  globalThis.log = new Log(
-    env.logLevel,
+  window.log = new Log(
+    window.env.logLevel,
     isProd, // set console level only in prod.
   );
 
