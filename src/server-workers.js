@@ -7,18 +7,31 @@
  */
 
 import "./helpers/workers/config.js";
-import * as system from "./system.js";
 import { handleRequest } from "./index.js";
+import * as system from "./system.js";
+import * as util from "./helpers/util.js";
+
+let up = false;
 
 ((main) => {
-  system.sub("go", systemUp);
-})();
-
-function systemUp() {
   if (typeof addEventListener === "undefined") {
     throw new Error("workers env missing addEventListener");
   }
-  addEventListener("fetch", (event) => {
-    event.respondWith(handleRequest(event));
-  });
+
+  system.sub("go", systemUp);
+
+  addEventListener("fetch", serveDoh);
+})();
+
+function systemUp() {
+  up = true;
+}
+
+function serveDoh(event) {
+  if (!up) {
+    event.respondWith(util.respond503());
+    return;
+  }
+
+  event.respondWith(handleRequest(event));
 }

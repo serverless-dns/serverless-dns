@@ -77,7 +77,7 @@ export default class DNSQuestionBlock {
 }
 
 function putCache(cache, url, blf, dnsPacket, buf, event) {
-  const key = dnsutil.cacheKey(dnsPacket);
+  const key = dnsCacheutil.cacheKey(dnsPacket);
   if (!key) return;
   const input = dnsCacheUtil.createCacheInput(dnsPacket, blf, false);
   cache.put(key, input, url, buf, event);

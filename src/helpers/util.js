@@ -278,3 +278,17 @@ export function mapOf(obj) {
 export function emptyString(str) {
   return !str || str.length === 0;
 }
+
+export function respond204() {
+  return new Response(null, {
+    status: 204, // no content
+    headers: corsHeaders(),
+  });
+}
+
+export function respond503() {
+  return new Response(null, {
+    status: 503, // unavailable
+    headers: dnsHeaders(),
+  });
+}

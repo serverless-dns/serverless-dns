@@ -15,7 +15,6 @@ import * as dnsutil from "./helpers/dnsutil.js";
 import * as system from "./system.js";
 
 export function handleRequest(event) {
-
   return Promise.race([
     new Promise((accept, _) => {
       accept(proxyRequest(event));
@@ -28,12 +27,11 @@ export function handleRequest(event) {
       );
     }),
   ]);
-
 }
 
 async function proxyRequest(event) {
   try {
-    if (optionsRequest(event.request)) return respond204();
+    if (optionsRequest(event.request)) return util.respond204();
 
     const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
@@ -53,13 +51,6 @@ function optionsRequest(request) {
   return request.method === "OPTIONS";
 }
 
-function respond204() {
-  return new Response(null, {
-    status: 204, // no content
-    headers: util.corsHeaders(),
-  });
-}
-
 function errorOrServfail(request, err) {
   const UA = request.headers.get("User-Agent");
   if (!util.fromBrowser(UA)) return servfail();
@@ -72,11 +63,5 @@ function errorOrServfail(request, err) {
 }
 
 function servfail() {
-  return new Response(
-    dnsutil.servfail(), // null response
-    {
-      status: 503, // unavailable
-      headers: util.dnsHeaders(),
-    }
-  );
+  return util.respond503();
 }

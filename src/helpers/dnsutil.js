@@ -112,31 +112,6 @@ export function isBlockable(packet) {
   );
 }
 
-export function cacheKey(packet) {
-  // multiple questions are kind of an undefined behaviour
-  // stackoverflow.com/a/55093896
-  if (!hasSingleQuestion(packet)) return null;
-
-  const name = packet.questions[0].name.trim().toLowerCase();
-  const type = packet.questions[0].type;
-  return name + ":" + type;
-}
-
-// TODO: move this function to cacheutil
-export function updateTtl(decodedDnsPacket, end) {
-  const now = Date.now();
-  const outttl = Math.max(Math.floor((end - now) / 1000), /* grace*/ 30);
-  for (const a of decodedDnsPacket.answers) {
-    if (!optAnswer(a)) a.ttl = outttl;
-  }
-}
-
-export function updateQueryId(decodedDnsPacket, queryId) {
-  if (queryId === decodedDnsPacket.id) return false; // no change
-  decodedDnsPacket.id = queryId;
-  return true;
-}
-
 export function isCname(packet) {
   return hasAnswers(packet) && packet.answers[0].type === "CNAME";
 }

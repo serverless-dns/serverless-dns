@@ -7,6 +7,7 @@
  */
 
 import * as dnsutil from "../helpers/dnsutil.js";
+import * as cacheutil from "../helpers/cacheutil.js";
 
 export default class DNSCacheResponse {
   constructor() {}
@@ -44,7 +45,7 @@ export default class DNSCacheResponse {
   }
 
   async resolveFromCache(param) {
-    const key = dnsutil.cacheKey(param.requestDecodedDnsPacket);
+    const key = cacheutil.cacheKey(param.requestDecodedDnsPacket);
     if (!key) return false;
     const cacheResponse = await param.dnsCache.get(key, param.request.url);
     console.debug("cache key : ", key);
@@ -104,8 +105,8 @@ function generateResponse(cr, qid) {
   const response = {};
   response.dnsPacket = cr.dnsPacket;
 
-  dnsutil.updateQueryId(response.dnsPacket, qid);
-  dnsutil.updateTtl(response.dnsPacket, cr.metaData.ttlEndTime);
+  cacheutil.updateQueryId(response.dnsPacket, qid);
+  cacheutil.updateTtl(response.dnsPacket, cr.metaData.ttlEndTime);
 
   response.dnsBuffer = dnsutil.encode(response.dnsPacket);
 

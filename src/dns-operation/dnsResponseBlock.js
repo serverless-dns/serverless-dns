@@ -88,7 +88,7 @@ function doCnameBlock(dnsPacket, blf, blockInfo, cf) {
 
 function putCache(cache, url, blf, dnsPacket, buf, event) {
   if (!dnsCacheUtil.isCacheable(dnsPacket)) return;
-  const key = dnsutil.cacheKey(dnsPacket);
+  const key = dnsCacheUtil.cacheKey(dnsPacket);
   if (!key) return;
   const input = dnsCacheUtil.createCacheInput(dnsPacket, blf, true);
   console.debug("Cache Input ", JSON.stringify(input));
