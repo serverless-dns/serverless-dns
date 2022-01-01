@@ -39,10 +39,8 @@ export function pub(event) {
     listeners.delete(event);
   }
 
-  // callbacks are called async and don't block the caller
-  for (const cb of eventCallbacks) {
-    util.safeBox(() => cb());
-  }
+  // callbacks are queued async and don't block the caller
+  util.microtaskBox(...eventCallbacks);
 }
 
 export function sub(event, cb) {
@@ -51,7 +49,7 @@ export function sub(event, cb) {
   if (!callbacks) {
     // if event is sticky, fire off the listener at once
     if (stickyEvents.has(event)) {
-      util.safeBox(() => cb());
+      util.microtaskBox(cb);
       return true;
     }
     return false;
