@@ -18,7 +18,7 @@ jobs:
       - name: 🔧 Run eslint
         run: |
           npm install
-          npx eslint --cache --fix --ext **/*.js
+          npx eslint $(git diff --name-only ${{ github.base_ref }}...${{ github.head_ref }}) --cache --fix
 
       - name: 👀 Looking for changes
         id: lint-changes
