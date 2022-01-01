@@ -14,16 +14,15 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: ${{ github.head_ref }}
+          fetch-depth: 50
 
       - name: 🔧 Run eslint
         run: |
           npm install
-          BASE_COMMIT=$(git rev-parse ${{ github.base_ref }})
-          HEAD_COMMIT=$(git rev-parse ${{ github.head_ref }})
-          npx eslint $( \
-            git diff --name-only --diff-filter=ACMRT \
-            $BASE_COMMIT...$HEAD_COMMIT \
-            ) --cache --fix
+          git fetch --all
+          DIFF=$(git diff --name-only --diff-filter=ACMRT \
+            origin/${{ github.base_ref }}...origin/${{ github.head_ref }})
+          npx eslint $DIFF --cache --fix
 
       - name: 👀 Looking for changes
         id: lint-changes
