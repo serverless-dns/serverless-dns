@@ -13,6 +13,9 @@ class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
     this.startTime;
+    this.td = null; // trie
+    this.rd = null; // rank-dir
+    this.ft = null; // file-tags
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
@@ -29,42 +32,45 @@ class BlocklistWrapper {
    * @returns
    */
   async RethinkModule(param) {
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
-    if (this.blocklistFilter.t !== null) {
+
+    if (this.isBlocklistFilterSetup()) {
       response.data.blocklistFilter = this.blocklistFilter;
       return response;
     }
+
     try {
       const now = Date.now();
+
       if (this.isBlocklistUnderConstruction === false) {
         return await this.initBlocklistConstruction(
           now,
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
-          param.tdParts,
+          param.tdParts
         );
-      } else if ((now - this.startTime) > (param.workerTimeout * 2)) {
+      } else if (now - this.startTime > param.workerTimeout * 2) {
+        // it has been a while, queue another blocklist-construction
         return await this.initBlocklistConstruction(
           now,
           param.blocklistUrl,
           param.latestTimestamp,
           param.tdNodecount,
-          param.tdParts,
+          param.tdParts
         );
-      } else { // someone's constructing... wait till finished
+      } else {
+        // someone's constructing... wait till finished
         // res.arrayBuffer() is the most expensive op, taking anywhere
         // between 700ms to 1.2s for trie. But: We don't want all incoming
         // reqs to wait until the trie becomes available. 400ms is 1/3rd of
         // 1.2s and 2x 250ms; both of these values have cost implications:
         // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
         // equals cost of one bundled req.
-        // going back to direct-s3 download as worker-bundled blocklist files download
-        // gets triggered for 10% of requests.
         let totalWaitms = 0;
         const waitms = 50;
         while (totalWaitms < param.fetchTimeout) {
@@ -76,12 +82,10 @@ class BlocklistWrapper {
           totalWaitms += waitms;
         }
         response.isException = true;
-        response.exceptionStack = (this.exceptionStack)
-          ? this.exceptionStack
-          : "Problem in loading blocklistFilter - Waiting Timeout";
-        response.exceptionFrom = (this.exceptionFrom)
-          ? this.exceptionFrom
-          : "blocklistWrapper.js RethinkModule";
+        response.exceptionStack =
+          this.exceptionStack || "blocklist filter not ready";
+        response.exceptionFrom =
+          this.exceptionFrom || "blocklistWrapper.js RethinkModule";
       }
     } catch (e) {
       response.isException = true;
@@ -92,47 +96,67 @@ class BlocklistWrapper {
     return response;
   }
 
+  isBlocklistFilterSetup() {
+    return this.blocklistFilter && this.blocklistFilter.t;
+  }
+
+  initBlocklistFilterConstruction(td, rd, ft, config) {
+    this.isBlocklistUnderConstruction = true;
+    const filter = createBlocklistFilter(
+      /* trie*/ td,
+      /* rank-dir*/ rd,
+      /* file-tags*/ ft,
+      /* basic-config*/ config
+    );
+    this.blocklistFilter.loadFilter(
+      /* trie*/ filter.t,
+      /* frozen-trie*/ filter.ft,
+      /* basic-config*/ filter.blocklistBasicConfig,
+      /* file-tags*/ filter.blocklistFileTag
+    );
+    this.isBlocklistUnderConstruction = false;
+  }
+
   async initBlocklistConstruction(
     when,
     blocklistUrl,
     latestTimestamp,
     tdNodecount,
-    tdParts,
+    tdParts
   ) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = when;
 
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
     response.data = {};
 
     try {
-      let bl = await downloadBuildBlocklist(
+      const bl = await this.downloadBuildBlocklist(
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
-        tdParts,
+        tdParts
       );
 
       this.blocklistFilter.loadFilter(
         bl.t,
         bl.ft,
         bl.blocklistBasicConfig,
-        bl.blocklistFileTag,
+        bl.blocklistFileTag
       );
 
       log.d("done blocklist filter");
-      if (false) { // test
+      if (false) {
+        // test
         const result = this.blocklistFilter.getDomainInfo("google.com");
         log.d(JSON.stringify(result));
       }
 
-      this.isBlocklistUnderConstruction = false;
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
-      this.isBlocklistUnderConstruction = false;
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
@@ -140,48 +164,55 @@ class BlocklistWrapper {
       this.exceptionStack = response.exceptionStack;
       log.e(e);
     }
+
+    this.isBlocklistUnderConstruction = false;
+
     return response;
   }
-}
 
-//Add needed env variables to param
-async function downloadBuildBlocklist(
-  blocklistUrl,
-  latestTimestamp,
-  tdNodecount,
-  tdParts,
-) {
-  try {
-    let resp = {};
-    const baseurl = blocklistUrl + latestTimestamp;
-    let blocklistBasicConfig = {
-      nodecount: tdNodecount || -1,
-      tdparts: tdParts || -1,
-    };
+  async downloadBuildBlocklist(
+    blocklistUrl,
+    latestTimestamp,
+    tdNodecount,
+    tdParts
+  ) {
+    try {
+      !tdNodecount && log.e("tdNodecount zero or missing!");
 
-    tdNodecount == null && log.e("tdNodecount missing!");
-    const buf0 = fileFetch(baseurl + "/filetag.json", "json");
-    const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
-    const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
+      const resp = {};
+      const baseurl = blocklistUrl + latestTimestamp;
+      const blocklistBasicConfig = {
+        nodecount: tdNodecount || -1,
+        tdparts: tdParts || -1,
+      };
 
-    let downloads = await Promise.all([buf0, buf1, buf2]);
+      const buf0 = fileFetch(baseurl + "/filetag.json", "json");
+      const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
+      const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
-    log.d("call createBlocklistFilter", blocklistBasicConfig);
+      const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    let trie = createBlocklistFilter(
-      downloads[1],
-      downloads[2],
-      downloads[0],
-      blocklistBasicConfig,
-    );
+      log.d("call createBlocklistFilter", blocklistBasicConfig);
 
-    resp.t = trie.t;
-    resp.ft = trie.ft;
-    resp.blocklistBasicConfig = blocklistBasicConfig;
-    resp.blocklistFileTag = downloads[0];
-    return resp;
-  } catch (e) {
-    throw e;
+      this.td = downloads[1];
+      this.rd = downloads[2];
+      this.ft = downloads[0];
+
+      const trie = createBlocklistFilter(
+        /* trie*/ this.td,
+        /* rank-dir*/ this.rd,
+        /* file-tags*/ this.ft,
+        /* basic-config*/ blocklistBasicConfig
+      );
+
+      resp.t = trie.t; // tags
+      resp.ft = trie.ft; // frozen-trie
+      resp.blocklistBasicConfig = blocklistBasicConfig;
+      resp.blocklistFileTag = this.ft;
+      return resp;
+    } catch (e) {
+      throw e;
+    }
   }
 }
 
@@ -190,18 +221,16 @@ async function fileFetch(url, typ) {
     throw new Error("Unknown conversion type at fileFetch");
   }
   log.d("Start Downloading : " + url);
-  const res = await fetch(url, { cf: { cacheTtl: /*2w*/ 1209600 } });
-  if (res.status == 200) {
-    if (typ == "buffer") {
+  const res = await fetch(url, { cf: { cacheTtl: /* 2w*/ 1209600 } });
+  if (res.status === 200) {
+    if (typ === "buffer") {
       return await res.arrayBuffer();
-    } else if (typ == "json") {
+    } else if (typ === "json") {
       return await res.json();
     }
   } else {
     log.e(url, res);
-    throw new Error(
-      JSON.stringify([url, res, "response status unsuccessful at fileFetch"]),
-    );
+    throw new Error(JSON.stringify([url, res, "fileFetch fail"]));
   }
 }
 
@@ -221,11 +250,14 @@ async function makeTd(baseurl, n) {
   const tdpromises = [];
   for (let i = 0; i <= n; i++) {
     // td00.txt, td01.txt, td02.txt, ... , td98.txt, td100.txt, ...
-    const f = baseurl + "/td" +
-      (i).toLocaleString("en-US", {
+    const f =
+      baseurl +
+      "/td" +
+      i.toLocaleString("en-US", {
         minimumIntegerDigits: 2,
         useGrouping: false,
-      }) + ".txt";
+      }) +
+      ".txt";
     tdpromises.push(fileFetch(f, "buffer"));
   }
   const tds = await Promise.all(tdpromises);
@@ -240,14 +272,11 @@ async function makeTd(baseurl, n) {
 // stackoverflow.com/a/40108543/
 // Concatenate a mix of typed arrays
 function concat(arraybuffers) {
-  let sz = arraybuffers.reduce(
-    (sum, a) => sum + a.byteLength,
-    0,
-  );
-  let buf = new ArrayBuffer(sz);
-  let cat = new Uint8Array(buf);
+  const sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0);
+  const buf = new ArrayBuffer(sz);
+  const cat = new Uint8Array(buf);
   let offset = 0;
-  for (let a of arraybuffers) {
+  for (const a of arraybuffers) {
     // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17
     const v = new Uint8Array(a);
     cat.set(v, offset);

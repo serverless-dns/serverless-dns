@@ -100,25 +100,25 @@ export class CommandControl {
         return response;
       }
 
-      let command = pathSplit[1];
+      const command = pathSplit[1];
       const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
 
-      if (command == "listtob64") {
+      if (command === "listtob64") {
         response.data.httpResponse = listToB64(queryString, blocklistFilter);
-      } else if (command == "b64tolist") {
+      } else if (command === "b64tolist") {
         response.data.httpResponse = b64ToList(queryString, blocklistFilter);
-      } else if (command == "dntolist") {
+      } else if (command === "dntolist") {
         response.data.httpResponse = domainNameToList(
           queryString,
           blocklistFilter,
           this.latestTimestamp
         );
-      } else if (command == "dntouint") {
+      } else if (command === "dntouint") {
         response.data.httpResponse = domainNameToUint(
           queryString,
           blocklistFilter
         );
-      } else if (command == "config" || command == "configure" || !isDnsCmd) {
+      } else if (command === "config" || command === "configure" || !isDnsCmd) {
         response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
@@ -157,19 +157,19 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
 }
 
 function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
-  let domainName = queryString.get("dn") || "";
-  let returndata = {};
+  const domainName = queryString.get("dn") || "";
+  const returndata = {};
   returndata.domainName = domainName;
   returndata.version = latestTimestamp;
   returndata.list = {};
-  var searchResult = blocklistFilter.hadDomainName(domainName);
+  const searchResult = blocklistFilter.hadDomainName(domainName);
   if (searchResult) {
     let list;
     let listDetail = {};
-    for (let entry of searchResult) {
+    for (const entry of searchResult) {
       list = blocklistFilter.getTag(entry[1]);
       listDetail = {};
-      for (let listValue of list) {
+      for (const listValue of list) {
         listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
       }
       returndata.list[entry[0]] = listDetail;
@@ -182,13 +182,13 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
 }
 
 function domainNameToUint(queryString, blocklistFilter) {
-  let domainName = queryString.get("dn") || "";
-  let returndata = {};
+  const domainName = queryString.get("dn") || "";
+  const returndata = {};
   returndata.domainName = domainName;
   returndata.list = {};
-  var searchResult = blocklistFilter.hadDomainName(domainName);
+  const searchResult = blocklistFilter.hadDomainName(domainName);
   if (searchResult) {
-    for (let entry of searchResult) {
+    for (const entry of searchResult) {
       returndata.list[entry[0]] = entry[1];
     }
   } else {
@@ -199,9 +199,9 @@ function domainNameToUint(queryString, blocklistFilter) {
 }
 
 function listToB64(queryString, blocklistFilter) {
-  let list = queryString.get("list") || [];
-  let flagVersion = parseInt(queryString.get("flagversion")) || 0;
-  let returndata = {};
+  const list = queryString.get("list") || [];
+  const flagVersion = queryString.get("flagversion") || "0";
+  const returndata = {};
   returndata.command = "List To B64String";
   returndata.inputList = list;
   returndata.flagVersion = flagVersion;
@@ -213,15 +213,15 @@ function listToB64(queryString, blocklistFilter) {
 }
 
 function b64ToList(queryString, blocklistFilter) {
-  let b64 = queryString.get("b64") || "";
-  let returndata = {};
+  const b64 = queryString.get("b64") || "";
+  const returndata = {};
   returndata.command = "Base64 To List";
   returndata.inputB64 = b64;
-  let response = blocklistFilter.unstamp(b64);
+  const response = blocklistFilter.unstamp(b64);
   if (response.userBlocklistFlagUint.length > 0) {
     returndata.list = blocklistFilter.getTag(response.userBlocklistFlagUint);
     returndata.listDetail = {};
-    for (let listValue of returndata.list) {
+    for (const listValue of returndata.list) {
       returndata.listDetail[listValue] =
         blocklistFilter.blocklistFileTag[listValue];
     }

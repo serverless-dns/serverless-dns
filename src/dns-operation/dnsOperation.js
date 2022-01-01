@@ -10,5 +10,12 @@ import DNSParserWrap from "./dnsParserWrap.js";
 import DNSQuestionBlock from "./dnsBlock.js";
 import DNSResponseBlock from "./dnsResponseBlock.js";
 import DNSResolver from "./dnsResolver.js";
-import DNSCacheResponse from "./cacheResponse.js"
-export { DNSQuestionBlock, DNSParserWrap, DNSResolver, DNSResponseBlock, DNSCacheResponse };
+import DNSCacheResponse from "./cacheResponse.js";
+
+export {
+  DNSQuestionBlock,
+  DNSParserWrap,
+  DNSResolver,
+  DNSResponseBlock,
+  DNSCacheResponse,
+};

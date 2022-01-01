@@ -2,29 +2,35 @@
 // other modules.
 import "./helpers/deno/config.ts";
 import { handleRequest } from "./index.js";
+import * as system from "./system.js";
 
-const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
-const HTTP_PORT = 8080;
+((main) => {
+  system.sub("go", systemUp);
+})();
 
-const l = (TERMINATE_TLS == "true")
-  ? Deno.listenTls({
-    port: HTTP_PORT,
-    certFile: TLS_CRT_PATH,
-    keyFile: TLS_KEY_PATH,
-  })
-  : Deno.listen({
-    port: HTTP_PORT,
-  });
-console.log(
-  `Running HTTP webserver at: http://${(l.addr as Deno.NetAddr).hostname}:${
-    (l.addr as Deno.NetAddr).port
-  }/`,
-);
+async function systemUp() {
+  const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
+  const HTTP_PORT = 8080;
 
-// Connections to the listener will be yielded up as an async iterable.
-for await (const conn of l) {
-  // To not be blocking, handle each connection without awaiting
-  handleHttp(conn);
+  const l = (TERMINATE_TLS == "true")
+    ? Deno.listenTls({
+      port: HTTP_PORT,
+      certFile: TLS_CRT_PATH,
+      keyFile: TLS_KEY_PATH,
+    })
+    : Deno.listen({
+      port: HTTP_PORT,
+    });
+  console.log(`deno up at: http://${(l.addr as Deno.NetAddr).hostname}:${
+      (l.addr as Deno.NetAddr).port
+    }/`,
+  );
+
+  // Connections to the listener will be yielded up as an async iterable.
+  for await (const conn of l) {
+    // To not be blocking, handle each connection without awaiting
+    handleHttp(conn);
+  }
 }
 
 async function handleHttp(conn: Deno.Conn) {

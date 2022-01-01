@@ -8,7 +8,9 @@
 
 import * as util from "./util.js";
 import * as dnsutil from "./dnsutil.js";
+
 const ttlGraceSec = 30; // 30s cache extra time
+
 export function generateQuestionFilter(cf, blf, dnsPacket) {
   const q = dnsPacket.questions[0].name;
   cf[q] = util.objOf(blf.getDomainInfo(q).searchResult);
@@ -28,7 +30,7 @@ export function generateAnswerFilter(cf, blf, dnsPacket) {
 }
 
 export function addCacheFilter(cf, blf, li) {
-  for (let name of li) {
+  for (const name of li) {
     cf[name] = util.objOf(blf.getDomainInfo(name).searchResult);
   }
 }
@@ -49,20 +51,20 @@ export function determineCacheExpiry(dnsPacket) {
   if (!dnsutil.hasAnswers(dnsPacket)) return expiresImmediately;
   // set min(ttl) among all answers, but at least ttlGraceSec
   let minttl = 1 << 30; // some abnormally high ttl
-  for (let a of dnsPacket.answers) {
+  for (const a of dnsPacket.answers) {
     minttl = Math.min(a.ttl || minttl, minttl);
   }
 
   if (minttl === 1 << 30) return expiresImmediately;
 
   minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
-  const expiry = Date.now() + (minttl * 1000);
+  const expiry = Date.now() + minttl * 1000;
 
   return expiry;
 }
 
 export function cacheMetadata(dnsPacket, ttlEndTime, blf, bodyUsed) {
-  let cf = {};
+  const cf = {};
   generateAnswerFilter(cf, blf, dnsPacket);
   generateQuestionFilter(cf, blf, dnsPacket);
   return {
@@ -74,14 +76,35 @@ export function cacheMetadata(dnsPacket, ttlEndTime, blf, bodyUsed) {
 
 export function createCacheInput(dnsPacket, blf, bodyUsed) {
   const ttlEndTime = determineCacheExpiry(dnsPacket);
-  let cacheInput = {};
-  cacheInput.metaData = cacheMetadata(
-    dnsPacket,
-    ttlEndTime,
-    blf,
-    bodyUsed,
-  );
+  const cacheInput = {};
+  cacheInput.metaData = cacheMetadata(dnsPacket, ttlEndTime, blf, bodyUsed);
   cacheInput.dnsPacket = dnsPacket;
   return cacheInput;
 }
 
+export function updateTtl(decodedDnsPacket, end) {
+  const now = Date.now();
+  const outttl = Math.max(
+    Math.floor((end - now) / 1000) - ttlGraceSec,
+    ttlGraceSec
+  );
+  for (const a of decodedDnsPacket.answers) {
+    if (!dnsutil.optAnswer(a)) a.ttl = outttl;
+  }
+}
+
+export function cacheKey(packet) {
+  // multiple questions are kind of an undefined behaviour
+  // stackoverflow.com/a/55093896
+  if (!dnsutil.hasSingleQuestion(packet)) return null;
+
+  const name = packet.questions[0].name.trim().toLowerCase();
+  const type = packet.questions[0].type;
+  return name + ":" + type;
+}
+
+export function updateQueryId(decodedDnsPacket, queryId) {
+  if (queryId === decodedDnsPacket.id) return false; // no change
+  decodedDnsPacket.id = queryId;
+  return true;
+}

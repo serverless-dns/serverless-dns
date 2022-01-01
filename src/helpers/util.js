@@ -11,7 +11,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { Buffer } from "buffer"
+import { Buffer } from "buffer";
 
 /**
  * Encodes a number to an Uint8Array of length `n` in Big Endian byte order.
@@ -23,40 +23,40 @@ import { Buffer } from "buffer"
 export function encodeUint8ArrayBE(n, len) {
   const o = n;
 
-  if (!n) return new Uint8Array(len)
+  if (!n) return new Uint8Array(len);
 
   const a = [];
-  a.unshift(n & 255)
+  a.unshift(n & 255);
   while (n >= 256) {
     n = n >>> 8;
-    a.unshift(n & 255)
+    a.unshift(n & 255);
   }
 
   if (a.length > len) {
-    throw new RangeError(`Cannot encode ${o} in ${len} len Uint8Array`)
+    throw new RangeError(`Cannot encode ${o} in ${len} len Uint8Array`);
   }
 
-  let fill = len - a.length
-  while (fill--) a.unshift(0)
+  let fill = len - a.length;
+  while (fill--) a.unshift(0);
 
-  return new Uint8Array(a)
+  return new Uint8Array(a);
 }
 
 export function fromBrowser(ua) {
-  return ua && ua.startsWith("Mozilla/5.0")
+  return ua && ua.startsWith("Mozilla/5.0");
 }
 
 export function jsonHeaders() {
   return {
     "Content-Type": "application/json",
-  }
+  };
 }
 
 export function dnsHeaders() {
   return {
     "Accept": "application/dns-message",
     "Content-Type": "application/dns-message",
-  }
+  };
 }
 
 export function corsHeaders() {
@@ -73,14 +73,11 @@ export function corsHeaders() {
  */
 export function corsHeadersIfNeeded(ua) {
   // allow cors when user agents claiming to be browsers
-  return (fromBrowser(ua)) ? corsHeaders() : {}
+  return fromBrowser(ua) ? corsHeaders() : {};
 }
 
 export function browserHeaders() {
-  return Object.assign(
-    jsonHeaders(),
-    corsHeaders(),
-  );
+  return Object.assign(jsonHeaders(), corsHeaders());
 }
 
 /**
@@ -88,19 +85,16 @@ export function browserHeaders() {
  * @return {Object} - Headers
  */
 export function dohHeaders(ua) {
-  return Object.assign(
-    dnsHeaders(),
-    corsHeadersIfNeeded(ua),
-  )
+  return Object.assign(dnsHeaders(), corsHeadersIfNeeded(ua));
 }
 
 export function contentLengthHeader(b) {
-  const len = (!b || !b.byteLength) ? "0" : b.byteLength.toString()
-  return { "Content-Length" : len }
+  const len = !b || !b.byteLength ? "0" : b.byteLength.toString();
+  return { "Content-Length": len };
 }
 
-export function concatHeaders() {
-  return Object.assign(...arguments)
+export function concatHeaders(...args) {
+  return Object.assign(...args);
 }
 
 /**
@@ -108,14 +102,14 @@ export function concatHeaders() {
  * @return {Object} - Headers
  */
 export function copyHeaders(request) {
-  const headers = {}
-  if (!request || !request.headers) return headers
+  const headers = {};
+  if (!request || !request.headers) return headers;
 
   // Object.assign, Object spread, etc don't work
   request.headers.forEach((val, name) => {
-    headers[name] = val
-  })
-  return headers
+    headers[name] = val;
+  });
+  return headers;
 }
 export function copyNonPseudoHeaders(req) {
   const headers = {};
@@ -136,37 +130,37 @@ export function copyNonPseudoHeaders(req) {
  */
 export function sleep(ms) {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms)
+    setTimeout(resolve, ms);
   });
 }
 
 export function objOf(map) {
-  return map.entries ? Object.fromEntries(map) : false
+  return map.entries ? Object.fromEntries(map) : false;
 }
 
 // stackoverflow.com/a/31394257
 export function arrayBufferOf(buf) {
-  if (!buf) return null
+  if (!buf) return null;
 
-  const offset = buf.byteOffset
-  const len = buf.byteLength
-  return buf.buffer.slice(offset, offset + len)
+  const offset = buf.byteOffset;
+  const len = buf.byteLength;
+  return buf.buffer.slice(offset, offset + len);
 }
 
 // stackoverflow.com/a/17064149
 export function bufferOf(arrayBuf) {
-  if (!arrayBuf) return null
+  if (!arrayBuf) return null;
 
-  return Buffer.from(new Uint8Array(arrayBuf))
+  return Buffer.from(new Uint8Array(arrayBuf));
 }
 
 export function recycleBuffer(b) {
-  b.fill(0)
-  return 0
+  b.fill(0);
+  return 0;
 }
 
 export function createBuffer(size) {
-  return Buffer.allocUnsafe(size)
+  return Buffer.allocUnsafe(size);
 }
 
 export function timedOp(op, ms, cleanup) {
@@ -207,16 +201,41 @@ export function timedOp(op, ms, cleanup) {
 }
 
 export function timeout(ms, callback) {
-  return setTimeout(callback, ms)
+  if (typeof callback !== "function") return -1;
+  return setTimeout(callback, ms);
 }
 
 // stackoverflow.com/a/8084248
 export function uid() {
   // ex: ".ww8ja208it"
-  return (Math.random() + 1).toString(36).slice(1)
+  return (Math.random() + 1).toString(36).slice(1);
+}
+
+// queues fn in a macro-task queue of the event-loop
+// exec order: github.com/nodejs/node/issues/22257
+export function taskBox(fn) {
+  timeout(/* with 0ms delay*/ 0, () => safeBox(fn));
+}
+
+// queues fn in a micro-task queue
+// ref: MDN: Web/API/HTML_DOM_API/Microtask_guide/In_depth
+// queue-task polyfill: stackoverflow.com/a/61605098
+export function microtaskBox(...fns) {
+  let enqueue = null;
+  if (typeof queueMicroTask === "function") {
+    enqueue = queueMicroTask;
+  } else {
+    const p = Promise.resolve();
+    enqueue = p.then.bind(p);
+  }
+
+  for (const f of fns) {
+    enqueue(() => safeBox(f));
+  }
 }
 
 export function safeBox(fn, defaultResponse = null) {
+  if (typeof fn !== "function") return defaultResponse;
   try {
     return fn();
   } catch (ignore) {}
@@ -228,8 +247,10 @@ export function safeBox(fn, defaultResponse = null) {
  * @return {Boolean}
  */
 export function isDnsMsg(req) {
-  return req.headers.get("Accept") === "application/dns-message" ||
+  return (
+    req.headers.get("Accept") === "application/dns-message" ||
     req.headers.get("Content-Type") === "application/dns-message"
+  );
 }
 
 export function emptyResponse() {
@@ -255,6 +276,19 @@ export function mapOf(obj) {
 }
 
 export function emptyString(str) {
-    return !str || str.length === 0
+  return !str || str.length === 0;
 }
 
+export function respond204() {
+  return new Response(null, {
+    status: 204, // no content
+    headers: corsHeaders(),
+  });
+}
+
+export function respond503() {
+  return new Response(null, {
+    status: 503, // unavailable
+    headers: dnsHeaders(),
+  });
+}

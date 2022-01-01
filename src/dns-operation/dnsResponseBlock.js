@@ -10,8 +10,7 @@ import * as dnsCacheUtil from "../helpers/cacheutil.js";
 import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 
 export default class DNSResponseBlock {
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * @param {*} param
@@ -25,7 +24,7 @@ export default class DNSResponseBlock {
    * @returns
    */
   async RethinkModule(param) {
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
@@ -35,7 +34,7 @@ export default class DNSResponseBlock {
         param.userBlocklistInfo,
         param.responseDecodedDnsPacket,
         param.blocklistFilter,
-        false,
+        false
       );
 
       putCache(
@@ -44,7 +43,7 @@ export default class DNSResponseBlock {
         param.blocklistFilter,
         param.responseDecodedDnsPacket,
         param.responseBodyBuffer,
-        param.event,
+        param.event
       );
     } catch (e) {
       response.isException = true;
@@ -57,33 +56,30 @@ export default class DNSResponseBlock {
   }
 
   performBlocking(blockInfo, dnsPacket, blf, cf) {
-    if (
-      !blockInfo.userBlocklistFlagUint || blockInfo.userBlocklistFlagUint === ""
-    ) {
+    if (!hasBlockstamp(blockInfo)) {
       return false;
-    }
-    if (dnsutil.isCname(dnsPacket)) {
+    } else if (dnsutil.isCname(dnsPacket)) {
       return doCnameBlock(dnsPacket, blf, blockInfo, cf);
-    }
-    if (dnsutil.isHttps(dnsPacket)) {
+    } else if (dnsutil.isHttps(dnsPacket)) {
       return doHttpsBlock(dnsPacket, blf, blockInfo, cf);
     }
+
     return false;
   }
 }
 
 function doHttpsBlock(dnsPacket, blf, blockInfo, cf) {
   console.debug("At Https-Svcb dns Block");
-  let tn = dnsutil.getTargetName(dnsPacket.answers);
+  const tn = dnsutil.getTargetName(dnsPacket.answers);
   if (!tn) return false;
   return dnsBlockUtil.doBlock(blf, blockInfo, tn, cf);
 }
 
 function doCnameBlock(dnsPacket, blf, blockInfo, cf) {
   console.debug("At Cname dns Block");
-  let cn = dnsutil.getCname(dnsPacket.answers);
+  const cn = dnsutil.getCname(dnsPacket.answers);
   let response = false;
-  for (let n of cn) {
+  for (const n of cn) {
     response = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
     if (response.isBlocked) break;
   }
@@ -92,9 +88,15 @@ function doCnameBlock(dnsPacket, blf, blockInfo, cf) {
 
 function putCache(cache, url, blf, dnsPacket, buf, event) {
   if (!dnsCacheUtil.isCacheable(dnsPacket)) return;
-  const key = dnsutil.cacheKey(dnsPacket);
+  const key = dnsCacheUtil.cacheKey(dnsPacket);
   if (!key) return;
-  let input = dnsCacheUtil.createCacheInput(dnsPacket, blf, true);
+  const input = dnsCacheUtil.createCacheInput(dnsPacket, blf, true);
   console.debug("Cache Input ", JSON.stringify(input));
   cache.put(key, input, url, buf, event);
+}
+
+function hasBlockstamp(blockInfo) {
+  return (
+    blockInfo.userBlocklistFlagUint && blockInfo.userBlocklistFlagUint !== ""
+  );
 }

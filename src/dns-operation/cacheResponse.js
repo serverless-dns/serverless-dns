@@ -7,10 +7,11 @@
  */
 
 import * as dnsutil from "../helpers/dnsutil.js";
+import * as cacheutil from "../helpers/cacheutil.js";
 
 export default class DNSCacheResponse {
-  constructor() {
-  }
+  constructor() {}
+
   /**
    * @param {*} param
    * @param {*} param.userBlocklistInfo
@@ -23,7 +24,7 @@ export default class DNSCacheResponse {
    * @returns
    */
   async RethinkModule(param) {
-    let response = {};
+    const response = {};
     response.isException = false;
     response.exceptionStack = "";
     response.exceptionFrom = "";
@@ -44,9 +45,9 @@ export default class DNSCacheResponse {
   }
 
   async resolveFromCache(param) {
-    const key = dnsutil.cacheKey(param.requestDecodedDnsPacket);
+    const key = cacheutil.cacheKey(param.requestDecodedDnsPacket);
     if (!key) return false;
-    let cacheResponse = await param.dnsCache.get(key, param.request.url);
+    const cacheResponse = await param.dnsCache.get(key, param.request.url);
     console.debug("cache key : ", key);
     console.debug("Cache Response", JSON.stringify(cacheResponse));
     if (!cacheResponse) return false;
@@ -55,37 +56,38 @@ export default class DNSCacheResponse {
       param.userBlocklistInfo,
       param.requestDecodedDnsPacket,
       param.dnsQuestionBlock,
-      param.dnsResponseBlock,
+      param.dnsResponseBlock
     );
   }
 }
+
 async function parseCacheResponse(cr, blockInfo, reqDnsPacket, qb, rb) {
-  //check dns-block for incoming request against blocklist metadata from cache
+  // check dns-block for incoming request against blocklist metadata from cache
   let response = checkDnsBlock(
     qb,
     reqDnsPacket,
     cr.metaData.cacheFilter,
-    blockInfo,
+    blockInfo
   );
-  console.debug("question block ",JSON.stringify(response))
+  console.debug("question block ", JSON.stringify(response));
   if (response && response.isBlocked) {
     return response;
   }
-  //cache response contains only metadata information
-  //return false to resolve dns request.
+  // cache response contains only metadata information
+  // return false to resolve dns request.
   if (!cr.metaData.bodyUsed) {
     return false;
   }
 
-  //answer block check
+  // answer block check
   response = checkDnsBlock(
     rb,
     cr.dnsPacket,
     cr.metaData.cacheFilter,
-    blockInfo,
+    blockInfo
   );
 
-  console.debug("answer block ",JSON.stringify(response))
+  console.debug("answer block ", JSON.stringify(response));
   if (response && response.isBlocked) {
     return response;
   }
@@ -100,11 +102,11 @@ function checkDnsBlock(qb, dnsPacket, cf, blockInfo) {
 }
 
 function generateResponse(cr, qid) {
-  let response = {};
+  const response = {};
   response.dnsPacket = cr.dnsPacket;
 
-  dnsutil.updateQueryId(response.dnsPacket, qid);
-  dnsutil.updateTtl(response.dnsPacket, cr.metaData.ttlEndTime);
+  cacheutil.updateQueryId(response.dnsPacket, qid);
+  cacheutil.updateTtl(response.dnsPacket, cr.metaData.ttlEndTime);
 
   response.dnsBuffer = dnsutil.encode(response.dnsPacket);
 

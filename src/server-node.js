@@ -11,12 +11,12 @@ import net, { isIPv6, Socket } from "net";
 import tls, { TLSSocket } from "tls";
 import http2, { Http2ServerRequest, Http2ServerResponse } from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
-
+import * as system from "./system.js";
 import { handleRequest } from "./index.js";
 import * as dnsutil from "./helpers/dnsutil.js";
 import * as util from "./helpers/util.js";
 import { copyNonPseudoHeaders } from "./helpers/node/util.js";
-import { TLS_CRT, TLS_KEY } from "./helpers/node/config.js";
+import "./helpers/node/config.js";
 /* eslint-enable no-unused-vars */
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
@@ -31,18 +31,21 @@ const DOT_PORT = DOT_IS_PROXY_PROTO
   : DOT_ENTRY_PORT;
 const DOH_PORT = DOH_ENTRY_PORT;
 
-const tlsOptions = {
-  key: TLS_KEY,
-  cert: TLS_CRT,
-};
-
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
-// main
-((_) => {
+((main) => {
+  system.sub("go", systemUp);
+})();
+
+function systemUp() {
+  const tlsOpts = {
+    key: env.tlsKey,
+    cert: env.tlsCrt,
+  };
+
   const dot1 = tls
-    .createServer(tlsOptions, serveTLS)
+    .createServer(tlsOpts, serveTLS)
     .listen(DOT_PORT, () => up("DoT", dot1.address()));
 
   const dot2 =
@@ -52,13 +55,13 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
       .listen(DOT_PROXY_PORT, () => up("DoT ProxyProto", dot2.address()));
 
   const doh = http2
-    .createSecureServer({ ...tlsOptions, allowHTTP1: true }, serveHTTPS)
+    .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
     .listen(DOH_PORT, () => up("DoH", doh.address()));
 
   function up(server, addr) {
     log.i(server, `listening on: [${addr.address}]:${addr.port}`);
   }
-})();
+}
 
 function close(sock) {
   util.safeBox(() => sock.destroy());

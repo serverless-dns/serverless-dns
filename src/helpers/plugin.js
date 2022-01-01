@@ -15,19 +15,41 @@ import {
   DNSResponseBlock,
 } from "../dns-operation/dnsOperation.js";
 import * as util from "./util.js";
+import * as envutil from "./envutil.js";
+import * as system from "../system.js";
 
 import { DnsCache } from "../cache-wrapper/cache-wrapper.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 
-const blocklistWrapper = new BlocklistWrapper();
-const commandControl = new CommandControl();
-const userOperation = new UserOperation();
-const dnsQuestionBlock = new DNSQuestionBlock();
-const dnsResolver = new DNSResolver();
-const dnsResponseBlock = new DNSResponseBlock();
-const dnsCacheHandler = new DNSCacheResponse();
-//dns cache used accross 3plugins so passed as parameter
-const dnsCache = new DnsCache(10000);
+const services = {};
+
+((main) => {
+  system.sub("ready", systemReady);
+})();
+
+async function systemReady() {
+  if (services.ready) return;
+
+  log.i("plugin.js: systemReady");
+
+  services.blocklistWrapper = new BlocklistWrapper();
+  services.commandControl = new CommandControl();
+  services.userOperation = new UserOperation();
+  services.dnsQuestionBlock = new DNSQuestionBlock();
+  services.dnsResolver = new DNSResolver();
+  services.dnsResponseBlock = new DNSResponseBlock();
+  services.dnsCacheHandler = new DNSCacheResponse();
+  services.dnsCache = new DnsCache(dnsutil.cacheSize());
+
+  if (envutil.isNode()) {
+    const blocklists = await import("./node/blocklists.js");
+    await blocklists.setup(services.blocklistWrapper);
+  }
+
+  system.pub("go");
+
+  services.ready = true;
+}
 
 export default class RethinkPlugin {
   /**
@@ -40,23 +62,23 @@ export default class RethinkPlugin {
     this.parameter = new Map(envManager.getMap());
     this.registerParameter("request", event.request);
     this.registerParameter("event", event);
-    this.registerParameter("dnsQuestionBlock", dnsQuestionBlock);
-    this.registerParameter("dnsResponseBlock", dnsResponseBlock);
-    this.registerParameter("dnsCache", dnsCache);
+    this.registerParameter("dnsQuestionBlock", services.dnsQuestionBlock);
+    this.registerParameter("dnsResponseBlock", services.dnsResponseBlock);
+    this.registerParameter("dnsCache", services.dnsCache);
 
     this.plugin = [];
 
     this.registerPlugin(
       "userOperation",
-      userOperation,
+      services.userOperation,
       ["dnsResolverUrl", "request", "isDnsMsg"],
-      userOperationCallBack,
-      false,
+      this.userOperationCallBack,
+      false
     );
 
     this.registerPlugin(
       "AggressiveCaching",
-      dnsCacheHandler,
+      services.dnsCacheHandler,
       [
         "userBlocklistInfo",
         "request",
@@ -66,13 +88,13 @@ export default class RethinkPlugin {
         "dnsQuestionBlock",
         "dnsResponseBlock",
       ],
-      dnsAggCacheCallBack,
-      false,
+      this.dnsAggCacheCallBack,
+      false
     );
 
     this.registerPlugin(
       "blocklistFilter",
-      blocklistWrapper,
+      services.blocklistWrapper,
       [
         "blocklistUrl",
         "latestTimestamp",
@@ -81,20 +103,20 @@ export default class RethinkPlugin {
         "tdNodecount",
         "fetchTimeout",
       ],
-      blocklistFilterCallBack,
-      false,
+      this.blocklistFilterCallBack,
+      false
     );
 
     this.registerPlugin(
       "commandControl",
-      commandControl,
+      services.commandControl,
       ["request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
-      commandControlCallBack,
-      false,
+      this.commandControlCallBack,
+      false
     );
     this.registerPlugin(
       "dnsQuestionBlock",
-      dnsQuestionBlock,
+      services.dnsQuestionBlock,
       [
         "requestDecodedDnsPacket",
         "blocklistFilter",
@@ -103,12 +125,12 @@ export default class RethinkPlugin {
         "request",
         "dnsCache",
       ],
-      dnsQuestionBlockCallBack,
-      false,
+      this.dnsQuestionBlockCallBack,
+      false
     );
     this.registerPlugin(
       "dnsResolver",
-      dnsResolver,
+      services.dnsResolver,
       [
         "requestBodyBuffer",
         "request",
@@ -118,12 +140,12 @@ export default class RethinkPlugin {
         "blocklistFilter",
         "dnsCache",
       ],
-      dnsResolverCallBack,
-      false,
+      this.dnsResolverCallBack,
+      false
     );
     this.registerPlugin(
       "DNSResponseBlock",
-      dnsResponseBlock,
+      services.dnsResponseBlock,
       [
         "userBlocklistInfo",
         "blocklistFilter",
@@ -133,8 +155,8 @@ export default class RethinkPlugin {
         "request",
         "dnsCache",
       ],
-      dnsResponseBlockCallBack,
-      false,
+      this.dnsResponseBlockCallBack,
+      false
     );
   }
 
@@ -147,7 +169,7 @@ export default class RethinkPlugin {
     module,
     parameter,
     callBack,
-    continueOnStopProcess,
+    continueOnStopProcess
   ) {
     this.plugin.push({
       name: pluginName,
@@ -169,7 +191,7 @@ export default class RethinkPlugin {
       log.lapTime(t, p.name, "send-req");
 
       const res = await p.module.RethinkModule(
-        generateParam(this.parameter, p.param),
+        generateParam(this.parameter, p.param)
       );
 
       log.lapTime(t, p.name, "got-res");
@@ -182,132 +204,137 @@ export default class RethinkPlugin {
     }
     log.endTime(t);
   }
-}
 
-/**
- * Adds "blocklistFilter" to RethinkPlugin params
- * @param {*} response - Contains `data` which is `blocklistFilter`
- * @param {*} currentRequest
- */
-function blocklistFilterCallBack(response, currentRequest) {
-  log.d("In blocklistFilterCallBack");
+  /**
+   * Adds "blocklistFilter" to RethinkPlugin params
+   * @param {*} response - Contains `data` which is `blocklistFilter`
+   * @param {*} currentRequest
+   */
+  blocklistFilterCallBack(response, currentRequest) {
+    log.d("In blocklistFilterCallBack");
 
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else {
-    this.registerParameter("blocklistFilter", response.data.blocklistFilter);
-  }
-}
-
-/**
- * params
- * @param {*} response
- * @param {*} currentRequest
- */
-async function commandControlCallBack(response, currentRequest) {
-  log.d("In commandControlCallBack", JSON.stringify(response.data));
-
-  if (response.data.stopProcessing) {
-    currentRequest.httpResponse = response.data.httpResponse;
-    currentRequest.stopProcessing = true;
-  }
-}
-
-/**
- * Adds "userBlocklistInfo" and "dnsResolverUrl" to RethinkPlugin params
- * @param {*} response - Contains `data` which is `userBlocklistInfo`
- * @param {*} currentRequest
- */
-async function userOperationCallBack(response, currentRequest) {
-  log.d("In userOperationCallBack", JSON.stringify(response.data));
-
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else {
-    this.registerParameter(
-      "userBlocklistInfo",
-      response.data.userBlocklistInfo,
-    );
-    this.registerParameter(
-      "dnsResolverUrl",
-      response.data.dnsResolverUrl,
-    );
-  }
-}
-
-function dnsAggCacheCallBack(response, currentRequest) {
-  log.d("In dnsAggCacheCallBack", JSON.stringify(response.data));
-
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else if (response.data && response.data.isBlocked) {
-    currentRequest.isDnsBlock = response.data.isBlocked;
-    currentRequest.blockedB64Flag = response.data.blockedB64Flag;
-    currentRequest.stopProcessing = true;
-    currentRequest.dnsBlockResponse();
-  } else if (response.data && response.data.dnsBuffer) {
-    this.registerParameter("responseDecodedDnsPacket", response.data.dnsPacket);
-    currentRequest.dnsResponse(response.data.dnsBuffer);
-    currentRequest.decodedDnsPacket = response.data.dnsPacket;
-    currentRequest.stopProcessing = true;
-  }
-}
-
-function dnsQuestionBlockCallBack(response, currentRequest) {
-  log.d("In dnsQuestionBlockCallBack", JSON.stringify(response.data));
-
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else if (response.data) {
-    currentRequest.isDnsBlock = response.data.isBlocked;
-    currentRequest.blockedB64Flag = response.data.blockedB64Flag;
-    if (currentRequest.isDnsBlock) {
-      currentRequest.stopProcessing = true;
-      currentRequest.dnsBlockResponse();
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else {
+      this.registerParameter("blocklistFilter", response.data.blocklistFilter);
     }
   }
-}
-/**
- * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
- * resolver) to RethinkPlugin params
- * @param {*} response
- * @param {*} currentRequest
- */
-function dnsResolverCallBack(response, currentRequest) {
-  log.d("In dnsResolverCallBack", JSON.stringify(response.data));
 
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else {
-    this.registerParameter("responseBodyBuffer", response.data.dnsBuffer);
+  /**
+   * params
+   * @param {*} response
+   * @param {*} currentRequest
+   */
+  async commandControlCallBack(response, currentRequest) {
+    log.d("In commandControlCallBack");
 
-    this.registerParameter("responseDecodedDnsPacket", response.data.dnsPacket);
+    if (response.data.stopProcessing) {
+      currentRequest.httpResponse = response.data.httpResponse;
+      currentRequest.stopProcessing = true;
+    }
   }
-}
 
-/**
- * Adds "dnsCnameBlockResponse" to RethinkPlugin params
- * @param {*} response -
- * @param {*} currentRequest
- */
-function dnsResponseBlockCallBack(response, currentRequest) {
-  log.d("In dnsResponseBlockCallBack", JSON.stringify(response.data));
+  /**
+   * Adds "userBlocklistInfo" and "dnsResolverUrl" to RethinkPlugin params
+   * @param {*} response - Contains `data` which is `userBlocklistInfo`
+   * @param {*} currentRequest
+   */
+  async userOperationCallBack(response, currentRequest) {
+    log.d("In userOperationCallBack");
 
-  if (response.isException) {
-    loadException(response, currentRequest);
-  } else if (response.data && response.data.isBlocked) {
-    currentRequest.isDnsBlock = response.data.isBlocked;
-    currentRequest.blockedB64Flag = response.data.blockedB64Flag !== ""
-      ? response.data.blockedB64Flag
-      : currentRequest.blockedB64Flag;
-    currentRequest.stopProcessing = true;
-    currentRequest.dnsBlockResponse();
-  } else {
-    currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
-    currentRequest.decodedDnsPacket = this.parameter.get(
-      "responseDecodedDnsPacket",
-    );
-    currentRequest.stopProcessing = true;
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else {
+      this.registerParameter(
+        "userBlocklistInfo",
+        response.data.userBlocklistInfo
+      );
+      this.registerParameter("dnsResolverUrl", response.data.dnsResolverUrl);
+    }
+  }
+
+  dnsAggCacheCallBack(response, currentRequest) {
+    log.d("In dnsAggCacheCallBack");
+
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else if (response.data && response.data.isBlocked) {
+      currentRequest.isDnsBlock = response.data.isBlocked;
+      currentRequest.blockedB64Flag = response.data.blockedB64Flag;
+      currentRequest.stopProcessing = true;
+      currentRequest.dnsBlockResponse();
+    } else if (response.data && response.data.dnsBuffer) {
+      this.registerParameter(
+        "responseDecodedDnsPacket",
+        response.data.dnsPacket
+      );
+      currentRequest.dnsResponse(response.data.dnsBuffer);
+      currentRequest.decodedDnsPacket = response.data.dnsPacket;
+      currentRequest.stopProcessing = true;
+    }
+  }
+
+  dnsQuestionBlockCallBack(response, currentRequest) {
+    log.d("In dnsQuestionBlockCallBack");
+
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else if (response.data) {
+      currentRequest.isDnsBlock = response.data.isBlocked;
+      currentRequest.blockedB64Flag = response.data.blockedB64Flag;
+      if (currentRequest.isDnsBlock) {
+        currentRequest.stopProcessing = true;
+        currentRequest.dnsBlockResponse();
+      }
+    }
+  }
+
+  /**
+   * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
+   * resolver) to RethinkPlugin params
+   * @param {*} response
+   * @param {*} currentRequest
+   */
+  dnsResolverCallBack(response, currentRequest) {
+    log.d("In dnsResolverCallBack", JSON.stringify(response.data));
+
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else {
+      this.registerParameter("responseBodyBuffer", response.data.dnsBuffer);
+
+      this.registerParameter(
+        "responseDecodedDnsPacket",
+        response.data.dnsPacket
+      );
+    }
+  }
+
+  /**
+   * Adds "dnsCnameBlockResponse" to RethinkPlugin params
+   * @param {*} response -
+   * @param {*} currentRequest
+   */
+  dnsResponseBlockCallBack(response, currentRequest) {
+    log.d("In dnsResponseBlockCallBack");
+
+    if (response.isException) {
+      loadException(response, currentRequest);
+    } else if (response.data && response.data.isBlocked) {
+      currentRequest.isDnsBlock = response.data.isBlocked;
+      currentRequest.blockedB64Flag =
+        response.data.blockedB64Flag !== ""
+          ? response.data.blockedB64Flag
+          : currentRequest.blockedB64Flag;
+      currentRequest.stopProcessing = true;
+      currentRequest.dnsBlockResponse();
+    } else {
+      currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
+      currentRequest.decodedDnsPacket = this.parameter.get(
+        "responseDecodedDnsPacket"
+      );
+      currentRequest.stopProcessing = true;
+    }
   }
 }
 
@@ -336,8 +363,8 @@ function generateParam(parameter, list) {
 }
 
 async function setRequest(parameter, currentRequest) {
-  let request = parameter.get("request");
-  parameter.set("isDnsMsg", util.isDnsMsg(request))
+  const request = parameter.get("request");
+  parameter.set("isDnsMsg", util.isDnsMsg(request));
   const isDnsMsg = parameter.get("isDnsMsg");
 
   if (!isValidRequest(isDnsMsg, request)) {
@@ -349,7 +376,7 @@ async function setRequest(parameter, currentRequest) {
     return;
   }
 
-  let buf = await getBodyBuffer(request);
+  const buf = await getBodyBuffer(request);
   parameter.set("requestBodyBuffer", buf);
   parameter.set("requestDecodedDnsPacket", dnsutil.decode(buf));
   currentRequest.decodedDnsPacket = parameter.get("requestDecodedDnsPacket");
@@ -357,9 +384,9 @@ async function setRequest(parameter, currentRequest) {
 
 async function getBodyBuffer(request) {
   if (request.method.toUpperCase() === "GET") {
-    const QueryString = (new URL(request.url)).searchParams;
+    const QueryString = new URL(request.url).searchParams;
     return base64ToArrayBuffer(
-      decodeURI(QueryString.get("dns")).replace(/-/g, "+").replace(/_/g, "/"),
+      decodeURI(QueryString.get("dns")).replace(/-/g, "+").replace(/_/g, "/")
     );
   } else {
     return await request.arrayBuffer();
