@@ -21,6 +21,7 @@ export default class CurrentRequest {
     this.isDnsBlock = false;
     this.isInvalidFlagBlock = false;
     this.stopProcessing = false;
+    this.log = log.withTags("CurrentRequest");
   }
 
   emptyDecodedDnsPacket() {
@@ -104,7 +105,7 @@ export default class CurrentRequest {
         headers: this.headers(),
       });
     } catch (e) {
-      log.e(JSON.stringify(this.decodedDnsPacket));
+      this.log.e(JSON.stringify(this.decodedDnsPacket));
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";

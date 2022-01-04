@@ -63,27 +63,21 @@ export class BlocklistFilter {
   }
 
   getB64FlagFromTag(tagList, flagVersion) {
-    try {
-      if (flagVersion === "0") {
-        return encodeURIComponent(
-          Buffer.from(
-            _customTagToFlag(tagList, this.blocklistFileTag)
-          ).toString("base64")
-        );
-      } else if (flagVersion === "1") {
-        return (
-          "1:" +
-          encodeURI(
-            btoa(
-              encodeToBinary(_customTagToFlag(tagList, this.blocklistFileTag))
-            )
-              .replace(/\//g, "_")
-              .replace(/\+/g, "-")
-          )
-        );
-      }
-    } catch (e) {
-      throw e;
+    if (flagVersion === "0") {
+      return encodeURIComponent(
+        Buffer.from(_customTagToFlag(tagList, this.blocklistFileTag)).toString(
+          "base64"
+        )
+      );
+    } else if (flagVersion === "1") {
+      return (
+        "1:" +
+        encodeURI(
+          btoa(encodeToBinary(_customTagToFlag(tagList, this.blocklistFileTag)))
+            .replace(/\//g, "_")
+            .replace(/\+/g, "-")
+        )
+      );
     }
   }
 }

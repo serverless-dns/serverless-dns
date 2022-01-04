@@ -10,31 +10,32 @@ import { Buffer } from "buffer";
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as util from "../helpers/util.js";
 import * as envutil from "../helpers/envutil.js";
-import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
+import { DNSParserWrap as DnsParser } from "../dns-operation/dnsOperation.js";
 
 export default class DNSResolver {
   constructor() {
     this.http2 = null;
     this.nodeUtil = null;
     this.transport = null;
-    this.dnsParser = new Dns();
+    this.dnsParser = new DnsParser();
+    this.log = log.withTags("DnsResolver");
   }
 
   async lazyInit() {
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
-      log.i("created custom http2 client");
+      this.log.i("created custom http2 client");
     }
     if (envutil.isNode() && !this.nodeUtil) {
       this.nodeUtil = await import("../helpers/node/util.js");
-      log.i("imported node-util");
+      this.log.i("imported node-util");
     }
     if (envutil.isNode() && !this.transport) {
       const plainOldDnsIp = dnsutil.dnsIpv4();
       this.transport = new (
         await import("../helpers/node/dns-transport.js")
       ).Transport(plainOldDnsIp, 53);
-      log.i("created udp/tcp dns transport", plainOldDnsIp);
+      this.log.i("created udp/tcp dns transport", plainOldDnsIp);
     }
   }
 
@@ -52,49 +53,52 @@ export default class DNSResolver {
   async RethinkModule(param) {
     await this.lazyInit();
     let response = util.emptyResponse();
+
     try {
       response.data = await this.resolveDns(param);
     } catch (e) {
       response = util.errResponse("dnsResolver", e);
-      log.e("Err DNSResolver -> RethinkModule", e);
+      this.log.e(param.rxid, "main", e);
     }
+
     return response;
   }
 
   async resolveDns(param) {
-    let resp = {};
+    const rxid = param.rxid;
     const upRes = await this.resolveDnsUpstream(
+      rxid,
       param.request,
       param.dnsResolverUrl,
       param.requestBodyBuffer
     );
-    resp = await decodeResponse(upRes, this.dnsParser);
-    return resp;
-  }
-}
 
-async function decodeResponse(response, dnsParser) {
-  if (!response) throw new Error("no upstream result");
-
-  if (!response.ok) {
-    log.d(JSON.stringify(response));
-    log.d("!OK", response.status, response.statusText, await response.text());
-    throw new Error(response.status + " http err: " + response.statusText);
+    return await this.decodeResponse(rxid, upRes);
   }
-  const data = {};
-  data.dnsBuffer = await response.arrayBuffer();
 
-  if (!dnsutil.validResponseSize(data.dnsBuffer)) {
-    throw new Error("Null / invalid response from upstream");
-  }
-  try {
+  async decodeResponse(rxid, response) {
+    if (!response) throw new Error("no upstream result");
+
+    if (!response.ok) {
+      const txt = await response.text();
+      this.log.d(rxid, "!OK", response.status, response.statusText, txt);
+      throw new Error(response.status + " http err: " + response.statusText);
+    }
+
+    const dnsBuffer = await response.arrayBuffer();
+
+    if (!dnsutil.validResponseSize(dnsBuffer)) {
+      throw new Error("Null / invalid response from upstream");
+    }
+
     // TODO: at times, dnsutil.encode sets answer[0].ttl to some large number
-    data.dnsPacket = dnsParser.decode(data.dnsBuffer);
-  } catch (e) {
-    log.e("decode fail " + response.status + " cache? " + data.dnsBuffer);
-    throw e;
+    const dnsPacket = this.dnsParser.decode(dnsBuffer);
+
+    return {
+      dnsPacket: dnsPacket,
+      dnsBuffer: dnsBuffer,
+    };
   }
-  return data;
 }
 
 /**
@@ -104,59 +108,53 @@ async function decodeResponse(response, dnsParser) {
  * @returns
  */
 DNSResolver.prototype.resolveDnsUpstream = async function (
+  rxid,
   request,
   resolverUrl,
   requestBodyBuffer
 ) {
-  try {
-    // for now, upstream plain-old dns on fly
-    if (this.transport) {
-      const q = util.bufferOf(requestBodyBuffer);
+  // for now, upstream plain-old dns on fly
+  if (this.transport) {
+    const q = util.bufferOf(requestBodyBuffer);
 
-      let ans = await this.transport.udpquery(q);
-      if (ans && dnsutil.truncated(ans)) {
-        log.w("ans truncated, retrying over tcp");
-        ans = await this.transport.tcpquery(q);
-      }
-
-      return ans
-        ? new Response(util.arrayBufferOf(ans))
-        : new Response(null, { status: 503 });
+    let ans = await this.transport.udpquery(rxid, q);
+    if (ans && dnsutil.truncated(ans)) {
+      this.log.w(rxid, "ans truncated, retrying over tcp");
+      ans = await this.transport.tcpquery(rxid, q);
     }
 
-    const u = new URL(request.url);
-    const dnsResolverUrl = new URL(resolverUrl);
-    u.hostname = dnsResolverUrl.hostname; // default cloudflare-dns.com
-    u.pathname = dnsResolverUrl.pathname; // override path, default /dns-query
-    u.port = dnsResolverUrl.port; // override port, default 443
-    u.protocol = dnsResolverUrl.protocol; // override proto, default https
-
-    let newRequest = null;
-    if (
-      request.method === "GET" ||
-      (envutil.isWorkers() && request.method === "POST")
-    ) {
-      u.search = "?dns=" + dnsutil.dnsqurl(requestBodyBuffer);
-      newRequest = new Request(u.href, {
-        method: "GET",
-      });
-    } else if (request.method === "POST") {
-      newRequest = new Request(u.href, {
-        method: "POST",
-        headers: util.concatHeaders(
-          util.contentLengthHeader(requestBodyBuffer),
-          util.dnsHeaders()
-        ),
-        body: requestBodyBuffer,
-      });
-    } else {
-      throw new Error("get/post requests only");
-    }
-
-    return this.http2 ? this.doh2(newRequest) : fetch(newRequest);
-  } catch (e) {
-    throw e;
+    return ans ? new Response(util.arrayBufferOf(ans)) : util.respond503();
   }
+
+  const u = new URL(request.url);
+  const dnsResolverUrl = new URL(resolverUrl);
+  u.hostname = dnsResolverUrl.hostname; // default cloudflare-dns.com
+  u.pathname = dnsResolverUrl.pathname; // override path, default /dns-query
+  u.port = dnsResolverUrl.port; // override port, default 443
+  u.protocol = dnsResolverUrl.protocol; // override proto, default https
+
+  let newRequest = null;
+  // even for GET requests, plugin.js:getBodyBuffer converts contents of
+  // u.search into an arraybuffer that then needs to be reconverted back
+  if (request.method === "GET") {
+    u.search = "?dns=" + dnsutil.dnsqurl(requestBodyBuffer);
+    newRequest = new Request(u.href, {
+      method: "GET",
+    });
+  } else if (request.method === "POST") {
+    newRequest = new Request(u.href, {
+      method: "POST",
+      headers: util.concatHeaders(
+        util.contentLengthHeader(requestBodyBuffer),
+        util.dnsHeaders()
+      ),
+      body: requestBodyBuffer,
+    });
+  } else {
+    throw new Error("get/post requests only");
+  }
+
+  return this.http2 ? this.doh2(rxid, newRequest) : fetch(newRequest);
 };
 
 /**
@@ -164,12 +162,12 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
  * @param {Request} request - Request object
  * @returns {Promise<Response>}
  */
-DNSResolver.prototype.doh2 = async function (request) {
+DNSResolver.prototype.doh2 = async function (rxid, request) {
   if (!this.http2 || !this.nodeUtil) {
     throw new Error("h2 / node-util not setup, bailing");
   }
 
-  log.d("upstream with doh2");
+  this.log.d(rxid, "upstream with doh2");
   const http2 = this.http2;
   const transformPseudoHeaders = this.nodeUtil.transformPseudoHeaders;
 

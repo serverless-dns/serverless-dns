@@ -19,6 +19,7 @@ class BlocklistWrapper {
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
+    this.log = log.withTags("BlocklistWrapper");
   }
 
   /**
@@ -48,6 +49,7 @@ class BlocklistWrapper {
 
       if (this.isBlocklistUnderConstruction === false) {
         return await this.initBlocklistConstruction(
+          param.rxid,
           now,
           param.blocklistUrl,
           param.latestTimestamp,
@@ -57,6 +59,7 @@ class BlocklistWrapper {
       } else if (now - this.startTime > param.workerTimeout * 2) {
         // it has been a while, queue another blocklist-construction
         return await this.initBlocklistConstruction(
+          param.rxid,
           now,
           param.blocklistUrl,
           param.latestTimestamp,
@@ -91,7 +94,7 @@ class BlocklistWrapper {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "blocklistWrapper.js RethinkModule";
-      log.e("Error At -> BlocklistWrapper RethinkModule", e);
+      log.e(param.rxid, "RethinkModule", e);
     }
     return response;
   }
@@ -118,6 +121,7 @@ class BlocklistWrapper {
   }
 
   async initBlocklistConstruction(
+    rxid,
     when,
     blocklistUrl,
     latestTimestamp,
@@ -135,6 +139,7 @@ class BlocklistWrapper {
 
     try {
       const bl = await this.downloadBuildBlocklist(
+        rxid,
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
@@ -148,11 +153,11 @@ class BlocklistWrapper {
         bl.blocklistFileTag
       );
 
-      log.d("done blocklist filter");
+      log.d(rxid, "loaded blocklist-filter");
       if (false) {
         // test
         const result = this.blocklistFilter.getDomainInfo("google.com");
-        log.d(JSON.stringify(result));
+        log.d(rxid, JSON.stringify(result));
       }
 
       response.data.blocklistFilter = this.blocklistFilter;
@@ -162,7 +167,7 @@ class BlocklistWrapper {
       response.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
-      log.e(e);
+      log.e(rxid, e);
     }
 
     this.isBlocklistUnderConstruction = false;
@@ -171,48 +176,45 @@ class BlocklistWrapper {
   }
 
   async downloadBuildBlocklist(
+    rxid,
     blocklistUrl,
     latestTimestamp,
     tdNodecount,
     tdParts
   ) {
-    try {
-      !tdNodecount && log.e("tdNodecount zero or missing!");
+    !tdNodecount && log.e(rxid, "tdNodecount zero or missing!");
 
-      const resp = {};
-      const baseurl = blocklistUrl + latestTimestamp;
-      const blocklistBasicConfig = {
-        nodecount: tdNodecount || -1,
-        tdparts: tdParts || -1,
-      };
+    const resp = {};
+    const baseurl = blocklistUrl + latestTimestamp;
+    const blocklistBasicConfig = {
+      nodecount: tdNodecount || -1,
+      tdparts: tdParts || -1,
+    };
 
-      const buf0 = fileFetch(baseurl + "/filetag.json", "json");
-      const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
-      const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
+    const buf0 = fileFetch(baseurl + "/filetag.json", "json");
+    const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
+    const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
-      const downloads = await Promise.all([buf0, buf1, buf2]);
+    const downloads = await Promise.all([buf0, buf1, buf2]);
 
-      log.d("call createBlocklistFilter", blocklistBasicConfig);
+    log.d(rxid, "call createBlocklistFilter", blocklistBasicConfig);
 
-      this.td = downloads[1];
-      this.rd = downloads[2];
-      this.ft = downloads[0];
+    this.td = downloads[1];
+    this.rd = downloads[2];
+    this.ft = downloads[0];
 
-      const trie = createBlocklistFilter(
-        /* trie*/ this.td,
-        /* rank-dir*/ this.rd,
-        /* file-tags*/ this.ft,
-        /* basic-config*/ blocklistBasicConfig
-      );
+    const trie = createBlocklistFilter(
+      /* trie*/ this.td,
+      /* rank-dir*/ this.rd,
+      /* file-tags*/ this.ft,
+      /* basic-config*/ blocklistBasicConfig
+    );
 
-      resp.t = trie.t; // tags
-      resp.ft = trie.ft; // frozen-trie
-      resp.blocklistBasicConfig = blocklistBasicConfig;
-      resp.blocklistFileTag = this.ft;
-      return resp;
-    } catch (e) {
-      throw e;
-    }
+    resp.t = trie.t; // tags
+    resp.ft = trie.ft; // frozen-trie
+    resp.blocklistBasicConfig = blocklistBasicConfig;
+    resp.blocklistFileTag = this.ft;
+    return resp;
   }
 }
 

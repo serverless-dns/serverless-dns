@@ -60,11 +60,20 @@ export default class RethinkPlugin {
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
     this.parameter = new Map(envManager.getMap());
-    this.registerParameter("request", event.request);
+
+    const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
+    // TODO: generate rxid in setRequest instead?
+    this.registerParameter("rxid", "[rxid." + rxid + "]");
+
+    // caution: event isn't an event on nodejs, but event.request is a request
     this.registerParameter("event", event);
+    this.registerParameter("request", event.request);
+
     this.registerParameter("dnsQuestionBlock", services.dnsQuestionBlock);
     this.registerParameter("dnsResponseBlock", services.dnsResponseBlock);
     this.registerParameter("dnsCache", services.dnsCache);
+
+    this.log = log.withTags("RethinkPlugin");
 
     this.plugin = [];
 
@@ -80,6 +89,7 @@ export default class RethinkPlugin {
       "AggressiveCaching",
       services.dnsCacheHandler,
       [
+        "rxid",
         "userBlocklistInfo",
         "request",
         "requestDecodedDnsPacket",
@@ -96,6 +106,7 @@ export default class RethinkPlugin {
       "blocklistFilter",
       services.blocklistWrapper,
       [
+        "rxid",
         "blocklistUrl",
         "latestTimestamp",
         "workerTimeout",
@@ -110,7 +121,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       services.commandControl,
-      ["request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
+      ["rxid", "request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
       this.commandControlCallBack,
       false
     );
@@ -118,6 +129,7 @@ export default class RethinkPlugin {
       "dnsQuestionBlock",
       services.dnsQuestionBlock,
       [
+        "rxid",
         "requestDecodedDnsPacket",
         "blocklistFilter",
         "userBlocklistInfo",
@@ -132,6 +144,7 @@ export default class RethinkPlugin {
       "dnsResolver",
       services.dnsResolver,
       [
+        "rxid",
         "requestBodyBuffer",
         "request",
         "dnsResolverUrl",
@@ -147,6 +160,7 @@ export default class RethinkPlugin {
       "DNSResponseBlock",
       services.dnsResponseBlock,
       [
+        "rxid",
         "userBlocklistInfo",
         "blocklistFilter",
         "responseDecodedDnsPacket",
@@ -182,27 +196,31 @@ export default class RethinkPlugin {
 
   async executePlugin(req) {
     await setRequest(this.parameter, req);
-    const t = log.startTime("exec-plugin");
+
+    const rxid = this.parameter.get("rxid");
+
+    const t = this.log.startTime("exec-plugin-" + rxid);
+
     for (const p of this.plugin) {
       if (req.stopProcessing && !p.continueOnStopProcess) {
         continue;
       }
 
-      log.lapTime(t, p.name, "send-req");
+      this.log.lapTime(t, rxid, p.name, "send-req");
 
       const res = await p.module.RethinkModule(
         generateParam(this.parameter, p.param)
       );
 
-      log.lapTime(t, p.name, "got-res");
+      this.log.lapTime(t, rxid, p.name, "got-res");
 
       if (p.callBack) {
         await p.callBack.call(this, res, req);
       }
 
-      log.lapTime(t, p.name, "post-callback");
+      this.log.lapTime(t, rxid, p.name, "post-callback");
     }
-    log.endTime(t);
+    this.log.endTime(t);
   }
 
   /**
@@ -211,7 +229,8 @@ export default class RethinkPlugin {
    * @param {*} currentRequest
    */
   blocklistFilterCallBack(response, currentRequest) {
-    log.d("In blocklistFilterCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In blocklistFilterCallBack");
 
     if (response.isException) {
       loadException(response, currentRequest);
@@ -226,7 +245,8 @@ export default class RethinkPlugin {
    * @param {*} currentRequest
    */
   async commandControlCallBack(response, currentRequest) {
-    log.d("In commandControlCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In commandControlCallBack");
 
     if (response.data.stopProcessing) {
       currentRequest.httpResponse = response.data.httpResponse;
@@ -240,7 +260,8 @@ export default class RethinkPlugin {
    * @param {*} currentRequest
    */
   async userOperationCallBack(response, currentRequest) {
-    log.d("In userOperationCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In userOperationCallBack");
 
     if (response.isException) {
       loadException(response, currentRequest);
@@ -254,7 +275,8 @@ export default class RethinkPlugin {
   }
 
   dnsAggCacheCallBack(response, currentRequest) {
-    log.d("In dnsAggCacheCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In dnsAggCacheCallBack");
 
     if (response.isException) {
       loadException(response, currentRequest);
@@ -275,7 +297,8 @@ export default class RethinkPlugin {
   }
 
   dnsQuestionBlockCallBack(response, currentRequest) {
-    log.d("In dnsQuestionBlockCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In dnsQuestionBlockCallBack");
 
     if (response.isException) {
       loadException(response, currentRequest);
@@ -296,7 +319,11 @@ export default class RethinkPlugin {
    * @param {*} currentRequest
    */
   dnsResolverCallBack(response, currentRequest) {
-    log.d("In dnsResolverCallBack", JSON.stringify(response.data));
+    this.log.d(
+      this.parameter.get("rxid"),
+      "In dnsResolverCallBack",
+      JSON.stringify(response.data)
+    );
 
     if (response.isException) {
       loadException(response, currentRequest);
@@ -316,7 +343,8 @@ export default class RethinkPlugin {
    * @param {*} currentRequest
    */
   dnsResponseBlockCallBack(response, currentRequest) {
-    log.d("In dnsResponseBlockCallBack");
+    const rxid = this.parameter.get("rxid");
+    this.log.d(rxid, "In dnsResponseBlockCallBack");
 
     if (response.isException) {
       loadException(response, currentRequest);

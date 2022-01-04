@@ -71,6 +71,7 @@ export default class Log {
     this.log = console.log;
     this.setLevel(level);
   }
+
   _resetLevel() {
     this.d = () => null;
     this.debug = () => null;
@@ -83,6 +84,43 @@ export default class Log {
     this.warn = () => null;
     this.e = () => null;
     this.error = () => null;
+  }
+
+  withTags(...tags) {
+    const that = this;
+    return {
+      lapTime: (n, ...r) => {
+        return that.lapTime(n, ...tags, ...r);
+      },
+      startTime: (n, ...r) => {
+        const tid = that.startTime(n);
+        that.d(that.now(), ...tags, "create timer", tid, ...r);
+        return tid;
+      },
+      endTime: (n, ...r) => {
+        that.d(that.now(), ...tags, "end timer", n, ...r);
+        return that.endTime(n);
+      },
+      d: (...args) => {
+        that.d(that.now(), ...tags, ...args);
+      },
+      i: (...args) => {
+        that.i(that.now(), ...tags, ...args);
+      },
+      w: (...args) => {
+        that.w(that.now(), ...tags, ...args);
+      },
+      e: (...args) => {
+        that.e(that.now(), ...tags, ...args);
+      },
+      tag: (t) => {
+        tags.push(t);
+      },
+    };
+  }
+
+  now() {
+    return new Date().toISOString();
   }
 
   /**
@@ -104,6 +142,7 @@ export default class Log {
     }
 
     this._resetLevel();
+
     switch (level) {
       default:
       case "debug":

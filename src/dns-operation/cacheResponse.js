@@ -10,7 +10,9 @@ import * as dnsutil from "../helpers/dnsutil.js";
 import * as cacheutil from "../helpers/cacheutil.js";
 
 export default class DNSCacheResponse {
-  constructor() {}
+  constructor() {
+    this.log = log.withTags("DnsCacheResponse");
+  }
 
   /**
    * @param {*} param
@@ -38,8 +40,7 @@ export default class DNSCacheResponse {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSAggCache RethinkModule";
-      console.error("Error At : DNSAggCache -> RethinkModule");
-      console.error(e.stack);
+      this.log.e(param.rxid, "main", e);
     }
     return response;
   }
@@ -47,11 +48,14 @@ export default class DNSCacheResponse {
   async resolveFromCache(param) {
     const key = cacheutil.cacheKey(param.requestDecodedDnsPacket);
     if (!key) return false;
+
     const cacheResponse = await param.dnsCache.get(key, param.request.url);
-    console.debug("cache key : ", key);
-    console.debug("Cache Response", JSON.stringify(cacheResponse));
+    this.log.d(param.rxid, "resolveFromCache k/v", key, cacheResponse);
+
     if (!cacheResponse) return false;
-    return await parseCacheResponse(
+
+    return await this.makeCacheResponse(
+      param.rxid,
       cacheResponse,
       param.userBlocklistInfo,
       param.requestDecodedDnsPacket,
@@ -59,56 +63,51 @@ export default class DNSCacheResponse {
       param.dnsResponseBlock
     );
   }
+
+  async makeCacheResponse(rxid, cr, blockInfo, reqDnsPacket, qb, rb) {
+    // check incoming dns request against blocklists in cache-metadata
+    const qresponse = blockIfNeeded(
+      qb,
+      reqDnsPacket,
+      cr.metaData.cacheFilter,
+      blockInfo
+    );
+    this.log.d(rxid, blockInfo, "question block?", qresponse);
+    if (qresponse && qresponse.isBlocked) {
+      return qresponse;
+    }
+
+    // check outgoing cached dns-packet against blocklists
+    const aresponse = blockIfNeeded(
+      rb,
+      cr.dnsPacket,
+      cr.metaData.cacheFilter,
+      blockInfo
+    );
+    this.log.d(rxid, blockInfo, "answer block?", aresponse);
+    if (aresponse && aresponse.isBlocked) {
+      return aresponse;
+    }
+
+    return modifyCacheResponse(cr, reqDnsPacket.id);
+  }
 }
 
-async function parseCacheResponse(cr, blockInfo, reqDnsPacket, qb, rb) {
-  // check dns-block for incoming request against blocklist metadata from cache
-  let response = checkDnsBlock(
-    qb,
-    reqDnsPacket,
-    cr.metaData.cacheFilter,
-    blockInfo
-  );
-  console.debug("question block ", JSON.stringify(response));
-  if (response && response.isBlocked) {
-    return response;
-  }
-  // cache response contains only metadata information
-  // return false to resolve dns request.
+function blockIfNeeded(blocker, dnsPacket, cf, blockInfo) {
+  return blocker.performBlocking(blockInfo, dnsPacket, false, cf);
+}
+
+function modifyCacheResponse(cr, qid) {
+  // cache-response contains only metadata not dns-packet
   if (!cr.metaData.bodyUsed) {
     return false;
   }
 
-  // answer block check
-  response = checkDnsBlock(
-    rb,
-    cr.dnsPacket,
-    cr.metaData.cacheFilter,
-    blockInfo
-  );
+  cacheutil.updateQueryId(cr.dnsPacket, qid);
+  cacheutil.updateTtl(cr.dnsPacket, cr.metaData.ttlEndTime);
 
-  console.debug("answer block ", JSON.stringify(response));
-  if (response && response.isBlocked) {
-    return response;
-  }
-
-  response = generateResponse(cr, reqDnsPacket.id);
-
-  return response;
-}
-
-function checkDnsBlock(qb, dnsPacket, cf, blockInfo) {
-  return qb.performBlocking(blockInfo, dnsPacket, false, cf);
-}
-
-function generateResponse(cr, qid) {
-  const response = {};
-  response.dnsPacket = cr.dnsPacket;
-
-  cacheutil.updateQueryId(response.dnsPacket, qid);
-  cacheutil.updateTtl(response.dnsPacket, cr.metaData.ttlEndTime);
-
-  response.dnsBuffer = dnsutil.encode(response.dnsPacket);
-
-  return response;
+  return {
+    dnsPacket: cr.dnsPacket,
+    dnsBuffer: dnsutil.encode(cr.dnsPacket),
+  };
 }

@@ -10,18 +10,20 @@ import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
 
 export class UserCache {
   constructor(size) {
-    this.localCache = new Cache("UserCache", size);
+    const name = "UserCache";
+    this.localCache = new Cache(name, size);
+    this.log = log.withTags(name);
   }
 
   get(key) {
     return this.localCache.Get(key);
   }
+
   put(key, data) {
     try {
       this.localCache.Put(key, data);
     } catch (e) {
-      console.error("Error At : UserCache -> Put");
-      console.error(e.stack);
+      this.log.e("put", e);
     }
   }
 }

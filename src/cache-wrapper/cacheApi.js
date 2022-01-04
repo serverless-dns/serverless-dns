@@ -6,18 +6,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import * as envutil from "../helpers/envutil.js";
+import * as util from "../helpers/util.js";
+
 export class CacheApi {
-  async get(url) {
-    if (envutil.isWorkers()) {
-      return await caches.default.match(url);
+  constructor() {
+    this.noop = !envutil.isWorkers();
+
+    if (this.noop) {
+      log.w("not workers, no-op http-cache-api");
     }
-    return false;
+  }
+
+  async get(url) {
+    if (this.noop) return false;
+    if (util.emptyString(url)) return false;
+
+    return await caches.default.match(url);
   }
 
   put(url, response) {
-    if (envutil.isWorkers()) {
-      return caches.default.put(url, response);
-    }
-    return false;
+    if (this.noop) return false;
+    if (util.emptyString(url) || util.emptyObj(response)) return false;
+
+    return caches.default.put(url, response);
   }
 }

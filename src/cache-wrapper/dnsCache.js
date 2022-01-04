@@ -16,97 +16,137 @@ export class DnsCache {
   constructor(size) {
     this.localCache = new Cache("DnsCache", size);
     this.cacheApi = new CacheApi();
+    this.log = log.withTags("DnsCache");
   }
 
   async get(key, url) {
-    let entry = this.getLocalCache(key);
-    if (
-      entry && entry.metaData &&
-      (!entry.metaData.bodyUsed || (Date.now() <= entry.metaData.ttlEndTime))
-    ) {
+    let entry = this.fromLocalCache(key);
+    if (entry) {
       return entry;
     }
 
-    //cache api not set
+    // no http cache api on non-workers, yet
     if (!url || !envutil.isWorkers()) return false;
 
-    const cacheApiKey = makeCacheApiKey(key, url);
-    entry = await parseCacheApiResponse(await this.getCacheApi(cacheApiKey));
-    //cache not available from cache api
-    if (!entry) return false;
+    const hKey = makeHttpCacheApiKey(key, url);
+    entry = await this.fromHttpCacheApi(hKey);
+
+    // write-through local cache
     this.putLocalCache(key, entry);
+
     return entry;
   }
 
   put(key, data, url, buf, event) {
+    if (!key) return;
+
     try {
       this.putLocalCache(key, data);
-      //check for cache api availability
       if (url && envutil.isWorkers() && event && event.waitUntil) {
-        console.debug("Adding to cache api");
+        this.log.d("put data httpCache", data);
         event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
       }
     } catch (e) {
-      console.error(e.stack);
+      this.log.e("put", e);
     }
   }
 
   putLocalCache(key, data) {
+    if (!key || !data) return;
     try {
-      console.debug("Adding to local cache");
       this.localCache.Put(key, data);
     } catch (e) {
-      console.error("Error At : DnsCache -> put");
-      console.error(e.stack);
+      this.log.e("putLocalCache", e);
     }
   }
-  getLocalCache(key) {
-    return this.localCache.Get(key);
+
+  fromLocalCache(key) {
+    if (!key) return false;
+
+    const v = this.localCache.Get(key);
+    return this.isValid(v) ? v : false;
   }
 
-  async getCacheApi(key) {
-    return await this.cacheApi.get(key);
+  async fromHttpCacheApi(key) {
+    if (!key) return false;
+
+    const cres = await this.cacheApi.get(key);
+    return this.parseHttpCacheApiResponse(cres);
   }
+
   async putCacheApi(key, url, buf, metaData) {
-    let response = createResponse(buf, metaData, 604800); //1w ttl set based on blocklist update
-    const cacheApiKey = makeCacheApiKey(key, url);
-    this.cacheApi.put(cacheApiKey, response);
-  }
-}
-function createResponse(buf, metaData, ttl) {
-  return new Response(buf, httpHeaders(buf, metaData, ttl));
-}
+    const k = makeHttpCacheApiKey(key, url);
+    const v = makeHttpCacheApiValue(buf, metaData);
 
-async function parseCacheApiResponse(response) {
-  if (!response) return false;
-  console.debug("Response found in Cache api");
-  const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
-  console.debug(metaData);
-  if (!metaData || (metaData.bodyUsed && Date.now() >= metaData.ttlEndTime)) {
-    return false;
+    if (!k || !v) return;
+
+    this.cacheApi.put(k, v);
   }
 
-  let data = {};
-  data.dnsPacket = metaData.bodyUsed
-    ? dnsutil.decode(await response.arrayBuffer())
-    : {};
-  data.metaData = metaData;
-  console.debug(JSON.stringify(data));
-  return data;
+  isValid(v) {
+    // return (v && this.isAnswerFresh(v.metaData));
+    if (!v) return false;
+
+    // only metadata (does not expire), no answers
+    const hasMd = this.hasMetadata(v.metaData) && !this.hasAnswer(v.metaData);
+    if (hasMd) return true;
+
+    // answers (expires with ttl) and metadata
+    const hasAns = this.isAnswerFresh(v.metaData);
+    return hasAns;
+  }
+
+  isAnswerFresh(m) {
+    return this.hasAnswer(m) && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
+  }
+
+  hasAnswer(m) {
+    return this.hasMetadata(m) && m.bodyUsed;
+  }
+
+  hasMetadata(m) {
+    return !!m;
+  }
+
+  async parseHttpCacheApiResponse(response) {
+    if (!response) return false;
+
+    const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
+    this.log.d("httpCache response metadata", metaData);
+
+    if (!this.isMetadataFresh(metaData)) {
+      return false;
+    }
+
+    const p = metaData.bodyUsed
+      ? dnsutil.decode(await response.arrayBuffer())
+      : {};
+    const m = metaData;
+
+    return {
+      dnsPacket: p,
+      metaData: m,
+    };
+  }
 }
 
-function makeCacheApiKey(key, url) {
-  return new URL(new URL(url).origin + "/" + env.latestTimestamp + "/" + key);
-}
-
-function httpHeaders(buf, metaData, ttl) {
-  return {
+function makeHttpCacheApiValue(buf, metaData) {
+  const headers = {
     headers: util.concatHeaders(
       {
         "x-rethink-metadata": JSON.stringify(metaData),
+        // ref: developers.cloudflare.com/workers/runtime-apis/cache#headers
+        "Cache-Control": /* 1w*/ "max-age=604800",
       },
-      util.contentLengthHeader(buf),
+      util.contentLengthHeader(buf)
     ),
-    cf: util.concatHeaders({ cacheTtl: ttl }),
+    // if using the fetch web api, "cf" directive needs to be set, instead
+    // ref: developers.cloudflare.com/workers/examples/cache-using-fetch
+    // cf: { cacheTtl: /*1w*/ 604800 },
   };
+  return new Response(buf, headers);
+}
+
+function makeHttpCacheApiKey(key, url) {
+  return new URL(new URL(url).origin + "/" + env.latestTimestamp + "/" + key);
 }

@@ -8,11 +8,8 @@
 
 import CurrentRequest from "./helpers/currentRequest.js";
 import RethinkPlugin from "./helpers/plugin.js";
-import EnvManager from "./helpers/env.js";
-import Log from "./helpers/log.js";
 import * as util from "./helpers/util.js";
 import * as dnsutil from "./helpers/dnsutil.js";
-import * as system from "./system.js";
 
 export function handleRequest(event) {
   return Promise.race([
@@ -22,9 +19,7 @@ export function handleRequest(event) {
 
     new Promise((accept, _) => {
       // on timeout, servfail
-      util.timeout(dnsutil.requestTimeout(), () =>
-        accept(servfail(event.request))
-      );
+      util.timeout(dnsutil.requestTimeout(), () => accept(servfail()));
     }),
   ]);
 }
@@ -52,8 +47,8 @@ function optionsRequest(request) {
 }
 
 function errorOrServfail(request, err) {
-  const UA = request.headers.get("User-Agent");
-  if (!util.fromBrowser(UA)) return servfail();
+  const ua = request.headers.get("User-Agent");
+  if (!util.fromBrowser(ua)) return servfail();
 
   const res = new Response(JSON.stringify(err.stack), {
     status: 503, // unavailable

@@ -10,18 +10,20 @@ import { LfuCache as Cache } from "@serverless-dns/lfu-cache";
 
 export class DomainNameCache {
   constructor(size) {
-    this.localCache = new Cache("DomainNameCache", size);
+    const name = "DomainNameCache";
+    this.localCache = new Cache(name, size);
+    this.log = log.withTags(name);
   }
 
   get(key) {
     return this.localCache.Get(key);
   }
+
   put(key, data) {
     try {
       this.localCache.Put(key, data);
     } catch (e) {
-      console.error("Error At : LocalCache -> Put");
-      console.error(e.stack);
+      this.log.e("put", e);
     }
   }
 }

@@ -8,9 +8,12 @@
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as dnsCacheUtil from "../helpers/cacheutil.js";
 import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
+import * as util from "../helpers/util.js";
 
 export default class DNSQuestionBlock {
-  constructor() {}
+  constructor() {
+    this.log = log.withTags("DnsQuestionBlock");
+  }
 
   /**
    * @param {*} param
@@ -34,8 +37,7 @@ export default class DNSQuestionBlock {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "DNSQuestionBlock RethinkModule";
-      console.error("Error At : DNSQuestionBlock -> RethinkModule");
-      console.error(e.stack);
+      this.log.e(param.rxid, "main", e);
     }
     return response;
   }
@@ -45,16 +47,17 @@ export default class DNSQuestionBlock {
       param.userBlocklistInfo,
       param.requestDecodedDnsPacket,
       param.blocklistFilter,
-      false
+      /* cache-filter*/ false
     );
+    // FIXME: move cache-ops to callbacks in plugin.js
     if (response && response.isBlocked) {
-      console.debug("add block response to cache");
+      this.log.d(param.rxid, "cache block-response");
       putCache(
         param.dnsCache,
         param.request.url,
         param.blocklistFilter,
         param.requestDecodedDnsPacket,
-        "",
+        /* buffer*/ "",
         param.event
       );
     }
@@ -63,8 +66,7 @@ export default class DNSQuestionBlock {
 
   performBlocking(blockInfo, dnsPacket, blf, cf) {
     if (
-      !blockInfo.userBlocklistFlagUint ||
-      blockInfo.userBlocklistFlagUint === "" ||
+      util.emptyString(blockInfo.userBlocklistFlagUint) ||
       !dnsutil.isBlockable(dnsPacket)
     ) {
       return false;
@@ -72,6 +74,7 @@ export default class DNSQuestionBlock {
 
     const qn = dnsutil.getQueryName(dnsPacket.questions);
     if (!qn) return false;
+
     return dnsBlockUtil.doBlock(blf, blockInfo, qn, cf);
   }
 }
@@ -79,6 +82,7 @@ export default class DNSQuestionBlock {
 function putCache(cache, url, blf, dnsPacket, buf, event) {
   const key = dnsCacheUtil.cacheKey(dnsPacket);
   if (!key) return;
-  const input = dnsCacheUtil.createCacheInput(dnsPacket, blf, false);
-  cache.put(key, input, url, buf, event);
+
+  const value = dnsCacheUtil.createCacheInput(dnsPacket, blf);
+  cache.put(key, value, url, buf, event);
 }

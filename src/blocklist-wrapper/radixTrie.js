@@ -26,20 +26,16 @@ const W = 16;
 
 const bufferView = { 15: Uint16Array, 16: Uint16Array, 6: Uint8Array };
 
-function CHR(ord) {
-  return CHRM(ord, W === 6);
-}
-
-function CHR16(ord) {
-  return CHRM(ord, false);
+function chr16(ord) {
+  return chrm(ord, false);
 }
 
 /**
  * Returns the character unit that represents the given value. If this were
  * binary data, we would simply return id.
  */
-function CHRM(ord, b64) {
-  return (b64) ? BASE64[ord] : String.fromCharCode(ord);
+function chrm(ord, b64) {
+  return b64 ? BASE64[ord] : String.fromCharCode(ord);
 }
 
 /**
@@ -51,16 +47,12 @@ for (let i = 0; i < BASE64.length; i++) {
   ORD[BASE64[i]] = i;
 }
 
-function DEC(chr) {
-  return DECM(chr, W === 6);
+function dec16(chr) {
+  return decm(chr, false);
 }
 
-function DEC16(chr) {
-  return DECM(chr, false);
-}
-
-function DECM(chr, b64) {
-  return (b64) ? ORD[chr] : chr.charCodeAt(0);
+function decm(chr, b64) {
+  return b64 ? ORD[chr] : chr.charCodeAt(0);
 }
 
 /**
@@ -68,8 +60,7 @@ function DECM(chr, b64) {
  */
 const L1 = 32 * 32;
 const L2 = 32;
-// bits per meta-data field stored with trie-encode
-const MFIELDBITS = 30;
+
 const TxtEnc = new TextEncoder();
 const TxtDec = new TextDecoder();
 // DELIM to tag elements in the trie, shouldn't be a valid base32 char
@@ -91,45 +82,15 @@ function BitString(str) {
 
 BitString.MaskTop = {
   16: [
-    0xffff,
-    0x7fff,
-    0x3fff,
-    0x1fff,
-    0x0fff,
-    0x07ff,
-    0x03ff,
-    0x01ff,
-    0x00ff,
-    0x007f,
-    0x003f,
-    0x001f,
-    0x000f,
-    0x0007,
-    0x0003,
-    0x0001,
-    0x0000,
+    0xffff, 0x7fff, 0x3fff, 0x1fff, 0x0fff, 0x07ff, 0x03ff, 0x01ff, 0x00ff,
+    0x007f, 0x003f, 0x001f, 0x000f, 0x0007, 0x0003, 0x0001, 0x0000,
   ],
 };
 
 BitString.MaskBottom = {
   16: [
-    0xffff,
-    0xfffe,
-    0xfffc,
-    0xfff8,
-    0xfff0,
-    0xffe0,
-    0xffc0,
-    0xff80,
-    0xff00,
-    0xfe00,
-    0xfc00,
-    0xf800,
-    0xf000,
-    0xe000,
-    0xc000,
-    0x8000,
-    0x0000,
+    0xffff, 0xfffe, 0xfffc, 0xfff8, 0xfff0, 0xffe0, 0xffc0, 0xff80, 0xff00,
+    0xfe00, 0xfc00, 0xf800, 0xf000, 0xe000, 0xc000, 0x8000, 0x0000,
   ],
 };
 
@@ -146,17 +107,20 @@ function initialize() {
 // Function to return the count
 // of set bits in n
 function countSetBits(n) {
-  return (BitsSetTable256[n & 0xff] +
+  return (
+    BitsSetTable256[n & 0xff] +
     BitsSetTable256[(n >>> 8) & 0xff] +
     BitsSetTable256[(n >>> 16) & 0xff] +
-    BitsSetTable256[n >>> 24]);
+    BitsSetTable256[n >>> 24]
+  );
 }
 
 function bit0(n, p, pad) {
   const r = bit0p(n, p);
   if (r.scanned <= 0) return r.scanned; // r.index
   if (r.index > 0) return r.scanned; // r.index
-  if (pad > r.scanned) return r.scanned + 1; // + 1
+  if (pad > r.scanned) return r.scanned + 1;
+  // + 1
   else return 0;
 }
 
@@ -166,16 +130,20 @@ function bit0(n, p, pad) {
  * @param {*} p The pth zero bit
  */
 function bit0p(n, p) {
-  if (p == 0) return { index: 0, scanned: 0 };
-  if (n == 0 && p == 1) return { index: 1, scanned: 1 };
-  let c = 0, i = 0, m = n;
+  if (p === 0) return { index: 0, scanned: 0 };
+  if (n === 0 && p === 1) return { index: 1, scanned: 1 };
+  let c = 0;
+  let i = 0;
+  const m = n;
   for (c = 0; n > 0 && p > c; n = n >>> 1) {
     // increment c when nth lsb (bit) is 0
     c = c + (n < (n ^ 0x1)) ? 1 : 0;
     i += 1;
   }
-  //console.log("      ", String.fromCharCode(m).charCodeAt(0).toString(2), m, i, p, c);
-  return { index: (p == c) ? i : 0, scanned: i };
+  if (config.debug) {
+    console.log(String.fromCharCode(m).charCodeAt(0).toString(2), m, i, p, c);
+  }
+  return { index: p === c ? i : 0, scanned: i };
 }
 
 BitString.prototype = {
@@ -207,41 +175,54 @@ BitString.prototype = {
    * starting at a certain position, p.
    */
   get: function (p, n, debug = false) {
-    // supports n <= 31, since bitwise operations works only on +ve integers in js
+    // supports n <= 31, since js bitwise operations work only on +ve ints
 
     // case 1: bits lie within the given byte
     if ((p % W) + n <= W) {
-      return (this.bytes[p / W | 0] & BitString.MaskTop[W][p % W]) >>
-        (W - (p % W) - n);
+      return (
+        (this.bytes[(p / W) | 0] & BitString.MaskTop[W][p % W]) >>
+        (W - (p % W) - n)
+      );
 
       // case 2: bits lie incompletely in the given byte
     } else {
-      let result = (this.bytes[p / W | 0] & BitString.MaskTop[W][p % W]);
-      let tmpCount = 0; //santhosh added
-      const disp1 = this.bytes[p / W | 0];
+      let result = this.bytes[(p / W) | 0] & BitString.MaskTop[W][p % W];
+      let tmpCount = 0; // santhosh added
+      const disp1 = this.bytes[(p / W) | 0];
       const disp2 = BitString.MaskTop[W][p % W];
       const res1 = result;
-      const l = W - p % W;
+      const l = W - (p % W);
       p += l;
       n -= l;
 
       while (n >= W) {
         tmpCount++;
-        result = (result << W) | this.bytes[p / W | 0];
+        result = (result << W) | this.bytes[(p / W) | 0];
         p += W;
         n -= W;
       }
       const res2 = result;
       if (n > 0) {
-        result = (result << n) | (this.bytes[p / W | 0] >> (W - n));
+        result = (result << n) | (this.bytes[(p / W) | 0] >> (W - n));
       }
 
-      if (debug == true) {
+      if (debug) {
         console.log(
-          "disp1: " + disp1 + " disp2: " + disp2 + " loopcount: " + tmpCount +
-            " res1: " + res1 + " res2: " + res2 + " r: " + result,
+          "disp1: " +
+            disp1 +
+            " disp2: " +
+            disp2 +
+            " loopcount: " +
+            tmpCount +
+            " res1: " +
+            res1 +
+            " res2: " +
+            res2 +
+            " r: " +
+            result
         );
       }
+
       return result;
     }
   },
@@ -269,11 +250,13 @@ BitString.prototype = {
     let step = 16;
     let index = i;
 
-    if (config.fastPos === false) {
+    if (!config.fastPos) {
       while (n > 0) {
-        step = (n <= 16) ? n : 16;
+        step = n <= 16 ? n : 16;
         const bits0 = step - countSetBits(this.get(i, step));
-        //console.log(i + ":i, step:" + step + " get: " + this.get(i,step) + " n: " + n);
+        if (config.debug) {
+          console.log(i, ":i|step:", step, "get:", this.get(i, step), "n:", n);
+        }
         n -= bits0;
         i += step;
         index = i - 1;
@@ -284,15 +267,17 @@ BitString.prototype = {
     while (n > 0) {
       const d = this.get(i, step);
       const bits0 = step - countSetBits(d);
-      //console.log(i + ":i, step:" + step + " get: " + this.get(i,step) + " n: " + n);
+      if (config.debug) {
+        console.log(i, ":i|step:", step, "get:", this.get(i, step), "n:", n);
+      }
 
       if (n - bits0 < 0) {
-        step = Math.max(n, step / 2 | 0);
+        step = Math.max(n, (step / 2) | 0);
         continue;
       }
       n -= bits0;
       i += step;
-      const diff = (n === 0) ? bit0(d, 1, step) : 1;
+      const diff = n === 0 ? bit0(d, 1, step) : 1;
       index = i - diff; // 1;
     }
 
@@ -320,13 +305,7 @@ BitString.prototype = {
  * rank() and select() functions. The index can itself be encoded as a binary
  * string.
  */
-function RankDirectory(
-  directoryData,
-  bitData,
-  numBits,
-  l1Size,
-  l2Size,
-) {
+function RankDirectory(directoryData, bitData, numBits, l1Size, l2Size) {
   this.init(directoryData, bitData, numBits, l1Size, l2Size);
 }
 
@@ -359,17 +338,25 @@ RankDirectory.prototype = {
     if (config.selectsearch) {
       let rank = -1;
       let sectionPos = 0;
-      const o = x;
       if (x >= this.l2Size) {
-        sectionPos = (x / this.l2Size | 0) * this.l1Bits;
+        sectionPos = ((x / this.l2Size) | 0) * this.l1Bits;
         rank = this.directory.get(sectionPos - this.l1Bits, this.l1Bits);
         x = x % this.l2Size;
       }
-      const ans = (x > 0) ? this.data.pos0(rank + 1, x) : rank;
+      const ans = x > 0 ? this.data.pos0(rank + 1, x) : rank;
       if (config.debug) {
         console.log(
-          "ans: " + ans + " " + rank + ":r, x: " + x + " " + sectionPos +
-            ":s " + this.l1Bits + ": l1",
+          "ans: " +
+            ans +
+            " " +
+            rank +
+            ":r, x: " +
+            x +
+            " " +
+            sectionPos +
+            ":s " +
+            this.l1Bits +
+            ": l1"
         );
       }
       return ans;
@@ -384,21 +371,27 @@ RankDirectory.prototype = {
     let sectionPos = 0;
 
     if (o >= this.l1Size) {
-      sectionPos = (o / this.l1Size | 0) * this.sectionBits;
+      sectionPos = ((o / this.l1Size) | 0) * this.sectionBits;
       rank = this.directory.get(sectionPos - this.l1Bits, this.l1Bits);
-      //console.log("o: " + rank + " sec: " + sectionPos)
+      if (config.debug) {
+        console.log("o: " + rank + " sec: " + sectionPos);
+      }
       o = o % this.l1Size;
     }
 
     if (o >= this.l2Size) {
-      sectionPos += (o / this.l2Size | 0) * this.l2Bits;
+      sectionPos += ((o / this.l2Size) | 0) * this.l2Bits;
       rank += this.directory.get(sectionPos - this.l2Bits, this.l2Bits);
-      //console.log("o2: " + rank + " sec: " + sectionPos)
+      if (config.debug) {
+        console.log("o2: " + rank + " sec: " + sectionPos);
+      }
     }
 
-    rank += this.data.count(x - x % this.l2Size, x % this.l2Size + 1);
+    rank += this.data.count(x - (x % this.l2Size), (x % this.l2Size) + 1);
 
-    //console.log("ans: " + rank + " x: " + o + " " + sectionPos + ":s, o: " + x);
+    if (config.debug) {
+      console.log("ans:", rank, "x:", o, "s:", sectionPos, "o:", x);
+    }
 
     return rank;
   },
@@ -411,7 +404,6 @@ RankDirectory.prototype = {
     let high = this.numBits;
     let low = -1;
     let val = -1;
-    let iter = 0;
 
     // todo: assert y less than numBits
     if (config.selectsearch) {
@@ -419,9 +411,8 @@ RankDirectory.prototype = {
     }
 
     while (high - low > 1) {
-      const probe = (high + low) / 2 | 0;
+      const probe = ((high + low) / 2) | 0;
       const r = this.rank(which, probe);
-      iter += 1;
 
       if (r === y) {
         // We have to continue searching after we have found it,
@@ -468,7 +459,7 @@ Tags.prototype = {
     const tagIndices = [];
     const values = [];
     for (let i = 0, mask = 0x8000; i < 16; i++) {
-      if ((header << i) === 0) break;
+      if (header << i === 0) break;
       if ((header & mask) === mask) {
         tagIndices.push(i);
       }
@@ -479,7 +470,7 @@ Tags.prototype = {
       console.log(
         tagIndices,
         flags,
-        "flags and header mismatch (bug in upsert?)",
+        "flags and header mismatch (bug in upsert?)"
       );
       return values;
     }
@@ -487,9 +478,9 @@ Tags.prototype = {
       const flag = flags[i + 1];
       const index = tagIndices[i];
       for (let j = 0, mask = 0x8000; j < 16; j++) {
-        if ((flag << j) === 0) break;
+        if (flag << j === 0) break;
         if ((flag & mask) === mask) {
-          const pos = (index * 16) + j;
+          const pos = index * 16 + j;
           if (config.debug) {
             console.log(
               "pos",
@@ -499,7 +490,7 @@ Tags.prototype = {
               tagIndices,
               "j/i",
               j,
-              i,
+              i
             );
           }
           values.push(this.rflags[pos]);
@@ -515,31 +506,66 @@ Tags.prototype = {
  * This class is used for traversing the succinctly encoded trie.
  */
 function FrozenTrieNode(trie, index) {
+  // retrieve the 7-bit/6-bit letter.
+  let finCached;
+  let whCached;
+  let comCached;
+  let fcCached;
+  let chCached;
+  let valCached;
+  let flagCached;
+
   this.trie = trie;
   this.index = index;
 
-  // retrieve the 7-bit/6-bit letter.
-  let finCached, whCached, comCached, fcCached, chCached, valCached, flagCached;
   this.final = () => {
-    if (typeof (finCached) === "undefined") {
-      finCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen) + this.trie.extraBit, 1) === 1;
+    if (typeof finCached === "undefined") {
+      // final node is 0x1ii => 0001 iiii iiii
+      // where iiii iiii is utf-8 encoded letter()
+      // a final-node never sets compressed-flag; if it does, it's a value-node
+      // github.com/serverless-dns/blocklists/blob/c858b3a0/trie.js#L1018-L1032
+      const extrabits = this.trie.extraBit;
+      const bitsize = 1; // size of the final bit
+      finCached =
+        this.trie.data.get(
+          this.trie.letterStart + index * this.trie.bitslen + extrabits,
+          bitsize
+        ) === 1;
     }
     return finCached;
   };
+
   this.where = () => {
-    if (typeof (whCached) === "undefined") {
-      whCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen) + 1 + this.trie.extraBit, this.trie.bitslen - 1 - this.trie.extraBit);
+    if (typeof whCached === "undefined") {
+      // bits for node-headers that are 2-bit wide per trie-node (used to diff
+      // between none/final/value/compressed node-types) should be skipped
+      // ie, a letter is 0bxxhhhhllll, where xx are the 2-bit node-header
+      const extrabits = 1 + this.trie.extraBit;
+      whCached = this.trie.data.get(
+        this.trie.letterStart + index * this.trie.bitslen + extrabits,
+        this.trie.bitslen - extrabits
+      );
     }
     return whCached;
   };
+
   this.compressed = () => {
-    if (typeof (comCached) === "undefined") {
-      comCached = this.trie.data.get(this.trie.letterStart + (index * this.trie.bitslen), 1) === 1;
+    // compressed-node is of form 0x2ii => 0010 iiii iiii
+    const bitsize = 1;
+    if (typeof comCached === "undefined") {
+      comCached =
+        this.trie.data.get(
+          this.trie.letterStart + index * this.trie.bitslen,
+          bitsize
+        ) === 1;
     }
     return comCached;
   };
+
   this.flag = () => {
-    if (typeof (flagCached) === "undefined") {
+    // flag-node is of form 0x3ii => 0011 iiii iiii;
+    // that is, both compressed and final bits are set
+    if (typeof flagCached === "undefined") {
       flagCached = this.compressed() && this.final();
     }
     return flagCached;
@@ -552,14 +578,6 @@ function FrozenTrieNode(trie, index) {
     return fcCached;
   };
 
-  if (config.debug) {
-    console.log(
-      index + " :i, fc: " + this.firstChild() + " tl: " + this.letter() +
-        " c: " + this.compressed() + " f: " + this.final() + " wh: " +
-        this.where() + " flag: " + this.flag(),
-    );
-  }
-
   this.childOfNextNode = () => {
     if (!chCached) {
       chCached = this.trie.directory.select(0, index + 2) - index - 1;
@@ -570,8 +588,8 @@ function FrozenTrieNode(trie, index) {
   this.childCount = () => this.childOfNextNode() - this.firstChild();
 
   this.value = () => {
-    if (typeof (valCached) === "undefined") {
-      //let valueChain = this;
+    if (typeof valCached === "undefined") {
+      // let valueChain = this;
       const value = [];
       let i = 0;
       let j = 0;
@@ -580,7 +598,7 @@ function FrozenTrieNode(trie, index) {
           "thisnode: index/vc/ccount ",
           this.index,
           this.letter(),
-          this.childCount(),
+          this.childCount()
         );
       }
       while (i < this.childCount()) {
@@ -592,7 +610,7 @@ function FrozenTrieNode(trie, index) {
             valueChain.letter(),
             valueChain.flag(),
             valueChain.index,
-            value,
+            value
           );
         }
         if (!valueChain.flag()) {
@@ -601,7 +619,7 @@ function FrozenTrieNode(trie, index) {
         if (i % 2 === 0) {
           value.push(valueChain.letter() << 8);
         } else {
-          value[j] = (value[j] | valueChain.letter());
+          value[j] = value[j] | valueChain.letter();
           j += 1;
         }
         i += 1;
@@ -611,6 +629,24 @@ function FrozenTrieNode(trie, index) {
 
     return valCached;
   };
+
+  if (config.debug) {
+    console.log(
+      index +
+        " :i, fc: " +
+        this.firstChild() +
+        " tl: " +
+        this.letter() +
+        " c: " +
+        this.compressed() +
+        " f: " +
+        this.final() +
+        " wh: " +
+        this.where() +
+        " flag: " +
+        this.flag()
+    );
+  }
 }
 
 FrozenTrieNode.prototype = {
@@ -679,22 +715,22 @@ FrozenTrie.prototype = {
    * Look-up a word in the trie. Returns true if and only if the word exists
    * in the trie.
    */
-  lookup: function (word) {   
+  lookup: function (word) {
     const index = word.lastIndexOf(ENC_DELIM[0]);
-    if (index > 0) word = word.slice(0, index); //: word.slice(index + 1)
+    if (index > 0) word = word.slice(0, index); // : word.slice(index + 1)
     const debug = config.debug;
     let node = this.getRoot();
-    let child;    
+    let child;
     let returnValue = false;
     for (let i = 0; i < word.length; i++) {
       let isFlag = -1;
       let that;
-      if (periodEncVal[0] == word[i]) {
+      if (periodEncVal[0] === word[i]) {
         if (node.final()) {
-          if (returnValue == false) returnValue = new Map();
+          if (!returnValue) returnValue = new Map();
           returnValue.set(
             TxtDec.decode(word.slice(0, i).reverse()),
-            node.value(),
+            node.value()
           );
         }
       }
@@ -707,16 +743,22 @@ FrozenTrie.prototype = {
       const minChild = isFlag;
       if (debug) {
         console.log(
-          "            count: " + node.getChildCount() + " i: " + i + " w: " +
-            word[i] + " nl: " + node.letter() + " flag: " + isFlag,
+          "            count: " +
+            node.getChildCount() +
+            " i: " +
+            i +
+            " w: " +
+            word[i] +
+            " nl: " +
+            node.letter() +
+            " flag: " +
+            isFlag
         );
       }
 
-      if ((node.getChildCount() - 1) <= minChild) {
+      if (node.getChildCount() - 1 <= minChild) {
         if (debug) {
-          console.log(
-            "  no more children left, remaining word: " + word.slice(i),
-          );
+          console.log("  no more children, remaining word: " + word.slice(i));
         }
         // fixme: fix these return false to match the actual return value?
         return returnValue;
@@ -726,11 +768,9 @@ FrozenTrie.prototype = {
         for (; j < node.getChildCount(); j++) {
           child = node.getChild(j);
           if (debug) {
-            console.log(
-              "it: " + j + " tl: " + child.letter() + " wl: " + word[i],
-            );
+            console.log("it:", j, "tl:", child.letter(), "wl:", word[i]);
           }
-          if (child.letter() == word[i]) {
+          if (child.letter() === word[i]) {
             if (debug) console.log("it: " + j + " break ");
             break;
           }
@@ -745,19 +785,25 @@ FrozenTrie.prototype = {
         let low = isFlag;
 
         while (high - low > 1) {
-          const probe = (high + low) / 2 | 0;
+          const probe = ((high + low) / 2) | 0;
           child = node.getChild(probe);
-          const prevchild = (probe > isFlag) ? node.getChild(probe - 1) : undefined;
+          const prevchild = probe > isFlag ? node.getChild(probe - 1) : null;
           if (debug) {
             console.log(
-              "        current: " + child.letter() + " l: " + low + " h: " +
-                high + " w: " + word[i],
+              "        current: " +
+                child.letter() +
+                " l: " +
+                low +
+                " h: " +
+                high +
+                " w: " +
+                word[i]
             );
           }
 
           if (
             child.compressed() ||
-            (prevchild && (prevchild.compressed() && !prevchild.flag()))
+            (prevchild && prevchild.compressed() && !prevchild.flag())
           ) {
             const startchild = [];
             const endchild = [];
@@ -777,12 +823,15 @@ FrozenTrie.prototype = {
               start += 1;
             } while (true);
 
-            //console.log("  check: letter : "+startchild[start - 1].letter()+" word : "+word[i]+" start: "+start)
             if (startchild[start - 1].letter() > word[i]) {
               if (debug) {
                 console.log(
-                  "        shrinkh start: " + startchild[start - 1].letter() +
-                    " s: " + start + " w: " + word[i],
+                  "        shrinkh start: " +
+                    startchild[start - 1].letter() +
+                    " s: " +
+                    start +
+                    " w: " +
+                    word[i]
                 );
               }
 
@@ -795,7 +844,7 @@ FrozenTrie.prototype = {
                     low,
                     child.letter(),
                     word[i],
-                    probe,
+                    probe
                   );
                 }
                 return returnValue;
@@ -819,8 +868,12 @@ FrozenTrie.prototype = {
             if (startchild[start - 1].letter() < word[i]) {
               if (debug) {
                 console.log(
-                  "        shrinkl start: " + startchild[start - 1].letter() +
-                    " s: " + start + " w: " + word[i],
+                  "        shrinkl start: " +
+                    startchild[start - 1].letter() +
+                    " s: " +
+                    start +
+                    " w: " +
+                    word[i]
                 );
               }
 
@@ -834,7 +887,7 @@ FrozenTrie.prototype = {
                     low,
                     child.letter(),
                     word[i],
-                    probe,
+                    probe
                   );
                 }
                 return returnValue;
@@ -847,10 +900,7 @@ FrozenTrie.prototype = {
             const w = word.slice(i, i + comp.length);
 
             if (debug) {
-              console.log(
-                "it: " + probe + " tl: " + comp + " wl: " + w + " c: " +
-                  child.letter(),
-              );
+              console.log("i", probe, "s", comp, "w", w, "c", child.letter());
             }
 
             if (w.length < comp.length) return returnValue;
@@ -882,7 +932,7 @@ FrozenTrie.prototype = {
                 low,
                 child.letter(),
                 word[i],
-                probe,
+                probe
               );
             }
             return returnValue;
@@ -895,10 +945,9 @@ FrozenTrie.prototype = {
       node = child;
     }
 
-    // using node.index, find value in rd.data after letterStart + (bitslen * nodeCount) + 1
-    // level order indexing, fixme: see above re returning "false" vs [false] vs [[0], false]
+    // fixme: see above re returning "false" vs [false] vs [[0], false]
     if (node.final()) {
-      if (returnValue == false) returnValue = new Map();
+      if (!returnValue) returnValue = new Map();
       returnValue.set(TxtDec.decode(word.reverse()), node.value());
     }
     return returnValue;
@@ -906,23 +955,26 @@ FrozenTrie.prototype = {
 };
 
 function customTagToFlag(fl, blocklistFileTag) {
-  let res = CHR16(0);
+  let res = chr16(0);
   for (const flag of fl) {
     const val = blocklistFileTag[flag].value;
     const header = 0;
-    const index = ((val / 16) | 0); // + 1;
+    const index = (val / 16) | 0; // + 1;
     const pos = val % 16;
     let h = 0;
-    h = DEC16(res[header]);
+    h = dec16(res[header]);
 
-    const dataIndex = countSetBits(h & BitString.MaskBottom[16][16 - index]) +
-      1;
-    let n = (((h >>> (15 - (index))) & 0x1) !== 1) ? 0 : DEC16(res[dataIndex]);
-    const upsertData = (n !== 0);
+    const dataIndex =
+      countSetBits(h & BitString.MaskBottom[16][16 - index]) + 1;
+    let n = ((h >>> (15 - index)) & 0x1) !== 1 ? 0 : dec16(res[dataIndex]);
+    const upsertData = n !== 0;
     h |= 1 << (15 - index);
     n |= 1 << (15 - pos);
-    res = CHR16(h) + res.slice(1, dataIndex) + CHR16(n) +
-      res.slice(upsertData ? (dataIndex + 1) : dataIndex);
+    res =
+      chr16(h) +
+      res.slice(1, dataIndex) +
+      chr16(n) +
+      res.slice(upsertData ? dataIndex + 1 : dataIndex);
   }
   return res;
 }
@@ -931,33 +983,29 @@ function createBlocklistFilter(
   tdbuf,
   rdbuf,
   blocklistFileTag,
-  blocklistBasicConfig,
+  blocklistBasicConfig
 ) {
   initialize();
-  try {
-    let tag = {};
-    let fl = [];
-    for (const fileuname in blocklistFileTag) {
-      if (!blocklistFileTag.hasOwnProperty(fileuname)) continue;
-      fl[blocklistFileTag[fileuname].value] = fileuname;
-      // reverse the value since it is prepended to
-      // the front of key when not encoded with base32
-      const v = DELIM + blocklistFileTag[fileuname].uname;
-      tag[fileuname] = v.split("").reverse().join("");
-    }
-
-    const tags = new Tags(fl);
-    const tdv = new bufferView[W](tdbuf);
-    const rdv = new bufferView[W](rdbuf);
-    const nc = blocklistBasicConfig.nodecount;
-    const numbits = (blocklistBasicConfig.nodecount * 2) + 1;
-    const rd = new RankDirectory(rdv, tdv, numbits, L1, L2);
-    const frozentrie = new FrozenTrie(tdv, rd, nc);
-
-    return { t: tags, ft: frozentrie };
-  } catch (e) {
-    throw e;
+  const tag = {};
+  const fl = [];
+  for (const fileuname in blocklistFileTag) {
+    if (!blocklistFileTag.hasOwnProperty(fileuname)) continue;
+    fl[blocklistFileTag[fileuname].value] = fileuname;
+    // reverse the value since it is prepended to
+    // the front of key when not encoded with base32
+    const v = DELIM + blocklistFileTag[fileuname].uname;
+    tag[fileuname] = v.split("").reverse().join("");
   }
+
+  const tags = new Tags(fl);
+  const tdv = new bufferView[W](tdbuf);
+  const rdv = new bufferView[W](rdbuf);
+  const nc = blocklistBasicConfig.nodecount;
+  const numbits = blocklistBasicConfig.nodecount * 2 + 1;
+  const rd = new RankDirectory(rdv, tdv, numbits, L1, L2);
+  const frozentrie = new FrozenTrie(tdv, rd, nc);
+
+  return { t: tags, ft: frozentrie };
 }
 
 export { createBlocklistFilter, customTagToFlag };

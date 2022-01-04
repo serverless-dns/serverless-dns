@@ -11,28 +11,29 @@ import * as dnsutil from "./dnsutil.js";
 
 const ttlGraceSec = 30; // 30s cache extra time
 
-export function generateQuestionFilter(cf, blf, dnsPacket) {
+function generateQuestionFilter(blf, dnsPacket) {
   const q = dnsPacket.questions[0].name;
-  cf[q] = util.objOf(blf.getDomainInfo(q).searchResult);
+  // computed property-names: stackoverflow.com/a/11508490
+  return { [q]: util.objOf(blf.getDomainInfo(q).searchResult) };
 }
 
-export function generateAnswerFilter(cf, blf, dnsPacket) {
-  let li;
+function generateAnswerFilter(blf, dnsPacket) {
   if (dnsutil.isCname(dnsPacket)) {
-    li = dnsutil.getCname(dnsPacket.answers);
-    addCacheFilter(cf, blf, li);
-    return;
+    const ans = dnsutil.getCname(dnsPacket.answers);
+    return newAnswerCacheFilter(blf, ans);
+  } else if (dnsutil.isHttps(dnsPacket)) {
+    const ans = dnsutil.getTargetName(dnsPacket);
+    return newAnswerCacheFilter(blf, ans);
   }
-  if (dnsutil.isHttps(dnsPacket)) {
-    li = dnsutil.getTargetName(dnsPacket);
-    addCacheFilter(cf, blf, li);
-  }
+  return {};
 }
 
-export function addCacheFilter(cf, blf, li) {
-  for (const name of li) {
-    cf[name] = util.objOf(blf.getDomainInfo(name).searchResult);
+function newAnswerCacheFilter(blf, ans) {
+  const f = {};
+  for (const name of ans) {
+    f[name] = util.objOf(blf.getDomainInfo(name).searchResult);
   }
+  return f;
 }
 
 export function isCacheable(dnsPacket) {
@@ -48,9 +49,12 @@ export function isCacheable(dnsPacket) {
 
 export function determineCacheExpiry(dnsPacket) {
   const expiresImmediately = 0;
+
   if (!dnsutil.hasAnswers(dnsPacket)) return expiresImmediately;
+
   // set min(ttl) among all answers, but at least ttlGraceSec
   let minttl = 1 << 30; // some abnormally high ttl
+
   for (const a of dnsPacket.answers) {
     minttl = Math.min(a.ttl || minttl, minttl);
   }
@@ -63,23 +67,24 @@ export function determineCacheExpiry(dnsPacket) {
   return expiry;
 }
 
-export function cacheMetadata(dnsPacket, ttlEndTime, blf, bodyUsed) {
-  const cf = {};
-  generateAnswerFilter(cf, blf, dnsPacket);
-  generateQuestionFilter(cf, blf, dnsPacket);
+export function makeCacheMetadata(dnsPacket, blf) {
+  const af = generateAnswerFilter(blf, dnsPacket);
+  const qf = generateQuestionFilter(blf, dnsPacket);
+  const ttl = determineCacheExpiry(dnsPacket);
   return {
-    ttlEndTime: ttlEndTime,
-    bodyUsed: bodyUsed,
-    cacheFilter: cf,
+    ttlEndTime: ttl,
+    // TODO: NXDOMAIN don't have an answers section
+    // but NXDOMAINs aren't cached right now either
+    bodyUsed: dnsutil.hasAnswers(dnsPacket),
+    cacheFilter: util.concatObj(af, qf),
   };
 }
 
-export function createCacheInput(dnsPacket, blf, bodyUsed) {
-  const ttlEndTime = determineCacheExpiry(dnsPacket);
-  const cacheInput = {};
-  cacheInput.metaData = cacheMetadata(dnsPacket, ttlEndTime, blf, bodyUsed);
-  cacheInput.dnsPacket = dnsPacket;
-  return cacheInput;
+export function createCacheInput(dnsPacket, blf) {
+  return {
+    dnsPacket: dnsPacket,
+    metaData: makeCacheMetadata(dnsPacket, blf),
+  };
 }
 
 export function updateTtl(decodedDnsPacket, end) {

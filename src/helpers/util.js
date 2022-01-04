@@ -94,7 +94,16 @@ export function contentLengthHeader(b) {
 }
 
 export function concatHeaders(...args) {
-  return Object.assign(...args);
+  return concatObj(...args);
+}
+
+export function rxidHeader(id) {
+  return { "x-rethinkdns-rxid": id };
+}
+
+export function rxidFromHeader(h) {
+  if (!h || !h.get) return null;
+  return h.get("x-rethinkdns-rxid");
 }
 
 /**
@@ -135,7 +144,7 @@ export function sleep(ms) {
 }
 
 export function objOf(map) {
-  return map.entries ? Object.fromEntries(map) : false;
+  return map.entries ? Object.fromEntries(map) : {};
 }
 
 // stackoverflow.com/a/31394257
@@ -211,6 +220,12 @@ export function uid() {
   return (Math.random() + 1).toString(36).slice(1);
 }
 
+export function xid() {
+  const hi = uid().slice(1);
+  const lo = uid();
+  return hi + lo;
+}
+
 // queues fn in a macro-task queue of the event-loop
 // exec order: github.com/nodejs/node/issues/22257
 export function taskBox(fn) {
@@ -276,7 +291,29 @@ export function mapOf(obj) {
 }
 
 export function emptyString(str) {
-  return !str || str.length === 0;
+  // treat false-y values as empty
+  if (!str) return true;
+  // check if str is indeed a str
+  if (typeof str !== "string") return false;
+  // if len(str) is 0, str is empty
+  return str.trim().length === 0;
+}
+
+export function emptyArray(a) {
+  // treat false-y values as empty
+  if (!a) return true;
+  // obj v arr: stackoverflow.com/a/2462810
+  if (typeof a !== "object") return false;
+  // len(a) === 0 is empty
+  return a.length && a.length <= 0;
+}
+
+export function concatObj(...args) {
+  return Object.assign(...args);
+}
+
+export function emptyObj(x) {
+  return !x || Object.keys(x).length <= 0;
 }
 
 export function respond204() {
@@ -291,4 +328,10 @@ export function respond503() {
     status: 503, // unavailable
     headers: dnsHeaders(),
   });
+}
+
+export function logger(...tags) {
+  if (!log) return null;
+
+  return log.withTags(...tags);
 }

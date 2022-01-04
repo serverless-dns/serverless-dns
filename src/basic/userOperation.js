@@ -14,6 +14,7 @@ export class UserOperation {
   constructor() {
     this.userConfigCache = new UserCache(1000);
     this.blocklistFilter = new BlocklistFilter();
+    this.log = log.withTags("UserOp");
   }
 
   /**
@@ -35,15 +36,17 @@ export class UserOperation {
     response.data = {};
     response.data.userBlocklistInfo = {};
     response.data.userBlocklistInfo.dnsResolverUrl = "";
+
+    if (!param.isDnsMsg) {
+      return response;
+    }
+
     try {
-      if (!param.isDnsMsg) {
-        return response;
-      }
       const userBlocklistInfo = {};
-      userBlocklistInfo.from = "Cache";
       let blocklistFlag = getBlocklistFlag(param.request.url);
       let currentUser = this.userConfigCache.get(blocklistFlag);
-      if (!currentUser) {
+
+      if (util.emptyObj(currentUser)) {
         currentUser = {};
         currentUser.userBlocklistFlagUint = "";
         currentUser.flagVersion = 0;
@@ -62,8 +65,12 @@ export class UserOperation {
           blocklistFlag = "";
         }
         userBlocklistInfo.from = "Generated";
+        // FIXME: blocklistFlag can be an empty-string
         this.userConfigCache.put(blocklistFlag, currentUser);
+      } else {
+        userBlocklistInfo.from = "Cache";
       }
+
       userBlocklistInfo.userBlocklistFlagUint =
         currentUser.userBlocklistFlagUint;
       userBlocklistInfo.flagVersion = currentUser.flagVersion;
@@ -75,9 +82,9 @@ export class UserOperation {
       response.isException = true;
       response.exceptionStack = e.stack;
       response.exceptionFrom = "UserOperation loadUser";
-      console.error("Error At : UserOperation -> loadUser");
-      console.error(e.stack);
+      this.log.e(param.rxid, "loadUser", e);
     }
+
     return response;
   }
 }

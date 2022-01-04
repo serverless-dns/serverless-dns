@@ -39,6 +39,8 @@ const DOH_PORT = DOH_ENTRY_PORT;
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
+let log = null;
+
 ((main) => {
   system.sub("go", systemUp);
 })();
@@ -48,6 +50,9 @@ function systemUp() {
     key: env.tlsKey,
     cert: env.tlsCrt,
   };
+
+  log = util.logger("NodeJs");
+  if (!log) throw new Error("logger unavailable on system up");
 
   const dot1 = tls
     .createServer(tlsOpts, serveTLS)
@@ -220,7 +225,7 @@ function getMetadata(sni) {
   // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
   const flag = s[0].replace(/-/g, "+");
 
-  log.debug(`flag: ${flag}, host: ${host}`);
+  log.d(`flag: ${flag}, host: ${host}`);
   return [flag, host];
 }
 
@@ -231,7 +236,7 @@ function getMetadata(sni) {
 function serveTLS(socket) {
   const sni = socket.servername;
   if (!sni) {
-    log.debug("No SNI, closing client connection");
+    log.d("No SNI, closing client connection");
     close(socket);
     return;
   }
@@ -249,9 +254,7 @@ function serveTLS(socket) {
     return;
   }
 
-  log.debug(
-    `(${socket.getProtocol()}), session reused: ${socket.isSessionReused()}}`
-  );
+  log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}}`);
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = makeScratchBuffer();
@@ -339,9 +342,10 @@ async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
   if (socket.destroyed) return;
 
-  const t = log.startTime("handle-tcp-query");
+  const rxid = util.xid();
+  const t = log.startTime("handle-tcp-query-" + rxid);
   try {
-    const r = await resolveQuery(q, host, flag);
+    const r = await resolveQuery(rxid, q, host, flag);
     const rlBuf = util.encodeUint8ArrayBE(r.byteLength, 2);
     const chunk = new Uint8Array([...rlBuf, ...r]);
 
@@ -365,7 +369,7 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @param {String} flag
  * @return {Promise<Uint8Array>}
  */
-async function resolveQuery(q, host, flag) {
+async function resolveQuery(rxid, q, host, flag) {
   // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
   // has a much higher ceiling (even if rarely used)
   const r = await handleRequest({
@@ -373,7 +377,8 @@ async function resolveQuery(q, host, flag) {
       method: "POST",
       headers: util.concatHeaders(
         util.dnsHeaders(),
-        util.contentLengthHeader(q)
+        util.contentLengthHeader(q),
+        util.rxidHeader(rxid)
       ),
       body: q,
     }),
@@ -418,7 +423,8 @@ async function serveHTTPS(req, res) {
  * @param {Http2ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
-  const t = log.startTime("handle-http-req");
+  const rxid = util.xid();
+  const t = log.startTime("handle-http-req-" + rxid);
   try {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
@@ -427,7 +433,10 @@ async function handleHTTPRequest(b, req, res) {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
-      headers: copyNonPseudoHeaders(req.headers),
+      headers: util.concatHeaders(
+        util.rxidHeader(rxid),
+        copyNonPseudoHeaders(req.headers)
+      ),
       method: req.method,
       body: req.method === "POST" ? b : null,
     });

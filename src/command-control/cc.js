@@ -21,7 +21,6 @@ export class CommandControl {
    * @returns
    */
   async RethinkModule(param) {
-    console.debug("In CommandControl");
     this.latestTimestamp = param.latestTimestamp;
     let response = {};
     response.isException = false;

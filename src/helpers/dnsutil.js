@@ -101,6 +101,8 @@ export function decode(buf) {
   return dns.decode(buf);
 }
 
+// TODO: All DNS Qs are blockable but only these may eventually
+// result in a IP address answer, so we only block these. For now.
 export function isBlockable(packet) {
   return (
     hasSingleQuestion(packet) &&

@@ -126,7 +126,7 @@ function _getRuntimeEnv(runtime) {
     else if (type === "string") env[key] = env[key] || "";
     else throw new Error(`unsupported type: ${type}`);
 
-    console.debug("added", key, mappedKey, env[key]);
+    console.debug("Added", key, mappedKey, env[key]);
   }
 
   return env;
@@ -169,7 +169,7 @@ export default class EnvManager {
       this.envMap.set(k, v);
     }
 
-    console.debug("env loaded: ", JSON.stringify(renv));
+    console.debug("Env loaded: ", JSON.stringify(renv));
   }
 
   /**
