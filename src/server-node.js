@@ -6,10 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-/* eslint-disable no-unused-vars */
-import net, { isIPv6, Socket } from "net";
-import tls, { TLSSocket } from "tls";
-import http2, { Http2ServerRequest, Http2ServerResponse } from "http2";
+import net, { isIPv6 } from "net";
+import tls from "tls";
+import http2 from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./index.js";
@@ -17,7 +16,13 @@ import * as dnsutil from "./helpers/dnsutil.js";
 import * as util from "./helpers/util.js";
 import { copyNonPseudoHeaders } from "./helpers/node/util.js";
 import "./helpers/node/config.js";
-/* eslint-enable no-unused-vars */
+
+/**
+ * @typedef {import("net").Socket} Socket
+ * @typedef {import("tls").TLSSocket} TLSSocket
+ * @typedef {import("http2").Http2ServerRequest} Http2ServerRequest
+ * @typedef {import("http2").Http2ServerResponse} Http2ServerResponse
+ */
 
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 const DOT_ENTRY_PORT = 10000;
