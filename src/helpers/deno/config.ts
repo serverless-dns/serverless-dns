@@ -23,12 +23,13 @@ declare global {
   // Load env variables from .env file to Deno.env (if file exists)
   try {
     dotEnvConfig({ export: true });
-    // override: if we are running this file, then we're on Deno
-    Deno.env.set("RUNTIME", "deno");
   } catch (e) {
     // throws without --allow-read flag
     console.warn(".env file may not be loaded => ", e.name, ":", e.message);
   }
+
+  // override: if we are running this file, then we're on Deno
+  Deno.env.set("RUNTIME", "deno");
 
   window.envManager = new EnvManager();
 
