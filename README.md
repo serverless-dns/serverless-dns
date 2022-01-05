@@ -35,7 +35,7 @@ code with prettier.
 Commit will fail if there are any "error" level style guide violations which
 couldn't be fixed automatically.
 
-Run `npm i` or `npm up` to set up the hook.
+Run `npm i` or `npm prepare` to set up the hook.
 
 Use `git commit --no-verify` to bypass this hook.
 
@@ -49,7 +49,7 @@ if possible.
 Run:
 
 ```
-deno run --allow-net --allow-env --allow-read --import-map=import_map.json src/http.ts
+deno run --allow-net --allow-env --allow-read --import-map=import_map.json src/server-deno.ts
 ```
 
 List of environment variables can be found in [`.env.example`](.env.example)
@@ -61,7 +61,7 @@ file and they will also be loaded into the environment.
 Run:
 
 ```
-node src/server.js
+node src/server-node.js
 ```
 
 Proxies DNS over HTTPS & DNS over TLS requests to the main app (`index.js`).
@@ -85,13 +85,13 @@ The flow of rethink dns is based on plugin module, current
 	 `https://example.com/1:AIAA7g==`, configuration string `1:AIAA7g==` is
 	 treated as user id and loads selected blocklists files for configuration
 	 string and cache it under user id.
-3. [DNSBlock](src/dns-blocker/dnsBlock.js)<br>
+3. [DNSBlock](src/dns-operation/dnsBlock.js)<br>
 	 This is optional plugin used to check whether requested domain should be
 	 blocked or processed further.
-4. [DNSResolver](src/dns-blocker/dnsResolver.js)<br>
+4. [DNSResolver](src/dns-operation/dnsResolver.js)<br>
 	 This plugin forward dns request to upstream resolver based on environment
 	 variable `CF_DNS_RESOLVER_URL` if not blocked by DNSBlock plugin.
-5. [DNSCnameBlock](src/dns-blocker/dnsCnameBlock.js)<br>
+5. [DNSCnameBlock](src/dns-operation/dnsCnameBlock.js)<br>
 	 This is optional plugin used to check whether dns resolved response contains
 	 cname and cname has blocked domain name, if cname has blocked domain name
 	 then request is blocked.
