@@ -8,6 +8,7 @@
 
 import { DNSParserWrap as Dns } from "../dns-operation/dnsOperation.js";
 import * as envutil from "./envutil.js";
+import * as util from "./util.js";
 
 // dns packet constants (in bytes)
 // A dns message over TCP stream has a header indicating length.
@@ -115,21 +116,53 @@ export function isBlockable(packet) {
 }
 
 export function isCname(packet) {
-  return hasAnswers(packet) && packet.answers[0].type === "CNAME";
+  return hasAnswers(packet) && isAnswerCname(packet.answers[0]);
+}
+
+export function isAnswerCname(ans) {
+  return ans && !util.emptyString(ans.type) && ans.type === "CNAME";
 }
 
 export function isHttps(packet) {
+  return hasAnswers(packet) && isAnswerHttps(packet.answers[0]);
+}
+
+export function isAnswerHttps(ans) {
   return (
-    hasAnswers(packet) &&
-    (packet.answers[0].type === "HTTPS" || packet.answers[0].type === "SVCB")
+    ans &&
+    !util.emptyString(ans.type) &&
+    (ans.type === "HTTPS" || ans.type === "SVCB")
   );
 }
 
-export function getCname(answers) {
-  const li = [];
-  li[0] = answers[0].data.trim().toLowerCase();
-  li[1] = answers[answers.length - 1].name.trim().toLowerCase();
-  return li;
+export function extractAnswerDomains(answers) {
+  if (answers.length <= 0) return [];
+
+  const names = new Set();
+  // name                    ttl  cls  type    data
+  // aws.amazon.com          57   IN   CNAME   frontier.amazon.com
+  // frontier.amazon.com     57   IN   CNAME   3n1n2s.cloudfront.net
+  // 3n1n2s.cloudfront.net   57   IN   A       54.230.149.75
+  for (const a of answers) {
+    if (a && !util.emptyString(a.name)) {
+      const n = a.name.trim().toLowerCase();
+      names.add(n);
+    }
+    if (isAnswerCname(a) && !util.emptyString(a.data)) {
+      const n = a.data.trim().toLowerCase();
+      names.add(n);
+    } else if (
+      isAnswerHttps(a) &&
+      a.data &&
+      !util.emptyString(a.data.targetName)
+    ) {
+      const n = a.data.targetName.trim().toLowerCase();
+      // when ".", then target-domain is same as the question-domain
+      if (n !== ".") names.add(n);
+    }
+  }
+
+  return [...names];
 }
 
 export function dohStatusCode(b) {
@@ -137,12 +170,6 @@ export function dohStatusCode(b) {
   if (b.byteLength > maxDNSPacketSize) return 413;
   if (b.byteLength < minDNSPacketSize) return 400;
   return 200;
-}
-
-export function getTargetName(answers) {
-  const tn = answers[0].data.targetName.trim().toLowerCase();
-  if (tn === ".") return false;
-  return tn;
 }
 
 export function getQueryName(questions) {

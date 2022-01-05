@@ -11,29 +11,15 @@ import * as dnsutil from "./dnsutil.js";
 
 const ttlGraceSec = 30; // 30s cache extra time
 
-function generateQuestionFilter(blf, dnsPacket) {
-  const q = dnsPacket.questions[0].name;
-  // computed property-names: stackoverflow.com/a/11508490
-  return { [q]: util.objOf(blf.getDomainInfo(q).searchResult) };
-}
+function newCacheFilter(blf, domains) {
+  const cf = {};
 
-function generateAnswerFilter(blf, dnsPacket) {
-  if (dnsutil.isCname(dnsPacket)) {
-    const ans = dnsutil.getCname(dnsPacket.answers);
-    return newAnswerCacheFilter(blf, ans);
-  } else if (dnsutil.isHttps(dnsPacket)) {
-    const ans = dnsutil.getTargetName(dnsPacket);
-    return newAnswerCacheFilter(blf, ans);
-  }
-  return {};
-}
+  if (util.emptyArray(domains)) return cf;
 
-function newAnswerCacheFilter(blf, ans) {
-  const f = {};
-  for (const name of ans) {
-    f[name] = util.objOf(blf.getDomainInfo(name).searchResult);
+  for (const d of domains) {
+    cf[d] = util.objOf(blf.getDomainInfo(d).searchResult);
   }
-  return f;
+  return cf;
 }
 
 export function isCacheable(dnsPacket) {
@@ -68,15 +54,16 @@ export function determineCacheExpiry(dnsPacket) {
 }
 
 export function makeCacheMetadata(dnsPacket, blf) {
-  const af = generateAnswerFilter(blf, dnsPacket);
-  const qf = generateQuestionFilter(blf, dnsPacket);
+  const domains = dnsutil.extractAnswerDomains(dnsPacket.answers);
+  const cf = newCacheFilter(blf, domains);
   const ttl = determineCacheExpiry(dnsPacket);
+
   return {
     ttlEndTime: ttl,
     // TODO: NXDOMAIN don't have an answers section
     // but NXDOMAINs aren't cached right now either
     bodyUsed: dnsutil.hasAnswers(dnsPacket),
-    cacheFilter: util.concatObj(af, qf),
+    cacheFilter: cf,
   };
 }
 

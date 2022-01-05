@@ -64,13 +64,13 @@ export default class DNSResponseBlock {
   performBlocking(blockInfo, dnsPacket, blf, cf) {
     if (!hasBlockstamp(blockInfo)) {
       return false;
-    } else if (dnsutil.isCname(dnsPacket)) {
-      return doCnameBlock(dnsPacket, blf, blockInfo, cf);
-    } else if (dnsutil.isHttps(dnsPacket)) {
-      return doHttpsBlock(dnsPacket, blf, blockInfo, cf);
     }
 
-    return false;
+    if (!dnsutil.isCname(dnsPacket) || !dnsutil.isHttps(dnsPacket)) {
+      return false;
+    }
+
+    return doResponseBlock(dnsPacket, blf, blockInfo, cf);
   }
 
   putCache(rxid, cache, url, blf, dnsPacket, buf, event) {
@@ -85,17 +85,10 @@ export default class DNSResponseBlock {
   }
 }
 
-function doHttpsBlock(dnsPacket, blf, blockInfo, cf) {
-  const tn = dnsutil.getTargetName(dnsPacket.answers);
-  if (!tn) return false;
-
-  return dnsBlockUtil.doBlock(blf, blockInfo, tn, cf);
-}
-
-function doCnameBlock(dnsPacket, blf, blockInfo, cf) {
-  const cn = dnsutil.getCname(dnsPacket.answers);
+function doResponseBlock(dnsPacket, blf, blockInfo, cf) {
+  const names = dnsutil.extractAnswerDomains(dnsPacket.answers);
   let response = false;
-  for (const n of cn) {
+  for (const n of names) {
     response = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
     if (response.isBlocked) break;
   }
