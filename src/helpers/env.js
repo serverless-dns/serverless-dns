@@ -23,7 +23,6 @@
  * runtimes or / and specify a type, if not string.
  */
 const _ENV_VAR_MAPPINGS = {
-  // "internal-name": "Runtime specific variable name(s)".
   runTime: {
     name: "RUNTIME",
     type: "string",
@@ -132,7 +131,7 @@ function _getRuntimeEnv(runtime) {
   return env;
 }
 
-function _determineRuntimeIfPossible() {
+function _determineRuntime() {
   if (typeof Deno !== "undefined") {
     return Deno.env.get("RUNTIME") || "deno";
   }
@@ -151,7 +150,7 @@ export default class EnvManager {
    * Initializes the env manager.
    */
   constructor() {
-    this.runtime = _determineRuntimeIfPossible();
+    this.runtime = _determineRuntime();
     this.envMap = new Map();
     this.load();
   }
@@ -162,6 +161,12 @@ export default class EnvManager {
    */
   load() {
     const renv = _getRuntimeEnv(this.runtime);
+
+    // On deno deploy, env variables can not be modified during execution,
+    // so, Deno.env.get("RUNTIME") may return null, if programmatically set.
+    if (this.runtime === "deno" && !renv.runTime) {
+      renv.runTime = "deno";
+    }
 
     globalThis.env = renv; // global `env` namespace.
 

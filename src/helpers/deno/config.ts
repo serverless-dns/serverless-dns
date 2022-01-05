@@ -28,8 +28,13 @@ declare global {
     console.warn(".env file may not be loaded => ", e.name, ":", e.message);
   }
 
-  // override: if we are running this file, then we're on Deno
-  Deno.env.set("RUNTIME", "deno");
+  try {
+    // override: if we are running this file, then we're on Deno
+    Deno.env.set("RUNTIME", "deno");
+  } catch (e) {
+    // Warning: `set()` method is not available in Deno deploy.
+    console.warn("Deno.env.set() is not available => ", e.name, ":", e.message);
+  }
 
   window.envManager = new EnvManager();
 
