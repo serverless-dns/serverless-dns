@@ -33,7 +33,7 @@ async function proxyRequest(event) {
     await plugin.executePlugin(currentRequest);
 
     const ua = event.request.headers.get("User-Agent");
-    if (util.fromBrowser(ua)) currentRequest.setCorsHeaders();
+    if (util.fromBrowser(ua)) currentRequest.setCorsHeadersIfNeeded();
 
     return currentRequest.httpResponse;
   } catch (err) {

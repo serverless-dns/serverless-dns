@@ -8,14 +8,15 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
+import * as util from "../helpers/util.js";
 
 class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
-    this.startTime;
     this.td = null; // trie
     this.rd = null; // rank-dir
     this.ft = null; // file-tags
+    this.startTime; // blocklist download timestamp
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
@@ -33,11 +34,7 @@ class BlocklistWrapper {
    * @returns
    */
   async RethinkModule(param) {
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = {};
+    let response = util.emptyResponse();
 
     if (this.isBlocklistFilterSetup()) {
       response.data.blocklistFilter = this.blocklistFilter;
@@ -84,18 +81,17 @@ class BlocklistWrapper {
           await sleep(waitms);
           totalWaitms += waitms;
         }
+
         response.isException = true;
         response.exceptionStack =
-          this.exceptionStack || "blocklist filter not ready";
-        response.exceptionFrom =
-          this.exceptionFrom || "blocklistWrapper.js RethinkModule";
+          this.exceptionStack || "blocklist-filter timeout";
+        response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
       }
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "blocklistWrapper.js RethinkModule";
-      log.e(param.rxid, "RethinkModule", e);
+      this.log.e(param.rxid, "main", e);
+      response = util.errResponse("blocklistWrapper", e);
     }
+
     return response;
   }
 
@@ -131,12 +127,7 @@ class BlocklistWrapper {
     this.isBlocklistUnderConstruction = true;
     this.startTime = when;
 
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = {};
-
+    let response = util.emptyResponse();
     try {
       const bl = await this.downloadBuildBlocklist(
         rxid,
@@ -162,12 +153,10 @@ class BlocklistWrapper {
 
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "blocklistWrapper.js initBlocklistConstruction";
+      this.log.e(rxid, e);
+      response = util.errResponse("initBlocklistConstruction", e);
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
-      log.e(rxid, e);
     }
 
     this.isBlocklistUnderConstruction = false;
@@ -222,17 +211,19 @@ async function fileFetch(url, typ) {
   if (typ !== "buffer" && typ !== "json") {
     throw new Error("Unknown conversion type at fileFetch");
   }
-  log.d("Start Downloading : " + url);
+
+  log.d("downloading", url);
   const res = await fetch(url, { cf: { cacheTtl: /* 2w*/ 1209600 } });
-  if (res.status === 200) {
-    if (typ === "buffer") {
-      return await res.arrayBuffer();
-    } else if (typ === "json") {
-      return await res.json();
-    }
-  } else {
+
+  if (!res.ok) {
     log.e(url, res);
     throw new Error(JSON.stringify([url, res, "fileFetch fail"]));
+  }
+
+  if (typ === "buffer") {
+    return await res.arrayBuffer();
+  } else if (typ === "json") {
+    return await res.json();
   }
 }
 
@@ -244,11 +235,12 @@ const sleep = (ms) => {
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {
-  log.d("Make Td Starts : Tdparts -> " + n);
+  log.d("makeTd from tdParts", n);
 
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
   }
+
   const tdpromises = [];
   for (let i = 0; i <= n; i++) {
     // td00.txt, td01.txt, td02.txt, ... , td98.txt, td100.txt, ...

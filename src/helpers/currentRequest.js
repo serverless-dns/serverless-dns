@@ -40,8 +40,8 @@ export default class CurrentRequest {
     const qid = this.decodedDnsPacket.id;
     const questions = this.decodedDnsPacket.questions;
     const ex = {
-      exceptionFrom: this.exceptionFrom,
-      exceptionStack: this.exceptionStack,
+      exceptionFrom: this.exceptionFrom || "no-orig",
+      exceptionStack: this.exceptionStack || "no-trace",
     };
     const servfail = dnsutil.servfail(qid, questions);
     this.httpResponse = new Response(servfail, {
@@ -70,6 +70,7 @@ export default class CurrentRequest {
     this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
   }
 
+  // TODO: Enough to make a blocked-response once, and only update qids
   dnsBlockResponse() {
     this.initDecodedDnsPacketIfNeeded();
     try {
@@ -105,7 +106,8 @@ export default class CurrentRequest {
         headers: this.headers(),
       });
     } catch (e) {
-      this.log.e(JSON.stringify(this.decodedDnsPacket));
+      this.log.e(JSON.stringify(this.decodedDnsPacket), e);
+
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
@@ -131,13 +133,13 @@ export default class CurrentRequest {
     };
   }
 
-  setCorsHeaders() {
-    // CORS headers are only allowed on ok status.
-    // https://fetch.spec.whatwg.org/#cors-preflight-fetch (Step 7)
-    if (this.httpResponse.ok) {
-      for (const [name, value] of Object.entries(util.corsHeaders())) {
-        this.httpResponse.headers.set(name, value);
-      }
+  setCorsHeadersIfNeeded() {
+    // CORS headers are only allowed when response OK
+    // fetch.spec.whatwg.org/#cors-preflight-fetch (Step 7)
+    if (!this.httpResponse.ok) return;
+
+    for (const [name, value] of Object.entries(util.corsHeaders())) {
+      this.httpResponse.headers.set(name, value);
     }
   }
 }

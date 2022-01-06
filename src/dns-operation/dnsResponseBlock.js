@@ -27,11 +27,7 @@ export default class DNSResponseBlock {
    * @returns
    */
   async RethinkModule(param) {
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = false;
+    let response = util.emptyResponse();
 
     try {
       response.data = this.performBlocking(
@@ -52,10 +48,8 @@ export default class DNSResponseBlock {
         param.event
       );
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "DNSResponseBlock RethinkModule";
       this.log.e(param.rxid, "main", e);
+      response = util.errResponse("DnsResponseBlock", e);
     }
 
     return response;
@@ -87,12 +81,12 @@ export default class DNSResponseBlock {
 
 function doResponseBlock(dnsPacket, blf, blockInfo, cf) {
   const names = dnsutil.extractAnswerDomains(dnsPacket.answers);
-  let response = false;
+  let r = false;
   for (const n of names) {
-    response = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
-    if (response.isBlocked) break;
+    r = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
+    if (r.isBlocked) break;
   }
-  return response;
+  return r;
 }
 
 function hasBlockstamp(blockInfo) {

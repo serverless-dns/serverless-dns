@@ -26,19 +26,15 @@ export default class DNSQuestionBlock {
    * @returns
    */
   async RethinkModule(param) {
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = false;
+    let response = util.emptyResponse();
+
     try {
       response.data = this.dnsBlock(param);
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "DNSQuestionBlock RethinkModule";
       this.log.e(param.rxid, "main", e);
+      response = util.errResponse("DNSQuestionBlock", e);
     }
+
     return response;
   }
 

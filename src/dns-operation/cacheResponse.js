@@ -8,6 +8,7 @@
 
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as cacheutil from "../helpers/cacheutil.js";
+import * as util from "../helpers/util.js";
 
 export default class DNSCacheResponse {
   constructor() {
@@ -26,22 +27,19 @@ export default class DNSCacheResponse {
    * @returns
    */
   async RethinkModule(param) {
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = {};
+    let response = util.emptyResponse();
+    if (!param.isDnsMsg) {
+      this.log.w(param.rxid, "not a dns-msg, nowt to resolve", param);
+      return response;
+    }
+
     try {
-      if (!param.isDnsMsg) {
-        return response;
-      }
       response.data = await this.resolveFromCache(param);
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "DNSAggCache RethinkModule";
       this.log.e(param.rxid, "main", e);
+      response = util.errResponse("DnsCacheHandler", e);
     }
+
     return response;
   }
 

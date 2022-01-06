@@ -273,7 +273,7 @@ export function emptyResponse() {
     isException: false,
     exceptionStack: "",
     exceptionFrom: "",
-    data: false,
+    data: {},
   };
 }
 
@@ -316,10 +316,28 @@ export function emptyObj(x) {
   return !x || Object.keys(x).length <= 0;
 }
 
+export function emptyBuf(b) {
+  return !b || (b.byteLength && b.byteLength <= 0);
+}
+
 export function respond204() {
   return new Response(null, {
     status: 204, // no content
     headers: corsHeaders(),
+  });
+}
+
+export function respond400() {
+  return new Response(null, {
+    status: 400,
+    statusText: "Bad Request",
+  });
+}
+
+export function respond405() {
+  return new Response(null, {
+    status: 405,
+    statusText: "Method Not Allowed",
   });
 }
 
@@ -334,4 +352,12 @@ export function logger(...tags) {
   if (!log) return null;
 
   return log.withTags(...tags);
+}
+
+export function isPostRequest(req) {
+  return req && !emptyString(req.method) && req.method.toUpperCase() === "POST";
+}
+
+export function isGetRequest(req) {
+  return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }

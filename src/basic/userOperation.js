@@ -10,10 +10,12 @@ import { BlocklistFilter } from "../blocklist-wrapper/blocklistWrapper.js";
 import * as util from "../helpers/util.js";
 import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 
+// TODO: determine an approp cache-size
+const cacheSize = 10000;
+
 export class UserOperation {
   constructor() {
-    this.userConfigCache = new UserCache(1000);
-    this.blocklistFilter = new BlocklistFilter();
+    this.userConfigCache = new UserCache(cacheSize);
     this.log = log.withTags("UserOp");
   }
 
@@ -29,84 +31,43 @@ export class UserOperation {
   }
 
   loadUser(param) {
-    const response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = {};
-    response.data.userBlocklistInfo = {};
-    response.data.userBlocklistInfo.dnsResolverUrl = "";
+    let response = util.emptyResponse();
 
     if (!param.isDnsMsg) {
+      this.log.w(param.rxid, "not a dns-msg, ignore");
       return response;
     }
 
     try {
-      const userBlocklistInfo = {};
-      let blocklistFlag = getBlocklistFlag(param.request.url);
+      const blocklistFlag = dnsBlockUtil.blockstampFromUrl(param.request.url);
       let currentUser = this.userConfigCache.get(blocklistFlag);
 
       if (util.emptyObj(currentUser)) {
-        currentUser = {};
-        currentUser.userBlocklistFlagUint = "";
-        currentUser.flagVersion = 0;
-        currentUser.userServiceListUint = false;
+        const r = dnsBlockUtil.unstamp(blocklistFlag);
 
-        const response = this.blocklistFilter.unstamp(blocklistFlag);
-        currentUser.userBlocklistFlagUint = response.userBlocklistFlagUint;
-        currentUser.flagVersion = response.flagVersion;
+        const serviceListUint = dnsBlockUtil.flagIntersection(
+          r.userBlocklistFlagUint,
+          dnsBlockUtil.wildcards()
+        );
 
-        if (!util.emptyString(currentUser.userBlocklistFlagUint)) {
-          currentUser.userServiceListUint = dnsBlockUtil.flagIntersection(
-            currentUser.userBlocklistFlagUint,
-            this.blocklistFilter.wildCardUint
-          );
-        } else {
-          blocklistFlag = "";
-        }
-        userBlocklistInfo.from = "Generated";
-        // FIXME: blocklistFlag can be an empty-string
+        currentUser = {
+          userBlocklistFlagUint: r.userBlocklistFlagUint,
+          flagVersion: r.flagVersion,
+          userServiceListUint: serviceListUint,
+        };
+
+        // FIXME: add to cache iff !empty(currentUser.userBlocklistFlagUint)?
+        this.log.d("new cfg cache k/v", blocklistFlag, currentUser);
         this.userConfigCache.put(blocklistFlag, currentUser);
-      } else {
-        userBlocklistInfo.from = "Cache";
       }
 
-      userBlocklistInfo.userBlocklistFlagUint =
-        currentUser.userBlocklistFlagUint;
-      userBlocklistInfo.flagVersion = currentUser.flagVersion;
-      userBlocklistInfo.userServiceListUint = currentUser.userServiceListUint;
-
-      response.data.userBlocklistInfo = userBlocklistInfo;
+      response.data.userBlocklistInfo = currentUser;
       response.data.dnsResolverUrl = param.dnsResolverUrl;
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "UserOperation loadUser";
       this.log.e(param.rxid, "loadUser", e);
+      response = util.errResponse("UserOp:loadUser", e);
     }
 
     return response;
   }
-}
-
-/**
- * Get the blocklist flag from `Request` URL
- * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
- * @param {String} url - Request URL string
- * @returns
- */
-function getBlocklistFlag(url) {
-  let blocklistFlag = "";
-  const reqUrl = new URL(url);
-
-  // Check if pathname has `/dns-query`
-  const tmpsplit = reqUrl.pathname.split("/");
-  if (tmpsplit.length > 1) {
-    if (tmpsplit[1].toLowerCase() === "dns-query") {
-      blocklistFlag = tmpsplit[2] || "";
-    } else {
-      blocklistFlag = tmpsplit[1] || "";
-    }
-  }
-  return blocklistFlag;
 }

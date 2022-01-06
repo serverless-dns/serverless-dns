@@ -5,7 +5,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as util from "../helpers/util.js";
+import { Buffer } from "buffer";
+import { rbase32 } from "./b32.js";
+import * as util from "./util.js";
+
+// doh uses b64url encoded blockstamp, while dot uses lowercase b32.
+const _b64delim = ":";
+// on DoT deployments, "-" part of flag contained in SNI is replaced with
+// "+" which isn't a valid char in b64url that doh deployments use.
+// ref: src/server-node.js#L224-L226 @0d217857b
+const _b32delim = "+";
+
+// TODO: wildcard list should be fetched from S3/KV
+const _wildcardUint16 = new Uint16Array([
+  64544, 18431, 8191, 65535, 64640, 1, 128, 16320,
+]);
+
+export function wildcards() {
+  return _wildcardUint16;
+}
 
 export function isBlocklistFilterSetup(blf) {
   return blf && blf.t && blf.ft;
@@ -98,6 +116,7 @@ function checkFlagIntersection(uint1, uint2, flagVersion) {
 }
 
 export function flagIntersection(flag1, flag2) {
+  // TODO: emptyArray or emptyString?
   if (util.emptyString(flag1) || util.emptyString(flag2)) return false;
 
   // flag has 16-bit header (at index 0) followed by var-length 16-bit array,
@@ -168,15 +187,148 @@ function getB64Flag(uint16Arr, flagVersion) {
   if (flagVersion === "0") {
     return encodeURIComponent(Buffer.from(uint16Arr).toString("base64"));
   } else if (flagVersion === "1") {
-    const flag = encodeURI(
-      btoa(encodeUint16arrToBinary(uint16Arr))
-        .replace(/\//g, "_")
-        .replace(/\+/g, "-")
-    );
+    const flag = encodeURI(bytesToBase64Url(uint16Arr.buffer));
     return flagVersion + ":" + flag;
   }
 }
 
-function encodeUint16arrToBinary(uint16Arr) {
-  return String.fromCharCode(...new Uint8Array(uint16Arr.buffer));
+export function bytesToBase64Url(b) {
+  return btoa(String.fromCharCode(...new Uint8Array(b)))
+    .replace(/\//g, "_")
+    .replace(/\+/g, "-")
+    .replace(/=/g, "");
+}
+
+/**
+ * Get the blocklist flag from `Request` URL
+ * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
+ * @param {String} url - Request URL string
+ * @returns
+ */
+export function blockstampFromUrl(u) {
+  const url = new URL(u);
+
+  const paths = url.pathname.split("/");
+  if (paths.length <= 1) {
+    return "";
+  }
+  // skip to next if path has `/dns-query`
+  if (paths[1].toLowerCase() === "dns-query") {
+    return paths[2] || "";
+  } else {
+    return paths[1] || "";
+  }
+}
+
+export function binaryStringToBytes(bs) {
+  const len = bs.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = bs.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export function regularBase64(b64url) {
+  if (util.emptyString(b64url)) return b64url;
+
+  return b64url.replace(/_/g, "/").replace(/-/g, "+");
+}
+
+export function base64ToUintV0(b64Flag) {
+  const buff = Buffer.from(decodeURIComponent(b64Flag), "base64");
+  const str = buff.toString("utf-8");
+  const uint = [];
+  for (let i = 0; i < str.length; i++) {
+    uint[i] = str.charCodeAt(i);
+  }
+  return uint;
+}
+
+export function base64ToUint8(b64uri) {
+  const b64url = decodeURI(b64uri);
+  const binaryStr = atob(regularBase64(b64url));
+  return binaryStringToBytes(binaryStr);
+}
+
+export function base64ToUint16(b64uri) {
+  const b64url = decodeURI(b64uri);
+  const binaryStr = atob(regularBase64(b64url));
+  return decodeFromBinary(binaryStr);
+}
+
+export function base64ToUintV1(b64Flag) {
+  return base64ToUint16(b64Flag);
+}
+
+export function base64ToBytes(b64uri) {
+  return base64ToUint8(b64uri).buffer;
+}
+
+export function base32ToUintV1(flag) {
+  const b32 = decodeURI(flag);
+  return decodeFromBinaryArray(rbase32(b32));
+}
+
+export function decodeFromBinary(b, u8) {
+  // if b is a u8 array, simply u16 it
+  if (u8) return new Uint16Array(b.buffer);
+
+  // if b is a binary-string, convert it to u8
+  const bytes = binaryStringToBytes(b);
+  // ...and then to u16
+  return new Uint16Array(bytes.buffer);
+}
+
+export function decodeFromBinaryArray(b) {
+  const u8 = true;
+  return decodeFromBinary(b, u8);
+}
+
+export function isB32Stamp(s) {
+  return s.indexOf(_b32delim) > 0;
+}
+
+// s[0] is version field, if it doesn't exist
+// then treat it as if version 0.
+export function stampVersion(s) {
+  if (s && s.length > 1) return s[0];
+  else return "0";
+}
+
+// TODO: The logic to parse stamps must be kept in sync with:
+// github.com/celzero/website-dns/blob/8e6056bb/src/js/flag.js#L260-L425
+export function unstamp(flag) {
+  const response = {};
+  response.userBlocklistFlagUint = "";
+  response.flagVersion = "0";
+  // added to check if UserFlag is empty for changing dns request flow
+  flag = flag ? flag.trim() : "";
+
+  if (flag.length <= 0) {
+    return response;
+  }
+
+  const isFlagB32 = isB32Stamp(flag);
+  // "v:b64" or "v+b32" or "uriencoded(b64)", where v is uint version
+  const s = flag.split(isFlagB32 ? _b32delim : _b64delim);
+  let convertor = (x) => ""; // empty convertor
+  let f = ""; // stamp flag
+  const v = stampVersion(s);
+
+  if (v === "0") {
+    // version 0
+    convertor = base64ToUintV0;
+    f = s[0];
+  } else if (v === "1") {
+    convertor = isFlagB32 ? base32ToUintV1 : base64ToUintV1;
+    f = s[1];
+  } else {
+    throw new Error("unknown blocklist stamp version in " + s);
+  }
+
+  response.flagVersion = v;
+  response.userBlocklistFlagUint = convertor(f) || "";
+
+  return response;
 }

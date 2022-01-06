@@ -82,13 +82,6 @@ export function rcodeNoError(packet) {
   return packet && packet.rcode === "NOERROR";
 }
 
-export function dnsqurl(dnsq) {
-  return btoa(String.fromCharCode(...new Uint8Array(dnsq)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
 export function optAnswer(a) {
   // github.com/serverless-dns/dns-parser/blob/7de73303/index.js#L1770
   return a && a.type && a.type.toUpperCase() === "OPT";
@@ -145,18 +138,18 @@ export function extractAnswerDomains(answers) {
   // 3n1n2s.cloudfront.net   57   IN   A       54.230.149.75
   for (const a of answers) {
     if (a && !util.emptyString(a.name)) {
-      const n = a.name.trim().toLowerCase();
+      const n = normalizeName(a.name);
       names.add(n);
     }
     if (isAnswerCname(a) && !util.emptyString(a.data)) {
-      const n = a.data.trim().toLowerCase();
+      const n = normalizeName(a.data);
       names.add(n);
     } else if (
       isAnswerHttps(a) &&
       a.data &&
       !util.emptyString(a.data.targetName)
     ) {
-      const n = a.data.targetName.trim().toLowerCase();
+      const n = normalizeName(a.data.targetName);
       // when ".", then target-domain is same as the question-domain
       if (n !== ".") names.add(n);
     }
@@ -173,7 +166,13 @@ export function dohStatusCode(b) {
 }
 
 export function getQueryName(questions) {
-  const qn = questions[0].name.trim().toLowerCase();
-  if (qn === "") return false;
-  return qn;
+  const qn = normalizeName(questions[0].name);
+
+  return util.emptyString(qn) ? false : qn;
+}
+
+export function normalizeName(n) {
+  if (util.emptyString(n)) return n;
+
+  return n.trim().toLowerCase();
 }

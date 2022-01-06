@@ -7,7 +7,8 @@ const ALPHA32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function toDataView(data) {
   if (
-    data instanceof Int8Array || data instanceof Uint8Array ||
+    data instanceof Int8Array ||
+    data instanceof Uint8Array ||
     data instanceof Uint8ClampedArray
   ) {
     return new DataView(data.buffer, data.byteOffset, data.byteLength);
@@ -54,7 +55,7 @@ function base32(arrbuf, padding) {
   }
 
   if (padding) {
-    while ((output.length % 8) !== 0) {
+    while (output.length % 8 !== 0) {
       output += "=";
     }
   }
@@ -71,9 +72,9 @@ function rbase32(input) {
   let value = 0;
 
   let index = 0;
-  let output = new Uint8Array((length * 5 / 8) | 0);
+  const output = new Uint8Array(((length * 5) / 8) | 0);
 
-  for (var i = 0; i < length; i++) {
+  for (let i = 0; i < length; i++) {
     value = (value << 5) | readChar(input[i]);
     bits += 5;
 

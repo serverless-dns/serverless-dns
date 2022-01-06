@@ -8,6 +8,7 @@
 
 import { Buffer } from "buffer";
 import * as dnsutil from "../helpers/dnsutil.js";
+import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 import * as util from "../helpers/util.js";
 import * as envutil from "../helpers/envutil.js";
 import { DNSParserWrap as DnsParser } from "../dns-operation/dnsOperation.js";
@@ -136,12 +137,12 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   let newRequest = null;
   // even for GET requests, plugin.js:getBodyBuffer converts contents of
   // u.search into an arraybuffer that then needs to be reconverted back
-  if (request.method === "GET") {
-    u.search = "?dns=" + dnsutil.dnsqurl(requestBodyBuffer);
+  if (util.isGetRequest(request)) {
+    u.search = "?dns=" + dnsBlockUtil.bytesToBase64Url(requestBodyBuffer);
     newRequest = new Request(u.href, {
       method: "GET",
     });
-  } else if (request.method === "POST") {
+  } else if (util.isPostRequest(request)) {
     newRequest = new Request(u.href, {
       method: "POST",
       headers: util.concatHeaders(

@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2021 RethinkDNS and its authors.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and
  * certificate files seprated by a newline (\n) and described by `KEY=` and
@@ -17,7 +25,9 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
     return TLS_CRT_KEY.split("\n")
       .reverse()
       .map((v) => Buffer.from(v.substring(v.indexOf("=") + 1), "base64"));
-  } else throw new Error("TLS cert / key malformed");
+  } else {
+    throw new Error("TLS cert / key malformed");
+  }
 }
 
 /**
@@ -25,15 +35,17 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
  * @return {Object}
  */
 export function copyNonPseudoHeaders(headers) {
-  const resH = {};
-  if (!headers) return resH;
+  const out = {};
+
+  if (!headers) return out;
 
   // drop http/2 pseudo-headers
   for (const name in headers) {
     if (name.startsWith(":")) continue;
-    resH[name] = headers[name];
+    out[name] = headers[name];
   }
-  return resH;
+
+  return out;
 }
 
 /**
@@ -41,13 +53,18 @@ export function copyNonPseudoHeaders(headers) {
  * @return {Object}
  */
 export function transformPseudoHeaders(headers) {
-  const resH = {};
-  if (!headers) return resH;
+  const out = {};
 
-  // Transform http/2 pseudo-headers
+  if (!headers) return out;
+
+  // transform http/2 pseudo-headers
   for (const name in headers) {
-    if (name.startsWith(":")) resH[name.slice(1)] = headers[name];
-    else resH[name] = headers[name];
+    if (name.startsWith(":")) {
+      out[name.slice(1)] = headers[name];
+    } else {
+      out[name] = headers[name];
+    }
   }
-  return resH;
+
+  return out;
 }

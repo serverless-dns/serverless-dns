@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import * as util from "../helpers/util.js";
+import * as dnsBlockUtil from "../helpers/dnsblockutil.js";
 
 export class CommandControl {
   constructor() {
@@ -21,27 +22,21 @@ export class CommandControl {
    * @returns
    */
   async RethinkModule(param) {
+    // TODO: latestTimestamp and other such params can be fetched from env
     this.latestTimestamp = param.latestTimestamp;
-    let response = {};
-    response.isException = false;
-    response.exceptionStack = "";
-    response.exceptionFrom = "";
-    response.data = {};
-    response.data.stopProcessing = false;
-    if (param.request.method === "GET") {
-      response = this.commandOperation(
+
+    // process only GET requests, ignore all others
+    if (util.isGetRequest(param.request)) {
+      return this.commandOperation(
         param.request.url,
         param.blocklistFilter,
         param.isDnsMsg
       );
-    } else if (param.request.method !== "POST") {
-      // only GET and POST are supported
-      response.data.httpResponse = new Response(null, {
-        status: 405,
-        statusText: "Method Not Allowed",
-      });
+      return response;
     }
-    return response;
+
+    // no-op
+    return util.emptyResponse();
   }
 
   isConfigureCmd(s) {
@@ -216,7 +211,7 @@ function b64ToList(queryString, blocklistFilter) {
   const returndata = {};
   returndata.command = "Base64 To List";
   returndata.inputB64 = b64;
-  const response = blocklistFilter.unstamp(b64);
+  const response = dnsBlockUtil.unstamp(b64);
   if (response.userBlocklistFlagUint.length > 0) {
     returndata.list = blocklistFilter.getTag(response.userBlocklistFlagUint);
     returndata.listDetail = {};

@@ -90,7 +90,7 @@ export function cacheKey(packet) {
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;
 
-  const name = packet.questions[0].name.trim().toLowerCase();
+  const name = dnsutil.normalizeName(packet.questions[0].name);
   const type = packet.questions[0].type;
   return name + ":" + type;
 }
