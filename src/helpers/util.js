@@ -305,7 +305,7 @@ export function emptyArray(a) {
   // obj v arr: stackoverflow.com/a/2462810
   if (typeof a !== "object") return false;
   // len(a) === 0 is empty
-  return a.length && a.length <= 0;
+  return !!a.length && a.length <= 0;
 }
 
 export function concatObj(...args) {
@@ -313,11 +313,12 @@ export function concatObj(...args) {
 }
 
 export function emptyObj(x) {
+  // note: Object.keys type-errors when x is null / undefined
   return !x || Object.keys(x).length <= 0;
 }
 
 export function emptyBuf(b) {
-  return !b || (b.byteLength && b.byteLength <= 0);
+  return !b || (!!b.byteLength && b.byteLength <= 0);
 }
 
 export function respond204() {

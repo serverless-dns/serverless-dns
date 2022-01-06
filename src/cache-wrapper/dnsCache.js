@@ -11,6 +11,7 @@ import { CacheApi as CacheApi } from "./cacheApi.js";
 import * as dnsutil from "../helpers/dnsutil.js";
 import * as envutil from "../helpers/envutil.js";
 import * as util from "../helpers/util.js";
+import * as cacheutil from "../helpers/cacheutil.js";
 
 export class DnsCache {
   constructor(size) {
@@ -64,7 +65,7 @@ export class DnsCache {
     if (!key) return false;
 
     const v = this.localCache.Get(key);
-    return this.isValid(v) ? v : false;
+    return cacheutil.isValueValid(v) ? v : false;
   }
 
   async fromHttpCacheApi(key) {
@@ -83,48 +84,25 @@ export class DnsCache {
     this.cacheApi.put(k, v);
   }
 
-  isValid(v) {
-    // return (v && this.isAnswerFresh(v.metaData));
-    if (!v) return false;
-
-    // only metadata (does not expire), no answers
-    const hasMd = this.hasMetadata(v.metaData) && !this.hasAnswer(v.metaData);
-    if (hasMd) return true;
-
-    // answers (expires with ttl) and metadata
-    const hasAns = this.isAnswerFresh(v.metaData);
-    return hasAns;
-  }
-
-  isAnswerFresh(m) {
-    return this.hasAnswer(m) && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
-  }
-
-  hasAnswer(m) {
-    return this.hasMetadata(m) && m.bodyUsed;
-  }
-
-  hasMetadata(m) {
-    return !!m;
-  }
-
   async parseHttpCacheApiResponse(response) {
     if (!response) return false;
 
     const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
     this.log.d("httpCache response metadata", metaData);
 
-    if (!this.isMetadataFresh(metaData)) {
+    if (!cacheutil.hasMetadata(metaData)) {
       return false;
     }
 
-    const p = metaData.bodyUsed
+    const p = cacheutil.isAnswerFresh(metaData)
       ? dnsutil.decode(await response.arrayBuffer())
       : {};
     const m = metaData;
 
     return {
+      // may be null
       dnsPacket: p,
+      // never empty
       metaData: m,
     };
   }

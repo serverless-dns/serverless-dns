@@ -29,7 +29,7 @@ export default class DNSCacheResponse {
   async RethinkModule(param) {
     let response = util.emptyResponse();
     if (!param.isDnsMsg) {
-      this.log.w(param.rxid, "not a dns-msg, nowt to resolve", param);
+      this.log.w(param.rxid, "not a dns-msg, nowt to resolve");
       return response;
     }
 
@@ -65,6 +65,7 @@ export default class DNSCacheResponse {
   async makeCacheResponse(rxid, cr, blockInfo, reqDnsPacket, qb, rb) {
     // check incoming dns request against blocklists in cache-metadata
     const qresponse = blockIfNeeded(
+      rxid,
       qb,
       reqDnsPacket,
       cr.metaData.cacheFilter,
@@ -75,8 +76,15 @@ export default class DNSCacheResponse {
       return qresponse;
     }
 
+    // cache-response contains only metadata not dns-packet
+    // and hence there's no dns answers to be blocked
+    if (!cacheutil.hasAnswer(cr)) {
+      return false;
+    }
+
     // check outgoing cached dns-packet against blocklists
     const aresponse = blockIfNeeded(
+      rxid,
       rb,
       cr.dnsPacket,
       cr.metaData.cacheFilter,
@@ -91,15 +99,12 @@ export default class DNSCacheResponse {
   }
 }
 
-function blockIfNeeded(blocker, dnsPacket, cf, blockInfo) {
-  return blocker.performBlocking(blockInfo, dnsPacket, false, cf);
+function blockIfNeeded(rxid, blocker, dnsPacket, cf, blockInfo) {
+  return blocker.performBlocking(rxid, blockInfo, dnsPacket, false, cf);
 }
 
 function modifyCacheResponse(cr, qid) {
-  // cache-response contains only metadata not dns-packet
-  if (!cr.metaData.bodyUsed) {
-    return false;
-  }
+  if (!cacheutil.isAnswerFresh(cr.metaData)) return false;
 
   cacheutil.updateQueryId(cr.dnsPacket, qid);
   cacheutil.updateTtl(cr.dnsPacket, cr.metaData.ttlEndTime);

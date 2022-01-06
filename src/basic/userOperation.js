@@ -19,7 +19,7 @@ export class UserOperation {
     this.log = log.withTags("UserOp");
   }
 
-  /**
+  /*
    * @param {*} param
    * @param {*} param.dnsResolverUrl
    * @param {*} param.request
@@ -57,7 +57,10 @@ export class UserOperation {
         };
 
         // FIXME: add to cache iff !empty(currentUser.userBlocklistFlagUint)?
-        this.log.d("new cfg cache k/v", blocklistFlag, currentUser);
+        this.log.d(param.rxid, "new cfg cache kv", blocklistFlag, currentUser);
+        // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
+        // converted to its b64 form (which both doh and blocklist-wrapper use)
+        // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
         this.userConfigCache.put(blocklistFlag, currentUser);
       }
 

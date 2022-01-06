@@ -70,11 +70,15 @@ export function validateSize(sz) {
 }
 
 export function hasAnswers(packet) {
-  return packet && packet.answers && packet.answers.length > 0;
+  return !util.emptyObj(packet) && !util.emptyArray(packet.answers);
 }
 
 export function hasSingleQuestion(packet) {
-  return packet && packet.questions && packet.questions.length === 1;
+  return (
+    !util.emptyObj(packet) &&
+    !util.emptyArray(packet.questions) &&
+    packet.questions.length === 1
+  );
 }
 
 export function rcodeNoError(packet) {
@@ -113,7 +117,9 @@ export function isCname(packet) {
 }
 
 export function isAnswerCname(ans) {
-  return ans && !util.emptyString(ans.type) && ans.type === "CNAME";
+  return (
+    !util.emptyObj(ans) && !util.emptyString(ans.type) && ans.type === "CNAME"
+  );
 }
 
 export function isHttps(packet) {
@@ -122,16 +128,23 @@ export function isHttps(packet) {
 
 export function isAnswerHttps(ans) {
   return (
-    ans &&
+    !util.emptyObj(ans) &&
     !util.emptyString(ans.type) &&
     (ans.type === "HTTPS" || ans.type === "SVCB")
   );
 }
 
-export function extractAnswerDomains(answers) {
-  if (answers.length <= 0) return [];
+export function extractDomains(dnsPacket) {
+  if (!hasSingleQuestion(dnsPacket)) return [];
 
   const names = new Set();
+  const answers = dnsPacket.answers;
+
+  const q = normalizeName(dnsPacket.questions[0].name);
+  names.add(q);
+
+  if (util.emptyArray(answers)) return [...names];
+
   // name                    ttl  cls  type    data
   // aws.amazon.com          57   IN   CNAME   frontier.amazon.com
   // frontier.amazon.com     57   IN   CNAME   3n1n2s.cloudfront.net
@@ -175,4 +188,11 @@ export function normalizeName(n) {
   if (util.emptyString(n)) return n;
 
   return n.trim().toLowerCase();
+}
+
+export function hasBlockstamp(blockInfo) {
+  return (
+    !util.emptyObj(blockInfo) &&
+    !util.emptyString(blockInfo.userBlocklistFlagUint)
+  );
 }

@@ -81,7 +81,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOperation",
       services.userOperation,
-      ["dnsResolverUrl", "request", "isDnsMsg"],
+      ["rxid", "dnsResolverUrl", "request", "isDnsMsg"],
       this.userOperationCallBack,
       false
     );
@@ -245,7 +245,7 @@ export default class RethinkPlugin {
       util.emptyObj(r.blocklistFilter)
     ) {
       this.log.e(rxid, "err building blocklist-filter", response);
-      loadException(response, currentRequest);
+      this.loadException(response, currentRequest);
       return;
     }
 
@@ -276,25 +276,33 @@ export default class RethinkPlugin {
   async userOperationCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    this.log.d(rxid, "userOperation response", response);
+    this.log.d(rxid, "userOperation response");
 
-    if (response.isException || util.emptyObj(r)) {
+    if (response.isException) {
       this.log.w(rxid, "unexpected err userOp", r);
-      loadException(response, currentRequest);
-    } else {
+      this.loadException(response, currentRequest);
+    } else if (!util.emptyObj(r)) {
       // r.userBlocklistInfo and r.dnsResolverUrl are never "null"
       this.registerParameter("userBlocklistInfo", r.userBlocklistInfo);
       this.registerParameter("dnsResolverUrl", r.dnsResolverUrl);
+    } else {
+      this.log.i(rxid, "userOp is a no-op, possibly a command control req");
     }
   }
 
   dnsCacheCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    this.log.d(rxid, "dnsCacheHandler response");
+    this.log.d(
+      rxid,
+      "dnsCacheHandler response blocked?",
+      r.isBlocked,
+      "answer?",
+      !util.emptyBuf(r.dnsBuffer)
+    );
 
     if (response.isException) {
-      loadException(response, currentRequest);
+      this.loadException(response, currentRequest);
     } else if (r && r.isBlocked) {
       currentRequest.isDnsBlock = r.isBlocked;
       currentRequest.blockedB64Flag = r.blockedB64Flag;
@@ -313,11 +321,12 @@ export default class RethinkPlugin {
   dnsQuestionBlockCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    this.log.d(rxid, "dnsQuestionBlock response");
+    const blocked = !util.emptyObj(r) && r.isBlocked;
+    this.log.d(rxid, "dnsQuestionBlock response blocked?", blocked);
 
     if (response.isException) {
-      loadException(response, currentRequest);
-    } else if (r) {
+      this.loadException(response, currentRequest);
+    } else if (blocked) {
       currentRequest.isDnsBlock = r.isBlocked;
       currentRequest.blockedB64Flag = r.blockedB64Flag;
       if (currentRequest.isDnsBlock) {
@@ -346,7 +355,7 @@ export default class RethinkPlugin {
       util.emptyBuf(r.dnsBuffer)
     ) {
       this.log.w(rxid, "err dns resolver", response);
-      loadException(response, currentRequest);
+      this.loadException(response, currentRequest);
       return;
     }
     this.registerParameter("responseBodyBuffer", r.dnsBuffer);
@@ -368,13 +377,11 @@ export default class RethinkPlugin {
     currentRequest.stopProcessing = true;
 
     if (response.isException) {
-      loadException(response, currentRequest);
+      this.loadException(response, currentRequest);
     } else if (r && r.isBlocked) {
       currentRequest.isDnsBlock = r.isBlocked;
-      // TODO: document cases when r.blockedB64Flag is empty
-      currentRequest.blockedB64Flag = !util.emptyString(r.blockedB64Flag)
-        ? r.blockedB64Flag
-        : currentRequest.blockedB64Flag;
+      // TODO: can r.blockedB64Flag be ever empty when r.isBlocked?
+      currentRequest.blockedB64Flag = r.blockedB64Flag;
       currentRequest.dnsBlockResponse();
     } else {
       currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
@@ -383,15 +390,11 @@ export default class RethinkPlugin {
       );
     }
   }
-}
 
-function loadException(response, currentRequest) {
-  log.e(JSON.stringify(response));
-  currentRequest.stopProcessing = true;
-  currentRequest.isException = true;
-  currentRequest.exceptionStack = response.exceptionStack;
-  currentRequest.exceptionFrom = response.exceptionFrom;
-  currentRequest.dnsExceptionResponse();
+  loadException(response, currentRequest) {
+    this.log.e("exception", JSON.stringify(response));
+    currentRequest.dnsExceptionResponse(response);
+  }
 }
 
 /**
@@ -442,6 +445,6 @@ async function getBodyBuffer(request) {
 }
 
 function setInvalidResponse(currentRequest) {
-  currentRequest.httpResponse = util.respond400();
+  currentRequest.httpResponse = util.respond405();
   currentRequest.stopProcessing = true;
 }

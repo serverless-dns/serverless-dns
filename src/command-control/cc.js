@@ -32,7 +32,6 @@ export class CommandControl {
         param.blocklistFilter,
         param.isDnsMsg
       );
-      return response;
     }
 
     // no-op
@@ -72,15 +71,7 @@ export class CommandControl {
   }
 
   commandOperation(url, blocklistFilter, isDnsMsg) {
-    const response = {
-      isException: false,
-      exceptionStack: "",
-      exceptionFrom: "",
-      data: {
-        httpResponse: null,
-        stopProcessing: true,
-      },
-    };
+    let response = util.emptyResponse();
 
     try {
       const reqUrl = new URL(url);
@@ -92,6 +83,10 @@ export class CommandControl {
       if (isDnsCmd) {
         response.data.stopProcessing = false;
         return response;
+      } else {
+        // non-dns GET requests are exclusively handled here
+        // and have to return a httpResponse obj
+        response.data.stopProcessing = true;
       }
 
       const command = pathSplit[1];
@@ -120,25 +115,18 @@ export class CommandControl {
           !isDnsCmd
         );
       } else {
-        response.data.httpResponse = new Response(null, {
-          status: 400,
-          statusText: "Bad Request",
-        });
+        response.data.httpResponse = util.respond400();
       }
     } catch (e) {
-      response.isException = true;
-      response.exceptionStack = e.stack;
-      response.exceptionFrom = "CommandControl commandOperation";
-      response.data.httpResponse = jsonResponse(response.exceptionStack);
+      response = util.errResponse("cc:op", e);
+      response.data.httpResponse = jsonResponse(e.stack);
     }
     return response;
   }
 }
 
 function isRethinkDns(hostname) {
-  return (
-    hostname.indexOf("rethinkdns") >= 0 || hostname.indexOf("bravedns") >= 0
-  );
+  return hostname.indexOf("rethinkdns") >= 0;
 }
 
 function configRedirect(userFlag, origin, timestamp, highlight) {
@@ -152,77 +140,85 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
 
 function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   const domainName = queryString.get("dn") || "";
-  const returndata = {};
-  returndata.domainName = domainName;
-  returndata.version = latestTimestamp;
-  returndata.list = {};
+  const r = {
+    domainName: domainName,
+    version: latestTimestamp,
+    list: {},
+  };
+
   const searchResult = blocklistFilter.hadDomainName(domainName);
-  if (searchResult) {
-    let list;
-    let listDetail = {};
-    for (const entry of searchResult) {
-      list = blocklistFilter.getTag(entry[1]);
-      listDetail = {};
-      for (const listValue of list) {
-        listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
-      }
-      returndata.list[entry[0]] = listDetail;
-    }
-  } else {
-    returndata.list = false;
+  if (!searchResult) {
+    r.list = false;
+    return jsonResponse(r);
   }
 
-  return jsonResponse(returndata);
+  for (const entry of searchResult) {
+    const list = blocklistFilter.getTag(entry[1]);
+    const listDetail = {};
+    for (const listValue of list) {
+      listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
+    }
+    r.list[entry[0]] = listDetail;
+  }
+
+  return jsonResponse(r);
 }
 
 function domainNameToUint(queryString, blocklistFilter) {
   const domainName = queryString.get("dn") || "";
-  const returndata = {};
-  returndata.domainName = domainName;
-  returndata.list = {};
+  const r = {
+    domainName: domainName,
+    list: {},
+  };
+
   const searchResult = blocklistFilter.hadDomainName(domainName);
-  if (searchResult) {
-    for (const entry of searchResult) {
-      returndata.list[entry[0]] = entry[1];
-    }
-  } else {
-    returndata.list = false;
+  if (!searchResult) {
+    r.list = false;
+    return jsonResponse(r);
   }
 
-  return jsonResponse(returndata);
+  for (const entry of searchResult) {
+    r.list[entry[0]] = entry[1];
+  }
+
+  return jsonResponse(r);
 }
 
 function listToB64(queryString, blocklistFilter) {
   const list = queryString.get("list") || [];
   const flagVersion = queryString.get("flagversion") || "0";
-  const returndata = {};
-  returndata.command = "List To B64String";
-  returndata.inputList = list;
-  returndata.flagVersion = flagVersion;
-  returndata.b64String = blocklistFilter.getB64FlagFromTag(
-    list.split(","),
-    flagVersion
-  );
-  return jsonResponse(returndata);
+  const tags = list.split(",");
+
+  const r = {
+    command: "List To B64String",
+    inputList: list,
+    flagVersion: flagVersion,
+    b64String: blocklistFilter.getB64FlagFromTag(tags, flagVersion),
+  };
+
+  return jsonResponse(r);
 }
 
 function b64ToList(queryString, blocklistFilter) {
   const b64 = queryString.get("b64") || "";
-  const returndata = {};
-  returndata.command = "Base64 To List";
-  returndata.inputB64 = b64;
-  const response = dnsBlockUtil.unstamp(b64);
-  if (response.userBlocklistFlagUint.length > 0) {
-    returndata.list = blocklistFilter.getTag(response.userBlocklistFlagUint);
-    returndata.listDetail = {};
-    for (const listValue of returndata.list) {
-      returndata.listDetail[listValue] =
-        blocklistFilter.blocklistFileTag[listValue];
-    }
-  } else {
-    returndata.list = "Invalid B64 String";
+  const r = {
+    command: "Base64 To List",
+    inputB64: b64,
+  };
+
+  const stamp = dnsBlockUtil.unstamp(b64);
+  if (stamp.userBlocklistFlagUint.length <= 0) {
+    r.list = "Invalid B64 String";
+    return jsonResponse(r);
   }
-  return jsonResponse(returndata);
+
+  r.list = blocklistFilter.getTag(stamp.userBlocklistFlagUint);
+  r.listDetail = {};
+  for (const listValue of r.list) {
+    r.listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
+  }
+
+  return jsonResponse(r);
 }
 
 function jsonResponse(obj) {

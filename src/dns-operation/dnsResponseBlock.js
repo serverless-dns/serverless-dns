@@ -55,12 +55,27 @@ export default class DNSResponseBlock {
     return response;
   }
 
-  performBlocking(blockInfo, dnsPacket, blf, cf) {
-    if (!hasBlockstamp(blockInfo)) {
+  performBlocking(rxid, blockInfo, dnsPacket, blf, cf) {
+    // both cache-filters for the domain and the blocklist-filter missing
+    // and so there's no way to know if the domain could be blocked
+    if (!cf && !blf) {
+      this.log.w(rxid, "no cf and blf");
       return false;
     }
 
-    if (!dnsutil.isCname(dnsPacket) || !dnsutil.isHttps(dnsPacket)) {
+    if (!dnsutil.hasBlockstamp(blockInfo)) {
+      this.log.d(rxid, "no user-set blockstamp");
+      return false;
+    }
+
+    // dnsPacket is null when cache only has metadata
+    if (util.emptyBuf(dnsPacket)) {
+      this.log.d(rxid, "no dns-packet ans");
+      return false;
+    }
+
+    if (!dnsutil.isCname(dnsPacket) && !dnsutil.isHttps(dnsPacket)) {
+      this.log.d(rxid, "ans not cloaked with cname/https/svcb");
       return false;
     }
 
@@ -68,6 +83,8 @@ export default class DNSResponseBlock {
   }
 
   putCache(rxid, cache, url, blf, dnsPacket, buf, event) {
+    if (util.emptyBuf(dnsPacket)) return;
+
     if (!dnsCacheUtil.isCacheable(dnsPacket)) return;
 
     const k = dnsCacheUtil.cacheKey(dnsPacket);
@@ -80,15 +97,11 @@ export default class DNSResponseBlock {
 }
 
 function doResponseBlock(dnsPacket, blf, blockInfo, cf) {
-  const names = dnsutil.extractAnswerDomains(dnsPacket.answers);
+  const names = dnsutil.extractDomains(dnsPacket);
   let r = false;
   for (const n of names) {
     r = dnsBlockUtil.doBlock(blf, blockInfo, n, cf);
     if (r.isBlocked) break;
   }
   return r;
-}
-
-function hasBlockstamp(blockInfo) {
-  return !util.emptyString(blockInfo.userBlocklistFlagUint);
 }

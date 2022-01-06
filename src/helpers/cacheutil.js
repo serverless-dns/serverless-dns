@@ -54,7 +54,7 @@ export function determineCacheExpiry(dnsPacket) {
 }
 
 export function makeCacheMetadata(dnsPacket, blf) {
-  const domains = dnsutil.extractAnswerDomains(dnsPacket.answers);
+  const domains = dnsutil.extractDomains(dnsPacket);
   const cf = newCacheFilter(blf, domains);
   const ttl = determineCacheExpiry(dnsPacket);
 
@@ -99,4 +99,23 @@ export function updateQueryId(decodedDnsPacket, queryId) {
   if (queryId === decodedDnsPacket.id) return false; // no change
   decodedDnsPacket.id = queryId;
   return true;
+}
+
+export function isValueValid(v) {
+  if (util.emptyObj(v)) return false;
+
+  return hasMetadata(v.metaData);
+}
+
+export function hasMetadata(m) {
+  return !util.emptyObj(m);
+}
+
+export function hasAnswer(v) {
+  if (!hasMetadata(v.metaData)) return false;
+  return isAnswerFresh(v.metaData);
+}
+
+export function isAnswerFresh(m) {
+  return m.bodyUsed && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
 }

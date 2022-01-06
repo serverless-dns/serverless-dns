@@ -43,7 +43,7 @@ export function doBlock(blf, userBlInfo, dn, cf) {
   );
 
   // if response is blocked, we're done
-  if (r && r.isBlocked) return r;
+  if (!util.emptyObj(r) && r.isBlocked) return r;
 
   // if user-blockstamp doesn't contain any wildcard blocklists, we're done
   if (!userBlInfo.userServiceListUint) return r;
@@ -60,11 +60,11 @@ export function doBlock(blf, userBlInfo, dn, cf) {
 function getBlocklistStampForDomains(domain, blf, cf) {
   if (util.emptyString(domain)) return false;
 
-  if (cf && cf.hasOwnProperty(domain)) {
+  if (!util.emptyObj(cf) && cf.hasOwnProperty(domain)) {
     return util.mapOf(cf[domain]);
   }
 
-  if (blf && isBlocklistFilterSetup(blf)) {
+  if (!util.emptyObj(blf) && isBlocklistFilterSetup(blf)) {
     return blf.getDomainInfo(domain).searchResult;
   }
 
@@ -153,19 +153,19 @@ export function flagIntersection(flag1, flag2) {
     }
 
     if ((flag1Header & 1) === 1) {
-      flag1Length = flag1Length - 1;
+      flag1Length -= 1;
     }
     if ((flag2Header & 1) === 1) {
-      flag2Length = flag2Length - 1;
+      flag2Length -= 1;
     }
 
     // next header-bit, remove the LSB bit already processed
-    flag1Header = flag1Header >>> 1;
-    flag2Header = flag2Header >>> 1;
-    tmpIntersectHeader = tmpIntersectHeader >>> 1;
+    flag1Header >>>= 1;
+    flag2Header >>>= 1;
+    tmpIntersectHeader >>>= 1;
 
     // tracks the header bit index to be reset in case bodies do not intersect
-    maskHeaderForBodyEmpty = maskHeaderForBodyEmpty << 1;
+    maskHeaderForBodyEmpty <<= 1;
   }
 
   if (intersectHeader === 0) {

@@ -40,6 +40,7 @@ export default class DNSQuestionBlock {
 
   dnsBlock(param) {
     const response = this.performBlocking(
+      param.rxid,
       param.userBlocklistInfo,
       param.requestDecodedDnsPacket,
       param.blocklistFilter,
@@ -60,11 +61,19 @@ export default class DNSQuestionBlock {
     return response;
   }
 
-  performBlocking(blockInfo, dnsPacket, blf, cf) {
-    if (
-      util.emptyString(blockInfo.userBlocklistFlagUint) ||
-      !dnsutil.isBlockable(dnsPacket)
-    ) {
+  performBlocking(rxid, blockInfo, dnsPacket, blf, cf) {
+    if (!cf && !blf) {
+      this.log.w(rxid, "no cf and blf");
+      return false;
+    }
+
+    if (!dnsutil.hasBlockstamp(blockInfo)) {
+      this.log.d(rxid, "no user-set blockstamp");
+      return false;
+    }
+
+    if (!dnsutil.isBlockable(dnsPacket)) {
+      this.log.d(rxid, "not a blockable dns-query");
       return false;
     }
 
