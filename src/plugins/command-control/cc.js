@@ -11,6 +11,7 @@ import * as dnsBlockUtil from "../dnsblockutil.js";
 export class CommandControl {
   constructor() {
     this.latestTimestamp = "";
+    this.log = log.withTags("CommandControl");
   }
 
   /**
@@ -28,6 +29,7 @@ export class CommandControl {
     // process only GET requests, ignore all others
     if (util.isGetRequest(param.request)) {
       return this.commandOperation(
+        param.rxid,
         param.request.url,
         param.blocklistFilter,
         param.isDnsMsg
@@ -70,7 +72,7 @@ export class CommandControl {
     return d.length > 1 ? d[0] : emptyFlag;
   }
 
-  commandOperation(url, blocklistFilter, isDnsMsg) {
+  commandOperation(rxid, url, blocklistFilter, isDnsMsg) {
     let response = util.emptyResponse();
 
     try {
@@ -91,6 +93,8 @@ export class CommandControl {
 
       const command = pathSplit[1];
       const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
+
+      this.log.d(rxid, "processing...", url, command, b64UserFlag);
 
       if (command === "listtob64") {
         response.data.httpResponse = listToB64(queryString, blocklistFilter);
@@ -115,12 +119,15 @@ export class CommandControl {
           !isDnsCmd
         );
       } else {
+        this.log.w(rxid, "unknown command-control query");
         response.data.httpResponse = util.respond400();
       }
     } catch (e) {
+      this.log.e(rxid, "err cc:op", e);
       response = util.errResponse("cc:op", e);
       response.data.httpResponse = jsonResponse(e.stack);
     }
+
     return response;
   }
 }

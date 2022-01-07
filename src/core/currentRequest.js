@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as util from "../commons/util.js";
 
@@ -17,11 +18,13 @@ export default class CurrentRequest {
     this.isException = false;
     this.exceptionStack = undefined;
     this.exceptionFrom = "";
-    this.isDnsParseException = false;
     this.isDnsBlock = false;
-    this.isInvalidFlagBlock = false;
     this.stopProcessing = false;
     this.log = log.withTags("CurrentRequest");
+  }
+
+  id(rxid) {
+    this.log.tag(rxid);
   }
 
   emptyDecodedDnsPacket() {
@@ -65,27 +68,39 @@ export default class CurrentRequest {
     });
   }
 
-  customResponse(x) {
-    this.httpResponse = new Response(null, {
-      headers: util.concatHeaders(
-        this.headers(),
-        this.additionalHeader(JSON.stringify(x))
-      ),
-    });
+  hResponse(r) {
+    if (util.emptyObj(r)) return;
+
+    this.httpResponse = r;
+    this.stopProcessing = true;
   }
 
   /**
    * @param {ArrayBuffer} arrayBuffer - responseBodyBuffer
    * @returns Web API Response
    */
-  dnsResponse(arrayBuffer) {
+  dnsResponse(arrayBuffer, dnsPacket = null) {
+    if (bufutil.emptyBuf(arrayBuffer)) {
+      return;
+    }
+
+    this.stopProcessing = true;
+    // TODO: decode arrayBuffer if dnsPacket missing?
+    this.decodedDnsPacket = dnsPacket || this.decodedDnsPacket;
     this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
   }
 
   // TODO: Enough to make a blocked-response once, and only update qids
-  dnsBlockResponse() {
+  dnsBlockResponse(blockflag) {
     this.initDecodedDnsPacketIfNeeded();
+    this.stopProcessing = true;
+    this.isDnsBlock = true;
+    this.blockedB64Flag = blockflag;
+
     try {
+      if (util.emptyObj(this.decodedDnsPacket.questions)) {
+        throw new Error("decoded dns packet missing");
+      }
       this.decodedDnsPacket.type = "response";
       this.decodedDnsPacket.rcode = "NOERROR";
       // TODO: what is flag(384) 0b_0000_0000_1100_0000?
@@ -103,6 +118,7 @@ export default class CurrentRequest {
       this.decodedDnsPacket.answers[0].class = "IN";
       this.decodedDnsPacket.answers[0].data = "";
       this.decodedDnsPacket.answers[0].flush = false;
+
       // TODO: move record-type checks (A/AAAA/SVCB) to dnsutil
       if (this.decodedDnsPacket.questions[0].type === "A") {
         this.decodedDnsPacket.answers[0].data = "0.0.0.0";
@@ -126,7 +142,13 @@ export default class CurrentRequest {
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";
-      this.httpResponse = util.respond503();
+      this.httpResponse = new Response(null, {
+        headers: util.concatHeaders(
+          this.headers(),
+          this.additionalHeader(JSON.stringify(this.exceptionStack))
+        ),
+        status: 503,
+      });
     }
   }
 

@@ -189,7 +189,7 @@ DNSResolver.prototype.doh2 = async function (rxid, request) {
         b.push(chunk);
       });
       req.on("end", () => {
-        const rb = bufutil.concat(b);
+        const rb = bufutil.concatBuf(b);
         const h = transformPseudoHeaders(headers);
         util.safeBox(c.close);
         resolve(new Response(rb, h));

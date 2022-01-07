@@ -402,7 +402,7 @@ async function serveHTTPS(req, res) {
   for await (const chunk of req) {
     buffers.push(chunk);
   }
-  const b = Buffer.concat(buffers);
+  const b = bufutil.concatBuf(buffers);
   const bLen = b.byteLength;
 
   log.endTime(t);

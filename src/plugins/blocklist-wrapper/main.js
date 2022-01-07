@@ -8,6 +8,7 @@
 
 import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
+import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 
 class BlocklistWrapper {
@@ -16,7 +17,7 @@ class BlocklistWrapper {
     this.td = null; // trie
     this.rd = null; // rank-dir
     this.ft = null; // file-tags
-    this.startTime; // blocklist download timestamp
+    this.startTime = 0; // blocklist download timestamp
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
@@ -44,17 +45,11 @@ class BlocklistWrapper {
     try {
       const now = Date.now();
 
-      if (this.isBlocklistUnderConstruction === false) {
-        return await this.initBlocklistConstruction(
-          param.rxid,
-          now,
-          param.blocklistUrl,
-          param.latestTimestamp,
-          param.tdNodecount,
-          param.tdParts
-        );
-      } else if (now - this.startTime > param.workerTimeout * 2) {
+      if (
+        !this.isBlocklistUnderConstruction ||
         // it has been a while, queue another blocklist-construction
+        now - this.startTime > param.workerTimeout * 2
+      ) {
         return await this.initBlocklistConstruction(
           param.rxid,
           now,
@@ -74,7 +69,7 @@ class BlocklistWrapper {
         let totalWaitms = 0;
         const waitms = 50;
         while (totalWaitms < param.fetchTimeout) {
-          if (this.blocklistFilter.t !== null) {
+          if (this.isBlocklistFilterSetup()) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
           }
@@ -84,7 +79,7 @@ class BlocklistWrapper {
 
         response.isException = true;
         response.exceptionStack =
-          this.exceptionStack || "blocklist-filter timeout";
+          this.exceptionStack || "blocklist-filter timeout " + totalWaitms;
         response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
       }
     } catch (e) {
@@ -96,11 +91,12 @@ class BlocklistWrapper {
   }
 
   isBlocklistFilterSetup() {
-    return this.blocklistFilter && this.blocklistFilter.t;
+    return !util.emptyObj(this.blocklistFilter) && this.blocklistFilter.t;
   }
 
   initBlocklistFilterConstruction(td, rd, ft, config) {
     this.isBlocklistUnderConstruction = true;
+    this.startTime = Date.now();
     const filter = createBlocklistFilter(
       /* trie*/ td,
       /* rank-dir*/ rd,
@@ -144,11 +140,11 @@ class BlocklistWrapper {
         bl.blocklistFileTag
       );
 
-      log.d(rxid, "loaded blocklist-filter");
+      this.log.i(rxid, "done loading blocklist-filter");
       if (false) {
         // test
         const result = this.blocklistFilter.getDomainInfo("google.com");
-        log.d(rxid, JSON.stringify(result));
+        this.log.d(rxid, JSON.stringify(result));
       }
 
       response.data.blocklistFilter = this.blocklistFilter;
@@ -171,7 +167,7 @@ class BlocklistWrapper {
     tdNodecount,
     tdParts
   ) {
-    !tdNodecount && log.e(rxid, "tdNodecount zero or missing!");
+    !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
     const resp = {};
     const baseurl = blocklistUrl + latestTimestamp;
@@ -180,13 +176,19 @@ class BlocklistWrapper {
       tdparts: tdParts || -1,
     };
 
+    // filetag is fetched as application/octet-stream and so,
+    // the response api complains it is unsafe to .json() it:
+    // Called .text() on an HTTP body which does not appear to be
+    // text. The body's Content-Type is "application/octet-stream".
+    // The result will probably be corrupted. Consider checking the
+    // Content-Type header before interpreting entities as text.
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
     const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
     const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
     const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    log.d(rxid, "call createBlocklistFilter", blocklistBasicConfig);
+    this.log.i(rxid, "call createBlocklistFilter", blocklistBasicConfig);
 
     this.td = downloads[1];
     this.rd = downloads[2];
@@ -212,8 +214,8 @@ async function fileFetch(url, typ) {
     throw new Error("Unknown conversion type at fileFetch");
   }
 
-  log.d("downloading", url);
-  const res = await fetch(url, { cf: { cacheTtl: /* 2w*/ 1209600 } });
+  log.i("downloading", url);
+  const res = await fetch(url, { cf: { cacheTtl: /* 2w */ 1209600 } });
 
   if (!res.ok) {
     log.e(url, res);
@@ -228,14 +230,18 @@ async function fileFetch(url, typ) {
 }
 
 const sleep = (ms) => {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+  return new Promise((resolve, reject) => {
+    try {
+      setTimeout(resolve, ms);
+    } catch (e) {
+      reject(e.message);
+    }
   });
 };
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {
-  log.d("makeTd from tdParts", n);
+  log.i("makeTd from tdParts", n);
 
   if (n <= -1) {
     return fileFetch(baseurl + "/td.txt", "buffer");
@@ -256,27 +262,15 @@ async function makeTd(baseurl, n) {
   }
   const tds = await Promise.all(tdpromises);
 
-  log.d("tds downloaded");
+  log.i("tds downloaded");
 
   return new Promise((resolve, reject) => {
-    resolve(concat(tds));
+    try {
+      resolve(bufutil.concat(tds));
+    } catch (e) {
+      reject(e.message);
+    }
   });
-}
-
-// stackoverflow.com/a/40108543/
-// Concatenate a mix of typed arrays
-function concat(arraybuffers) {
-  const sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0);
-  const buf = new ArrayBuffer(sz);
-  const cat = new Uint8Array(buf);
-  let offset = 0;
-  for (const a of arraybuffers) {
-    // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17
-    const v = new Uint8Array(a);
-    cat.set(v, offset);
-    offset += a.byteLength;
-  }
-  return buf;
 }
 
 export { BlocklistFilter, BlocklistWrapper };

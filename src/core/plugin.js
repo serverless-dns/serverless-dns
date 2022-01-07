@@ -24,7 +24,7 @@ export default class RethinkPlugin {
 
     const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
     // TODO: generate rxid in setRequest instead?
-    this.registerParameter("rxid", "[rxid." + rxid + "]");
+    this.registerParameter("rxid", "[rx." + rxid + "]");
 
     // caution: event isn't an event on nodejs, but event.request is a request
     this.registerParameter("event", event);
@@ -223,8 +223,7 @@ export default class RethinkPlugin {
     this.log.d(rxid, "command-control response");
 
     if (!util.emptyObj(r) && r.stopProcessing) {
-      currentRequest.httpResponse = r.httpResponse;
-      currentRequest.stopProcessing = true;
+      currentRequest.hResponse(r.httpResponse);
     }
   }
 
@@ -260,15 +259,10 @@ export default class RethinkPlugin {
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
-      currentRequest.isDnsBlock = r.isBlocked;
-      currentRequest.blockedB64Flag = r.blockedB64Flag;
-      currentRequest.stopProcessing = true;
-      currentRequest.dnsBlockResponse();
+      currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else if (answered) {
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer);
-      currentRequest.decodedDnsPacket = r.dnsPacket;
-      currentRequest.stopProcessing = true;
+      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
     } else {
       this.log.d(rxid, "resolve query; no response from cache-handler");
     }
@@ -283,12 +277,7 @@ export default class RethinkPlugin {
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
-      currentRequest.isDnsBlock = blocked;
-      currentRequest.blockedB64Flag = r.blockedB64Flag;
-      if (currentRequest.isDnsBlock) {
-        currentRequest.stopProcessing = true;
-        currentRequest.dnsBlockResponse();
-      }
+      currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else {
       this.log.d(rxid, "all okay, no actionable res from question-block");
     }
@@ -336,15 +325,13 @@ export default class RethinkPlugin {
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
-      currentRequest.isDnsBlock = blocked;
       // TODO: can r.blockedB64Flag be ever empty when r.isBlocked?
-      currentRequest.blockedB64Flag = r.blockedB64Flag;
-      currentRequest.dnsBlockResponse();
+      currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else {
       // TODO: is this needed 'cause dns-resolver sets these already
-      currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"));
-      currentRequest.decodedDnsPacket = this.parameter.get(
-        "responseDecodedDnsPacket"
+      currentRequest.dnsResponse(
+        this.parameter.get("responseBodyBuffer"),
+        this.parameter.get("responseDecodedDnsPacket")
       );
     }
   }
@@ -371,6 +358,9 @@ function generateParam(parameter, list) {
 async function setRequest(parameter, currentRequest) {
   const request = parameter.get("request");
   const isDnsMsg = util.isDnsMsg(request);
+  const rxid = parameter.get("rxid");
+
+  currentRequest.id(rxid);
 
   parameter.set("isDnsMsg", isDnsMsg);
 
@@ -383,15 +373,15 @@ async function setRequest(parameter, currentRequest) {
     return;
   }
 
-  const packet = await getBodyBuffer(request);
-  const decodedPacket = dnsutil.decode(packet);
+  const question = await extractDnsQuestion(request);
+  const questionPacket = dnsutil.decode(question);
 
-  currentRequest.decodedDnsPacket = decodedPacket;
-  parameter.set("requestDecodedDnsPacket", decodedPacket);
-  parameter.set("requestBodyBuffer", packet);
+  currentRequest.decodedDnsPacket = questionPacket;
+  parameter.set("requestDecodedDnsPacket", questionPacket);
+  parameter.set("requestBodyBuffer", question);
 }
 
-async function getBodyBuffer(request) {
+async function extractDnsQuestion(request) {
   if (util.isPostRequest(request)) {
     return await request.arrayBuffer();
   } else {
@@ -403,6 +393,5 @@ async function getBodyBuffer(request) {
 }
 
 function setInvalidResponse(currentRequest) {
-  currentRequest.httpResponse = util.respond405();
-  currentRequest.stopProcessing = true;
+  currentRequest.hResponse(util.respond405());
 }

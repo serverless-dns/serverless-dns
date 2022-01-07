@@ -119,3 +119,23 @@ export function encodeUint8ArrayBE(n, len) {
 
   return new Uint8Array(a);
 }
+
+// stackoverflow.com/a/40108543/
+// Concatenate a mix of typed arrays
+export function concat(arraybuffers) {
+  const sz = arraybuffers.reduce((sum, a) => sum + a.byteLength, 0);
+  const buf = new ArrayBuffer(sz);
+  const cat = new Uint8Array(buf);
+  let offset = 0;
+  for (const a of arraybuffers) {
+    // github: jessetane/array-buffer-concat/blob/7d79d5ebf/index.js#L17
+    const v = new Uint8Array(a);
+    cat.set(v, offset);
+    offset += a.byteLength;
+  }
+  return buf;
+}
+
+export function concatBuf(these) {
+  return Buffer.concat(these);
+}

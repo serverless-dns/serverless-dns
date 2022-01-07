@@ -1,6 +1,6 @@
 // env config at top, so if .env file variables are used, it is available to
 // other modules.
-import "./commons/deno/config.ts";
+import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 
