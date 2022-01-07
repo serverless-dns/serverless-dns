@@ -245,7 +245,7 @@ export default class RethinkPlugin {
       util.emptyObj(r.blocklistFilter)
     ) {
       this.log.e(rxid, "err building blocklist-filter", response);
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
       return;
     }
 
@@ -280,7 +280,7 @@ export default class RethinkPlugin {
 
     if (response.isException) {
       this.log.w(rxid, "unexpected err userOp", r);
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
     } else if (!util.emptyObj(r)) {
       // r.userBlocklistInfo and r.dnsResolverUrl are never "null"
       this.registerParameter("userBlocklistInfo", r.userBlocklistInfo);
@@ -302,7 +302,7 @@ export default class RethinkPlugin {
     );
 
     if (response.isException) {
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
     } else if (r && r.isBlocked) {
       currentRequest.isDnsBlock = r.isBlocked;
       currentRequest.blockedB64Flag = r.blockedB64Flag;
@@ -325,7 +325,7 @@ export default class RethinkPlugin {
     this.log.d(rxid, "dnsQuestionBlock response blocked?", blocked);
 
     if (response.isException) {
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
       currentRequest.isDnsBlock = r.isBlocked;
       currentRequest.blockedB64Flag = r.blockedB64Flag;
@@ -355,7 +355,7 @@ export default class RethinkPlugin {
       util.emptyBuf(r.dnsBuffer)
     ) {
       this.log.w(rxid, "err dns resolver", response);
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
       return;
     }
     this.registerParameter("responseBodyBuffer", r.dnsBuffer);
@@ -377,7 +377,7 @@ export default class RethinkPlugin {
     currentRequest.stopProcessing = true;
 
     if (response.isException) {
-      this.loadException(response, currentRequest);
+      this.loadException(rxid, response, currentRequest);
     } else if (r && r.isBlocked) {
       currentRequest.isDnsBlock = r.isBlocked;
       // TODO: can r.blockedB64Flag be ever empty when r.isBlocked?
@@ -391,8 +391,8 @@ export default class RethinkPlugin {
     }
   }
 
-  loadException(response, currentRequest) {
-    this.log.e("exception", JSON.stringify(response));
+  loadException(rxid, response, currentRequest) {
+    this.log.e(rxid, "exception", JSON.stringify(response));
     currentRequest.dnsExceptionResponse(response);
   }
 }

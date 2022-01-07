@@ -90,7 +90,7 @@ export default class DNSCacheResponse {
       cr.metaData.cacheFilter,
       blockInfo
     );
-    this.log.d(rxid, blockInfo, "answer block?", aresponse);
+    this.log.d(rxid, "answer block?", aresponse);
     if (aresponse && aresponse.isBlocked) {
       return aresponse;
     }
