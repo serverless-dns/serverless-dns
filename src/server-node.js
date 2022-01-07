@@ -11,11 +11,12 @@ import tls from "tls";
 import http2 from "http2";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
-import { handleRequest } from "./index.js";
-import * as dnsutil from "./helpers/dnsutil.js";
-import * as util from "./helpers/util.js";
-import { copyNonPseudoHeaders } from "./helpers/node/util.js";
-import "./helpers/node/config.js";
+import { handleRequest } from "./core/doh.js";
+import * as bufutil from "./commons/bufutil.js";
+import * as dnsutil from "./commons/dnsutil.js";
+import * as util from "./commons/util.js";
+import { copyNonPseudoHeaders } from "./core/node/util.js";
+import "./core/node/config.js";
 
 /**
  * @typedef {import("net").Socket} Socket
@@ -155,8 +156,8 @@ function serveDoTProxyProto(clientSocket) {
 }
 
 function makeScratchBuffer() {
-  const qlenBuf = util.createBuffer(dnsutil.dnsHeaderSize);
-  const qlenBufOffset = util.recycleBuffer(qlenBuf);
+  const qlenBuf = bufutil.createBuffer(dnsutil.dnsHeaderSize);
+  const qlenBufOffset = bufutil.recycleBuffer(qlenBuf);
 
   return {
     qlenBuf: qlenBuf,
@@ -311,8 +312,8 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   const data = chunk.slice(rem);
 
   if (sb.qBuf === null) {
-    sb.qBuf = util.createBuffer(qlen);
-    sb.qBufOffset = util.recycleBuffer(sb.qBuf);
+    sb.qBuf = bufutil.createBuffer(qlen);
+    sb.qBufOffset = bufutil.recycleBuffer(sb.qBuf);
   }
 
   sb.qBuf.fill(data, sb.qBufOffset);
@@ -322,7 +323,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   if (sb.qBufOffset === qlen) {
     handleTCPQuery(sb.qBuf, socket, host, flag);
     // reset qBuf and qlenBuf states
-    sb.qlenBufOffset = util.recycleBuffer(sb.qlenBuf);
+    sb.qlenBufOffset = bufutil.recycleBuffer(sb.qlenBuf);
     sb.qBuf = null;
     sb.qBufOffset = 0;
   } else if (sb.qBufOffset > qlen) {
@@ -346,7 +347,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   const t = log.startTime("handle-tcp-query-" + rxid);
   try {
     const r = await resolveQuery(rxid, q, host, flag);
-    const rlBuf = util.encodeUint8ArrayBE(r.byteLength, 2);
+    const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
     const chunk = new Uint8Array([...rlBuf, ...r]);
 
     // writing to a destroyed socket crashes nodejs

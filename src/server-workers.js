@@ -6,10 +6,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import "./helpers/workers/config.js";
-import { handleRequest } from "./index.js";
+import "./core/workers/config.js";
+import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
-import * as util from "./helpers/util.js";
+import * as util from "./commons/util.js";
 
 let up = false;
 
