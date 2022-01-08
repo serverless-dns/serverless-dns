@@ -11,27 +11,24 @@ import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 
-let up = false;
+const upTimeoutMs = 1500; // 1.5s
 
 ((main) => {
   if (typeof addEventListener === "undefined") {
     throw new Error("workers env missing addEventListener");
   }
 
-  system.sub("go", systemUp);
-
   addEventListener("fetch", serveDoh);
 })();
 
-function systemUp() {
-  up = true;
-}
-
 function serveDoh(event) {
-  if (!up) {
-    event.respondWith(util.respond503());
-    return;
-  }
-
-  event.respondWith(handleRequest(event));
+  system
+    .when("go", upTimeoutMs)
+    .then((v) => {
+      event.respondWith(handleRequest(event));
+    })
+    .catch((e) => {
+      console.error(e);
+      event.respondWith(util.respond405());
+    });
 }
