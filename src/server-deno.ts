@@ -162,10 +162,10 @@ async function resolveQuery(q: Uint8Array) {
   const r: Response = (await handleRequest({
     request: new Request("https://example.com", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/dns-message",
-        "content-length": q.byteLength.toString(),
-      },
+      headers: util.concatHeaders(
+        util.dnsHeaders(),
+        util.contentLengthHeader(q)
+      ),
       body: q,
     }),
   })) as Response;
