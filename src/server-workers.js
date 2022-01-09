@@ -11,24 +11,42 @@ import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 
-const upTimeoutMs = 1500; // 1.5s
-
 ((main) => {
   if (typeof addEventListener === "undefined") {
     throw new Error("workers env missing addEventListener");
   }
 
-  addEventListener("fetch", serveDoh);
+  addEventListener("fetch", handleFetch);
 })();
 
+function handleFetch(event) {
+  // FetchEvent handler has to call respondWith() before returning.
+  // Any asynchronous task will be canceled and by default, the
+  // request will be sent unmodified to origin (which doesn't exist
+  // and so these are 4xx responses, in our case). To wait for IO
+  // before generating a Response, calling respondWith() with a
+  // Promise (for the eventual Response) as the argument.
+  event.respondWith(serveDoh(event));
+}
+
 function serveDoh(event) {
-  system
-    .when("go", upTimeoutMs)
-    .then((v) => {
-      event.respondWith(handleRequest(event));
-    })
-    .catch((e) => {
-      console.error(e);
-      event.respondWith(util.respond405());
-    });
+  // on Workers, the network-context is only available in an event listener
+  // and so, publish system prepare from here instead of from main which
+  // runs in global-scope.
+  system.pub("prepare");
+
+  return new Promise((accept) => {
+    system
+      .when("go")
+      .then((v) => {
+        return handleRequest(event);
+      })
+      .then((response) => {
+        accept(response);
+      })
+      .catch((e) => {
+        console.error("server", "serveDoh err", e);
+        accept(util.respond405());
+      });
+  });
 }

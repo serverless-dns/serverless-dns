@@ -159,7 +159,7 @@ export default class RethinkPlugin {
   }
 
   async executePlugin(req) {
-    await setRequest(this.parameter, req);
+    await this.setRequest(req);
 
     const rxid = this.parameter.get("rxid");
 
@@ -340,6 +340,34 @@ export default class RethinkPlugin {
     this.log.e(rxid, "exception", JSON.stringify(response));
     currentRequest.dnsExceptionResponse(response);
   }
+
+  async setRequest(currentRequest) {
+    const request = this.parameter.get("request");
+    const isDnsMsg = util.isDnsMsg(request);
+    const rxid = this.parameter.get("rxid");
+
+    currentRequest.id(rxid);
+
+    this.registerParameter("isDnsMsg", isDnsMsg);
+
+    // nothing to do if the current request isn't a dns question
+    if (!isDnsMsg) {
+      // throw away any request that is not a dns-msg since cc.js
+      // processes non-dns msgs only via GET, while rest of the
+      // plugins process only dns-msgs via GET and POST.
+      if (!util.isGetRequest(request)) setInvalidResponse(currentRequest);
+      return;
+    }
+
+    const question = await extractDnsQuestion(request);
+    const questionPacket = dnsutil.decode(question);
+
+    this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
+
+    currentRequest.decodedDnsPacket = questionPacket;
+    this.registerParameter("requestDecodedDnsPacket", questionPacket);
+    this.registerParameter("requestBodyBuffer", question);
+  }
 }
 
 /**
@@ -353,32 +381,6 @@ function generateParam(parameter, list) {
     out[key] = parameter.get(key) || null;
   }
   return out;
-}
-
-async function setRequest(parameter, currentRequest) {
-  const request = parameter.get("request");
-  const isDnsMsg = util.isDnsMsg(request);
-  const rxid = parameter.get("rxid");
-
-  currentRequest.id(rxid);
-
-  parameter.set("isDnsMsg", isDnsMsg);
-
-  // nothing to do if the current request isn't a dns question
-  if (!isDnsMsg) {
-    // throw away any request that is not a dns-msg since cc.js
-    // processes non-dns msgs only via GET, while rest of the
-    // plugins process only dns-msgs via GET and POST.
-    if (!util.isGetRequest(request)) setInvalidResponse(currentRequest);
-    return;
-  }
-
-  const question = await extractDnsQuestion(request);
-  const questionPacket = dnsutil.decode(question);
-
-  currentRequest.decodedDnsPacket = questionPacket;
-  parameter.set("requestDecodedDnsPacket", questionPacket);
-  parameter.set("requestBodyBuffer", question);
 }
 
 async function extractDnsQuestion(request) {

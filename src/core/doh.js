@@ -17,9 +17,16 @@ export function handleRequest(event) {
       accept(proxyRequest(event));
     }),
 
+    // TODO: cancel timeout once proxyRequest is complete
+    // util.timedOp is one way to do so, but it results in a reject
+    // on timeouts which manifests as "exception" to upstream (server-
+    // -worker/deno/node) that then needs to handle it as approp.
     new Promise((accept, _) => {
       // on timeout, servfail
-      util.timeout(dnsutil.requestTimeout(), () => accept(servfail()));
+      util.timeout(dnsutil.requestTimeout(), () => {
+        log.e("doh", "handle-request timeout");
+        accept(servfail());
+      });
     }),
   ]);
 }
@@ -37,7 +44,7 @@ async function proxyRequest(event) {
 
     return currentRequest.httpResponse;
   } catch (err) {
-    log.e(err.stack);
+    log.e("doh", "proxy-request error", err);
     return errorOrServfail(event.request, err);
   }
 }

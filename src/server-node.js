@@ -44,6 +44,8 @@ let log = null;
 
 ((main) => {
   system.sub("go", systemUp);
+  // ask prepare phase to commence
+  system.pub("prepare");
 })();
 
 function systemUp() {
@@ -360,6 +362,7 @@ async function handleTCPQuery(q, socket, host, flag) {
 
   // Only close socket on error, else it would break pipelining of queries.
   if (!ok && !socket.destroyed) {
+    // TODO: send a 4xx / 5xx? ref: server-workers.js
     close(socket);
   }
 }

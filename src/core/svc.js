@@ -25,13 +25,15 @@ export const services = {
 };
 
 ((main) => {
-  system.sub("ready", systemReady);
+  // On Workers, asynchronous I/O, timeouts, and generating random values,
+  // can only be performed while handling a request.
+  system.when("ready").then(systemReady);
 })();
 
 async function systemReady() {
   if (services.ready) return;
 
-  log.i("plugins: systemReady");
+  log.i("svc: systemReady");
 
   services.blocklistWrapper = new BlocklistWrapper();
   services.commandControl = new CommandControl();
@@ -43,10 +45,14 @@ async function systemReady() {
   services.dnsCache = new DnsCache(dnsutil.cacheSize());
 
   if (envutil.isNode()) {
-    const blocklists = await import("./node/blocklists.js");
-    await blocklists.setup(services.blocklistWrapper);
+    const b = await import("./node/blocklists.js");
+    await b.setup(services.blocklistWrapper);
   }
 
+  done();
+}
+
+function done() {
   services.ready = true;
 
   system.pub("go");

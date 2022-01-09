@@ -10,6 +10,10 @@ import * as system from "../../system.js";
 import Log from "../log.js";
 
 ((main) => {
+  system.when("prepare").then(setup);
+})();
+
+function setup() {
   // if we're executing this file, we're on workers
   globalThis.RUNTIME = "worker";
 
@@ -24,5 +28,11 @@ import Log from "../log.js";
     isProd // set console level only in prod.
   );
 
+  // on Workers, the network-context isn't available in global-scope
+  // ie network requests, for ex over fetch-api or xhr, don't work.
+  // And so, system ready event is published by the event listener
+  // which has the network-context, that is necessary for svc.js
+  // to setup blocklist-filter, which otherwise fails when invoked
+  // from global-scope (such as this main function).
   system.pub("ready");
-})();
+}

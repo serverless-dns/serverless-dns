@@ -50,6 +50,7 @@ class BlocklistWrapper {
         // it has been a while, queue another blocklist-construction
         now - this.startTime > param.workerTimeout * 2
       ) {
+        this.log.i(param.rxid, "download blocklists", now, this.startTime);
         return await this.initBlocklistConstruction(
           param.rxid,
           now,
@@ -78,8 +79,7 @@ class BlocklistWrapper {
         }
 
         response.isException = true;
-        response.exceptionStack =
-          this.exceptionStack || "blocklist-filter timeout " + totalWaitms;
+        response.exceptionStack = this.exceptionStack || "download timeout";
         response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
       }
     } catch (e) {
@@ -140,7 +140,7 @@ class BlocklistWrapper {
         bl.blocklistFileTag
       );
 
-      this.log.i(rxid, "done loading blocklist-filter");
+      this.log.i(rxid, "blocklist-filter setup");
       if (false) {
         // test
         const result = this.blocklistFilter.getDomainInfo("google.com");
@@ -149,7 +149,7 @@ class BlocklistWrapper {
 
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
-      this.log.e(rxid, e);
+      this.log.e(rxid, "initBlocklistConstruction", e);
       response = util.errResponse("initBlocklistConstruction", e);
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
@@ -176,6 +176,7 @@ class BlocklistWrapper {
       tdparts: tdParts || -1,
     };
 
+    this.log.d(rxid, blocklistUrl, latestTimestamp, tdNodecount, tdParts);
     // filetag is fetched as application/octet-stream and so,
     // the response api complains it is unsafe to .json() it:
     // Called .text() on an HTTP body which does not appear to be
@@ -188,7 +189,7 @@ class BlocklistWrapper {
 
     const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    this.log.i(rxid, "call createBlocklistFilter", blocklistBasicConfig);
+    this.log.i(rxid, "create trie", blocklistBasicConfig);
 
     this.td = downloads[1];
     this.rd = downloads[2];
@@ -211,6 +212,7 @@ class BlocklistWrapper {
 
 async function fileFetch(url, typ) {
   if (typ !== "buffer" && typ !== "json") {
+    log.i("fetch fail", typ, url);
     throw new Error("Unknown conversion type at fileFetch");
   }
 
@@ -234,7 +236,8 @@ const sleep = (ms) => {
     try {
       setTimeout(resolve, ms);
     } catch (e) {
-      reject(e.message);
+      log.e("dns-resolver sleep timeout", e);
+      reject(e);
     }
   });
 };
@@ -268,6 +271,7 @@ async function makeTd(baseurl, n) {
     try {
       resolve(bufutil.concat(tds));
     } catch (e) {
+      log.e("reject make-td", e);
       reject(e.message);
     }
   });

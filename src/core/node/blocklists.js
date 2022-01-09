@@ -30,8 +30,15 @@ export async function setup(bw) {
     return true;
   }
 
-  log.i("dowloading bl tstamp/nc/parts", timestamp, nodecount, tdparts);
-  await bw.initBlocklistConstruction(now, url, timestamp, nodecount, tdparts);
+  log.i("dowloading bl u/ts/nc/parts", url, timestamp, nodecount, tdparts);
+  await bw.initBlocklistConstruction(
+    /* rxid*/ "bl-download",
+    now,
+    url,
+    timestamp,
+    nodecount,
+    tdparts
+  );
 
   save(bw, timestamp);
 }

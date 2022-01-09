@@ -125,6 +125,7 @@ export class CommandControl {
     } catch (e) {
       this.log.e(rxid, "err cc:op", e);
       response = util.errResponse("cc:op", e);
+      // TODO: set response status to 5xx
       response.data.httpResponse = jsonResponse(e.stack);
     }
 

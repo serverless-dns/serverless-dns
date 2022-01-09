@@ -9,6 +9,8 @@ import * as util from "./commons/util.js";
 
 // once emitted, they stick; firing off new listeners forever, just the once.
 const stickyEvents = new Set([
+  // when process bring-up is done
+  "prepare",
   // when env setup is done
   "ready",
   // when plugin setup is done
@@ -41,6 +43,7 @@ export function pub(event) {
 // invokes cb when event is fired
 export function sub(event, cb) {
   const eventCallbacks = listeners.get(event);
+  console.log("____", event, eventCallbacks && eventCallbacks.size);
 
   if (!eventCallbacks) {
     // if event is sticky, fire off the listener at once
@@ -57,7 +60,7 @@ export function sub(event, cb) {
 }
 
 // waits till event fires or timesout
-export function when(event, timeout) {
+export function when(event, timeout = 0) {
   const wg = waitGroup.get(event);
 
   if (!wg) {
@@ -69,27 +72,32 @@ export function when(event, timeout) {
     return Promise.reject(new Error(event + " missing"));
   }
 
-  const w = waiter(timeout, event);
-
-  wg.add(w.fulfiller);
-
-  return w.awaiter;
+  return new Promise((accept, reject) => {
+    const tid =
+      timeout > 0
+        ? util.timeout(timeout, () => {
+            reject(new Error(event + " elapsed " + timeout));
+          })
+        : -2;
+    const fulfiller = function () {
+      if (tid >= 0) clearTimeout(tid);
+      accept(event);
+    };
+    wg.add(fulfiller);
+  });
 }
 
 function awaiters(event) {
-  const wg = waitGroup.get(event);
+  const g = waitGroup.get(event);
 
-  if (!wg) return;
+  if (!g) return;
 
   // listeners valid just the once for stickyEvents
   if (stickyEvents.has(event)) {
     waitGroup.delete(event);
   }
 
-  for (const f of wg) {
-    // awaiter may have timedout
-    util.safeBox(f);
-  }
+  util.safeBox(...g);
 }
 
 function callbacks(event) {
@@ -101,25 +109,10 @@ function callbacks(event) {
   if (stickyEvents.has(event)) {
     listeners.delete(event);
   }
-
-  // callbacks are queued async and don't block the caller
+  // callbacks are queued async and don't block the caller. On Workers,
+  // where IOs or timers require event-context aka network-context,
+  // which is only available when fns are invoked in response to an
+  // incoming request (through the fetch event handler), such callbacks
+  // may not even fire. Instead use: awaiters and not callbacks.
   util.microtaskBox(...eventCallbacks);
-}
-
-function waiter(ms, event) {
-  let tid = -1;
-  let accept = () => {};
-  const w = new Promise((y, reject) => {
-    tid = util.timeout(ms, () => {
-      reject(new Error(event + " elapsed " + ms));
-    });
-    accept = y;
-  });
-  return {
-    awaiter: w,
-    fulfiller: function () {
-      clearTimeout(tid);
-      accept(event);
-    },
-  };
 }

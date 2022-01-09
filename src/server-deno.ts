@@ -10,6 +10,8 @@ let log: any = null;
 
 ((main) => {
   system.sub("go", systemUp);
+  // ask prepare phase to commence
+  system.pub("prepare");
 })();
 
 function systemUp() {
@@ -88,6 +90,7 @@ async function serveHttp(conn: Deno.Conn) {
           handleRequest(requestEvent) as Response | Promise<Response>
         );
       } catch (e) {
+        // TODO: send 4xx / 5xx; ref: server-workers.js
         // Client may close the connection abruptly before response is sent
         log.w("error handling http request", e);
       }

@@ -70,7 +70,6 @@ export default class DNSResolver {
       param.dnsResolverUrl,
       param.requestBodyBuffer
     );
-
     return await this.decodeResponse(rxid, upRes);
   }
 
@@ -84,7 +83,6 @@ export default class DNSResolver {
     }
 
     const dnsBuffer = await response.arrayBuffer();
-
     const dnsPacket = dnsutil.decode(dnsBuffer);
 
     return {

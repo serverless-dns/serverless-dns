@@ -189,17 +189,23 @@ export function microtaskBox(...fns) {
     enqueue = p.then.bind(p);
   }
 
-  for (const f of fns) {
-    enqueue(() => safeBox(f));
-  }
+  enqueue(() => safeBox(...fns));
 }
 
-export function safeBox(fn, defaultResponse = null) {
-  if (typeof fn !== "function") return defaultResponse;
-  try {
-    return fn();
-  } catch (ignore) {}
-  return defaultResponse;
+export function safeBox(...fns) {
+  const r = [];
+  for (const f of fns) {
+    if (typeof f !== "function") {
+      r.push(null);
+      continue;
+    }
+    try {
+      r.push(f());
+    } catch (ignore) {
+      r.push(null);
+    }
+  }
+  return r;
 }
 
 /**
@@ -227,7 +233,7 @@ export function errResponse(id, err) {
     isException: true,
     exceptionStack: err.stack,
     exceptionFrom: id,
-    data: false,
+    data: {},
   };
 }
 

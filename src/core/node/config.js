@@ -20,6 +20,10 @@ import EnvManager from "../env.js";
 import * as swap from "../linux/swap.js";
 
 (async (main) => {
+  system.when("prepare").then(setup);
+})();
+
+async function setup() {
   // if this file execs... assume we're on nodejs.
   const runtime = "node";
   const isProd = process.env.NODE_ENV === "production";
@@ -64,7 +68,7 @@ import * as swap from "../linux/swap.js";
     const [tlsKey, tlsCrt] = getTLSfromEnv(_TLS_CRT_AND_KEY);
     envManager.set("tlsKey", tlsKey);
     envManager.set("tlsCrt", tlsCrt);
-    console.log("env (fly) tls setup");
+    log.i("env (fly) tls setup");
   } else {
     const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
       process.env.TLS_KEY_PATH,
@@ -72,7 +76,7 @@ import * as swap from "../linux/swap.js";
     );
     envManager.set("tlsKey", tlsKey);
     envManager.set("tlsCrt", tlsCrt);
-    console.info("dev (local) tls setup");
+    log.i("dev (local) tls setup");
   }
 
   /** Polyfills */
@@ -93,9 +97,9 @@ import * as swap from "../linux/swap.js";
   /** Swap on Fly */
   if (onFly) {
     const ok = swap.mkswap();
-    console.info("mkswap done?", ok);
+    log.i("mkswap done?", ok);
   }
 
   /** signal up */
   system.pub("ready");
-})();
+}

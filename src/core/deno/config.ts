@@ -16,6 +16,10 @@ declare global {
 }
 
 ((main) => {
+  system.when("prepare").then(setup);
+})();
+
+function setup() {
   if (!Deno) throw new Error("failed loading deno-specific config");
 
   const isProd = Deno.env.get("DENO_ENV") === "production";
@@ -44,4 +48,4 @@ declare global {
   );
 
   system.pub("ready");
-})();
+}
