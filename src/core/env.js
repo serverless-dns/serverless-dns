@@ -109,16 +109,18 @@ function _getRuntimeEnv(runtime) {
     }
     type = mappedKey.type;
 
-    if (!name || !type) {
-      console.debug(runtime, "unnamed / untyped env mapping", key, mappedKey);
+    if (!type) {
+      console.debug(runtime, "untyped env mapping:", key, mappedKey);
       continue;
     }
 
+    // Read environment variable
     if (runtime === "node") env[key] = process.env[name];
-    else if (runtime === "deno") env[key] = Deno.env.get(name);
+    else if (runtime === "deno") env[key] = name && Deno.env.get(name);
     else if (runtime === "worker") env[key] = globalThis[name];
     else throw new Error(`unsupported runtime: ${runtime}`);
 
+    // Type conversion & type safety
     // env. variables are assumed strings by default, so they are converted
     // to the specified type from "string" type (exclusively), if necessary.
     if (type === "boolean") env[key] = env[key] === "true";
