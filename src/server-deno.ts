@@ -131,16 +131,32 @@ async function serveTcp(conn: Deno.Conn) {
     }
 
     // TODO: Parallel processing
-    await resolveQuery(q, conn);
+    await handleTCPQuery(q, conn);
   }
 
   // TODO: expect client to close the connection; timeouts.
   conn.close();
 }
 
-async function resolveQuery(q: Uint8Array, conn: Deno.Conn) {
+async function handleTCPQuery(q: Uint8Array, conn: Deno.Conn) {
+  try {
+    const r = await resolveQuery(q);
+    const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
+
+    const n = await conn.write(new Uint8Array([...rlBuf, ...r]));
+    if (n != r.byteLength + 2) {
+      log.e(`res write incomplete: ${n} < ${r.byteLength + 2}`);
+    }
+  } catch (e) {
+    log.w("error handling tcp query", e);
+  }
+}
+
+async function resolveQuery(q: Uint8Array) {
   // Request Handler currently expects a FetchEvent containing request
-  const response: Response = (await handleRequest({
+  // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
+  // has a much higher ceiling (even if rarely used)
+  const r: Response = (await handleRequest({
     request: new Request("https://example.com", {
       method: "POST",
       headers: {
@@ -151,11 +167,5 @@ async function resolveQuery(q: Uint8Array, conn: Deno.Conn) {
     }),
   })) as Response;
 
-  const r = new Uint8Array(await response.arrayBuffer());
-  const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
-
-  const n = await conn.write(new Uint8Array([...rlBuf, ...r]));
-  if (n != r.byteLength + 2) {
-    log.e(`res write incomplete: ${n} < ${r.byteLength + 2}`);
-  }
+  return new Uint8Array(await r.arrayBuffer());
 }
