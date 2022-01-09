@@ -43,7 +43,6 @@ export function pub(event) {
 // invokes cb when event is fired
 export function sub(event, cb) {
   const eventCallbacks = listeners.get(event);
-  console.log("____", event, eventCallbacks && eventCallbacks.size);
 
   if (!eventCallbacks) {
     // if event is sticky, fire off the listener at once

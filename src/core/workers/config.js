@@ -33,6 +33,6 @@ function setup() {
   // And so, system ready event is published by the event listener
   // which has the network-context, that is necessary for svc.js
   // to setup blocklist-filter, which otherwise fails when invoked
-  // from global-scope (such as this main function).
+  // from global-scope (such as the "main" function in this file).
   system.pub("ready");
 }
