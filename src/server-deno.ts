@@ -91,14 +91,19 @@ async function serveHttp(conn: Deno.Conn) {
       log.w("error reading http request", e);
     }
     if (requestEvent) {
+      let res = null;
       try {
-        await requestEvent.respondWith(
-          handleRequest(requestEvent) as Response | Promise<Response>
-        );
+        res = handleRequest(requestEvent);
       } catch (e) {
-        // TODO: send 4xx / 5xx; ref: server-workers.js
-        // Client may close the connection abruptly before response is sent
+        res = util.respond503();
         log.w("error handling http request", e);
+      } finally {
+        try {
+          await requestEvent.respondWith(res as Response | Promise<Response>);
+        } catch (e) {
+          // Client may close the connection abruptly before response is sent
+          log.w("error responding to http request", e);
+        }
       }
     }
   }
