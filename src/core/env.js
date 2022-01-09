@@ -119,8 +119,9 @@ function _getRuntimeEnv(runtime) {
     else if (runtime === "worker") env[key] = globalThis[name];
     else throw new Error(`unsupported runtime: ${runtime}`);
 
-    // env vars are strings by default, typecast to their respective types
-    if (type === "boolean") env[key] = !!env[key];
+    // env. variables are assumed strings by default, so they are converted
+    // to the specified type from "string" type (exclusively), if necessary.
+    if (type === "boolean") env[key] = env[key] === "true";
     else if (type === "number") env[key] = Number(env[key]);
     else if (type === "string") env[key] = env[key] || "";
     else throw new Error(`unsupported type: ${type}`);
