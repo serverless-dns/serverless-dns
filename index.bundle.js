@@ -536,12 +536,12 @@ function _getRuntimeEnv(runtime) {
             name2 = mappedKey.name;
         }
         type = mappedKey.type;
-        if (!name2 || !type) {
-            console.debug(runtime, "unnamed / untyped env mapping", key, mappedKey);
+        if (!type) {
+            console.debug(runtime, "untyped env mapping:", key, mappedKey);
             continue;
         }
         if (runtime === "node") env[key] = process.env[name2];
-        else if (runtime === "deno") env[key] = Deno.env.get(name2);
+        else if (runtime === "deno") env[key] = name2 && Deno.env.get(name2);
         else if (runtime === "worker") env[key] = globalThis[name2];
         else throw new Error(`unsupported runtime: ${runtime}`);
         if (type === "boolean") env[key] = env[key] === "true";
