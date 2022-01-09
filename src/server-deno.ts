@@ -22,39 +22,29 @@ function systemUp() {
     certFile: TLS_CRT_PATH,
     keyFile: TLS_KEY_PATH,
   };
+  const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
 
   log = util.logger("Deno");
   if (!log) throw new Error("logger unavailable on system up");
 
-  const doh =
-    TERMINATE_TLS === "true"
-      ? Deno.listenTls({
-          port: DOH_PORT,
-          ...tlsOptions,
-        })
-      : Deno.listen({
-          port: DOH_PORT,
-        });
+  startDoh();
 
-  up("DoH", doh.addr as Deno.NetAddr);
+  // Deno-Deploy only has port 443, port 80 is mapped to it.
+  !onDenoDeploy && startDot();
 
-  const dot =
-    TERMINATE_TLS === "true"
-      ? Deno.listenTls({
-          port: DOT_PORT,
-          ...tlsOptions,
-        })
-      : Deno.listen({
-          port: DOT_PORT,
-        });
+  async function startDoh() {
+    const doh =
+      TERMINATE_TLS === "true"
+        ? Deno.listenTls({
+            port: DOH_PORT,
+            ...tlsOptions,
+          })
+        : Deno.listen({
+            port: DOH_PORT,
+          });
 
-  up("DoT (no blocking)", dot.addr as Deno.NetAddr);
+    up("DoH", doh.addr as Deno.NetAddr);
 
-  function up(server: string, addr: Deno.NetAddr) {
-    log.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
-  }
-
-  (async () => {
     // Connections to the listener will be yielded up as an async iterable.
     for await (const conn of doh) {
       log.d("DoH conn:", conn.remoteAddr);
@@ -62,16 +52,32 @@ function systemUp() {
       // To not be blocking, handle each connection without awaiting
       serveHttp(conn);
     }
-  })();
+  }
 
-  (async () => {
+  async function startDot() {
+    const dot =
+      TERMINATE_TLS === "true"
+        ? Deno.listenTls({
+            port: DOT_PORT,
+            ...tlsOptions,
+          })
+        : Deno.listen({
+            port: DOT_PORT,
+          });
+
+    up("DoT (no blocking)", dot.addr as Deno.NetAddr);
+
     for await (const conn of dot) {
       log.d("DoT conn:", conn.remoteAddr);
 
       // To not be blocking, handle each connection without awaiting
       serveTcp(conn);
     }
-  })();
+  }
+
+  function up(server: string, addr: Deno.NetAddr) {
+    log.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
+  }
 }
 
 async function serveHttp(conn: Deno.Conn) {
