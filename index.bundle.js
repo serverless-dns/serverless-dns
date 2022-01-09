@@ -7704,37 +7704,40 @@ function systemUp() {
         certFile: TLS_CRT_PATH,
         keyFile: TLS_KEY_PATH
     };
+    const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
     log1 = logger("Deno");
     if (!log1) throw new Error("logger unavailable on system up");
-    const doh = TERMINATE_TLS === "true" ? Deno.listenTls({
-        port: 8080,
-        ...tlsOptions
-    }) : Deno.listen({
-        port: 8080
-    });
-    up("DoH", doh.addr);
-    const dot = TERMINATE_TLS === "true" ? Deno.listenTls({
-        port: 10000,
-        ...tlsOptions
-    }) : Deno.listen({
-        port: 10000
-    });
-    up("DoT (no blocking)", dot.addr);
-    function up(server, addr) {
-        log1.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
-    }
-    (async ()=>{
+    startDoh();
+    !onDenoDeploy && startDot();
+    async function startDoh() {
+        const doh = TERMINATE_TLS === "true" ? Deno.listenTls({
+            port: 8080,
+            ...tlsOptions
+        }) : Deno.listen({
+            port: 8080
+        });
+        up("DoH", doh.addr);
         for await (const conn of doh){
             log1.d("DoH conn:", conn.remoteAddr);
             serveHttp(conn);
         }
-    })();
-    (async ()=>{
+    }
+    async function startDot() {
+        const dot = TERMINATE_TLS === "true" ? Deno.listenTls({
+            port: 10000,
+            ...tlsOptions
+        }) : Deno.listen({
+            port: 10000
+        });
+        up("DoT (no blocking)", dot.addr);
         for await (const conn of dot){
             log1.d("DoT conn:", conn.remoteAddr);
             serveTcp(conn);
         }
-    })();
+    }
+    function up(server, addr) {
+        log1.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
+    }
 }
 async function serveHttp(conn) {
     const httpConn = Deno.serveHttp(conn);
@@ -7746,10 +7749,18 @@ async function serveHttp(conn) {
             log1.w("error reading http request", e);
         }
         if (requestEvent) {
+            let res = null;
             try {
-                await requestEvent.respondWith(handleRequest(requestEvent));
+                res = handleRequest(requestEvent);
             } catch (e) {
+                res = respond503();
                 log1.w("error handling http request", e);
+            } finally{
+                try {
+                    await requestEvent.respondWith(res);
+                } catch (e) {
+                    log1.w("error responding to http request", e);
+                }
             }
         }
     }
