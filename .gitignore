@@ -8,7 +8,7 @@ blocklists__/
 package-lock.json
 
 # IDE
-.vscode
+# .vscode
 
 # Local enviroment variables
 .env
