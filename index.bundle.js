@@ -7787,20 +7787,18 @@ async function serveHttp(conn) {
         } catch (e) {
             log1.w("error reading http request", e);
         }
-        if (requestEvent) {
-            let res = null;
-            try {
-                res = handleRequest(requestEvent);
-            } catch (e) {
-                res = respond503();
-                log1.w("error handling http request", e);
-            } finally{
-                try {
-                    await requestEvent.respondWith(res);
-                } catch (e) {
-                    log1.w("error responding to http request", e);
-                }
-            }
+        if (!requestEvent) continue;
+        let res = null;
+        try {
+            res = handleRequest(requestEvent);
+        } catch (e1) {
+            res = respond503();
+            log1.w("serv fail doh request", e1);
+        }
+        try {
+            await requestEvent.respondWith(res);
+        } catch (e2) {
+            log1.w("send fail doh response", e2);
         }
     }
 }
