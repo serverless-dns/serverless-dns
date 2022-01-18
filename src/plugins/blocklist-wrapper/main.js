@@ -27,12 +27,7 @@ class BlocklistWrapper {
 
   /**
    * @param {*} param
-   * @param {String} param.blocklistUrl
-   * @param {String} param.latestTimestamp
-   * @param {Number} param.workerTimeout
-   * @param {Number} param.tdParts
-   * @param {Number} param.tdNodecount
-   * @param {Number} param.fetchTimeout
+   * @param {String} param.rxid
    * @returns
    */
   async RethinkModule(param) {
@@ -55,10 +50,10 @@ class BlocklistWrapper {
         return await this.initBlocklistConstruction(
           param.rxid,
           now,
-          param.blocklistUrl,
-          param.latestTimestamp,
-          param.tdNodecount,
-          param.tdParts
+          envutil.dohResolver(),
+          envutil.timestamp(),
+          envutil.tdNodeCount(),
+          envutil.tdParts()
         );
       } else {
         // someone's constructing... wait till finished
@@ -75,7 +70,7 @@ class BlocklistWrapper {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
           }
-          await sleep(waitms);
+          await util.sleep(waitms);
           totalWaitms += waitms;
         }
 
@@ -231,17 +226,6 @@ async function fileFetch(url, typ) {
     return await res.json();
   }
 }
-
-const sleep = (ms) => {
-  return new Promise((resolve, reject) => {
-    try {
-      setTimeout(resolve, ms);
-    } catch (e) {
-      log.e("dns-resolver sleep timeout", e);
-      reject(e);
-    }
-  });
-};
 
 // joins split td parts into one td
 async function makeTd(baseurl, n) {

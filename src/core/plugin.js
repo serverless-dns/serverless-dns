@@ -41,7 +41,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOperation",
       services.userOperation,
-      ["rxid", "dnsResolverUrl", "request", "isDnsMsg"],
+      ["rxid", "request", "isDnsMsg"],
       this.userOperationCallBack,
       false
     );
@@ -66,15 +66,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "blocklistFilter",
       services.blocklistWrapper,
-      [
-        "rxid",
-        "blocklistUrl",
-        "latestTimestamp",
-        "workerTimeout",
-        "tdParts",
-        "tdNodecount",
-        "fetchTimeout",
-      ],
+      ["rxid"],
       this.blocklistFilterCallBack,
       false
     );
@@ -82,7 +74,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       services.commandControl,
-      ["rxid", "request", "blocklistFilter", "latestTimestamp", "isDnsMsg"],
+      ["rxid", "request", "blocklistFilter", "isDnsMsg"],
       this.commandControlCallBack,
       false
     );
@@ -110,7 +102,6 @@ export default class RethinkPlugin {
         "rxid",
         "requestBodyBuffer",
         "request",
-        "dnsResolverUrl",
         "requestDecodedDnsPacket",
         "event",
         "blocklistFilter",
@@ -331,7 +322,6 @@ export default class RethinkPlugin {
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
-      // TODO: can r.blockedB64Flag be ever empty when r.isBlocked?
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else {
       const dnsBuffer = this.parameter.get("responseBodyBuffer");

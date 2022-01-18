@@ -41,7 +41,6 @@ export default class DNSResolver {
    * @param {Object} param
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
-   * @param {String} param.dnsResolverUrl
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
    * @param {Worker-Event} param.event
    * @param {} param.blocklistFilter
@@ -67,7 +66,7 @@ export default class DNSResolver {
     const upRes = await this.resolveDnsUpstream(
       rxid,
       param.request,
-      param.dnsResolverUrl,
+      envutil.dohResolver(),
       param.requestBodyBuffer
     );
     return await this.decodeResponse(rxid, upRes);

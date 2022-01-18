@@ -126,5 +126,6 @@ function makeHttpCacheApiValue(buf, metaData) {
 }
 
 function makeHttpCacheApiKey(key, url) {
-  return new URL(new URL(url).origin + "/" + env.latestTimestamp + "/" + key);
+  const origin = new URL(url).origin;
+  return new URL(origin + "/" + envutil.timestamp() + "/" + key);
 }

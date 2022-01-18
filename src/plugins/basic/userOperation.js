@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { UserCache } from "../cache-wrapper/cache-wrapper.js";
+import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as dnsBlockUtil from "../dnsblockutil.js";
 
@@ -20,7 +21,6 @@ export class UserOperation {
 
   /*
    * @param {*} param
-   * @param {*} param.dnsResolverUrl
    * @param {*} param.request
    * @param {*} param.isDnsMsg
    * @returns
@@ -64,7 +64,7 @@ export class UserOperation {
       }
 
       response.data.userBlocklistInfo = currentUser;
-      response.data.dnsResolverUrl = param.dnsResolverUrl;
+      response.data.dnsResolverUrl = envutil.dohResolver();
     } catch (e) {
       this.log.e(param.rxid, "loadUser", e);
       response = util.errResponse("UserOp:loadUser", e);

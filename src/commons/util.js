@@ -108,8 +108,12 @@ export function copyNonPseudoHeaders(req) {
  * @return {Promise}
  */
 export function sleep(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+  return new Promise((resolve, reject) => {
+    try {
+      setTimeout(resolve, ms);
+    } catch (e) {
+      reject(e);
+    }
   });
 }
 

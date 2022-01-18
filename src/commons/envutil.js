@@ -54,3 +54,8 @@ export function tdParts() {
   if (!env) return null;
   return env.tdParts;
 }
+
+export function dohResolver() {
+  if (!env) return null;
+  return env.dnsResolverUrl;
+}

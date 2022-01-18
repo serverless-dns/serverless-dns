@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as dnsBlockUtil from "../dnsblockutil.js";
 
@@ -23,8 +24,7 @@ export class CommandControl {
    * @returns
    */
   async RethinkModule(param) {
-    // TODO: latestTimestamp and other such params can be fetched from env
-    this.latestTimestamp = param.latestTimestamp;
+    this.latestTimestamp = envutil.timestamp();
 
     // process only GET requests, ignore all others
     if (util.isGetRequest(param.request)) {
