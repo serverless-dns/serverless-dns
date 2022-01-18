@@ -261,6 +261,7 @@ export default class RethinkPlugin {
     } else if (blocked) {
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else if (answered) {
+      this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
       currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
     } else {
@@ -292,19 +293,24 @@ export default class RethinkPlugin {
   dnsResolverCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
+    const answered = !util.emptyObj(r) && !bufutil.emptyBuf(r.dnsBuffer);
     this.log.d(rxid, "dns-resolver packet");
 
-    if (
-      response.isException ||
-      util.emptyObj(r) ||
-      bufutil.emptyBuf(r.dnsBuffer)
-    ) {
-      this.log.w(rxid, "err dns-resolver", response);
+    if (response.isException || !answered) {
+      this.log.w(rxid, "err dns-resolver", response, "ans?", answered);
       this.loadException(rxid, response, currentRequest);
       return;
+    } else {
+      // answered
+      this.registerParameter("responseBodyBuffer", r.dnsBuffer);
+      this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
+      // TODO: uncomment this once cacheResponse.js and dnsResolver.js
+      // have similar behaviour (that is, question and ans blocking happens
+      // inside dnsResolver.js itself and not outside of it as a plugin)
+      // Otherwise, currentRequest#dnsResponse sets stopProcessing to true
+      // and none of the plugins hence execute.
+      // currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
     }
-    this.registerParameter("responseBodyBuffer", r.dnsBuffer);
-    this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
   }
 
   /**
@@ -328,11 +334,9 @@ export default class RethinkPlugin {
       // TODO: can r.blockedB64Flag be ever empty when r.isBlocked?
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else {
-      // TODO: is this needed 'cause dns-resolver sets these already
-      currentRequest.dnsResponse(
-        this.parameter.get("responseBodyBuffer"),
-        this.parameter.get("responseDecodedDnsPacket")
-      );
+      const dnsBuffer = this.parameter.get("responseBodyBuffer");
+      const dnsPacket = this.parameter.get("responseDecodedDnsPacket");
+      currentRequest.dnsResponse(dnsBuffer, dnsPacket);
     }
   }
 

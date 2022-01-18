@@ -100,6 +100,7 @@ const _ENV_VAR_MAPPINGS = {
       worker: "IS_AGGRESSIVE_CACHE_REQ",
     },
     type: "boolean",
+    default: false,
   },
 };
 
@@ -124,7 +125,7 @@ function _getRuntimeEnv(runtime) {
     } else {
       name = mappedKey.name;
     }
-    if (typeof mappedKey.name === "object") {
+    if (typeof mappedKey.default === "object") {
       val = mappedKey.default[runtime];
     } else {
       val = mappedKey.default;

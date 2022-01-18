@@ -10,6 +10,7 @@ import { createBlocklistFilter } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
+import * as envutil from "../../commons/envutil.js";
 
 class BlocklistWrapper {
   constructor() {
@@ -48,7 +49,7 @@ class BlocklistWrapper {
       if (
         !this.isBlocklistUnderConstruction ||
         // it has been a while, queue another blocklist-construction
-        now - this.startTime > param.workerTimeout * 2
+        now - this.startTime > envutil.downloadTimeout() * 2
       ) {
         this.log.i(param.rxid, "download blocklists", now, this.startTime);
         return await this.initBlocklistConstruction(
@@ -69,7 +70,7 @@ class BlocklistWrapper {
         // equals cost of one bundled req.
         let totalWaitms = 0;
         const waitms = 50;
-        while (totalWaitms < param.fetchTimeout) {
+        while (totalWaitms < envutil.downloadTimeout()) {
           if (this.isBlocklistFilterSetup()) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;

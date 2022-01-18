@@ -12,17 +12,17 @@ import * as util from "./util.js";
 import * as bufutil from "./bufutil.js";
 
 // dns packet constants (in bytes)
-// A dns message over TCP stream has a header indicating length.
+// tcp msgs prefixed with 2-octet headers indicating request len in bytes
 export const dnsHeaderSize = 2;
 export const dnsPacketHeaderSize = 12;
 export const minDNSPacketSize = dnsPacketHeaderSize + 5;
 export const maxDNSPacketSize = 4096;
 
+// TODO: move _dns* related settings to env
 const _dnsCloudflareSec = "1.1.1.2";
 const _dnsCacheSize = 10000;
 
-const _minRequestTimeout = 5000; // 7s
-const _defaultRequestTimeout = 15000; // 15s
+const _minRequestTimeout = 5000; // 5s
 const _maxRequestTimeout = 30000; // 30s
 
 export function dnsIpv4() {
@@ -45,7 +45,7 @@ export function servfail(qid, qs) {
 }
 
 export function requestTimeout() {
-  const t = envutil.workersTimeout(_defaultRequestTimeout);
+  const t = envutil.workersTimeout();
   return t > _minRequestTimeout
     ? Math.min(t, _maxRequestTimeout)
     : _minRequestTimeout;

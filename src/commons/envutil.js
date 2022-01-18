@@ -27,8 +27,12 @@ export function isNode() {
   return env && env.runTime === "node";
 }
 
-export function workersTimeout(defaultValue = 0) {
-  return (env && env.workerTimeout) || defaultValue;
+export function workersTimeout(missing = 0) {
+  return (env && env.workerTimeout) || missing;
+}
+
+export function downloadTimeout(missing = 0) {
+  return (env && env.fetchTimeout) || missing;
 }
 
 export function blocklistUrl() {

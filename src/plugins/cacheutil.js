@@ -36,16 +36,20 @@ export function isCacheable(dnsPacket) {
 export function determineCacheExpiry(dnsPacket) {
   const expiresImmediately = 0;
 
-  if (!dnsutil.hasAnswers(dnsPacket)) return expiresImmediately;
+  if (!dnsutil.hasAnswers(dnsPacket)) {
+    return expiresImmediately;
+  }
 
   // set min(ttl) among all answers, but at least ttlGraceSec
   let minttl = 1 << 30; // some abnormally high ttl
 
   for (const a of dnsPacket.answers) {
-    minttl = Math.min(a.ttl || minttl, minttl);
+    minttl = Math.min(a.ttl || ttlGraceSec, minttl);
   }
 
-  if (minttl === 1 << 30) return expiresImmediately;
+  if (minttl === 1 << 30) {
+    return expiresImmediately;
+  }
 
   minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
   const expiry = Date.now() + minttl * 1000;
