@@ -26,6 +26,7 @@ const _ENV_VAR_MAPPINGS = {
   runTime: {
     name: "RUNTIME",
     type: "string",
+    default: "node",
   },
   runTimeEnv: {
     name: {
@@ -34,46 +35,61 @@ const _ENV_VAR_MAPPINGS = {
       deno: "DENO_ENV",
     },
     type: "string",
+    default: {
+      worker: "development",
+      node: "development",
+      deno: "development",
+    },
   },
   cloudPlatform: {
     name: "CLOUD_PLATFORM",
     type: "string",
+    default: "fly",
   },
   logLevel: {
     name: "LOG_LEVEL",
     type: "string",
+    default: "debug",
   },
   blocklistUrl: {
     name: "CF_BLOCKLIST_URL",
     type: "string",
+    default: "https://dist.rethinkdns.com/blocklists/",
   },
   latestTimestamp: {
     name: "CF_LATEST_BLOCKLIST_TIMESTAMP",
     type: "string",
+    default: "1638959365361",
   },
   dnsResolverUrl: {
     name: "CF_DNS_RESOLVER_URL",
     type: "string",
+    default: "https://cloudflare-dns.com/dns-query",
   },
   onInvalidFlagStopProcessing: {
     name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
     type: "boolean",
+    default: false,
   },
   workerTimeout: {
     name: "WORKER_TIMEOUT",
     type: "number",
+    default: 10000, // 10s
   },
   fetchTimeout: {
     name: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
     type: "number",
+    default: 5000, // 5s
   },
   tdNodecount: {
     name: "TD_NODE_COUNT",
     type: "number",
+    default: 42112224,
   },
   tdParts: {
     name: "TD_PARTS",
     type: "number",
+    default: 2,
   },
 
   // set to on - off aggressive cache plugin
@@ -99,6 +115,7 @@ function _getRuntimeEnv(runtime) {
   for (const [key, mappedKey] of Object.entries(_ENV_VAR_MAPPINGS)) {
     let name = null;
     let type = null;
+    let val = null;
 
     if (typeof mappedKey !== "object") continue;
 
@@ -107,6 +124,12 @@ function _getRuntimeEnv(runtime) {
     } else {
       name = mappedKey.name;
     }
+    if (typeof mappedKey.name === "object") {
+      val = mappedKey.default[runtime];
+    } else {
+      val = mappedKey.default;
+    }
+
     type = mappedKey.type;
 
     if (!type) {
@@ -120,9 +143,13 @@ function _getRuntimeEnv(runtime) {
     else if (runtime === "worker") env[key] = globalThis[name];
     else throw new Error(`unsupported runtime: ${runtime}`);
 
-    // Type conversion & type safety
-    // env. variables are assumed strings by default, so they are converted
-    // to the specified type from "string" type (exclusively), if necessary.
+    // assign default value when user-defined value is missing
+    if (env[key] === null || env[key] === undefined) {
+      console.warn(key, "env[key] default value:", val);
+      env[key] = val;
+    }
+
+    // env vars are strings by default, type cast as specified
     if (type === "boolean") env[key] = env[key] === "true";
     else if (type === "number") env[key] = Number(env[key]);
     else if (type === "string") env[key] = env[key] || "";
