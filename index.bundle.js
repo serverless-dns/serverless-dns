@@ -541,34 +541,34 @@ const _ENV_VAR_MAPPINGS = {
     onInvalidFlagStopProcessing: {
         name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
         type: "boolean",
-        default: false
+        default: "false"
     },
     workerTimeout: {
         name: "WORKER_TIMEOUT",
         type: "number",
-        default: 10000
+        default: "10000"
     },
     fetchTimeout: {
         name: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
         type: "number",
-        default: 5000
+        default: "5000"
     },
     tdNodecount: {
         name: "TD_NODE_COUNT",
         type: "number",
-        default: 42112224
+        default: "42112224"
     },
     tdParts: {
         name: "TD_PARTS",
         type: "number",
-        default: 2
+        default: "2"
     },
     isAggCacheReq: {
         name: {
             worker: "IS_AGGRESSIVE_CACHE_REQ"
         },
         type: "boolean",
-        default: false
+        default: "false"
     }
 };
 function _getRuntimeEnv(runtime) {
