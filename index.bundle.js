@@ -141,8 +141,34 @@ function copyHeaders(request) {
     });
     return headers;
 }
+function sleep(ms) {
+    return new Promise((resolve, reject)=>{
+        try {
+            setTimeout(resolve, ms);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
 function objOf(map) {
     return map.entries ? Object.fromEntries(map) : {};
+}
+function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
+    return new Promise((resolve, _)=>{
+        let timedout = false;
+        const tid = timeout(ms, ()=>{
+            timedout = true;
+            resolve(defaultOut);
+        });
+        promisedOp().then((out)=>{
+            if (!timedout) {
+                clearTimeout(tid);
+                resolve(out);
+            }
+        }).catch((ignored)=>{
+            if (!timedout) resolve(defaultOut);
+        });
+    });
 }
 function timeout(ms, callback) {
     if (typeof callback !== "function") return -1;
@@ -236,6 +262,11 @@ function respond405() {
     return new Response(null, {
         status: 405,
         statusText: "Method Not Allowed"
+    });
+}
+function respond408() {
+    return new Response(null, {
+        status: 408
     });
 }
 function respond503() {
@@ -5318,6 +5349,26 @@ function workersTimeout(missing = 0) {
 function downloadTimeout(missing = 0) {
     return env && env.fetchTimeout || missing;
 }
+function blocklistUrl() {
+    if (!env) return null;
+    return env.blocklistUrl;
+}
+function timestamp() {
+    if (!env) return null;
+    return env.latestTimestamp;
+}
+function tdNodeCount() {
+    if (!env) return null;
+    return env.tdNodecount;
+}
+function tdParts() {
+    if (!env) return null;
+    return env.tdParts;
+}
+function dohResolver() {
+    if (!env) return null;
+    return env.dnsResolverUrl;
+}
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
 function dnsIpv4() {
@@ -6541,7 +6592,8 @@ function makeHttpCacheApiValue(buf, metaData) {
     return new Response(buf, headers);
 }
 function makeHttpCacheApiKey(key, url) {
-    return new URL(new URL(url).origin + "/" + env.latestTimestamp + "/" + key);
+    const origin = new URL(url).origin;
+    return new URL(origin + "/" + timestamp() + "/" + key);
 }
 const ALPHA32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function readChar(chr) {
@@ -6817,7 +6869,7 @@ class BlocklistWrapper {
             const now = Date.now();
             if (!this.isBlocklistUnderConstruction || now - this.startTime > downloadTimeout() * 2) {
                 this.log.i(param.rxid, "download blocklists", now, this.startTime);
-                return await this.initBlocklistConstruction(param.rxid, now, param.blocklistUrl, param.latestTimestamp, param.tdNodecount, param.tdParts);
+                return await this.initBlocklistConstruction(param.rxid, now, blocklistUrl(), timestamp(), tdNodeCount(), tdParts());
             } else {
                 let totalWaitms = 0;
                 const waitms = 50;
@@ -6849,12 +6901,12 @@ class BlocklistWrapper {
         this.blocklistFilter.loadFilter(filter.t, filter.ft, filter.blocklistBasicConfig, filter.blocklistFileTag);
         this.isBlocklistUnderConstruction = false;
     }
-    async initBlocklistConstruction(rxid, when1, blocklistUrl, latestTimestamp, tdNodecount, tdParts) {
+    async initBlocklistConstruction(rxid, when1, blocklistUrl1, latestTimestamp, tdNodecount, tdParts1) {
         this.isBlocklistUnderConstruction = true;
         this.startTime = when1;
         let response = emptyResponse();
         try {
-            const bl = await this.downloadBuildBlocklist(rxid, blocklistUrl, latestTimestamp, tdNodecount, tdParts);
+            const bl = await this.downloadBuildBlocklist(rxid, blocklistUrl1, latestTimestamp, tdNodecount, tdParts1);
             this.blocklistFilter.loadFilter(bl.t, bl.ft, bl.blocklistBasicConfig, bl.blocklistFileTag);
             this.log.i(rxid, "blocklist-filter setup");
             response.data.blocklistFilter = this.blocklistFilter;
@@ -6867,15 +6919,15 @@ class BlocklistWrapper {
         this.isBlocklistUnderConstruction = false;
         return response;
     }
-    async downloadBuildBlocklist(rxid, blocklistUrl, latestTimestamp, tdNodecount, tdParts) {
+    async downloadBuildBlocklist(rxid, blocklistUrl2, latestTimestamp, tdNodecount, tdParts2) {
         !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
         const resp = {};
-        const baseurl = blocklistUrl + latestTimestamp;
+        const baseurl = blocklistUrl2 + latestTimestamp;
         const blocklistBasicConfig = {
             nodecount: tdNodecount || -1,
-            tdparts: tdParts || -1
+            tdparts: tdParts2 || -1
         };
-        this.log.d(rxid, blocklistUrl, latestTimestamp, tdNodecount, tdParts);
+        this.log.d(rxid, blocklistUrl2, latestTimestamp, tdNodecount, tdParts2);
         const buf0 = fileFetch(baseurl + "/filetag.json", "json");
         const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
         const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
@@ -6901,7 +6953,7 @@ async function fileFetch(url, typ) {
         log.i("fetch fail", typ, url);
         throw new Error("Unknown conversion type at fileFetch");
     }
-    log.i("downloading", url);
+    log.i("downloading", url, typ);
     const res = await fetch(url, {
         cf: {
             cacheTtl: 1209600
@@ -6921,16 +6973,6 @@ async function fileFetch(url, typ) {
         return await res.json();
     }
 }
-const sleep = (ms)=>{
-    return new Promise((resolve, reject)=>{
-        try {
-            setTimeout(resolve, ms);
-        } catch (e) {
-            log.e("dns-resolver sleep timeout", e);
-            reject(e);
-        }
-    });
-};
 async function makeTd(baseurl, n) {
     log.i("makeTd from tdParts", n);
     if (n <= -1) {
@@ -6946,14 +6988,12 @@ async function makeTd(baseurl, n) {
     }
     const tds = await Promise.all(tdpromises);
     log.i("tds downloaded");
-    return new Promise((resolve, reject)=>{
-        try {
-            resolve(concat(tds));
-        } catch (e) {
-            log.e("reject make-td", e);
-            reject(e.message);
-        }
-    });
+    try {
+        return concat(tds);
+    } catch (e) {
+        log.e("reject make-td", e);
+        throw e;
+    }
 }
 class CommandControl {
     constructor(){
@@ -6961,7 +7001,7 @@ class CommandControl {
         this.log = log.withTags("CommandControl");
     }
     async RethinkModule(param) {
-        this.latestTimestamp = param.latestTimestamp;
+        this.latestTimestamp = timestamp();
         if (isGetRequest(param.request)) {
             return this.commandOperation(param.rxid, param.request.url, param.blocklistFilter, param.isDnsMsg);
         }
@@ -7025,9 +7065,9 @@ class CommandControl {
 function isRethinkDns(hostname) {
     return hostname.indexOf("rethinkdns") >= 0;
 }
-function configRedirect(userFlag, origin, timestamp, highlight) {
+function configRedirect(userFlag, origin, timestamp1, highlight) {
     const u = "https://rethinkdns.com/configure";
-    let q = "?tstamp=" + timestamp;
+    let q = "?tstamp=" + timestamp1;
     q += !isRethinkDns(origin) ? "&v=ext&u=" + origin : "";
     q += highlight ? "&s=added" : "";
     q += userFlag ? "#" + userFlag : "";
@@ -7136,7 +7176,7 @@ class UserOperation {
                 this.userConfigCache.put(blocklistFlag, currentUser);
             }
             response.data.userBlocklistInfo = currentUser;
-            response.data.dnsResolverUrl = param.dnsResolverUrl;
+            response.data.dnsResolverUrl = dohResolver();
         } catch (e) {
             this.log.e(param.rxid, "loadUser", e);
             response = errResponse("UserOp:loadUser", e);
@@ -7278,7 +7318,7 @@ class DNSResolver {
     }
     async resolveDns(param) {
         const rxid = param.rxid;
-        const upRes = await this.resolveDnsUpstream(rxid, param.request, param.dnsResolverUrl, param.requestBodyBuffer);
+        const upRes = await this.resolveDnsUpstream(rxid, param.request, dohResolver(), param.requestBodyBuffer);
         return await this.decodeResponse(rxid, upRes);
     }
     async decodeResponse(rxid, response) {
@@ -7465,7 +7505,6 @@ class RethinkPlugin {
         this.plugin = [];
         this.registerPlugin("userOperation", services.userOperation, [
             "rxid",
-            "dnsResolverUrl",
             "request",
             "isDnsMsg"
         ], this.userOperationCallBack, false);
@@ -7480,19 +7519,12 @@ class RethinkPlugin {
             "dnsResponseBlock", 
         ], this.dnsCacheCallBack, false);
         this.registerPlugin("blocklistFilter", services.blocklistWrapper, [
-            "rxid",
-            "blocklistUrl",
-            "latestTimestamp",
-            "workerTimeout",
-            "tdParts",
-            "tdNodecount",
-            "fetchTimeout", 
+            "rxid"
         ], this.blocklistFilterCallBack, false);
         this.registerPlugin("commandControl", services.commandControl, [
             "rxid",
             "request",
             "blocklistFilter",
-            "latestTimestamp",
             "isDnsMsg"
         ], this.commandControlCallBack, false);
         this.registerPlugin("dnsQuestionBlock", services.dnsQuestionBlock, [
@@ -7508,7 +7540,6 @@ class RethinkPlugin {
             "rxid",
             "requestBodyBuffer",
             "request",
-            "dnsResolverUrl",
             "requestDecodedDnsPacket",
             "event",
             "blocklistFilter",
@@ -7691,46 +7722,42 @@ function setInvalidResponse(currentRequest) {
     currentRequest.hResponse(respond405());
 }
 function handleRequest(event) {
-    return Promise.race([
-        new Promise((accept, _)=>{
-            accept(proxyRequest(event));
-        }),
-        new Promise((accept, _)=>{
-            timeout(requestTimeout(), ()=>{
-                log.e("doh", "handle-request timeout");
-                accept(servfail1());
-            });
-        }), 
-    ]);
+    return timedSafeAsyncOp(async ()=>proxyRequest(event)
+    , requestTimeout(), servfail1());
 }
 async function proxyRequest(event) {
+    if (optionsRequest(event.request)) return respond204();
+    const cr = new CurrentRequest();
     try {
-        if (optionsRequest(event.request)) return respond204();
-        const currentRequest = new CurrentRequest();
         const plugin = new RethinkPlugin(event);
-        await plugin.executePlugin(currentRequest);
+        await plugin.executePlugin(cr);
         const ua = event.request.headers.get("User-Agent");
         if (fromBrowser(ua)) currentRequest.setCorsHeadersIfNeeded();
-        return currentRequest.httpResponse;
+        return cr.httpResponse;
     } catch (err) {
         log.e("doh", "proxy-request error", err);
-        return errorOrServfail(event.request, err);
+        return errorOrServfail(event.request, err, cr);
     }
 }
 function optionsRequest(request) {
     return request.method === "OPTIONS";
 }
-function errorOrServfail(request, err) {
+function errorOrServfail(request, err, currentRequest) {
     const ua = request.headers.get("User-Agent");
-    if (!fromBrowser(ua)) return servfail1();
+    if (!fromBrowser(ua)) return servfail1(currentRequest);
     const res = new Response(JSON.stringify(err.stack), {
         status: 503,
         headers: browserHeaders()
     });
     return res;
 }
-function servfail1() {
-    return respond503();
+function servfail1(currentRequest) {
+    if (emptyObj(currentRequest) || emptyObj(currentRequest.decodedDnsPacket)) {
+        return respond408();
+    }
+    const qid = currentRequest.decodedDnsPacket.id;
+    const qs = currentRequest.decodedDnsPacket.questions;
+    return servfail(qid, qs);
 }
 let log1 = null;
 ((main)=>{
