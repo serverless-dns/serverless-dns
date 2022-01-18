@@ -466,7 +466,8 @@ class Log {
 const _ENV_VAR_MAPPINGS = {
     runTime: {
         name: "RUNTIME",
-        type: "string"
+        type: "string",
+        default: "node"
     },
     runTimeEnv: {
         name: {
@@ -474,53 +475,69 @@ const _ENV_VAR_MAPPINGS = {
             node: "NODE_ENV",
             deno: "DENO_ENV"
         },
-        type: "string"
+        type: "string",
+        default: {
+            worker: "development",
+            node: "development",
+            deno: "development"
+        }
     },
     cloudPlatform: {
         name: "CLOUD_PLATFORM",
-        type: "string"
+        type: "string",
+        default: "fly"
     },
     logLevel: {
         name: "LOG_LEVEL",
-        type: "string"
+        type: "string",
+        default: "debug"
     },
     blocklistUrl: {
         name: "CF_BLOCKLIST_URL",
-        type: "string"
+        type: "string",
+        default: "https://dist.rethinkdns.com/blocklists/"
     },
     latestTimestamp: {
         name: "CF_LATEST_BLOCKLIST_TIMESTAMP",
-        type: "string"
+        type: "string",
+        default: "1638959365361"
     },
     dnsResolverUrl: {
         name: "CF_DNS_RESOLVER_URL",
-        type: "string"
+        type: "string",
+        default: "https://cloudflare-dns.com/dns-query"
     },
     onInvalidFlagStopProcessing: {
         name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
-        type: "boolean"
+        type: "boolean",
+        default: false
     },
     workerTimeout: {
         name: "WORKER_TIMEOUT",
-        type: "number"
+        type: "number",
+        default: 10000
     },
     fetchTimeout: {
         name: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
-        type: "number"
+        type: "number",
+        default: 5000
     },
     tdNodecount: {
         name: "TD_NODE_COUNT",
-        type: "number"
+        type: "number",
+        default: 42112224
     },
     tdParts: {
         name: "TD_PARTS",
-        type: "number"
+        type: "number",
+        default: 2
     },
     isAggCacheReq: {
         name: {
             worker: "IS_AGGRESSIVE_CACHE_REQ"
         },
-        type: "boolean"
+        type: "boolean",
+        default: false
     }
 };
 function _getRuntimeEnv(runtime) {
@@ -529,11 +546,17 @@ function _getRuntimeEnv(runtime) {
     for (const [key, mappedKey] of Object.entries(_ENV_VAR_MAPPINGS)){
         let name2 = null;
         let type = null;
+        let val = null;
         if (typeof mappedKey !== "object") continue;
         if (typeof mappedKey.name === "object") {
             name2 = mappedKey.name[runtime];
         } else {
             name2 = mappedKey.name;
+        }
+        if (typeof mappedKey.default === "object") {
+            val = mappedKey.default[runtime];
+        } else {
+            val = mappedKey.default;
         }
         type = mappedKey.type;
         if (!type) {
@@ -544,6 +567,10 @@ function _getRuntimeEnv(runtime) {
         else if (runtime === "deno") env[key] = name2 && Deno.env.get(name2);
         else if (runtime === "worker") env[key] = globalThis[name2];
         else throw new Error(`unsupported runtime: ${runtime}`);
+        if (env[key] === null || env[key] === undefined) {
+            console.warn(key, "env[key] default value:", val);
+            env[key] = val;
+        }
         if (type === "boolean") env[key] = env[key] === "true";
         else if (type === "number") env[key] = Number(env[key]);
         else if (type === "string") env[key] = env[key] || "";
@@ -5285,8 +5312,11 @@ function isWorkers() {
 function isNode() {
     return env && env.runTime === "node";
 }
-function workersTimeout(defaultValue = 0) {
-    return env && env.workerTimeout || defaultValue;
+function workersTimeout(missing = 0) {
+    return env && env.workerTimeout || missing;
+}
+function downloadTimeout(missing = 0) {
+    return env && env.fetchTimeout || missing;
 }
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
@@ -5306,7 +5336,7 @@ function servfail(qid, qs) {
     });
 }
 function requestTimeout() {
-    const t = workersTimeout(15000);
+    const t = workersTimeout();
     return t > 5000 ? Math.min(t, 30000) : 5000;
 }
 function truncated(ans) {
@@ -6371,12 +6401,16 @@ function isCacheable(dnsPacket) {
     return true;
 }
 function determineCacheExpiry(dnsPacket) {
-    if (!hasAnswers(dnsPacket)) return 0;
+    if (!hasAnswers(dnsPacket)) {
+        return 0;
+    }
     let minttl = 1 << 30;
     for (const a of dnsPacket.answers){
-        minttl = Math.min(a.ttl || minttl, minttl);
+        minttl = Math.min(a.ttl || ttlGraceSec, minttl);
     }
-    if (minttl === 1 << 30) return 0;
+    if (minttl === 1 << 30) {
+        return 0;
+    }
     minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
     const expiry = Date.now() + minttl * 1000;
     return expiry;
@@ -6781,13 +6815,13 @@ class BlocklistWrapper {
         }
         try {
             const now = Date.now();
-            if (!this.isBlocklistUnderConstruction || now - this.startTime > param.workerTimeout * 2) {
+            if (!this.isBlocklistUnderConstruction || now - this.startTime > downloadTimeout() * 2) {
                 this.log.i(param.rxid, "download blocklists", now, this.startTime);
                 return await this.initBlocklistConstruction(param.rxid, now, param.blocklistUrl, param.latestTimestamp, param.tdNodecount, param.tdParts);
             } else {
                 let totalWaitms = 0;
                 const waitms = 50;
-                while(totalWaitms < param.fetchTimeout){
+                while(totalWaitms < downloadTimeout()){
                     if (this.isBlocklistFilterSetup()) {
                         response.data.blocklistFilter = this.blocklistFilter;
                         return response;
@@ -7565,6 +7599,7 @@ class RethinkPlugin {
         } else if (blocked) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
         } else if (answered) {
+            this.registerParameter("responseBodyBuffer", r.dnsBuffer);
             this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
             currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
         } else {
@@ -7587,14 +7622,16 @@ class RethinkPlugin {
     dnsResolverCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
         const r = response.data;
+        const answered = !emptyObj(r) && !emptyBuf(r.dnsBuffer);
         this.log.d(rxid, "dns-resolver packet");
-        if (response.isException || emptyObj(r) || emptyBuf(r.dnsBuffer)) {
-            this.log.w(rxid, "err dns-resolver", response);
+        if (response.isException || !answered) {
+            this.log.w(rxid, "err dns-resolver", response, "ans?", answered);
             this.loadException(rxid, response, currentRequest);
             return;
+        } else {
+            this.registerParameter("responseBodyBuffer", r.dnsBuffer);
+            this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
         }
-        this.registerParameter("responseBodyBuffer", r.dnsBuffer);
-        this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
     }
     dnsResponseBlockCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
@@ -7607,7 +7644,9 @@ class RethinkPlugin {
         } else if (blocked) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
         } else {
-            currentRequest.dnsResponse(this.parameter.get("responseBodyBuffer"), this.parameter.get("responseDecodedDnsPacket"));
+            const dnsBuffer = this.parameter.get("responseBodyBuffer");
+            const dnsPacket = this.parameter.get("responseDecodedDnsPacket");
+            currentRequest.dnsResponse(dnsBuffer, dnsPacket);
         }
     }
     loadException(rxid, response, currentRequest) {
