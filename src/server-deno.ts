@@ -90,21 +90,19 @@ async function serveHttp(conn: Deno.Conn) {
     } catch (e) {
       log.w("error reading http request", e);
     }
-    if (requestEvent) {
-      let res = null;
-      try {
-        res = handleRequest(requestEvent);
-      } catch (e) {
-        res = util.respond503();
-        log.w("error handling http request", e);
-      } finally {
-        try {
-          await requestEvent.respondWith(res as Response | Promise<Response>);
-        } catch (e) {
-          // Client may close the connection abruptly before response is sent
-          log.w("error responding to http request", e);
-        }
-      }
+    if (!requestEvent) continue;
+    let res = null;
+    try {
+      res = handleRequest(requestEvent);
+    } catch (e) {
+      res = util.respond503();
+      log.w("serv fail doh request", e);
+    }
+    try {
+      await requestEvent.respondWith(res as Response | Promise<Response>);
+    } catch (e) {
+      // Client may close the connection abruptly before response is sent
+      log.w("send fail doh response", e);
     }
   }
 }
