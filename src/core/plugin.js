@@ -23,7 +23,6 @@ export default class RethinkPlugin {
     this.parameter = new Map(envManager.getMap());
 
     const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
-    // TODO: generate rxid in setRequest instead?
     this.registerParameter("rxid", "[rx." + rxid + "]");
 
     // caution: event isn't an event on nodejs, but event.request is a request

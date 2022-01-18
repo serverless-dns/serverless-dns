@@ -44,6 +44,17 @@ export function servfail(qid, qs) {
   });
 }
 
+export function servfailQ(q) {
+  if (bufutil.emptyBuf(q)) return null;
+
+  try {
+    const p = decode(q);
+    return servfail(p.id, p.questions);
+  } catch (e) {
+    return null;
+  }
+}
+
 export function requestTimeout() {
   const t = envutil.workersTimeout();
   return t > _minRequestTimeout

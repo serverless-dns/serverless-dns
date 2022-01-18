@@ -50,7 +50,7 @@ class BlocklistWrapper {
         return await this.initBlocklistConstruction(
           param.rxid,
           now,
-          envutil.dohResolver(),
+          envutil.blocklistUrl(),
           envutil.timestamp(),
           envutil.tdNodeCount(),
           envutil.tdParts()
@@ -212,7 +212,7 @@ async function fileFetch(url, typ) {
     throw new Error("Unknown conversion type at fileFetch");
   }
 
-  log.i("downloading", url);
+  log.i("downloading", url, typ);
   const res = await fetch(url, { cf: { cacheTtl: /* 2w */ 1209600 } });
 
   if (!res.ok) {
@@ -252,14 +252,12 @@ async function makeTd(baseurl, n) {
 
   log.i("tds downloaded");
 
-  return new Promise((resolve, reject) => {
-    try {
-      resolve(bufutil.concat(tds));
-    } catch (e) {
-      log.e("reject make-td", e);
-      reject(e.message);
-    }
-  });
+  try {
+    return bufutil.concat(tds);
+  } catch (e) {
+    log.e("reject make-td", e);
+    throw e;
+  }
 }
 
 export { BlocklistFilter, BlocklistWrapper };

@@ -349,14 +349,24 @@ async function handleTCPQuery(q, socket, host, flag) {
   const t = log.startTime("handle-tcp-query-" + rxid);
   try {
     const r = await resolveQuery(rxid, q, host, flag);
-    const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
-    const chunk = new Uint8Array([...rlBuf, ...r]);
+    if (bufutil.emptyBuf(r)) {
+      log.w("empty ans from resolve");
+      ok = false;
+    } else {
+      const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
+      const chunk = new Uint8Array([...rlBuf, ...r]);
 
-    // writing to a destroyed socket crashes nodejs
-    if (!socket.destroyed) socket.write(chunk);
+      // writing to a destroyed socket crashes nodejs
+      if (!socket.destroyed) {
+        socket.write(chunk);
+      } else {
+        ok = false;
+        log.w("send fail, tcp socket destroyed");
+      }
+    }
   } catch (e) {
     ok = false;
-    log.w(e);
+    log.w("send fail, err", e);
   }
   log.endTime(t);
 
@@ -374,8 +384,8 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @return {Promise<Uint8Array>}
  */
 async function resolveQuery(rxid, q, host, flag) {
-  // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
-  // has a much higher ceiling (even if rarely used)
+  // Using POST, since GET requests cannot be greater than 2KB,
+  // where-as DNS-over-TCP msgs could be upto 64KB in size.
   const r = await handleRequest({
     request: new Request(`https://${host}/${flag}`, {
       method: "POST",
@@ -388,7 +398,12 @@ async function resolveQuery(rxid, q, host, flag) {
     }),
   });
 
-  return new Uint8Array(await r.arrayBuffer());
+  const ans = await r.arrayBuffer();
+  if (!bufutil.emptyBuf(ans)) {
+    return new Uint8Array(ans);
+  } else {
+    return dnsutil.servfailQ(q);
+  }
 }
 
 /**
@@ -455,12 +470,15 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "send-head");
 
-    const ans = Buffer.from(await fRes.arrayBuffer());
+    const ans = await fRes.arrayBuffer();
 
     log.lapTime(t, "recv-ans");
 
-    res.end(ans);
+    if (!bufutil.emptyBuf(ans)) {
+      res.end(bufutil.bufferOf(ans));
+    } // else: expect fRes.status to be set to non 2xx above
   } catch (e) {
+    res.writeHead(400); // bad request
     res.end();
     log.w(e);
   }

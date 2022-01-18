@@ -12,40 +12,31 @@ import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 
 export function handleRequest(event) {
-  return Promise.race([
-    new Promise((accept, _) => {
-      accept(proxyRequest(event));
-    }),
-
-    // TODO: cancel timeout once proxyRequest is complete
-    // util.timedOp is one way to do so, but it results in a reject
-    // on timeouts which manifests as "exception" to upstream (server-
-    // -worker/deno/node) that then needs to handle it as approp.
-    new Promise((accept, _) => {
-      // on timeout, servfail
-      util.timeout(dnsutil.requestTimeout(), () => {
-        log.e("doh", "handle-request timeout");
-        accept(servfail());
-      });
-    }),
-  ]);
+  return util.timedSafeAsyncOp(
+    async () => proxyRequest(event),
+    dnsutil.requestTimeout(),
+    servfail()
+  );
 }
 
 async function proxyRequest(event) {
+  if (optionsRequest(event.request)) return util.respond204();
+
+  const cr = new CurrentRequest();
+
   try {
-    if (optionsRequest(event.request)) return util.respond204();
-
-    const currentRequest = new CurrentRequest();
     const plugin = new RethinkPlugin(event);
-    await plugin.executePlugin(currentRequest);
+    await plugin.executePlugin(cr);
 
+    // TODO: cors-headers are also set in server-node.js
+    // centralize setting these in just one place, if possible
     const ua = event.request.headers.get("User-Agent");
     if (util.fromBrowser(ua)) currentRequest.setCorsHeadersIfNeeded();
 
-    return currentRequest.httpResponse;
+    return cr.httpResponse;
   } catch (err) {
     log.e("doh", "proxy-request error", err);
-    return errorOrServfail(event.request, err);
+    return errorOrServfail(event.request, err, cr);
   }
 }
 
@@ -53,9 +44,9 @@ function optionsRequest(request) {
   return request.method === "OPTIONS";
 }
 
-function errorOrServfail(request, err) {
+function errorOrServfail(request, err, currentRequest) {
   const ua = request.headers.get("User-Agent");
-  if (!util.fromBrowser(ua)) return servfail();
+  if (!util.fromBrowser(ua)) return servfail(currentRequest);
 
   const res = new Response(JSON.stringify(err.stack), {
     status: 503, // unavailable
@@ -64,6 +55,15 @@ function errorOrServfail(request, err) {
   return res;
 }
 
-function servfail() {
-  return util.respond503();
+function servfail(currentRequest) {
+  if (
+    util.emptyObj(currentRequest) ||
+    util.emptyObj(currentRequest.decodedDnsPacket)
+  ) {
+    return util.respond408();
+  }
+
+  const qid = currentRequest.decodedDnsPacket.id;
+  const qs = currentRequest.decodedDnsPacket.questions;
+  return dnsutil.servfail(qid, qs);
 }

@@ -90,6 +90,7 @@ export function copyHeaders(request) {
   });
   return headers;
 }
+
 export function copyNonPseudoHeaders(req) {
   const headers = {};
   if (!req || !req.headers) return headers;
@@ -121,41 +122,59 @@ export function objOf(map) {
   return map.entries ? Object.fromEntries(map) : {};
 }
 
-export function timedOp(op, ms, cleanup) {
-  let tid = null;
-  let resolve = null;
-  let reject = null;
-  const promiser = (accept, deny) => {
-    resolve = accept;
-    reject = deny;
-  };
-  const p = new Promise(promiser);
-
-  let timedout = false;
-  tid = timeout(ms, () => {
-    timedout = true;
-    reject("timeout");
-  });
-
-  try {
-    op((out, ex) => {
-      if (timedout) {
-        cleanup(out);
-        return;
-      }
-
-      clearTimeout(tid);
-
-      if (ex) {
-        reject(ex.message);
-      } else {
-        resolve(out);
-      }
+export function timedOp(op, ms, cleanup = () => {}) {
+  return new Promise((resolve, reject) => {
+    let timedout = false;
+    const tid = timeout(ms, () => {
+      timedout = true;
+      reject(new Error("timeout"));
     });
-  } catch (ex) {
-    if (!timedout) reject(ex.message);
-  }
-  return p;
+
+    try {
+      op((out, ex) => {
+        if (timedout) {
+          cleanup(out);
+          return;
+        }
+
+        clearTimeout(tid);
+
+        if (ex) {
+          reject(ex);
+        } else {
+          resolve(out);
+        }
+      });
+    } catch (e) {
+      if (!timedout) reject(e);
+    }
+  });
+}
+
+export function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
+  // aggregating promises is a valid use-case for the otherwise
+  // "deferred promise anti-pattern". That is, using promise
+  // constructs (async, await, catch, then etc) within a
+  // "new Promise()" is an anti-pattern and hard to get right:
+  // stackoverflow.com/a/23803744 and stackoverflow.com/a/25569299
+  return new Promise((resolve, _) => {
+    let timedout = false;
+    const tid = timeout(ms, () => {
+      timedout = true;
+      resolve(defaultOut);
+    });
+
+    promisedOp()
+      .then((out) => {
+        if (!timedout) {
+          clearTimeout(tid);
+          resolve(out);
+        }
+      })
+      .catch((ignored) => {
+        if (!timedout) resolve(defaultOut);
+      });
+  });
 }
 
 export function timeout(ms, callback) {
@@ -290,6 +309,12 @@ export function respond405() {
   return new Response(null, {
     status: 405,
     statusText: "Method Not Allowed",
+  });
+}
+
+export function respond408() {
+  return new Response(null, {
+    status: 408, // timeout
   });
 }
 

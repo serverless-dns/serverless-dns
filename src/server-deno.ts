@@ -165,9 +165,7 @@ async function handleTCPQuery(q: Uint8Array, conn: Deno.Conn) {
 }
 
 async function resolveQuery(q: Uint8Array) {
-  // Request Handler currently expects a FetchEvent containing request
-  // Using POST, as GET requests are capped at 2KB, where-as DNS-over-TCP
-  // has a much higher ceiling (even if rarely used)
+  // TODO: Sync code with server-node.js:resolveQuery
   const r: Response = (await handleRequest({
     request: new Request("https://example.com", {
       method: "POST",
