@@ -117,9 +117,6 @@ function corsHeaders() {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
     };
 }
-function browserHeaders() {
-    return Object.assign(jsonHeaders(), corsHeaders());
-}
 function contentLengthHeader(b) {
     const len = !b || !b.byteLength ? "0" : b.byteLength.toString();
     return {
@@ -153,12 +150,19 @@ function sleep(ms) {
 function objOf(map) {
     return map.entries ? Object.fromEntries(map) : {};
 }
-function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
+function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
     return new Promise((resolve, _)=>{
         let timedout = false;
+        const defferedOp = ()=>{
+            defaultOp().then((v)=>{
+                resolve(v);
+            }).catch((e)=>{
+                reject(e);
+            });
+        };
         const tid = timeout(ms, ()=>{
             timedout = true;
-            resolve(defaultOut);
+            defferedOp();
         });
         promisedOp().then((out)=>{
             if (!timedout) {
@@ -166,7 +170,7 @@ function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
                 resolve(out);
             }
         }).catch((ignored)=>{
-            if (!timedout) resolve(defaultOut);
+            if (!timedout) defferedOp();
         });
     });
 }
@@ -238,7 +242,7 @@ function emptyString(str) {
 function emptyArray(a) {
     if (!a) return true;
     if (typeof a !== "object") return false;
-    return !!a.length && a.length <= 0;
+    return a.length <= 0;
 }
 function concatObj(...args) {
     return Object.assign(...args);
@@ -262,11 +266,6 @@ function respond405() {
     return new Response(null, {
         status: 405,
         statusText: "Method Not Allowed"
-    });
-}
-function respond408() {
-    return new Response(null, {
-        status: 408
     });
 }
 function respond503() {
@@ -538,6 +537,11 @@ const _ENV_VAR_MAPPINGS = {
         type: "string",
         default: "https://cloudflare-dns.com/dns-query"
     },
+    secondaryDohResolver: {
+        name: "CF_DNS_RESOLVER_URL_2",
+        type: "string",
+        default: "https://dns.google/dns-query"
+    },
     onInvalidFlagStopProcessing: {
         name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
         type: "boolean",
@@ -562,13 +566,6 @@ const _ENV_VAR_MAPPINGS = {
         name: "TD_PARTS",
         type: "number",
         default: "2"
-    },
-    isAggCacheReq: {
-        name: {
-            worker: "IS_AGGRESSIVE_CACHE_REQ"
-        },
-        type: "boolean",
-        default: "false"
     }
 };
 function _getRuntimeEnv(runtime) {
@@ -598,7 +595,7 @@ function _getRuntimeEnv(runtime) {
         else if (runtime === "deno") env[key] = name2 && Deno.env.get(name2);
         else if (runtime === "worker") env[key] = globalThis[name2];
         else throw new Error(`unsupported runtime: ${runtime}`);
-        if (env[key] === null || env[key] === undefined) {
+        if (env[key] == null) {
             console.warn(key, "env[key] default value:", val);
             env[key] = val;
         }
@@ -606,7 +603,7 @@ function _getRuntimeEnv(runtime) {
         else if (type === "number") env[key] = Number(env[key]);
         else if (type === "string") env[key] = env[key] || "";
         else throw new Error(`unsupported type: ${type}`);
-        console.debug("Added", key, mappedKey, env[key]);
+        console.debug("Added", key, env[key]);
     }
     return env;
 }
@@ -5369,6 +5366,10 @@ function dohResolver() {
     if (!env) return null;
     return env.dnsResolverUrl;
 }
+function secondaryDohResolver() {
+    if (!env) return null;
+    return env.secondaryDohResolver;
+}
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
 function dnsIpv4() {
@@ -5388,7 +5389,7 @@ function servfail(qid, qs) {
 }
 function requestTimeout() {
     const t = workersTimeout();
-    return t > 5000 ? Math.min(t, 30000) : 5000;
+    return t > 4000 ? Math.min(t, 30000) : 4000;
 }
 function truncated(ans) {
     if (ans.length < 12) return false;
@@ -5519,10 +5520,10 @@ class CurrentRequest {
             exceptionFrom: this.exceptionFrom,
             exceptionStack: this.exceptionStack
         };
-        const servfail2 = servfail(qid, questions);
-        this.httpResponse = new Response(servfail2, {
+        const servfail1 = servfail(qid, questions);
+        this.httpResponse = new Response(servfail1, {
             headers: concatHeaders(this.headers(), this.additionalHeader(JSON.stringify(ex))),
-            status: servfail2 ? 200 : 500
+            status: servfail1 ? 200 : 408
         });
     }
     hResponse(r) {
@@ -5535,7 +5536,7 @@ class CurrentRequest {
             return;
         }
         this.stopProcessing = true;
-        this.decodedDnsPacket = dnsPacket || this.decodedDnsPacket;
+        this.decodedDnsPacket = dnsPacket || decode3(arrayBuffer);
         this.httpResponse = new Response(arrayBuffer, {
             headers: this.headers()
         });
@@ -7176,7 +7177,7 @@ class UserOperation {
                 this.userConfigCache.put(blocklistFlag, currentUser);
             }
             response.data.userBlocklistInfo = currentUser;
-            response.data.dnsResolverUrl = dohResolver();
+            response.data.dnsResolverUrl = null;
         } catch (e) {
             this.log.e(param.rxid, "loadUser", e);
             response = errResponse("UserOp:loadUser", e);
@@ -7289,6 +7290,10 @@ class DNSResolver {
         this.nodeUtil = null;
         this.transport = null;
         this.log = log.withTags("DnsResolver");
+        this.preferredDohResolvers = [
+            dohResolver(),
+            secondaryDohResolver(), 
+        ];
     }
     async lazyInit() {
         if (isNode() && !this.http2) {
@@ -7316,9 +7321,22 @@ class DNSResolver {
         }
         return response;
     }
+    determineDohResolvers(param) {
+        if (this.transport) return [];
+        const preferredByUser = param.userDnsResolverUrl;
+        if (!emptyString(preferredByUser)) {
+            return [
+                preferredByUser
+            ];
+        } else if (isWorkers()) {
+            return this.preferredDohResolvers;
+        }
+        return dohResolver();
+    }
     async resolveDns(param) {
         const rxid = param.rxid;
-        const upRes = await this.resolveDnsUpstream(rxid, param.request, dohResolver(), param.requestBodyBuffer);
+        const upstreams = this.determineDohResolvers(param);
+        const upRes = await this.resolveDnsUpstream(rxid, param.request, upstreams, param.requestBodyBuffer);
         return await this.decodeResponse(rxid, upRes);
     }
     async decodeResponse(rxid, response) {
@@ -7336,9 +7354,9 @@ class DNSResolver {
         };
     }
 }
-DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolverUrl, requestBodyBuffer) {
-    if (this.transport) {
-        const q = bufferOf(requestBodyBuffer);
+DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolverUrls, query) {
+    if (emptyArray(resolverUrls)) {
+        const q = bufferOf(query);
         let ans = await this.transport.udpquery(rxid, q);
         if (ans && truncated(ans)) {
             this.log.w(rxid, "ans truncated, retrying over tcp");
@@ -7346,28 +7364,38 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
         }
         return ans ? new Response(arrayBufferOf(ans)) : respond503();
     }
-    const u = new URL(request.url);
-    const upstream = new URL(resolverUrl);
-    u.hostname = upstream.hostname;
-    u.pathname = upstream.pathname;
-    u.port = upstream.port;
-    u.protocol = upstream.protocol;
-    let newRequest = null;
-    if (isGetRequest(request)) {
-        u.search = "?dns=" + bytesToBase64Url(requestBodyBuffer);
-        newRequest = new Request(u.href, {
-            method: "GET"
-        });
-    } else if (isPostRequest(request)) {
-        newRequest = new Request(u.href, {
-            method: "POST",
-            headers: concatHeaders(contentLengthHeader(requestBodyBuffer), dnsHeaders()),
-            body: requestBodyBuffer
-        });
-    } else {
-        throw new Error("get/post requests only");
+    const promisedRes = [
+        Promise.reject(new Error("no upstream"))
+    ];
+    for (const rurl of resolverUrls){
+        if (emptyString(rurl)) {
+            this.log.w(rxid, "missing resolver url", rurl);
+            continue;
+        }
+        const u = new URL(request.url);
+        const upstream = new URL(rurl);
+        u.hostname = upstream.hostname;
+        u.pathname = upstream.pathname;
+        u.port = upstream.port;
+        u.protocol = upstream.protocol;
+        let dnsreq = null;
+        if (isGetRequest(request)) {
+            u.search = "?dns=" + bytesToBase64Url(query);
+            dnsreq = new Request(u.href, {
+                method: "GET"
+            });
+        } else if (isPostRequest(request)) {
+            dnsreq = new Request(u.href, {
+                method: "POST",
+                headers: concatHeaders(contentLengthHeader(query), dnsHeaders()),
+                body: query
+            });
+        } else {
+            return Promise.reject(new Error("get/post requests only"));
+        }
+        promisedRes.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
     }
-    return this.http2 ? this.doh2(rxid, newRequest) : fetch(newRequest);
+    return Promise.any(promisedRes);
 };
 DNSResolver.prototype.doh2 = async function(rxid, request) {
     if (!this.http2 || !this.nodeUtil) {
@@ -7401,9 +7429,9 @@ DNSResolver.prototype.doh2 = async function(rxid, request) {
                 safeBox(c.close);
                 resolve(new Response(rb, h));
             });
-            req.on("error", (err)=>{
-                reject(err.message);
-            });
+        });
+        req.on("error", (err)=>{
+            reject(err.message);
         });
         req.end(upstreamQuery);
     });
@@ -7542,6 +7570,7 @@ class RethinkPlugin {
             "request",
             "requestDecodedDnsPacket",
             "event",
+            "userDnsResolverUrl",
             "blocklistFilter",
             "dnsCache", 
         ], this.dnsResolverCallBack, false);
@@ -7614,7 +7643,7 @@ class RethinkPlugin {
             this.loadException(rxid, response, currentRequest);
         } else if (!emptyObj(r)) {
             this.registerParameter("userBlocklistInfo", r.userBlocklistInfo);
-            this.registerParameter("dnsResolverUrl", r.dnsResolverUrl);
+            this.registerParameter("userDnsResolverUrl", r.dnsResolverUrl);
         } else {
             this.log.i(rxid, "user-op is a no-op, possibly a command-control req");
         }
@@ -7722,42 +7751,30 @@ function setInvalidResponse(currentRequest) {
     currentRequest.hResponse(respond405());
 }
 function handleRequest(event) {
-    return timedSafeAsyncOp(async ()=>proxyRequest(event)
-    , requestTimeout(), servfail1());
+    return proxyRequest(event);
 }
 async function proxyRequest(event) {
     if (optionsRequest(event.request)) return respond204();
     const cr = new CurrentRequest();
     try {
         const plugin = new RethinkPlugin(event);
-        await plugin.executePlugin(cr);
-        const ua = event.request.headers.get("User-Agent");
-        if (fromBrowser(ua)) currentRequest.setCorsHeadersIfNeeded();
-        return cr.httpResponse;
+        await timedSafeAsyncOp(async ()=>plugin.executePlugin(cr)
+        , requestTimeout(), async ()=>errorResponse(cr)
+        );
     } catch (err) {
         log.e("doh", "proxy-request error", err);
-        return errorOrServfail(event.request, err, cr);
+        errorResponse(cr, err);
     }
+    const ua = event.request.headers.get("User-Agent");
+    if (fromBrowser(ua)) cr.setCorsHeadersIfNeeded();
+    return cr.httpResponse;
 }
 function optionsRequest(request) {
     return request.method === "OPTIONS";
 }
-function errorOrServfail(request, err, currentRequest) {
-    const ua = request.headers.get("User-Agent");
-    if (!fromBrowser(ua)) return servfail1(currentRequest);
-    const res = new Response(JSON.stringify(err.stack), {
-        status: 503,
-        headers: browserHeaders()
-    });
-    return res;
-}
-function servfail1(currentRequest) {
-    if (emptyObj(currentRequest) || emptyObj(currentRequest.decodedDnsPacket)) {
-        return respond408();
-    }
-    const qid = currentRequest.decodedDnsPacket.id;
-    const qs = currentRequest.decodedDnsPacket.questions;
-    return servfail(qid, qs);
+function errorResponse(currentRequest, err = null) {
+    const eres = emptyObj(err) ? null : errResponse("doh.js", err);
+    currentRequest.dnsExceptionResponse(eres);
 }
 let log1 = null;
 ((main)=>{
