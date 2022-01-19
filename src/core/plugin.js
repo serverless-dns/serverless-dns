@@ -103,6 +103,8 @@ export default class RethinkPlugin {
         "request",
         "requestDecodedDnsPacket",
         "event",
+        // resolver-url overriden by user-op
+        "userDnsResolverUrl",
         "blocklistFilter",
         "dnsCache",
       ],
@@ -233,7 +235,7 @@ export default class RethinkPlugin {
     } else if (!util.emptyObj(r)) {
       // r.userBlocklistInfo and r.dnsResolverUrl are never "null"
       this.registerParameter("userBlocklistInfo", r.userBlocklistInfo);
-      this.registerParameter("dnsResolverUrl", r.dnsResolverUrl);
+      this.registerParameter("userDnsResolverUrl", r.dnsResolverUrl);
     } else {
       this.log.i(rxid, "user-op is a no-op, possibly a command-control req");
     }

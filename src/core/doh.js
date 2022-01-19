@@ -12,11 +12,7 @@ import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 
 export function handleRequest(event) {
-  return util.timedSafeAsyncOp(
-    async () => proxyRequest(event),
-    dnsutil.requestTimeout(),
-    servfail()
-  );
+  return proxyRequest(event);
 }
 
 async function proxyRequest(event) {
@@ -26,44 +22,30 @@ async function proxyRequest(event) {
 
   try {
     const plugin = new RethinkPlugin(event);
-    await plugin.executePlugin(cr);
 
-    // TODO: cors-headers are also set in server-node.js
-    // centralize setting these in just one place, if possible
-    const ua = event.request.headers.get("User-Agent");
-    if (util.fromBrowser(ua)) currentRequest.setCorsHeadersIfNeeded();
-
-    return cr.httpResponse;
+    await util.timedSafeAsyncOp(
+      /* op*/ async () => plugin.executePlugin(cr),
+      /* waitMs*/ dnsutil.requestTimeout(),
+      /* onTimeout*/ async () => errorResponse(cr)
+    );
   } catch (err) {
     log.e("doh", "proxy-request error", err);
-    return errorOrServfail(event.request, err, cr);
+    errorResponse(cr, err);
   }
+
+  // TODO: cors-headers are also set in server-node.js
+  // centralize setting these in just one place, if possible
+  const ua = event.request.headers.get("User-Agent");
+  if (util.fromBrowser(ua)) cr.setCorsHeadersIfNeeded();
+
+  return cr.httpResponse;
 }
 
 function optionsRequest(request) {
   return request.method === "OPTIONS";
 }
 
-function errorOrServfail(request, err, currentRequest) {
-  const ua = request.headers.get("User-Agent");
-  if (!util.fromBrowser(ua)) return servfail(currentRequest);
-
-  const res = new Response(JSON.stringify(err.stack), {
-    status: 503, // unavailable
-    headers: util.browserHeaders(),
-  });
-  return res;
-}
-
-function servfail(currentRequest) {
-  if (
-    util.emptyObj(currentRequest) ||
-    util.emptyObj(currentRequest.decodedDnsPacket)
-  ) {
-    return util.respond408();
-  }
-
-  const qid = currentRequest.decodedDnsPacket.id;
-  const qs = currentRequest.decodedDnsPacket.questions;
-  return dnsutil.servfail(qid, qs);
+function errorResponse(currentRequest, err = null) {
+  const eres = util.emptyObj(err) ? null : util.errResponse("doh.js", err);
+  currentRequest.dnsExceptionResponse(eres);
 }

@@ -151,7 +151,7 @@ export function timedOp(op, ms, cleanup = () => {}) {
   });
 }
 
-export function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
+export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   // aggregating promises is a valid use-case for the otherwise
   // "deferred promise anti-pattern". That is, using promise
   // constructs (async, await, catch, then etc) within a
@@ -159,9 +159,19 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
   // stackoverflow.com/a/23803744 and stackoverflow.com/a/25569299
   return new Promise((resolve, _) => {
     let timedout = false;
+
+    const defferedOp = () => {
+      defaultOp()
+        .then((v) => {
+          resolve(v);
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    };
     const tid = timeout(ms, () => {
       timedout = true;
-      resolve(defaultOut);
+      defferedOp();
     });
 
     promisedOp()
@@ -172,7 +182,8 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOut) {
         }
       })
       .catch((ignored) => {
-        if (!timedout) resolve(defaultOut);
+        if (!timedout) defferedOp();
+        // else: handled by timeout
       });
   });
 }
@@ -279,7 +290,7 @@ export function emptyArray(a) {
   // obj v arr: stackoverflow.com/a/2462810
   if (typeof a !== "object") return false;
   // len(a) === 0 is empty
-  return !!a.length && a.length <= 0;
+  return a.length <= 0;
 }
 
 export function concatObj(...args) {

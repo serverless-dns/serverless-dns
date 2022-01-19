@@ -64,7 +64,8 @@ export class UserOperation {
       }
 
       response.data.userBlocklistInfo = currentUser;
-      response.data.dnsResolverUrl = envutil.dohResolver();
+      // sets user-preferred doh upstream
+      response.data.dnsResolverUrl = null;
     } catch (e) {
       this.log.e(param.rxid, "loadUser", e);
       response = util.errResponse("UserOp:loadUser", e);

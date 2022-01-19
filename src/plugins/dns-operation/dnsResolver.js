@@ -17,6 +17,10 @@ export default class DNSResolver {
     this.nodeUtil = null;
     this.transport = null;
     this.log = log.withTags("DnsResolver");
+    this.preferredDohResolvers = [
+      envutil.dohResolver(),
+      envutil.secondaryDohResolver(),
+    ];
   }
 
   async lazyInit() {
@@ -39,10 +43,12 @@ export default class DNSResolver {
 
   /**
    * @param {Object} param
+   * @param {String} param.rxid
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
    * @param {Worker-Event} param.event
+   * @param {String} param.userDnsResolverUrl
    * @param {} param.blocklistFilter
    * @param {DnsCache} param.dnsCache
    * @returns
@@ -61,12 +67,28 @@ export default class DNSResolver {
     return response;
   }
 
+  determineDohResolvers(param) {
+    // when this.transport is set, do not use doh
+    if (this.transport) return [];
+
+    const preferredByUser = param.userDnsResolverUrl;
+    if (!util.emptyString(preferredByUser)) {
+      return [preferredByUser];
+    } else if (envutil.isWorkers()) {
+      // upstream to two resolvers on workers; since egress is free,
+      // faster among the 2 should help lower tail latencies at zero-cost
+      return this.preferredDohResolvers;
+    }
+    return envutil.dohResolver();
+  }
+
   async resolveDns(param) {
     const rxid = param.rxid;
+    const upstreams = this.determineDohResolvers(param);
     const upRes = await this.resolveDnsUpstream(
       rxid,
       param.request,
-      envutil.dohResolver(),
+      upstreams,
       param.requestBodyBuffer
     );
     return await this.decodeResponse(rxid, upRes);
@@ -92,20 +114,21 @@ export default class DNSResolver {
 }
 
 /**
+ * @param {String} rxid
  * @param {Request} request
- * @param {String} resolverUrl
- * @param {ArrayBuffer} requestBodyBuffer
+ * @param {Array} resolverUrls
+ * @param {ArrayBuffer} query
  * @returns
  */
 DNSResolver.prototype.resolveDnsUpstream = async function (
   rxid,
   request,
-  resolverUrl,
-  requestBodyBuffer
+  resolverUrls,
+  query
 ) {
-  // for now, upstream plain-old dns on fly
-  if (this.transport) {
-    const q = bufutil.bufferOf(requestBodyBuffer);
+  // if no doh upstreams set, resolve over plain-old dns
+  if (util.emptyArray(resolverUrls)) {
+    const q = bufutil.bufferOf(query);
 
     let ans = await this.transport.udpquery(rxid, q);
     if (ans && dnsutil.truncated(ans)) {
@@ -116,39 +139,48 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     return ans ? new Response(bufutil.arrayBufferOf(ans)) : util.respond503();
   }
 
-  const u = new URL(request.url);
-  const upstream = new URL(resolverUrl);
-  u.hostname = upstream.hostname; // default cloudflare-dns.com
-  u.pathname = upstream.pathname; // override path, default /dns-query
-  u.port = upstream.port; // override port, default 443
-  u.protocol = upstream.protocol; // override proto, default https
+  const promisedRes = [Promise.reject(new Error("no upstream"))];
+  for (const rurl of resolverUrls) {
+    if (util.emptyString(rurl)) {
+      this.log.w(rxid, "missing resolver url", rurl);
+      continue;
+    }
+    const u = new URL(request.url);
+    const upstream = new URL(rurl);
+    u.hostname = upstream.hostname; // default cloudflare-dns.com
+    u.pathname = upstream.pathname; // override path, default /dns-query
+    u.port = upstream.port; // override port, default 443
+    u.protocol = upstream.protocol; // override proto, default https
 
-  let newRequest = null;
-  // even for GET requests, plugin.js:getBodyBuffer converts contents of
-  // u.search into an arraybuffer that then needs to be reconverted back
-  if (util.isGetRequest(request)) {
-    u.search = "?dns=" + bufutil.bytesToBase64Url(requestBodyBuffer);
-    newRequest = new Request(u.href, {
-      method: "GET",
-    });
-  } else if (util.isPostRequest(request)) {
-    newRequest = new Request(u.href, {
-      method: "POST",
-      headers: util.concatHeaders(
-        util.contentLengthHeader(requestBodyBuffer),
-        util.dnsHeaders()
-      ),
-      body: requestBodyBuffer,
-    });
-  } else {
-    throw new Error("get/post requests only");
+    let dnsreq = null;
+    // even for GET requests, plugin.js:getBodyBuffer converts contents of
+    // u.search into an arraybuffer that then needs to be reconverted back
+    if (util.isGetRequest(request)) {
+      u.search = "?dns=" + bufutil.bytesToBase64Url(query);
+      dnsreq = new Request(u.href, {
+        method: "GET",
+      });
+    } else if (util.isPostRequest(request)) {
+      dnsreq = new Request(u.href, {
+        method: "POST",
+        headers: util.concatHeaders(
+          util.contentLengthHeader(query),
+          util.dnsHeaders()
+        ),
+        body: query,
+      });
+    } else {
+      return Promise.reject(new Error("get/post requests only"));
+    }
+    promisedRes.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
   }
-
-  return this.http2 ? this.doh2(rxid, newRequest) : fetch(newRequest);
+  // Promise.any returns any rejected promise if none resolved; node v15+
+  return Promise.any(promisedRes);
 };
 
 /**
  * Resolve DNS request using HTTP/2 API of Node.js
+ * @param {String} rxid - request id
  * @param {Request} request - Request object
  * @returns {Promise<Response>}
  */
@@ -166,7 +198,8 @@ DNSResolver.prototype.doh2 = async function (rxid, request) {
   const headers = util.copyHeaders(request);
 
   return new Promise((resolve, reject) => {
-    // TODO: h2 connection pool
+    // TODO: h2 conn re-use: archive.is/XXKwn
+    // TODO: h2 conn pool
     const authority = u.origin;
     const c = http2.connect(authority);
 
@@ -191,19 +224,21 @@ DNSResolver.prototype.doh2 = async function (rxid, request) {
         util.safeBox(c.close);
         resolve(new Response(rb, h));
       });
-      req.on("error", (err) => {
-        reject(err.message);
-      });
+    });
+    // nodejs' async err events go unhandled when the handler
+    // is not registered, which ends up killing the process
+    req.on("error", (err) => {
+      reject(err.message);
     });
 
-    // h2 the dns query to the upstream resolver only
-    // after the events (response, on, end, error etc)
-    // have been registered (above), and not before:
-    // ie those events aren't resent by nodejs; while
-    // these events may in fact happen immediately post
-    // a req.write / req.end (for ex: an error if it
+    // req.end write query to upstream over http2.
+    // do this only after the event-handlers (response,
+    // on, end, error etc) have been registered (above),
+    // and not before. Those events aren't resent by
+    // nodejs; while they may in fact happen immediately
+    // post a req.write / req.end (for ex: an error if it
     // happens pronto, before an event-handler could be
-    // registered, then the err would simply go unhandled).
+    // registered, then the err would simply go unhandled)
     req.end(upstreamQuery);
   });
 };

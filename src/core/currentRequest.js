@@ -64,7 +64,7 @@ export default class CurrentRequest {
         this.headers(),
         this.additionalHeader(JSON.stringify(ex))
       ),
-      status: servfail ? 200 : 500, // rfc8484 section-4.2.1
+      status: servfail ? 200 : 408, // rfc8484 section-4.2.1
     });
   }
 
@@ -85,8 +85,7 @@ export default class CurrentRequest {
     }
 
     this.stopProcessing = true;
-    // TODO: decode arrayBuffer if dnsPacket missing?
-    this.decodedDnsPacket = dnsPacket || this.decodedDnsPacket;
+    this.decodedDnsPacket = dnsPacket || dnsutil.decode(arrayBuffer);
     this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
   }
 

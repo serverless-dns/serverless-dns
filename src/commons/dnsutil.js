@@ -22,7 +22,7 @@ export const maxDNSPacketSize = 4096;
 const _dnsCloudflareSec = "1.1.1.2";
 const _dnsCacheSize = 10000;
 
-const _minRequestTimeout = 5000; // 5s
+const _minRequestTimeout = 4000; // 4s
 const _maxRequestTimeout = 30000; // 30s
 
 export function dnsIpv4() {

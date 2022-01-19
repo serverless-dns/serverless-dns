@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+
 // musn't import /depend on anything.
 export function onFly() {
   return env && env.cloudPlatform === "fly";
@@ -58,4 +59,9 @@ export function tdParts() {
 export function dohResolver() {
   if (!env) return null;
   return env.dnsResolverUrl;
+}
+
+export function secondaryDohResolver() {
+  if (!env) return null;
+  return env.secondaryDohResolver;
 }

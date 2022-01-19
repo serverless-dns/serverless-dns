@@ -66,6 +66,11 @@ const _ENV_VAR_MAPPINGS = {
     type: "string",
     default: "https://cloudflare-dns.com/dns-query",
   },
+  secondaryDohResolver: {
+    name: "CF_DNS_RESOLVER_URL_2",
+    type: "string",
+    default: "https://dns.google/dns-query",
+  },
   onInvalidFlagStopProcessing: {
     name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
     type: "boolean",
@@ -90,17 +95,6 @@ const _ENV_VAR_MAPPINGS = {
     name: "TD_PARTS",
     type: "number",
     default: "2",
-  },
-
-  // set to on - off aggressive cache plugin
-  // as of now Cache-api is available only on worker
-  // so load() will set this to false for other runtime.
-  isAggCacheReq: {
-    name: {
-      worker: "IS_AGGRESSIVE_CACHE_REQ",
-    },
-    type: "boolean",
-    default: "false",
   },
 };
 
@@ -145,7 +139,7 @@ function _getRuntimeEnv(runtime) {
     else throw new Error(`unsupported runtime: ${runtime}`);
 
     // assign default value when user-defined value is missing
-    if (env[key] === null || env[key] === undefined) {
+    if (env[key] == null) {
       console.warn(key, "env[key] default value:", val);
       env[key] = val;
     }
@@ -156,7 +150,7 @@ function _getRuntimeEnv(runtime) {
     else if (type === "string") env[key] = env[key] || "";
     else throw new Error(`unsupported type: ${type}`);
 
-    console.debug("Added", key, mappedKey, env[key]);
+    console.debug("Added", key, env[key]);
   }
 
   return env;
