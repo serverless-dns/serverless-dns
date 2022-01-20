@@ -420,7 +420,7 @@ function mkFetchEvent(r, ...fns) {
 }
 
 function stub(fid) {
-  return (...rest) => log.w(fid, "stub fn, args:", ...rest);
+  return (...rest) => log.d(fid, "stub fn, args:", ...rest);
 }
 
 /**

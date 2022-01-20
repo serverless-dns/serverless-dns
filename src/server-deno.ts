@@ -209,5 +209,5 @@ function mkFetchEvent(r: Request, ...fns: Function[]) {
 }
 
 function stub(fid: String) {
-  return (...rest: any) => log.w(fid, "stub fn, args:", ...rest);
+  return (...rest: any) => log.d(fid, "stub fn, args:", ...rest);
 }

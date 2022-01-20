@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DomainNameCache } from "../cache-wrapper/cache-wrapper.js";
+import { DomainNameCache } from "./domainNameCache.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as dnsBlockUtil from "../dnsblockutil.js";

@@ -98,7 +98,7 @@ export class TcpConnPool {
   mkreport(sock) {
     const that = this;
     return {
-      id: util.uid(),
+      id: "tcp" + util.uid(),
       lastuse: Date.now(),
       reap: function () {
         that.evict(sock);
@@ -184,7 +184,7 @@ export class UdpConnPool {
   mkreport(sock) {
     const that = this;
     return {
-      id: util.uid(),
+      id: "udp" + util.uid(),
       lastuse: Date.now(),
       reap: function () {
         that.evict(sock);
