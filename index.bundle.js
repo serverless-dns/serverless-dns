@@ -3070,7 +3070,7 @@ function emptyBuf(b) {
     return !b || !!b.byteLength && b.byteLength <= 0;
 }
 function arrayBufferOf(buf) {
-    if (!buf) return null;
+    if (emptyBuf(buf)) return null;
     const offset = buf.byteOffset;
     const len = buf.byteLength;
     return buf.buffer.slice(offset, offset + len);
@@ -5387,6 +5387,15 @@ function servfail(qid, qs) {
         questions: qs
     });
 }
+function servfailQ(q) {
+    if (emptyBuf(q)) return null;
+    try {
+        const p = decode3(q);
+        return servfail(p.id, p.questions);
+    } catch (e) {
+        return null;
+    }
+}
 function requestTimeout() {
     const t = workersTimeout();
     return t > 4000 ? Math.min(t, 30000) : 4000;
@@ -6386,9 +6395,9 @@ class LfuCache {
         }
     }
 }
-class UserCache {
+class DomainNameCache {
     constructor(size){
-        const name11 = "UserCache";
+        const name11 = "DomainNameCache";
         this.localCache = new LfuCache(name11, size);
         this.log = log.withTags(name11);
     }
@@ -6402,199 +6411,6 @@ class UserCache {
             this.log.e("put", e);
         }
     }
-}
-class DomainNameCache {
-    constructor(size){
-        const name12 = "DomainNameCache";
-        this.localCache = new LfuCache(name12, size);
-        this.log = log.withTags(name12);
-    }
-    get(key) {
-        return this.localCache.Get(key);
-    }
-    put(key, data) {
-        try {
-            this.localCache.Put(key, data);
-        } catch (e) {
-            this.log.e("put", e);
-        }
-    }
-}
-class CacheApi {
-    constructor(){
-        this.noop = !isWorkers();
-        if (this.noop) {
-            log.w("not workers, no-op http-cache-api");
-        }
-    }
-    async get(url) {
-        if (this.noop) return false;
-        if (emptyString(url)) return false;
-        return await caches.default.match(url);
-    }
-    put(url, response) {
-        if (this.noop) return false;
-        if (emptyString(url) || emptyObj(response)) return false;
-        return caches.default.put(url, response);
-    }
-}
-const ttlGraceSec = 30;
-function newCacheFilter(blf, domains) {
-    const cf = {};
-    if (emptyArray(domains)) return cf;
-    for (const d of domains){
-        cf[d] = objOf(blf.getDomainInfo(d).searchResult);
-    }
-    return cf;
-}
-function isCacheable(dnsPacket) {
-    if (!rcodeNoError(dnsPacket)) return false;
-    if (!hasAnswers(dnsPacket)) return false;
-    return true;
-}
-function determineCacheExpiry(dnsPacket) {
-    if (!hasAnswers(dnsPacket)) {
-        return 0;
-    }
-    let minttl = 1 << 30;
-    for (const a of dnsPacket.answers){
-        minttl = Math.min(a.ttl || ttlGraceSec, minttl);
-    }
-    if (minttl === 1 << 30) {
-        return 0;
-    }
-    minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
-    const expiry = Date.now() + minttl * 1000;
-    return expiry;
-}
-function makeCacheMetadata(dnsPacket, blf) {
-    const domains = extractDomains(dnsPacket);
-    const cf = newCacheFilter(blf, domains);
-    const ttl = determineCacheExpiry(dnsPacket);
-    return {
-        ttlEndTime: ttl,
-        bodyUsed: hasAnswers(dnsPacket),
-        cacheFilter: cf
-    };
-}
-function createCacheInput(dnsPacket, blf) {
-    return {
-        dnsPacket: dnsPacket,
-        metaData: makeCacheMetadata(dnsPacket, blf)
-    };
-}
-function updateTtl(decodedDnsPacket, end) {
-    const now = Date.now();
-    const outttl = Math.max(Math.floor((end - now) / 1000) - 30, 30);
-    for (const a of decodedDnsPacket.answers){
-        if (!optAnswer(a)) a.ttl = outttl;
-    }
-}
-function cacheKey(packet) {
-    if (!hasSingleQuestion(packet)) return null;
-    const name13 = normalizeName(packet.questions[0].name);
-    const type = packet.questions[0].type;
-    return name13 + ":" + type;
-}
-function updateQueryId(decodedDnsPacket, queryId) {
-    if (queryId === decodedDnsPacket.id) return false;
-    decodedDnsPacket.id = queryId;
-    return true;
-}
-function isValueValid(v) {
-    if (emptyObj(v)) return false;
-    return hasMetadata(v.metaData);
-}
-function hasMetadata(m) {
-    return !emptyObj(m);
-}
-function hasAnswer(v) {
-    if (!hasMetadata(v.metaData)) return false;
-    return isAnswerFresh(v.metaData);
-}
-function isAnswerFresh(m) {
-    return m.bodyUsed && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
-}
-class DnsCache {
-    constructor(size){
-        this.localCache = new LfuCache("DnsCache", size);
-        this.cacheApi = new CacheApi();
-        this.log = log.withTags("DnsCache");
-    }
-    async get(key, url) {
-        let entry = this.fromLocalCache(key);
-        if (entry) {
-            return entry;
-        }
-        if (!url || !isWorkers()) return false;
-        const hKey = makeHttpCacheApiKey(key, url);
-        entry = await this.fromHttpCacheApi(hKey);
-        this.putLocalCache(key, entry);
-        return entry;
-    }
-    put(key, data, url, buf, event) {
-        if (!key) return;
-        try {
-            this.putLocalCache(key, data);
-            if (url && isWorkers() && event && event.waitUntil) {
-                this.log.d("put data httpCache", data);
-                event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
-            }
-        } catch (e) {
-            this.log.e("put", e);
-        }
-    }
-    putLocalCache(key, data) {
-        if (!key || !data) return;
-        try {
-            this.localCache.Put(key, data);
-        } catch (e) {
-            this.log.e("putLocalCache", e);
-        }
-    }
-    fromLocalCache(key) {
-        if (!key) return false;
-        const v = this.localCache.Get(key);
-        return isValueValid(v) ? v : false;
-    }
-    async fromHttpCacheApi(key) {
-        if (!key) return false;
-        const cres = await this.cacheApi.get(key);
-        return this.parseHttpCacheApiResponse(cres);
-    }
-    async putCacheApi(key, url, buf, metaData) {
-        const k = makeHttpCacheApiKey(key, url);
-        const v = makeHttpCacheApiValue(buf, metaData);
-        if (!k || !v) return;
-        this.cacheApi.put(k, v);
-    }
-    async parseHttpCacheApiResponse(response) {
-        if (!response) return false;
-        const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
-        this.log.d("httpCache response metadata", metaData);
-        if (!hasMetadata(metaData)) {
-            return false;
-        }
-        const p = isAnswerFresh(metaData) ? decode3(await response.arrayBuffer()) : {};
-        const m = metaData;
-        return {
-            dnsPacket: p,
-            metaData: m
-        };
-    }
-}
-function makeHttpCacheApiValue(buf, metaData) {
-    const headers = {
-        headers: concatHeaders({
-            "x-rethink-metadata": JSON.stringify(metaData),
-            "Cache-Control": "max-age=604800"
-        }, contentLengthHeader(buf))
-    };
-    return new Response(buf, headers);
-}
-function makeHttpCacheApiKey(key, url) {
-    const origin = new URL(url).origin;
-    return new URL(origin + "/" + timestamp() + "/" + key);
 }
 const ALPHA32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function readChar(chr) {
@@ -7147,6 +6963,23 @@ function jsonResponse(obj) {
         headers: jsonHeaders()
     });
 }
+class UserCache {
+    constructor(size){
+        const name12 = "UserCache";
+        this.localCache = new LfuCache(name12, size);
+        this.log = log.withTags(name12);
+    }
+    get(key) {
+        return this.localCache.Get(key);
+    }
+    put(key, data) {
+        try {
+            this.localCache.Put(key, data);
+        } catch (e) {
+            this.log.e("put", e);
+        }
+    }
+}
 const cacheSize1 = 10000;
 class UserOperation {
     constructor(){
@@ -7184,6 +7017,83 @@ class UserOperation {
         }
         return response;
     }
+}
+const ttlGraceSec = 30;
+function newCacheFilter(blf, domains) {
+    const cf = {};
+    if (emptyArray(domains)) return cf;
+    for (const d of domains){
+        cf[d] = objOf(blf.getDomainInfo(d).searchResult);
+    }
+    return cf;
+}
+function isCacheable(dnsPacket) {
+    if (!rcodeNoError(dnsPacket)) return false;
+    if (!hasAnswers(dnsPacket)) return false;
+    return true;
+}
+function determineCacheExpiry(dnsPacket) {
+    if (!hasAnswers(dnsPacket)) {
+        return 0;
+    }
+    let minttl = 1 << 30;
+    for (const a of dnsPacket.answers){
+        minttl = Math.min(a.ttl || ttlGraceSec, minttl);
+    }
+    if (minttl === 1 << 30) {
+        return 0;
+    }
+    minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
+    const expiry = Date.now() + minttl * 1000;
+    return expiry;
+}
+function makeCacheMetadata(dnsPacket, blf) {
+    const domains = extractDomains(dnsPacket);
+    const cf = newCacheFilter(blf, domains);
+    const ttl = determineCacheExpiry(dnsPacket);
+    return {
+        ttlEndTime: ttl,
+        bodyUsed: hasAnswers(dnsPacket),
+        cacheFilter: cf
+    };
+}
+function createCacheInput(dnsPacket, blf) {
+    return {
+        dnsPacket: dnsPacket,
+        metaData: makeCacheMetadata(dnsPacket, blf)
+    };
+}
+function updateTtl(decodedDnsPacket, end) {
+    const now = Date.now();
+    const outttl = Math.max(Math.floor((end - now) / 1000) - 30, 30);
+    for (const a of decodedDnsPacket.answers){
+        if (!optAnswer(a)) a.ttl = outttl;
+    }
+}
+function cacheKey(packet) {
+    if (!hasSingleQuestion(packet)) return null;
+    const name13 = normalizeName(packet.questions[0].name);
+    const type = packet.questions[0].type;
+    return name13 + ":" + type;
+}
+function updateQueryId(decodedDnsPacket, queryId) {
+    if (queryId === decodedDnsPacket.id) return false;
+    decodedDnsPacket.id = queryId;
+    return true;
+}
+function isValueValid(v) {
+    if (emptyObj(v)) return false;
+    return hasMetadata(v.metaData);
+}
+function hasMetadata(m) {
+    return !emptyObj(m);
+}
+function hasAnswer(v) {
+    if (!hasMetadata(v.metaData)) return false;
+    return isAnswerFresh(v.metaData);
+}
+function isAnswerFresh(m) {
+    return m.bodyUsed && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
 }
 class DNSQuestionBlock {
     constructor(){
@@ -7491,6 +7401,103 @@ function modifyCacheResponse(cr, qid) {
         dnsBuffer: encode3(cr.dnsPacket)
     };
 }
+class CacheApi {
+    constructor(){
+        this.noop = !isWorkers();
+        if (this.noop) {
+            log.w("not workers, no-op http-cache-api");
+        }
+    }
+    async get(url) {
+        if (this.noop) return false;
+        if (emptyString(url)) return false;
+        return await caches.default.match(url);
+    }
+    put(url, response) {
+        if (this.noop) return false;
+        if (emptyString(url) || emptyObj(response)) return false;
+        return caches.default.put(url, response);
+    }
+}
+class DnsCache {
+    constructor(size){
+        this.localCache = new LfuCache("DnsCache", size);
+        this.cacheApi = new CacheApi();
+        this.log = log.withTags("DnsCache");
+    }
+    async get(key, url) {
+        let entry = this.fromLocalCache(key);
+        if (entry) {
+            return entry;
+        }
+        if (!url || !isWorkers()) return false;
+        const hKey = makeHttpCacheApiKey(key, url);
+        entry = await this.fromHttpCacheApi(hKey);
+        this.putLocalCache(key, entry);
+        return entry;
+    }
+    put(key, data, url, buf, event) {
+        if (emptyString(key) || emptyString(url)) return;
+        try {
+            this.putLocalCache(key, data);
+            this.log.d("put data httpCache", data);
+            event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
+        } catch (e) {
+            this.log.e("put", e);
+        }
+    }
+    putLocalCache(key, data) {
+        if (!key || !data) return;
+        try {
+            this.localCache.Put(key, data);
+        } catch (e) {
+            this.log.e("putLocalCache", e);
+        }
+    }
+    fromLocalCache(key) {
+        if (!key) return false;
+        const v = this.localCache.Get(key);
+        return isValueValid(v) ? v : false;
+    }
+    async fromHttpCacheApi(key) {
+        if (!key) return false;
+        const cres = await this.cacheApi.get(key);
+        return this.parseHttpCacheApiResponse(cres);
+    }
+    async putCacheApi(key, url, buf, metaData) {
+        const k = makeHttpCacheApiKey(key, url);
+        const v = makeHttpCacheApiValue(buf, metaData);
+        if (!k || !v) return;
+        this.cacheApi.put(k, v);
+    }
+    async parseHttpCacheApiResponse(response) {
+        if (!response) return false;
+        const metaData = JSON.parse(response.headers.get("x-rethink-metadata"));
+        this.log.d("httpCache response metadata", metaData);
+        if (!hasMetadata(metaData)) {
+            return false;
+        }
+        const p = isAnswerFresh(metaData) ? decode3(await response.arrayBuffer()) : {};
+        const m = metaData;
+        return {
+            dnsPacket: p,
+            metaData: m
+        };
+    }
+}
+function makeHttpCacheApiValue(buf, metaData) {
+    const headers = {
+        headers: concatHeaders({
+            "x-rethink-metadata": JSON.stringify(metaData),
+            "Cache-Control": "max-age=604800"
+        }, contentLengthHeader(buf))
+    };
+    return new Response(buf, headers);
+}
+function makeHttpCacheApiKey(key, url) {
+    const origin = new URL(url).origin;
+    return new URL(origin + "/" + timestamp() + "/" + key);
+}
 const services = {
     ready: false
 };
@@ -7783,9 +7790,15 @@ let log1 = null;
 })();
 function systemUp() {
     const { TERMINATE_TLS , TLS_CRT_PATH , TLS_KEY_PATH  } = Deno.env.toObject();
-    const tlsOptions = {
+    const tlsOpts = {
         certFile: TLS_CRT_PATH,
         keyFile: TLS_KEY_PATH
+    };
+    const httpOpts = {
+        alpnProtocols: [
+            "h2",
+            "http/1.1"
+        ]
     };
     const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
     log1 = logger("Deno");
@@ -7795,7 +7808,8 @@ function systemUp() {
     async function startDoh() {
         const doh = TERMINATE_TLS === "true" ? Deno.listenTls({
             port: 8080,
-            ...tlsOptions
+            ...tlsOpts,
+            ...httpOpts
         }) : Deno.listen({
             port: 8080
         });
@@ -7808,7 +7822,7 @@ function systemUp() {
     async function startDot() {
         const dot = TERMINATE_TLS === "true" ? Deno.listenTls({
             port: 10000,
-            ...tlsOptions
+            ...tlsOpts
         }) : Deno.listen({
             port: 10000
         });
@@ -7836,7 +7850,7 @@ async function serveHttp(conn) {
         try {
             res = handleRequest(requestEvent);
         } catch (e1) {
-            res = respond503();
+            res = respond405();
             log1.w("serv fail doh request", e1);
         }
         try {
@@ -7893,12 +7907,31 @@ async function handleTCPQuery(q, conn) {
     }
 }
 async function resolveQuery(q) {
-    const r = await handleRequest({
-        request: new Request("https://example.com", {
-            method: "POST",
-            headers: concatHeaders(dnsHeaders(), contentLengthHeader(q)),
-            body: q
-        })
+    const freq = new Request("https://ignored.example.com", {
+        method: "POST",
+        headers: concatHeaders(dnsHeaders(), contentLengthHeader(q)),
+        body: q
     });
-    return new Uint8Array(await r.arrayBuffer());
+    const r = await handleRequest(mkFetchEvent(freq));
+    const ans = await r.arrayBuffer();
+    if (!emptyBuf(ans)) {
+        return new Uint8Array(ans);
+    } else {
+        const servfail2 = servfailQ(bufferOf(q));
+        return arrayBufferOf(servfail2);
+    }
+}
+function mkFetchEvent(r, ...fns) {
+    if (emptyObj(r)) throw new Error("missing request");
+    return {
+        type: "fetch",
+        request: r,
+        respondWith: fns[0] || stub("event.respondWith"),
+        waitUntil: fns[1] || stub("event.waitUntil"),
+        passThroughOnException: fns[2] || stub("event.passThroughOnException")
+    };
+}
+function stub(fid) {
+    return (...rest)=>log1.d(fid, "stub fn, args:", ...rest)
+    ;
 }
