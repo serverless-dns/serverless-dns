@@ -5,6 +5,8 @@ import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 import { encodeUint8ArrayBE } from "./commons/bufutil.js";
 import * as util from "./commons/util.js";
+import * as bufutil from "./commons/bufutil.js";
+import * as dnsutil from "./commons/dnsutil.js";
 
 let log: any = null;
 
@@ -18,9 +20,13 @@ function systemUp() {
   const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
   const DOH_PORT = 8080;
   const DOT_PORT = 10000;
-  const tlsOptions = {
+  const tlsOpts = {
     certFile: TLS_CRT_PATH,
     keyFile: TLS_KEY_PATH,
+  };
+  // deno.land/manual/runtime/http_server_apis#http2-support
+  const httpOpts = {
+    alpnProtocols: ["h2", "http/1.1"],
   };
   const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
 
@@ -35,11 +41,14 @@ function systemUp() {
   async function startDoh() {
     const doh =
       TERMINATE_TLS === "true"
-        ? Deno.listenTls({
+        ? // doc.deno.land/deno/stable/~/Deno.listenTls
+          Deno.listenTls({
             port: DOH_PORT,
-            ...tlsOptions,
+            ...tlsOpts,
+            ...httpOpts,
           })
-        : Deno.listen({
+        : // doc.deno.land/deno/stable/~/Deno.listen
+          Deno.listen({
             port: DOH_PORT,
           });
 
@@ -59,7 +68,7 @@ function systemUp() {
       TERMINATE_TLS === "true"
         ? Deno.listenTls({
             port: DOT_PORT,
-            ...tlsOptions,
+            ...tlsOpts,
           })
         : Deno.listen({
             port: DOT_PORT,
@@ -95,7 +104,7 @@ async function serveHttp(conn: Deno.Conn) {
     try {
       res = handleRequest(requestEvent);
     } catch (e) {
-      res = util.respond503();
+      res = util.respond405();
       log.w("serv fail doh request", e);
     }
     try {
@@ -166,16 +175,39 @@ async function handleTCPQuery(q: Uint8Array, conn: Deno.Conn) {
 
 async function resolveQuery(q: Uint8Array) {
   // TODO: Sync code with server-node.js:resolveQuery
-  const r: Response = (await handleRequest({
-    request: new Request("https://example.com", {
-      method: "POST",
-      headers: util.concatHeaders(
-        util.dnsHeaders(),
-        util.contentLengthHeader(q)
-      ),
-      body: q,
-    }),
-  })) as Response;
+  const freq: Request = new Request("https://ignored.example.com", {
+    method: "POST",
+    headers: util.concatHeaders(util.dnsHeaders(), util.contentLengthHeader(q)),
+    body: q,
+  });
 
-  return new Uint8Array(await r.arrayBuffer());
+  const r: Response = (await handleRequest(mkFetchEvent(freq))) as Response;
+
+  const ans: ArrayBuffer = await r.arrayBuffer();
+
+  if (!bufutil.emptyBuf(ans)) {
+    return new Uint8Array(ans);
+  } else {
+    const servfail = dnsutil.servfailQ(bufutil.bufferOf(q));
+    return bufutil.arrayBufferOf(servfail);
+  }
+}
+
+function mkFetchEvent(r: Request, ...fns: Function[]) {
+  if (util.emptyObj(r)) throw new Error("missing request");
+
+  // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
+  // a service-worker event, with properties: type and request; and methods:
+  // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
+  return {
+    type: "fetch",
+    request: r,
+    respondWith: fns[0] || stub("event.respondWith"),
+    waitUntil: fns[1] || stub("event.waitUntil"),
+    passThroughOnException: fns[2] || stub("event.passThroughOnException"),
+  };
+}
+
+function stub(fid: String) {
+  return (...rest: any) => log.w(fid, "stub fn, args:", ...rest);
 }

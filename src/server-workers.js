@@ -15,7 +15,7 @@ import * as util from "./commons/util.js";
   if (typeof addEventListener === "undefined") {
     throw new Error("workers env missing addEventListener");
   }
-
+  // workers/runtime-apis/fetch-event#syntax-service-worker
   addEventListener("fetch", handleFetch);
 })();
 

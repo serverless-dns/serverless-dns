@@ -67,7 +67,7 @@ export function emptyBuf(b) {
 
 // stackoverflow.com/a/31394257
 export function arrayBufferOf(buf) {
-  if (!buf) return null;
+  if (emptyBuf(buf)) return null;
 
   const offset = buf.byteOffset;
   const len = buf.byteLength;

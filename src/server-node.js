@@ -386,24 +386,41 @@ async function handleTCPQuery(q, socket, host, flag) {
 async function resolveQuery(rxid, q, host, flag) {
   // Using POST, since GET requests cannot be greater than 2KB,
   // where-as DNS-over-TCP msgs could be upto 64KB in size.
-  const r = await handleRequest({
-    request: new Request(`https://${host}/${flag}`, {
-      method: "POST",
-      headers: util.concatHeaders(
-        util.dnsHeaders(),
-        util.contentLengthHeader(q),
-        util.rxidHeader(rxid)
-      ),
-      body: q,
-    }),
+  const freq = new Request(`https://${host}/${flag}`, {
+    method: "POST",
+    headers: util.concatHeaders(
+      util.dnsHeaders(),
+      util.contentLengthHeader(q),
+      util.rxidHeader(rxid)
+    ),
+    body: q,
   });
 
+  const r = await handleRequest(mkFetchEvent(freq));
+
   const ans = await r.arrayBuffer();
-  if (!bufutil.emptyBuf(ans)) {
-    return new Uint8Array(ans);
-  } else {
-    return dnsutil.servfailQ(q);
+
+  return !bufutil.emptyBuf(ans) ? new Uint8Array(ans) : dnsutil.servfailQ(q);
+}
+
+function mkFetchEvent(r, ...fns) {
+  if (util.emptyObj(r)) throw new Error("missing request");
+  for (f of fns) {
+    if (f != null && typeof f !== "function") throw new Error("args mismatch");
   }
+  // a service-worker event, with properties: type and request; and methods:
+  // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
+  return {
+    type: "fetch",
+    request: r,
+    respondWith: fns[0] || stub("event.respondWith"),
+    waitUntil: fns[1] || stub("event.waitUntil"),
+    passThroughOnException: fns[2] || stub("event.passThroughOnException"),
+  };
+}
+
+function stub(fid) {
+  return (...rest) => log.w(fid, "stub fn, args:", ...rest);
 }
 
 /**
@@ -462,7 +479,7 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "upstream-start");
 
-    const fRes = await handleRequest({ request: fReq });
+    const fRes = await handleRequest(mkFetchEvent(fReq));
 
     log.lapTime(t, "upstream-end");
 

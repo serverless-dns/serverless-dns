@@ -39,14 +39,12 @@ export class DnsCache {
   }
 
   put(key, data, url, buf, event) {
-    if (!key) return;
+    if (util.emptyString(key) || util.emptyString(url)) return;
 
     try {
       this.putLocalCache(key, data);
-      if (url && envutil.isWorkers() && event && event.waitUntil) {
-        this.log.d("put data httpCache", data);
-        event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
-      }
+      this.log.d("put data httpCache", data);
+      event.waitUntil(this.putCacheApi(key, url, buf, data.metaData));
     } catch (e) {
       this.log.e("put", e);
     }
