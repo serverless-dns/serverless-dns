@@ -5,24 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
 import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
+import * as envutil from "../commons/envutil.js";
 
 const ttlGraceSec = 30; // 30s cache extra time
+const cheader = "x-rdnscache-metadata";
 
-function newCacheFilter(blf, domains) {
-  const cf = {};
-
-  if (util.emptyArray(domains)) return cf;
-
-  for (const d of domains) {
-    cf[d] = util.objOf(blf.getDomainInfo(d).searchResult);
-  }
-  return cf;
-}
-
-export function isCacheable(dnsPacket) {
+export function isAnswerCacheable(dnsPacket) {
   // only noerror ans are cached, that means nxdomain
   // and ans with other rcodes are not cached at all.
   // btw, nxdomain ttls are in the authority section
@@ -34,9 +24,12 @@ export function isCacheable(dnsPacket) {
 }
 
 export function determineCacheExpiry(dnsPacket) {
+  // expiresImmediately => dnsPacket is not an ans but a question
   const expiresImmediately = 0;
 
-  if (!dnsutil.hasAnswers(dnsPacket)) {
+  // TODO: NXDOMAIN don't have an answers section
+  // but NXDOMAINs aren't cached right now either
+  if (!isAnswerCacheable(dnsPacket)) {
     return expiresImmediately;
   }
 
@@ -57,25 +50,24 @@ export function determineCacheExpiry(dnsPacket) {
   return expiry;
 }
 
-export function makeCacheMetadata(dnsPacket, blf) {
-  const domains = dnsutil.extractDomains(dnsPacket);
-  const cf = newCacheFilter(blf, domains);
-  const ttl = determineCacheExpiry(dnsPacket);
-
+function makeCacheMetadata(dnsPacket, stamps) {
   return {
-    ttlEndTime: ttl,
-    // TODO: NXDOMAIN don't have an answers section
-    // but NXDOMAINs aren't cached right now either
-    bodyUsed: dnsutil.hasAnswers(dnsPacket),
-    cacheFilter: cf,
+    expiry: determineCacheExpiry(dnsPacket),
+    stamps: stamps,
   };
 }
 
-export function createCacheInput(dnsPacket, blf) {
+export function makeCacheValue(packet, metadata) {
+  // null value allowed for packet
   return {
-    dnsPacket: dnsPacket,
-    metaData: makeCacheMetadata(dnsPacket, blf),
+    dnsPacket: packet,
+    metadata: metadata,
   };
+}
+
+export function cacheValueOf(packet, stamps) {
+  const metadata = makeCacheMetadata(packet, stamps);
+  return makeCacheValue(packet, metadata);
 }
 
 export function updateTtl(decodedDnsPacket, end) {
@@ -89,7 +81,7 @@ export function updateTtl(decodedDnsPacket, end) {
   }
 }
 
-export function cacheKey(packet) {
+export function makePacketId(packet) {
   // multiple questions are kind of an undefined behaviour
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;
@@ -97,6 +89,40 @@ export function cacheKey(packet) {
   const name = dnsutil.normalizeName(packet.questions[0].name);
   const type = packet.questions[0].type;
   return name + ":" + type;
+}
+
+export function makeHttpCacheValue(packet, metadata) {
+  const b = dnsutil.encode(packet);
+
+  const headers = {
+    headers: util.concatHeaders(
+      {
+        "cheader": embedMetadata(metadata),
+        // ref: developers.cloudflare.com/workers/runtime-apis/cache#headers
+        "Cache-Control": /* 1w*/ "max-age=604800",
+      },
+      util.contentLengthHeader(b)
+    ),
+    // if using the fetch web api, "cf" directive needs to be set, instead
+    // ref: developers.cloudflare.com/workers/examples/cache-using-fetch
+    // cf: { cacheTtl: /*1w*/ 604800 },
+  };
+  // http-cache stores Response objs:
+  return new Response(b, headers);
+}
+
+export function makeHttpCacheKey(url, id) {
+  if (util.emptyString(id) || util.emptyObj(url)) return null;
+  const origin = new URL(url).origin;
+  return new URL(origin + "/" + envutil.timestamp() + "/" + id);
+}
+
+export function extractMetadata(cres) {
+  return JSON.parse(cres.headers.get(cheader));
+}
+
+function embedMetadata(m) {
+  return JSON.stringify(m);
 }
 
 export function updateQueryId(decodedDnsPacket, queryId) {
@@ -108,7 +134,7 @@ export function updateQueryId(decodedDnsPacket, queryId) {
 export function isValueValid(v) {
   if (util.emptyObj(v)) return false;
 
-  return hasMetadata(v.metaData);
+  return hasMetadata(v.metadata);
 }
 
 export function hasMetadata(m) {
@@ -116,10 +142,12 @@ export function hasMetadata(m) {
 }
 
 export function hasAnswer(v) {
-  if (!hasMetadata(v.metaData)) return false;
-  return isAnswerFresh(v.metaData);
+  if (!hasMetadata(v.metadata)) return false;
+  return isAnswerFresh(v.metadata);
 }
 
 export function isAnswerFresh(m) {
-  return m.bodyUsed && m.ttlEndTime > 0 && Date.now() <= m.ttlEndTime;
+  // when expiry is 0, c.dnsPacket is a question and not an ans
+  // ref: determineCacheExpiry
+  return m.expiry > 0 && Date.now() <= m.expiry;
 }

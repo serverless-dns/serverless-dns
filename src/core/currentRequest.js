@@ -79,13 +79,14 @@ export default class CurrentRequest {
    * @param {ArrayBuffer} arrayBuffer - responseBodyBuffer
    * @returns Web API Response
    */
-  dnsResponse(arrayBuffer, dnsPacket = null) {
+  dnsResponse(arrayBuffer, dnsPacket = null, blockflag = null) {
     if (bufutil.emptyBuf(arrayBuffer)) {
       return;
     }
 
     this.stopProcessing = true;
     this.decodedDnsPacket = dnsPacket || dnsutil.decode(arrayBuffer);
+    this.blockedB64Flag = blockflag || "";
     this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
   }
 

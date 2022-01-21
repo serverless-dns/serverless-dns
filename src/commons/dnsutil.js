@@ -115,12 +115,13 @@ export function encode(obj) {
     throw new Error("failed encoding an empty dns-obj");
   }
 
-  return dnslib.encode(obj);
+  const b = dnslib.encode(obj);
+  return bufutil.arrayBufferOf(b);
 }
 
 // TODO: All DNS Qs are blockable but only these may eventually
 // result in a IP address answer, so we only block these. For now.
-export function isBlockable(packet) {
+export function isQueryBlockable(packet) {
   return (
     hasSingleQuestion(packet) &&
     (packet.questions[0].type === "A" ||
@@ -131,14 +132,16 @@ export function isBlockable(packet) {
   );
 }
 
+export function isAnswerBlockable(packet) {
+  return isCname(packet) || isHttps(packet);
+}
+
 export function isCname(packet) {
   return hasAnswers(packet) && isAnswerCname(packet.answers[0]);
 }
 
 export function isAnswerCname(ans) {
-  return (
-    !util.emptyObj(ans) && !util.emptyString(ans.type) && ans.type === "CNAME"
-  );
+  return !util.emptyObj(ans) && ans.type === "CNAME";
 }
 
 export function isHttps(packet) {
@@ -184,7 +187,7 @@ export function extractDomains(dnsPacket) {
       const n = normalizeName(a.data.targetName);
       // when ".", then target-domain is same as the question-domain
       if (n !== ".") names.add(n);
-    }
+    } // else: name in answer not blockable
   }
 
   return [...names];

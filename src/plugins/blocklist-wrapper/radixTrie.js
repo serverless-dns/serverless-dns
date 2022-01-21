@@ -188,9 +188,7 @@ BitString.prototype = {
     } else {
       let result = this.bytes[(p / W) | 0] & BitString.MaskTop[W][p % W];
       let tmpCount = 0; // santhosh added
-      const disp1 = this.bytes[(p / W) | 0];
-      const disp2 = BitString.MaskTop[W][p % W];
-      const res1 = result;
+
       const l = W - (p % W);
       p += l;
       n -= l;
@@ -201,26 +199,8 @@ BitString.prototype = {
         p += W;
         n -= W;
       }
-      const res2 = result;
       if (n > 0) {
         result = (result << n) | (this.bytes[(p / W) | 0] >> (W - n));
-      }
-
-      if (debug) {
-        console.log(
-          "disp1: " +
-            disp1 +
-            " disp2: " +
-            disp2 +
-            " loopcount: " +
-            tmpCount +
-            " res1: " +
-            res1 +
-            " res2: " +
-            res2 +
-            " r: " +
-            result
-        );
       }
 
       return result;
@@ -345,19 +325,7 @@ RankDirectory.prototype = {
       }
       const ans = x > 0 ? this.data.pos0(rank + 1, x) : rank;
       if (config.debug) {
-        console.log(
-          "ans: " +
-            ans +
-            " " +
-            rank +
-            ":r, x: " +
-            x +
-            " " +
-            sectionPos +
-            ":s " +
-            this.l1Bits +
-            ": l1"
-        );
+        console.log("ans:", ans, rank, ":r, x:", x, "s:", sectionPos);
       }
       return ans;
     }
@@ -467,11 +435,7 @@ Tags.prototype = {
     }
     // flags.length must be equal to tagIndices.length
     if (tagIndices.length !== flags.length - 1) {
-      console.log(
-        tagIndices,
-        flags,
-        "flags and header mismatch (bug in upsert?)"
-      );
+      console.log(tagIndices, flags, "flags/header mismatch (upsert bug?)");
       return values;
     }
     for (let i = 0; i < flags.length; i++) {
@@ -482,16 +446,7 @@ Tags.prototype = {
         if ((flag & mask) === mask) {
           const pos = index * 16 + j;
           if (config.debug) {
-            console.log(
-              "pos",
-              pos,
-              "index/tagIndices",
-              index,
-              tagIndices,
-              "j/i",
-              j,
-              i
-            );
+            console.log("pos", pos, "i/ti", index, tagIndices, "j/i", j, i);
           }
           values.push(this.rflags[pos]);
         }
@@ -594,12 +549,7 @@ function FrozenTrieNode(trie, index) {
       let i = 0;
       let j = 0;
       if (config.debug) {
-        console.log(
-          "thisnode: index/vc/ccount ",
-          this.index,
-          this.letter(),
-          this.childCount()
-        );
+        console.log("cur:i/l/c", this.index, this.letter(), this.childCount());
       }
       while (i < this.childCount()) {
         const valueChain = this.getChild(i);
@@ -632,19 +582,19 @@ function FrozenTrieNode(trie, index) {
 
   if (config.debug) {
     console.log(
-      index +
-        " :i, fc: " +
-        this.firstChild() +
-        " tl: " +
-        this.letter() +
-        " c: " +
-        this.compressed() +
-        " f: " +
-        this.final() +
-        " wh: " +
-        this.where() +
-        " flag: " +
-        this.flag()
+      index,
+      ":i, fc:",
+      this.firstChild(),
+      "tl:",
+      this.letter(),
+      "c:",
+      this.compressed(),
+      "f:",
+      this.final(),
+      "wh:",
+      this.where(),
+      "flag:",
+      this.flag()
     );
   }
 }

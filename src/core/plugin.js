@@ -26,12 +26,8 @@ export default class RethinkPlugin {
     this.registerParameter("rxid", "[rx." + rxid + "]");
 
     // caution: event isn't an event on nodejs, but event.request is a request
-    this.registerParameter("event", event);
     this.registerParameter("request", event.request);
-
-    this.registerParameter("dnsQuestionBlock", services.dnsQuestionBlock);
-    this.registerParameter("dnsResponseBlock", services.dnsResponseBlock);
-    this.registerParameter("dnsCache", services.dnsCache);
+    this.registerParameter("dispatcher", event.waitUntil);
 
     this.log = log.withTags("RethinkPlugin");
 
@@ -46,7 +42,7 @@ export default class RethinkPlugin {
     );
 
     this.registerPlugin(
-      "DnsCacheHandler",
+      "cacheOnlyResolver",
       services.dnsCacheHandler,
       [
         "rxid",
@@ -54,9 +50,6 @@ export default class RethinkPlugin {
         "request",
         "requestDecodedDnsPacket",
         "isDnsMsg",
-        "dnsCache",
-        "dnsQuestionBlock",
-        "dnsResponseBlock",
       ],
       this.dnsCacheCallBack,
       false
@@ -79,53 +72,20 @@ export default class RethinkPlugin {
     );
 
     this.registerPlugin(
-      "dnsQuestionBlock",
-      services.dnsQuestionBlock,
-      [
-        "rxid",
-        "requestDecodedDnsPacket",
-        "blocklistFilter",
-        "userBlocklistInfo",
-        "event",
-        "request",
-        "dnsCache",
-      ],
-      this.dnsQuestionBlockCallBack,
-      false
-    );
-
-    this.registerPlugin(
       "dnsResolver",
       services.dnsResolver,
       [
         "rxid",
-        "requestBodyBuffer",
+        "dispatcher",
         "request",
-        "requestDecodedDnsPacket",
-        "event",
-        // resolver-url overriden by user-op
         "userDnsResolverUrl",
-        "blocklistFilter",
-        "dnsCache",
-      ],
-      this.dnsResolverCallBack,
-      false
-    );
-
-    this.registerPlugin(
-      "DNSResponseBlock",
-      services.dnsResponseBlock,
-      [
-        "rxid",
+        // resolver-url overriden by user-op
         "userBlocklistInfo",
         "blocklistFilter",
-        "responseDecodedDnsPacket",
-        "responseBodyBuffer",
-        "event",
-        "request",
-        "dnsCache",
+        "requestBodyBuffer",
+        "requestDecodedDnsPacket",
       ],
-      this.dnsResponseBlockCallBack,
+      this.dnsResolverCallBack,
       false
     );
   }
@@ -244,35 +204,21 @@ export default class RethinkPlugin {
   dnsCacheCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    const blocked = !util.emptyObj(r) && r.isBlocked;
-    const answered = !util.emptyObj(r) && !bufutil.emptyBuf(r.dnsBuffer);
+    const blocked = r.isBlocked;
+    const answered = dnsutil.hasAnswers(r.dnsPacket);
     this.log.d(rxid, "cache-handler: block?", blocked, "ans?", answered);
 
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
     } else if (blocked) {
+      // TODO: create block packets/buffers in dnsBlocker.js
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
     } else if (answered) {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
+      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
     } else {
       this.log.d(rxid, "resolve query; no response from cache-handler");
-    }
-  }
-
-  dnsQuestionBlockCallBack(response, currentRequest) {
-    const rxid = this.parameter.get("rxid");
-    const r = response.data;
-    const blocked = !util.emptyObj(r) && r.isBlocked;
-    this.log.d(rxid, "question-block blocked?", blocked);
-
-    if (response.isException) {
-      this.loadException(rxid, response, currentRequest);
-    } else if (blocked) {
-      currentRequest.dnsBlockResponse(r.blockedB64Flag);
-    } else {
-      this.log.d(rxid, "all okay, no actionable res from question-block");
     }
   }
 
@@ -285,49 +231,24 @@ export default class RethinkPlugin {
   dnsResolverCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    const answered = !util.emptyObj(r) && !bufutil.emptyBuf(r.dnsBuffer);
-    this.log.d(rxid, "dns-resolver packet");
-
-    if (response.isException || !answered) {
-      this.log.w(rxid, "err dns-resolver", response, "ans?", answered);
-      this.loadException(rxid, response, currentRequest);
-      return;
-    } else {
-      // answered
-      this.registerParameter("responseBodyBuffer", r.dnsBuffer);
-      this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      // TODO: uncomment this once cacheResponse.js and dnsResolver.js
-      // have similar behaviour (that is, question and ans blocking happens
-      // inside dnsResolver.js itself and not outside of it as a plugin)
-      // Otherwise, currentRequest#dnsResponse sets stopProcessing to true
-      // and none of the plugins hence execute.
-      // currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket);
-    }
-  }
-
-  /**
-   * Adds "dnsCnameBlockResponse" to RethinkPlugin params
-   * @param {*} response -
-   * @param {*} currentRequest
-   */
-  dnsResponseBlockCallBack(response, currentRequest) {
-    const rxid = this.parameter.get("rxid");
-    const r = response.data;
-    const blocked = !util.emptyObj(r) && r.isBlocked;
-    this.log.d(rxid, "ans-block blocked?", blocked);
-
-    // stop processing since this must be the last plugin that
-    // takes any manipulative action on the dns query and answer
-    currentRequest.stopProcessing = true;
+    const blocked = r.isBlocked;
+    const answered = dnsutil.hasAnswers(r.dnsPacket);
+    this.log.d(rxid, "resolver: block?", blocked, "ans?", answered);
 
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
+      return;
     } else if (blocked) {
+      // TODO: create block packets/buffers in dnsBlocker.js
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
+    } else if (answered) {
+      this.registerParameter("responseBodyBuffer", r.dnsBuffer);
+      this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
+      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
     } else {
-      const dnsBuffer = this.parameter.get("responseBodyBuffer");
-      const dnsPacket = this.parameter.get("responseDecodedDnsPacket");
-      currentRequest.dnsResponse(dnsBuffer, dnsPacket);
+      // this shouldn't happen
+      this.log.e(rxid, "no block, no err, no ans", r);
+      this.loadException(rxid, response, currentRequest);
     }
   }
 

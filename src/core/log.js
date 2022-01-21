@@ -135,10 +135,7 @@ export default class Log {
       console.level &&
       _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)
     ) {
-      throw new Error(
-        "Cannot set " +
-          `(log.level='${level}') < (console.level = '${console.level}')`
-      );
+      throw new Error(`(log='${level}') < (console='${console.level}')`);
     }
 
     this._resetLevel();

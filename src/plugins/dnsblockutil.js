@@ -8,6 +8,7 @@
 import { rbase32 } from "../commons/b32.js";
 import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
+import * as dnsutil from "../commons/dnsutil.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -29,61 +30,150 @@ export function isBlocklistFilterSetup(blf) {
   return blf && blf.t && blf.ft;
 }
 
-export function doBlock(blf, userBlInfo, dn, cf) {
-  const blocklistMap = getBlocklistStampForDomains(dn, blf, cf);
-  if (!blocklistMap) return false;
+export function dnsResponse(packet = null, raw = null, stamps = null) {
+  if (util.emptyObj(packet) || bufutil.emptyBuf(raw)) {
+    throw new Error("empty packet for dns-res");
+  }
+  return {
+    isBlocked: false,
+    blockedB64Flag: "",
+    dnsPacket: packet,
+    dnsBuffer: raw,
+    stamps: stamps,
+  };
+}
 
-  const dnUint = blocklistMap.get(dn);
-  if (!dnUint) return false;
+export function copyOnlyBlockProperties(to, from) {
+  to.isBlocked = from.isBlocked;
+  to.blockedB64Flag = from.blockedB64Flag;
 
-  const r = checkFlagIntersection(
+  return to;
+}
+
+export function rdnsNoBlockResponse(
+  flag = "",
+  packet = null,
+  raw = null,
+  stamps = null
+) {
+  return {
+    isBlocked: false,
+    blockedB64Flag: flag || "",
+    dnsPacket: packet,
+    dnsBuffer: raw,
+    stamps: stamps,
+  };
+}
+
+export function rdnsBlockResponse(
+  flag,
+  packet = null,
+  raw = null,
+  stamps = null
+) {
+  if (util.emptyString(flag)) throw new Error("no flag set for block-res");
+  return {
+    isBlocked: true,
+    blockedB64Flag: flag,
+    dnsPacket: packet,
+    dnsBuffer: raw,
+    stamps: stamps,
+  };
+}
+
+// dn         -> domain name, ex: you.and.i.example.com
+// userBlInfo -> user-selected blocklist-stamp
+//               {userBlocklistFlagUint, userServiceListUint}
+// dnBlInfo   -> obj of blocklists stamps for dn and all its subdomains
+//               {string(sub/domain-name) : string(blocklist-stamp) }
+export function doBlock(dn, userBlInfo, dnBlInfo) {
+  const noblock = rdnsNoBlockResponse();
+  if (
+    util.emptyObj(userBlInfo) ||
+    util.emptyObj(dnBlInfo) ||
+    util.emptyString(dn)
+  ) {
+    return noblock;
+  }
+
+  const dnUint = dnBlInfo[dn];
+  if (!dnUint) return noblock;
+
+  const r = applyBlocklists(
     userBlInfo.userBlocklistFlagUint,
     dnUint,
     userBlInfo.flagVersion
   );
 
   // if response is blocked, we're done
-  if (!util.emptyObj(r) && r.isBlocked) return r;
+  if (r.isBlocked) return r;
 
+  // TODO: treat every list as a wildcard list?
   // if user-blockstamp doesn't contain any wildcard blocklists, we're done
-  if (!userBlInfo.userServiceListUint) return r;
+  if (util.emptyString(userBlInfo.userServiceListUint)) return r;
 
   // check if any subdomain is in blocklists that is also in user-blockstamp
-  return checkWildcardBlocking(
+  return applyWildcardBlocklists(
     userBlInfo.userServiceListUint,
     userBlInfo.flagVersion,
-    blocklistMap,
+    dnBlInfo,
     dn
   );
 }
 
-function getBlocklistStampForDomains(domain, blf, cf) {
-  if (util.emptyString(domain)) return false;
+export function blockstampFromCache(cr) {
+  const dnsPacket = cr.dnsPacket;
+  const cacheMetadata = cr.metadata;
 
-  if (!util.emptyObj(cf) && cf.hasOwnProperty(domain)) {
-    return util.mapOf(cf[domain]);
-  }
+  if (util.emptyObj(dnsPacket) || util.emptyObj(cacheMetadata)) return false;
 
-  if (!util.emptyObj(blf) && isBlocklistFilterSetup(blf)) {
-    return blf.getDomainInfo(domain).searchResult;
-  }
-
-  return false;
+  const names = dnsutil.extractDomains(dnsPacket);
+  return domainBlockstamp(names, null, cacheMetadata.stamps);
 }
 
-function checkWildcardBlocking(uint1, flagVersion, blocklistMap, dn) {
+export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
+  if (util.emptyObj(dnsPacket) || util.emptyObj(blocklistFilter)) return false;
+
+  const names = dnsutil.extractDomains(dnsPacket);
+  return domainBlockstamp(names, blocklistFilter, null);
+}
+
+function domainBlockstamp(domains, blf, stamps) {
+  // blf (a blocklistFilter) and stamps (an obj) may be null
+  if (util.emptyArray(domains)) return false;
+
+  const m = new Map();
+  for (const n of domains) {
+    let stamp = null;
+    if (!util.emptyObj(stamps) && stamps.hasOwnProperty(n)) {
+      // var as a obj key: stackoverflow.com/a/11508490/402375
+      stamp = util.mapOf({ [n]: stamps[n] });
+    } else if (isBlocklistFilterSetup(blf)) {
+      // may return Map(domain, b64stamp) or false
+      stamp = blf.getDomainInfo(n).searchResult;
+    } // else: 'n' not in any blocklists
+
+    if (util.emptyMap(stamp)) continue;
+
+    for (const [k, v] of stamp) m.set(k, v);
+  }
+
+  return util.emptyMap(m) ? false : util.objOf(m);
+}
+
+function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
   const dnSplit = dn.split(".");
 
   // iterate through all subdomains one by one, for ex: a.b.c.ex.com:
   // 1st: a.b.c.ex.com; 2nd: b.c.ex.com; 3rd: c.ex.com; 4th: ex.com; 5th: .com
   while (dnSplit.shift() !== undefined) {
     const subdomain = dnSplit.join(".");
-    const subdomainUint = blocklistMap.get(subdomain);
+    const subdomainUint = dnBlInfo[subdomain];
 
     // the subdomain isn't present in any current blocklists
-    if (!subdomainUint) continue;
+    if (util.emptyArray(subdomainUint)) continue;
 
-    const response = checkFlagIntersection(uint1, subdomainUint, flagVersion);
+    const response = applyBlocklists(uint1, subdomainUint, flagVersion);
 
     // if any subdomain is in any blocklist, block the current request
     if (!util.emptyObj(response) && response.isBlocked) {
@@ -91,33 +181,24 @@ function checkWildcardBlocking(uint1, flagVersion, blocklistMap, dn) {
     }
   }
 
-  return false;
+  return rdnsNoBlockResponse();
 }
 
-function checkFlagIntersection(uint1, uint2, flagVersion) {
-  const response = {
-    isBlocked: false,
-    blockedB64Flag: "",
-  };
-
-  const blockedUint = flagIntersection(uint1, uint2);
+function applyBlocklists(uint1, uint2, flagVersion) {
+  // uint1 -> user blocklists; uint2 -> blocklists including domains/subdomains
+  const blockedUint = intersect(uint1, uint2);
 
   if (blockedUint) {
     // incoming user-blockstamp intersects with domain-blockstamp
-    response.isBlocked = true;
-    response.blockedB64Flag = getB64Flag(blockedUint, flagVersion);
+    return rdnsBlockResponse(getB64Flag(blockedUint, flagVersion));
   } else {
     // domain-blockstamp exists but no intersection with user-blockstamp
-    response.isBlocked = false;
-    response.blockedB64Flag = getB64Flag(uint2, flagVersion);
+    return rdnsNoBlockResponse(getB64Flag(uint2, flagVersion));
   }
-
-  return response;
 }
 
-export function flagIntersection(flag1, flag2) {
-  // TODO: emptyArray or emptyString?
-  if (util.emptyString(flag1) || util.emptyString(flag2)) return false;
+function intersect(flag1, flag2) {
+  if (util.emptyArray(flag1) || util.emptyArray(flag2)) return null;
 
   // flag has 16-bit header (at index 0) followed by var-length 16-bit array,
   // whose length is encoded in the header.
@@ -126,7 +207,7 @@ export function flagIntersection(flag1, flag2) {
 
   let intersectHeader = flag1Header & flag2Header;
   if (intersectHeader === 0) {
-    return false;
+    return null;
   }
 
   // length of the flag without the header,
@@ -169,7 +250,7 @@ export function flagIntersection(flag1, flag2) {
   }
 
   if (intersectHeader === 0) {
-    return false;
+    return null;
   }
 
   const out = new Uint16Array(/* header*/ 1 + intersectBody.length);
@@ -225,10 +306,12 @@ export function base64ToUintV0(b64Flag) {
 }
 
 export function base64ToUintV1(b64Flag) {
+  // TODO: check for empty b64Flag
   return bufutil.base64ToUint16(b64Flag);
 }
 
 export function base32ToUintV1(flag) {
+  // TODO: check for empty flag
   const b32 = decodeURI(flag);
   return bufutil.decodeFromBinaryArray(rbase32(b32));
 }
@@ -247,14 +330,14 @@ export function stampVersion(s) {
 // TODO: The logic to parse stamps must be kept in sync with:
 // github.com/celzero/website-dns/blob/8e6056bb/src/js/flag.js#L260-L425
 export function unstamp(flag) {
-  const response = {
-    userBlocklistFlagUint: "",
+  const r = {
+    userBlocklistFlagUint: null,
     flagVersion: "0",
+    userServiceListUint: null,
   };
 
-  if (util.emptyString(flag)) {
-    return response;
-  }
+  if (util.emptyString(flag)) return r;
+
   // added to check if UserFlag is empty for changing dns request flow
   flag = flag.trim();
 
@@ -276,15 +359,16 @@ export function unstamp(flag) {
     throw new Error("unknown blocklist stamp version in " + s);
   }
 
-  response.flagVersion = v;
-  response.userBlocklistFlagUint = convertor(f) || "";
+  r.flagVersion = v;
+  r.userBlocklistFlagUint = convertor(f) || null;
+  r.userServiceListUint = intersect(r.userBlocklistFlagUint, _wildcardUint16);
 
-  return response;
+  return r;
 }
 
 export function hasBlockstamp(blockInfo) {
   return (
     !util.emptyObj(blockInfo) &&
-    !util.emptyString(blockInfo.userBlocklistFlagUint)
+    !util.emptyArray(blockInfo.userBlocklistFlagUint)
   );
 }

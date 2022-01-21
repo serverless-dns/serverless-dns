@@ -152,11 +152,11 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     domainName: domainName,
     version: latestTimestamp,
     list: {},
+    listDetail: {},
   };
 
   const searchResult = blocklistFilter.hadDomainName(domainName);
   if (!searchResult) {
-    r.list = false;
     return jsonResponse(r);
   }
 
@@ -181,7 +181,6 @@ function domainNameToUint(queryString, blocklistFilter) {
 
   const searchResult = blocklistFilter.hadDomainName(domainName);
   if (!searchResult) {
-    r.list = false;
     return jsonResponse(r);
   }
 
@@ -212,16 +211,16 @@ function b64ToList(queryString, blocklistFilter) {
   const r = {
     command: "Base64 To List",
     inputB64: b64,
+    list: [],
+    listDetail: {},
   };
 
   const stamp = dnsBlockUtil.unstamp(b64);
-  if (stamp.userBlocklistFlagUint.length <= 0) {
-    r.list = "Invalid B64 String";
+  if (dnsBlockUtil.hasBlockstamp(stamp)) {
     return jsonResponse(r);
   }
 
   r.list = blocklistFilter.getTag(stamp.userBlocklistFlagUint);
-  r.listDetail = {};
   for (const listValue of r.list) {
     r.listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
   }

@@ -5,89 +5,71 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as dnsCacheUtil from "../cacheutil.js";
-import * as dnsBlockUtil from "../dnsblockutil.js";
+import * as rdnsutil from "../dnsblockutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
-import * as util from "../../commons/util.js";
 
-export default class DNSQuestionBlock {
+export class DnsBlocker {
   constructor() {
-    this.log = log.withTags("DnsQuestionBlock");
+    this.log = log.withTags("DnsBlocker");
   }
 
-  /**
-   * @param {*} param
-   * @param {*} param.userBlocklistInfo
-   * @param {*} param.blocklistFilter
-   * @param {*} param.requestDecodedDnsPacket
-   * @param {*} param.event
-   * @param {*} param.request
-   * @param {*} param.dnsCache
-   * @returns
-   */
-  async RethinkModule(param) {
-    let response = util.emptyResponse();
+  blockQuestion(rxid, req, blockInfo) {
+    const dnsPacket = req.dnsPacket;
+    const stamps = req.stamps;
 
-    try {
-      response.data = this.dnsBlock(param);
-    } catch (e) {
-      this.log.e(param.rxid, "main", e);
-      response = util.errResponse("DNSQuestionBlock", e);
+    if (!stamps) {
+      this.log.w(rxid, "q: no stamp");
+      return req;
     }
 
-    return response;
-  }
-
-  dnsBlock(param) {
-    const response = this.performBlocking(
-      param.rxid,
-      param.userBlocklistInfo,
-      param.requestDecodedDnsPacket,
-      param.blocklistFilter,
-      /* cache-filter*/ false
-    );
-    // FIXME: move cache-ops to callbacks in plugin.js
-    if (response && response.isBlocked) {
-      this.log.d(param.rxid, "cache block-response");
-      putCache(
-        param.dnsCache,
-        param.request.url,
-        param.blocklistFilter,
-        param.requestDecodedDnsPacket,
-        /* buffer*/ "",
-        param.event
-      );
-    }
-    return response;
-  }
-
-  performBlocking(rxid, blockInfo, dnsPacket, blf, cf) {
-    if (!cf && !blf) {
-      this.log.w(rxid, "no cf and blf");
-      return false;
+    if (!rdnsutil.hasBlockstamp(blockInfo)) {
+      this.log.d(rxid, "q: no user-set blockstamp");
+      return req;
     }
 
-    if (!dnsBlockUtil.hasBlockstamp(blockInfo)) {
-      this.log.d(rxid, "no user-set blockstamp");
-      return false;
-    }
-
-    if (!dnsutil.isBlockable(dnsPacket)) {
+    if (!dnsutil.isQueryBlockable(dnsPacket)) {
       this.log.d(rxid, "not a blockable dns-query");
-      return false;
+      return req;
     }
 
-    const qn = dnsutil.getQueryName(dnsPacket.questions);
-    if (!qn) return false;
+    const domains = dnsutil.extractDomains(dnsPacket);
+    const bres = this.block(domains, blockInfo, stamps);
 
-    return dnsBlockUtil.doBlock(blf, blockInfo, qn, cf);
+    return rdnsutil.copyOnlyBlockProperties(req, bres);
   }
-}
 
-function putCache(cache, url, blf, dnsPacket, buf, event) {
-  const key = dnsCacheUtil.cacheKey(dnsPacket);
-  if (!key) return;
+  blockAnswer(rxid, res, blockInfo) {
+    const dnsPacket = res.dnsPacket;
+    const stamps = res.stamps;
 
-  const value = dnsCacheUtil.createCacheInput(dnsPacket, blf);
-  cache.put(key, value, url, buf, event);
+    // dnsPacket is null when cache only has metadata
+    if (!stamps || !dnsutil.hasAnswers(dnsPacket)) {
+      this.log.w(rxid, "ans: no stamp / dns-packet");
+      return res;
+    }
+
+    if (!rdnsutil.hasBlockstamp(blockInfo)) {
+      this.log.d(rxid, "ans: no user-set blockstamp");
+      return res;
+    }
+
+    if (!dnsutil.isAnswerBlockable(dnsPacket)) {
+      this.log.d(rxid, "ans not cloaked with cname/https/svcb");
+      return res;
+    }
+
+    const domains = dnsutil.extractDomains(dnsPacket);
+    const bres = this.block(domains, blockInfo, stamps);
+
+    return rdnsutil.copyOnlyBlockProperties(res, bres);
+  }
+
+  block(names, blockInfo, blockstamps) {
+    let r = rdnsutil.rdnsNoBlockResponse();
+    for (const n of names) {
+      r = rdnsutil.doBlock(n, blockInfo, blockstamps);
+      if (r.isBlocked) break;
+    }
+    return r;
+  }
 }

@@ -5,17 +5,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
+import { DnsBlocker } from "./dnsBlock.js";
+import * as rdnsutil from "../dnsblockutil.js";
+import * as cacheutil from "../cacheutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
 
 export default class DNSResolver {
-  constructor() {
+  constructor(cache) {
+    this.cache = cache;
     this.http2 = null;
     this.nodeUtil = null;
     this.transport = null;
+    this.blocker = new DnsBlocker();
     this.log = log.withTags("DnsResolver");
     this.preferredDohResolvers = [
       envutil.dohResolver(),
@@ -47,10 +51,8 @@ export default class DNSResolver {
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {DnsDecodeObject} param.requestDecodedDnsPacket
-   * @param {Worker-Event} param.event
    * @param {String} param.userDnsResolverUrl
    * @param {} param.blocklistFilter
-   * @param {DnsCache} param.dnsCache
    * @returns
    */
   async RethinkModule(param) {
@@ -84,32 +86,75 @@ export default class DNSResolver {
 
   async resolveDns(param) {
     const rxid = param.rxid;
+    const url = param.request.url;
+    const blInfo = param.userBlocklistInfo;
+    const packet = param.requestBodyBuffer;
+    const blf = param.blocklistFilter;
+    const dispatcher = param.dispatcher;
+
+    const q = await this.makeRdnsResponse(rxid, packet, blf);
+
+    this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
+    this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
+
+    if (q.isBlocked) {
+      this.primeCache(rxid, url, q, dispatcher);
+      return q;
+    }
+
     const upstreams = this.determineDohResolvers(param);
-    const upRes = await this.resolveDnsUpstream(
+    const res = await this.resolveDnsUpstream(
       rxid,
       param.request,
       upstreams,
       param.requestBodyBuffer
     );
-    return await this.decodeResponse(rxid, upRes);
-  }
 
-  async decodeResponse(rxid, response) {
-    if (!response) throw new Error("no upstream result");
+    if (!res) throw new Error(rxid + "no upstream result");
 
-    if (!response.ok) {
-      const txt = await response.text();
-      this.log.d(rxid, "!OK", response.status, response.statusText, txt);
-      throw new Error(response.status + " http err: " + response.statusText);
+    if (!res.ok) {
+      const txt = await res.text();
+      this.log.d(rxid, "!OK", res.status, res.statusText, txt);
+      throw new Error(ans.status + " http err: " + res.statusText);
     }
 
-    const dnsBuffer = await response.arrayBuffer();
-    const dnsPacket = dnsutil.decode(dnsBuffer);
+    const ans = await res.arrayBuffer();
 
-    return {
-      dnsPacket: dnsPacket,
-      dnsBuffer: dnsBuffer,
-    };
+    const r = await this.makeRdnsResponse(rxid, ans, blf);
+
+    // check outgoing cached dns-packet against blocklists
+    this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
+    this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
+
+    this.primeCache(rxid, url, r, dispatcher);
+    return r;
+  }
+
+  async makeRdnsResponse(rxid, raw, blf) {
+    if (!raw) throw new Error(rxid + "no upstream result");
+
+    const dnsPacket = dnsutil.decode(raw);
+    const stamps = rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf);
+
+    return rdnsutil.dnsResponse(dnsPacket, raw, stamps);
+  }
+
+  primeCache(rxid, url, r, dispatcher) {
+    const blocked = r.isBlocked;
+    const answered = !bufutil.emptyBuf(r.dnsBuffer);
+    const qid = cacheutil.makePacketId(r.dnsPacket);
+
+    this.log.d(rxid, "block?", blocked, "ans?", answered, "id", qid);
+
+    const k = cacheutil.makeHttpCacheKey(url, qid);
+    if (!k) {
+      this.log.d(rxid, "no cache-key, url/query missing?", url, r.stamps);
+      return;
+    }
+
+    const v = cacheutil.cacheValueOf(r.dnsPacket, r.stamps);
+
+    this.cache.put(k, v, dispatcher);
   }
 }
 

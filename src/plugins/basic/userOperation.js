@@ -39,31 +39,20 @@ export class UserOperation {
 
     try {
       const blocklistFlag = dnsBlockUtil.blockstampFromUrl(param.request.url);
-      let currentUser = this.userConfigCache.get(blocklistFlag);
+      let r = this.userConfigCache.get(blocklistFlag);
 
-      if (util.emptyObj(currentUser)) {
-        const r = dnsBlockUtil.unstamp(blocklistFlag);
+      if (util.emptyObj(r)) {
+        r = dnsBlockUtil.unstamp(blocklistFlag);
 
-        const serviceListUint = dnsBlockUtil.flagIntersection(
-          r.userBlocklistFlagUint,
-          dnsBlockUtil.wildcards()
-        );
-
-        currentUser = {
-          userBlocklistFlagUint: r.userBlocklistFlagUint,
-          flagVersion: r.flagVersion,
-          userServiceListUint: serviceListUint,
-        };
-
-        // FIXME: add to cache iff !empty(currentUser.userBlocklistFlagUint)?
-        this.log.d(param.rxid, "new cfg cache kv", blocklistFlag, currentUser);
+        // FIXME: add to cache iff !empty(r.userBlocklistFlagUint)?
+        this.log.d(param.rxid, "new cfg cache kv", blocklistFlag, r);
         // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
         // converted to its b64 form (which both doh and blocklist-wrapper use)
         // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
-        this.userConfigCache.put(blocklistFlag, currentUser);
+        this.userConfigCache.put(blocklistFlag, r);
       }
 
-      response.data.userBlocklistInfo = currentUser;
+      response.data.userBlocklistInfo = r;
       // sets user-preferred doh upstream
       response.data.dnsResolverUrl = null;
     } catch (e) {

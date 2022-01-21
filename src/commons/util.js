@@ -302,6 +302,12 @@ export function emptyObj(x) {
   return !x || Object.keys(x).length <= 0;
 }
 
+export function emptyMap(m) {
+  if (!m || !m.__proto__) return true;
+  if (!m.__proto__.hasOwnProperty("size")) return true;
+  return m.size === 0;
+}
+
 export function respond204() {
   return new Response(null, {
     status: 204, // no content

@@ -5,14 +5,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-
+import { DnsBlocker } from "./dnsBlock.js";
 import * as cacheutil from "../cacheutil.js";
+import * as rdnsutil from "../dnsblockutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 
-export default class DNSCacheResponse {
-  constructor() {
+export class DNSCacheResponder {
+  constructor(cache) {
+    this.blocker = new DnsBlocker();
     this.log = log.withTags("DnsCacheResponse");
+    this.cache = cache;
   }
 
   /**
@@ -21,15 +24,12 @@ export default class DNSCacheResponse {
    * @param {*} param.request
    * @param {*} param.requestDecodedDnsPacket
    * @param {*} param.isDnsMsg
-   * @param {*} param.dnsCache
-   * @param {*} param.dnsQuestionBlock
-   * @param {*} param.dnsResponseBlock
    * @returns
    */
   async RethinkModule(param) {
     let response = util.emptyResponse();
     if (!param.isDnsMsg) {
-      this.log.w(param.rxid, "not a dns-msg, nowt to resolve");
+      this.log.d(param.rxid, "not a dns-msg, nowt to resolve");
       return response;
     }
 
@@ -44,73 +44,62 @@ export default class DNSCacheResponse {
   }
 
   async resolveFromCache(param) {
-    const key = cacheutil.cacheKey(param.requestDecodedDnsPacket);
-    if (!key) return false;
+    const noAnswer = rdnsutil.rdnsNoBlockResponse();
 
-    const cacheResponse = await param.dnsCache.get(key, param.request.url);
-    this.log.d(param.rxid, "resolveFromCache k/v", key, cacheResponse);
+    const rxid = param.rxid;
+    const url = param.request.url;
+    const packet = param.requestDecodedDnsPacket;
 
-    if (!cacheResponse) return false;
+    const id = cacheutil.makePacketId(packet);
+    const k = cacheutil.makeHttpCacheKey(url, id);
+    if (!k) return noAnswer;
 
-    return await this.makeCacheResponse(
-      param.rxid,
-      cacheResponse,
-      param.userBlocklistInfo,
-      param.requestDecodedDnsPacket,
-      param.dnsQuestionBlock,
-      param.dnsResponseBlock
-    );
+    const cr = await this.cache.get(k);
+    this.log.d(param.rxid, "resolveFromCache k/v", k, cr);
+
+    if (util.emptyObj(cr)) return noAnswer;
+
+    const dnsBuffer = dnsutil.encode(cr.dnsPacket);
+    const stamps = rdnsutil.blockstampFromCache(cr);
+    const blockInfo = param.userBlocklistInfo;
+    const res = rdnsutil.dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
+
+    await this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
+
+    if (res.isBlocked) return res;
+
+    if (!cacheutil.isAnswerFresh(cr.metadata)) return noAnswer;
+
+    return updatedAnswer(res, packet.id, cr.metadata.expiry);
   }
 
-  async makeCacheResponse(rxid, cr, blockInfo, reqDnsPacket, qb, rb) {
+  async makeCacheResponse(rxid, r, blockInfo) {
     // check incoming dns request against blocklists in cache-metadata
-    const qresponse = blockIfNeeded(
-      rxid,
-      qb,
-      reqDnsPacket,
-      cr.metaData.cacheFilter,
-      blockInfo
-    );
-    this.log.d(rxid, blockInfo, "question block?", qresponse);
-    if (qresponse && qresponse.isBlocked) {
-      return qresponse;
+    this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo);
+    this.log.d(rxid, blockInfo, "question blocked?", r.isBlocked);
+    if (r.isBlocked) {
+      return r;
     }
 
-    // cache-response contains only metadata not dns-packet
-    // and hence there's no dns answers to be blocked
-    if (!cacheutil.hasAnswer(cr)) {
-      return false;
+    // cache-response contains only query and not answers,
+    // hence there are no more domains to block.
+    if (!dnsutil.hasAnswers(r.dnsPacket)) {
+      return r;
     }
 
     // check outgoing cached dns-packet against blocklists
-    const aresponse = blockIfNeeded(
-      rxid,
-      rb,
-      cr.dnsPacket,
-      cr.metaData.cacheFilter,
-      blockInfo
-    );
-    this.log.d(rxid, "answer block?", aresponse);
-    if (aresponse && aresponse.isBlocked) {
-      return aresponse;
-    }
+    this.blocker.blockAnswer(rxid, /* out*/ r, blockInfo);
+    this.log.d(rxid, "answer block?", r.isBlocked);
 
-    return modifyCacheResponse(cr, reqDnsPacket.id);
+    return r;
   }
 }
 
-function blockIfNeeded(rxid, blocker, dnsPacket, cf, blockInfo) {
-  return blocker.performBlocking(rxid, blockInfo, dnsPacket, false, cf);
-}
+function updatedAnswer(r, qid, expiry) {
+  cacheutil.updateQueryId(r.dnsPacket, qid);
+  cacheutil.updateTtl(r.dnsPacket, expiry);
 
-function modifyCacheResponse(cr, qid) {
-  if (!cacheutil.isAnswerFresh(cr.metaData)) return false;
+  const reencoded = dnsutil.encode(r.dnsPacket);
 
-  cacheutil.updateQueryId(cr.dnsPacket, qid);
-  cacheutil.updateTtl(cr.dnsPacket, cr.metaData.ttlEndTime);
-
-  return {
-    dnsPacket: cr.dnsPacket,
-    dnsBuffer: dnsutil.encode(cr.dnsPacket),
-  };
+  return rdnsutil.dnsResponse(r.dnsPacket, reencoded, r.stamps);
 }
