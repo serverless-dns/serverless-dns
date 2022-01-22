@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import * as envutil from "../../commons/envutil.js";
-import * as util from "../../commons/util.js";
 
 export class CacheApi {
   constructor() {
@@ -17,17 +16,17 @@ export class CacheApi {
     }
   }
 
-  async get(url) {
+  async get(href) {
     if (this.noop) return false;
-    if (util.emptyString(url)) return false;
+    if (!href) return false;
 
-    return await caches.default.match(url);
+    return await caches.default.match(href);
   }
 
-  put(url, response) {
+  put(href, response) {
     if (this.noop) return false;
-    if (util.emptyString(url) || util.emptyObj(response)) return false;
+    if (!href || !response) return false;
 
-    return caches.default.put(url, response);
+    return caches.default.put(href, response);
   }
 }

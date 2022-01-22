@@ -57,6 +57,14 @@ export function determineCacheExpiry(dnsPacket) {
 }
 
 function makeCacheMetadata(dnsPacket, stamps) {
+  // {
+  //   "expiry": 1642874536022,
+  //   "stamps": {
+  //     "amazonaws.com": [128,2],
+  //     "amazon.com": [16384,1024],
+  //     "rewrite.amazon.com": [944,32768,8,16384,16,16]
+  //   }
+  // }
   return {
     expiry: determineCacheExpiry(dnsPacket),
     stamps: stamps,
@@ -103,7 +111,7 @@ export function makeHttpCacheValue(packet, metadata) {
   const headers = {
     headers: util.concatHeaders(
       {
-        "cheader": embedMetadata(metadata),
+        [cheader]: embedMetadata(metadata),
         // ref: developers.cloudflare.com/workers/runtime-apis/cache#headers
         "Cache-Control": /* 1w*/ "max-age=604800",
       },

@@ -44,12 +44,13 @@ export class DnsCache {
     return entry;
   }
 
-  put(url, data, dispatcher) {
+  async put(url, data, dispatcher) {
     if (
       !url ||
       util.emptyString(url.href) ||
       util.emptyObj(data) ||
-      util.emptyObj(data.metadata)
+      util.emptyObj(data.metadata) ||
+      util.emptyObj(data.dnsPacket)
     ) {
       this.log.w("put: empty url/data", url, data);
       return;
@@ -60,9 +61,10 @@ export class DnsCache {
       this.log.d("put: data in cache", data);
 
       this.putLocalCache(url.href, data);
+
       dispatcher(this.putHttpCache(url, data));
     } catch (e) {
-      this.log.e("put", e);
+      this.log.e("put", url.href, data, e.stack);
     }
   }
 
@@ -78,7 +80,7 @@ export class DnsCache {
   }
 
   async putHttpCache(url, data) {
-    const k = url;
+    const k = url.href;
     const v = cacheutil.makeHttpCacheValue(data.dnsPacket, data.metadata);
 
     if (!k || !v) return;
@@ -86,8 +88,9 @@ export class DnsCache {
     return this.httpcache.put(k, v);
   }
 
-  async fromHttpCache(key) {
-    const response = await this.httpcache.get(key);
+  async fromHttpCache(url) {
+    const k = url.href;
+    const response = await this.httpcache.get(k);
     if (!response) return false;
 
     const metadata = cacheutil.extractMetadata(response);
