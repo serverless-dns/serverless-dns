@@ -12,6 +12,8 @@ import * as envutil from "../commons/envutil.js";
 const ttlGraceSec = 30; // 30s cache extra time
 const cheader = "x-rdnscache-metadata";
 
+const _cacheurl = "https://caches.rethinkdns.com/";
+
 // Keep this method in-sync with plugin.js:dnsCacheCallBack
 // which discards any non-answer responses from cacheResponse.js
 export function isAnswerCacheable(dnsPacket) {
@@ -85,7 +87,7 @@ export function updateTtl(decodedDnsPacket, end) {
   }
 }
 
-export function makeId(packet) {
+function makeId(packet) {
   // multiple questions are kind of an undefined behaviour
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;
@@ -115,10 +117,11 @@ export function makeHttpCacheValue(packet, metadata) {
   return new Response(b, headers);
 }
 
-export function makeHttpCacheKey(url, id) {
-  if (util.emptyString(id) || util.emptyObj(url)) return null;
-  const origin = new URL(url).origin;
-  return new URL(origin + "/" + envutil.timestamp() + "/" + id);
+export function makeHttpCacheKey(packet) {
+  const id = makeId(packet);
+  if (util.emptyString(id)) return null;
+
+  return new URL(_cacheurl + envutil.timestamp() + "/" + id);
 }
 
 export function extractMetadata(cres) {

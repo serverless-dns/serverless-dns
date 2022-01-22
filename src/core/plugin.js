@@ -45,13 +45,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "cacheOnlyResolver",
       services.dnsCacheHandler,
-      [
-        "rxid",
-        "userBlocklistInfo",
-        "request",
-        "requestDecodedDnsPacket",
-        "isDnsMsg",
-      ],
+      ["rxid", "userBlocklistInfo", "requestDecodedDnsPacket", "isDnsMsg"],
       this.dnsCacheCallBack,
       false
     );
@@ -84,7 +78,6 @@ export default class RethinkPlugin {
         "userBlocklistInfo",
         "blocklistFilter",
         "requestBodyBuffer",
-        "requestDecodedDnsPacket",
       ],
       this.dnsResolverCallBack,
       false

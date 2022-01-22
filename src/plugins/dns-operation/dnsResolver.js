@@ -50,7 +50,6 @@ export default class DNSResolver {
    * @param {String} param.rxid
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
-   * @param {DnsDecodeObject} param.requestDecodedDnsPacket
    * @param {String} param.userDnsResolverUrl
    * @param {} param.blocklistFilter
    * @returns
@@ -86,7 +85,6 @@ export default class DNSResolver {
 
   async resolveDns(param) {
     const rxid = param.rxid;
-    const url = param.request.url;
     const blInfo = param.userBlocklistInfo;
     const packet = param.requestBodyBuffer;
     const blf = param.blocklistFilter;
@@ -98,7 +96,7 @@ export default class DNSResolver {
     this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
 
     if (q.isBlocked) {
-      this.primeCache(rxid, url, q, dispatcher);
+      this.primeCache(rxid, q, dispatcher);
       return q;
     }
 
@@ -126,7 +124,7 @@ export default class DNSResolver {
     this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
     this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
 
-    this.primeCache(rxid, url, r, dispatcher);
+    this.primeCache(rxid, r, dispatcher);
     return r;
   }
 
@@ -139,16 +137,16 @@ export default class DNSResolver {
     return rdnsutil.dnsResponse(dnsPacket, raw, stamps);
   }
 
-  primeCache(rxid, url, r, dispatcher) {
+  primeCache(rxid, r, dispatcher) {
     const blocked = r.isBlocked;
     const answered = !bufutil.emptyBuf(r.dnsBuffer);
-    const id = cacheutil.makeId(r.dnsPacket);
 
-    this.log.d(rxid, "block?", blocked, "ans?", answered, "id", id);
+    const k = cacheutil.makeHttpCacheKey(r.dnsPacket);
 
-    const k = cacheutil.makeHttpCacheKey(url, id);
+    this.log.d(rxid, "primeCache: block?", blocked, "ans?", answered, "k", k);
+
     if (!k) {
-      this.log.d(rxid, "no cache-key, url/query missing?", url, r.stamps);
+      this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);
       return;
     }
 

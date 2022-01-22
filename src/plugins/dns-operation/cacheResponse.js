@@ -21,7 +21,6 @@ export class DNSCacheResponder {
   /**
    * @param {*} param
    * @param {*} param.userBlocklistInfo
-   * @param {*} param.request
    * @param {*} param.requestDecodedDnsPacket
    * @param {*} param.isDnsMsg
    * @returns
@@ -47,11 +46,9 @@ export class DNSCacheResponder {
     const noAnswer = rdnsutil.rdnsNoBlockResponse();
 
     const rxid = param.rxid;
-    const url = param.request.url;
     const packet = param.requestDecodedDnsPacket;
 
-    const id = cacheutil.makeId(packet);
-    const k = cacheutil.makeHttpCacheKey(url, id);
+    const k = cacheutil.makeHttpCacheKey(packet);
     if (!k) return noAnswer;
 
     const cr = await this.cache.get(k);
