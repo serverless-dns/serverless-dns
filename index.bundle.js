@@ -5388,7 +5388,7 @@ function cacheSize() {
     return 10000;
 }
 function servfail(qid, qs) {
-    if (!qid || !qs) return null;
+    if (qid == null || qid < 0 || emptyArray(qs)) return null;
     return encode3({
         id: qid,
         type: "response",
@@ -5512,7 +5512,7 @@ class CurrentRequest {
     }
     emptyDecodedDnsPacket() {
         return {
-            id: 0,
+            id: null,
             questions: null
         };
     }
@@ -5534,13 +5534,13 @@ class CurrentRequest {
         }
         const qid = this.decodedDnsPacket.id;
         const questions = this.decodedDnsPacket.questions;
+        const servfail1 = servfail(qid, questions);
         const ex = {
             exceptionFrom: this.exceptionFrom,
             exceptionStack: this.exceptionStack
         };
-        const servfail1 = servfail(qid, questions);
         this.httpResponse = new Response(servfail1, {
-            headers: concatHeaders(this.headers(), this.additionalHeader(JSON.stringify(ex))),
+            headers: concatHeaders(this.headers(servfail1), this.additionalHeader(JSON.stringify(ex))),
             status: servfail1 ? 200 : 408
         });
     }
@@ -5557,7 +5557,7 @@ class CurrentRequest {
         this.decodedDnsPacket = dnsPacket || decode3(arrayBuffer);
         this.blockedB64Flag = blockflag || "";
         this.httpResponse = new Response(arrayBuffer, {
-            headers: this.headers()
+            headers: this.headers(arrayBuffer)
         });
     }
     dnsBlockResponse(blockflag) {
@@ -5592,8 +5592,9 @@ class CurrentRequest {
                 this.decodedDnsPacket.answers[0].data.svcParams = {};
             }
             this.decodedDnsPacket.authorities = [];
-            this.httpResponse = new Response(encode3(this.decodedDnsPacket), {
-                headers: this.headers()
+            const b = encode3(this.decodedDnsPacket);
+            this.httpResponse = new Response(b, {
+                headers: this.headers(b)
             });
         } catch (e) {
             this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e);
@@ -5606,14 +5607,14 @@ class CurrentRequest {
             });
         }
     }
-    headers() {
+    headers(b = null) {
         const xNileFlags = this.isDnsBlock ? {
             "x-nile-flags": this.blockedB64Flag
         } : null;
-        const xNileFlagsAllowed = this.blockedB64Flag ? {
+        const xNileFlagsOk = this.blockedB64Flag ? {
             "x-nile-flags-allowed": this.blockedB64Flag
         } : null;
-        return concatHeaders(dnsHeaders(), xNileFlags, xNileFlagsAllowed);
+        return concatHeaders(dnsHeaders(), contentLengthHeader(b), xNileFlags, xNileFlagsOk);
     }
     additionalHeader(json) {
         if (!json) return null;
@@ -6501,7 +6502,7 @@ function doBlock(dn, userBlInfo, dnBlInfo) {
     if (!dnUint) return noblock;
     const r = applyBlocklists(userBlInfo.userBlocklistFlagUint, dnUint, userBlInfo.flagVersion);
     if (r.isBlocked) return r;
-    if (emptyString(userBlInfo.userServiceListUint)) return r;
+    if (emptyArray(userBlInfo.userServiceListUint)) return r;
     return applyWildcardBlocklists(userBlInfo.userServiceListUint, userBlInfo.flagVersion, dnBlInfo, dn);
 }
 function blockstampFromCache(cr) {
@@ -7410,7 +7411,7 @@ class DNSCacheResponder {
         const k = makeHttpCacheKey(url, id);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k);
-        this.log.d(param.rxid, "resolveFromCache k/v", k, cr);
+        this.log.d(param.rxid, "resolveFromCache k/v", k.href, cr);
         if (emptyObj(cr)) return noAnswer;
         const dnsBuffer = encode3(cr.dnsPacket);
         const stamps = blockstampFromCache(cr);
@@ -7679,16 +7680,12 @@ class RethinkPlugin {
         this.log.d(rxid, "resolver: block?", blocked, "ans?", answered);
         if (response.isException) {
             this.loadException(rxid, response, currentRequest);
-            return;
         } else if (blocked) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
-        } else if (answered) {
+        } else {
             this.registerParameter("responseBodyBuffer", r.dnsBuffer);
             this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
             currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
-        } else {
-            this.log.e(rxid, "no block, no err, no ans", r);
-            this.loadException(rxid, response, currentRequest);
         }
     }
     loadException(rxid, response, currentRequest) {
