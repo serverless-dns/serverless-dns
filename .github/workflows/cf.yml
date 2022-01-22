@@ -1,8 +1,26 @@
 name: ⛅ CF
 on:
+  # docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
+  # docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows#workflow_dispatch
+  # docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
+  workflow_dispatch:
+    # github.blog/changelog/2020-07-06-github-actions-manual-triggers-with-workflow_dispatch/
+    # docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions#inputs
+    inputs:
+      environment:
+        description: 'wrangler env to deploy to'
+        default: 'prod'
+        required: true
+      commit:
+        description: 'git tip commit to deploy'
+        default: 'main'
+        required: true
   push:
+    # TODO: inputs.environment and inputs.commit
     branches:
       - main
+    tags:
+      - v*
     paths-ignore:
       - ".github/**"
       - "!.github/workflows/cf.yml"
@@ -22,8 +40,13 @@ jobs:
       - name: 🏗 Install Dependencies
         run: npm install
       - name: 📚 Publish
+        # https://github.com/cloudflare/wrangler-action
         uses: cloudflare/wrangler-action@1.3.0
-        with: 
+        with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
+          environment: ${{ github.event.inputs.environment }}
         env:
           CF_ACCOUNT_ID: ${{secrets.CF_ACCOUNT_ID}}
+          #
+          #
+          GIT_COMMIT_ID: ${{ github.event.inputs.commit }}.
