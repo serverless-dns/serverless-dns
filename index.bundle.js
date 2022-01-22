@@ -7240,7 +7240,9 @@ class DNSResolver {
         } else if (isWorkers()) {
             return this.preferredDohResolvers;
         }
-        return dohResolver();
+        return [
+            dohResolver()
+        ];
     }
     async resolveDns(param) {
         const rxid = param.rxid;
@@ -7271,7 +7273,7 @@ class DNSResolver {
         return r;
     }
     async makeRdnsResponse(rxid, raw, blf) {
-        if (!raw) throw new Error(rxid + "no upstream result");
+        if (!raw) throw new Error(rxid + "mk-res no upstream result");
         const dnsPacket = decode3(raw);
         const stamps = blockstampFromBlocklistFilter(dnsPacket, blf);
         return dnsResponse(dnsPacket, raw, stamps);
