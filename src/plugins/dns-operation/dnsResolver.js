@@ -80,7 +80,7 @@ export default class DNSResolver {
       // faster among the 2 should help lower tail latencies at zero-cost
       return this.preferredDohResolvers;
     }
-    return envutil.dohResolver();
+    return [envutil.dohResolver()];
   }
 
   async resolveDns(param) {
@@ -129,7 +129,7 @@ export default class DNSResolver {
   }
 
   async makeRdnsResponse(rxid, raw, blf) {
-    if (!raw) throw new Error(rxid + "no upstream result");
+    if (!raw) throw new Error(rxid + "mk-res no upstream result");
 
     const dnsPacket = dnsutil.decode(raw);
     const stamps = rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf);
