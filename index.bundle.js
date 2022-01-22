@@ -7105,6 +7105,7 @@ class DnsBlocker {
 }
 const ttlGraceSec = 30;
 const cheader = "x-rdnscache-metadata";
+const _cacheurl = "https://caches.rethinkdns.com/";
 function isAnswerCacheable(dnsPacket) {
     if (!rcodeNoError(dnsPacket)) return false;
     if (!hasAnswers(dnsPacket)) return false;
@@ -7164,10 +7165,10 @@ function makeHttpCacheValue(packet, metadata) {
     };
     return new Response(b, headers);
 }
-function makeHttpCacheKey(url, id) {
-    if (emptyString(id) || emptyObj(url)) return null;
-    const origin = new URL(url).origin;
-    return new URL(origin + "/" + timestamp() + "/" + id);
+function makeHttpCacheKey(packet) {
+    const id = makeId(packet);
+    if (emptyString(id)) return null;
+    return new URL(_cacheurl + timestamp() + "/" + id);
 }
 function extractMetadata(cres) {
     return JSON.parse(cres.headers.get(cheader));
@@ -7243,7 +7244,6 @@ class DNSResolver {
     }
     async resolveDns(param) {
         const rxid = param.rxid;
-        const url = param.request.url;
         const blInfo = param.userBlocklistInfo;
         const packet = param.requestBodyBuffer;
         const blf = param.blocklistFilter;
@@ -7252,7 +7252,7 @@ class DNSResolver {
         this.blocker.blockQuestion(rxid, q, blInfo);
         this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
         if (q.isBlocked) {
-            this.primeCache(rxid, url, q, dispatcher);
+            this.primeCache(rxid, q, dispatcher);
             return q;
         }
         const upstreams = this.determineDohResolvers(param);
@@ -7267,7 +7267,7 @@ class DNSResolver {
         const r = await this.makeRdnsResponse(rxid, ans, blf);
         this.blocker.blockAnswer(rxid, r, blInfo);
         this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
-        this.primeCache(rxid, url, r, dispatcher);
+        this.primeCache(rxid, r, dispatcher);
         return r;
     }
     async makeRdnsResponse(rxid, raw, blf) {
@@ -7276,14 +7276,13 @@ class DNSResolver {
         const stamps = blockstampFromBlocklistFilter(dnsPacket, blf);
         return dnsResponse(dnsPacket, raw, stamps);
     }
-    primeCache(rxid, url, r, dispatcher) {
+    primeCache(rxid, r, dispatcher) {
         const blocked = r.isBlocked;
         const answered = !emptyBuf(r.dnsBuffer);
-        const id = makeId(r.dnsPacket);
-        this.log.d(rxid, "block?", blocked, "ans?", answered, "id", id);
-        const k = makeHttpCacheKey(url, id);
+        const k = makeHttpCacheKey(r.dnsPacket);
+        this.log.d(rxid, "primeCache: block?", blocked, "ans?", answered, "k", k);
         if (!k) {
-            this.log.d(rxid, "no cache-key, url/query missing?", url, r.stamps);
+            this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);
             return;
         }
         const v = cacheValueOf(r.dnsPacket, r.stamps);
@@ -7395,10 +7394,8 @@ class DNSCacheResponder {
     async resolveFromCache(param) {
         const noAnswer = rdnsNoBlockResponse();
         const rxid = param.rxid;
-        const url = param.request.url;
         const packet = param.requestDecodedDnsPacket;
-        const id = makeId(packet);
-        const k = makeHttpCacheKey(url, id);
+        const k = makeHttpCacheKey(packet);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k);
         this.log.d(param.rxid, "resolveFromCache k/v", k.href, cr);
@@ -7554,9 +7551,8 @@ class RethinkPlugin {
         this.registerPlugin("cacheOnlyResolver", services.dnsCacheHandler, [
             "rxid",
             "userBlocklistInfo",
-            "request",
             "requestDecodedDnsPacket",
-            "isDnsMsg", 
+            "isDnsMsg"
         ], this.dnsCacheCallBack, false);
         this.registerPlugin("blocklistFilter", services.blocklistWrapper, [
             "rxid"
@@ -7574,8 +7570,7 @@ class RethinkPlugin {
             "userDnsResolverUrl",
             "userBlocklistInfo",
             "blocklistFilter",
-            "requestBodyBuffer",
-            "requestDecodedDnsPacket", 
+            "requestBodyBuffer", 
         ], this.dnsResolverCallBack, false);
     }
     registerParameter(k, v) {
