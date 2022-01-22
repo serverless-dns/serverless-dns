@@ -235,9 +235,6 @@ function errResponse(id, err) {
         data: {}
     };
 }
-function mapOf(obj) {
-    return new Map(Object.entries(obj));
-}
 function emptyString(str) {
     if (!str) return true;
     if (typeof str !== "string") return false;
@@ -5624,8 +5621,8 @@ class CurrentRequest {
     }
     setCorsHeadersIfNeeded() {
         if (emptyObj(this.httpResponse) || !this.httpResponse.ok) return;
-        for (const [name11, value] of Object.entries(corsHeaders())){
-            this.httpResponse.headers.set(name11, value);
+        for (const [k, v] of Object.entries(corsHeaders())){
+            this.httpResponse.headers.set(k, v);
         }
     }
 }
@@ -6034,7 +6031,8 @@ function FrozenTrieNode(trie, index) {
             while(i9 < this.childCount()){
                 const valueChain = this.getChild(i9);
                 if (config1.debug) {
-                    console.log("vc no-flag end vlet/vflag/vindex/val ", i9, valueChain.letter(), valueChain.flag(), valueChain.index, value);
+                    console.log("vc no-flag end i/l", i9, valueChain.letter());
+                    console.log("f/idx/v", valueChain.flag(), valueChain.index, value);
                 }
                 if (!valueChain.flag()) {
                     break;
@@ -6052,7 +6050,9 @@ function FrozenTrieNode(trie, index) {
         return valCached;
     };
     if (config1.debug) {
-        console.log(index, ":i, fc:", this.firstChild(), "tl:", this.letter(), "c:", this.compressed(), "f:", this.final(), "wh:", this.where(), "flag:", this.flag());
+        console.log(index, ":i, fc:", this.firstChild(), "tl:", this.letter());
+        console.log("c:", this.compressed(), "f:", this.final());
+        console.log("wh:", this.where(), "flag:", this.flag());
     }
 }
 FrozenTrieNode.prototype = {
@@ -6401,9 +6401,9 @@ class LfuCache {
 }
 class DomainNameCache {
     constructor(size){
-        const name12 = "DomainNameCache";
-        this.localCache = new LfuCache(name12, size);
-        this.log = log.withTags(name12);
+        const name11 = "DomainNameCache";
+        this.localCache = new LfuCache(name11, size);
+        this.log = log.withTags(name11);
     }
     get(key) {
         return this.localCache.Get(key);
@@ -6506,29 +6506,19 @@ function doBlock(dn, userBlInfo, dnBlInfo) {
     return applyWildcardBlocklists(userBlInfo.userServiceListUint, userBlInfo.flagVersion, dnBlInfo, dn);
 }
 function blockstampFromCache(cr) {
-    const dnsPacket = cr.dnsPacket;
-    const cacheMetadata = cr.metadata;
-    if (emptyObj(dnsPacket) || emptyObj(cacheMetadata)) return false;
-    const names = extractDomains(dnsPacket);
-    return domainBlockstamp(names, null, cacheMetadata.stamps);
+    const p = cr.dnsPacket;
+    const m = cr.metadata;
+    if (emptyObj(p) || emptyObj(m)) return false;
+    return m.stamps;
 }
 function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
-    if (emptyObj(dnsPacket) || emptyObj(blocklistFilter)) return false;
-    const names = extractDomains(dnsPacket);
-    return domainBlockstamp(names, blocklistFilter, null);
-}
-function domainBlockstamp(domains, blf, stamps) {
+    if (emptyObj(dnsPacket)) return false;
+    if (!isBlocklistFilterSetup(blocklistFilter)) return false;
+    const domains = extractDomains(dnsPacket);
     if (emptyArray(domains)) return false;
     const m = new Map();
     for (const n of domains){
-        let stamp = null;
-        if (!emptyObj(stamps) && stamps.hasOwnProperty(n)) {
-            stamp = mapOf({
-                [n]: stamps[n]
-            });
-        } else if (isBlocklistFilterSetup(blf)) {
-            stamp = blf.getDomainInfo(n).searchResult;
-        }
+        const stamp = blocklistFilter.getDomainInfo(n).searchResult;
         if (emptyMap(stamp)) continue;
         for (const [k, v] of stamp)m.set(k, v);
     }
@@ -6637,7 +6627,7 @@ function isB32Stamp(s) {
     return s.indexOf(_b32delim) > 0;
 }
 function stampVersion(s) {
-    if (s && s.length > 1) return s[0];
+    if (!emptyArray(s)) return s[0];
     else return "0";
 }
 function unstamp(flag) {
@@ -7015,9 +7005,9 @@ function jsonResponse(obj) {
 }
 class UserCache {
     constructor(size){
-        const name13 = "UserCache";
-        this.localCache = new LfuCache(name13, size);
-        this.log = log.withTags(name13);
+        const name12 = "UserCache";
+        this.localCache = new LfuCache(name12, size);
+        this.log = log.withTags(name12);
     }
     get(key) {
         return this.localCache.Get(key);
@@ -7158,11 +7148,11 @@ function updateTtl(decodedDnsPacket, end) {
         if (!optAnswer(a)) a.ttl = outttl;
     }
 }
-function makePacketId(packet) {
+function makeId(packet) {
     if (!hasSingleQuestion(packet)) return null;
-    const name14 = normalizeName(packet.questions[0].name);
+    const name13 = normalizeName(packet.questions[0].name);
     const type = packet.questions[0].type;
-    return name14 + ":" + type;
+    return name13 + ":" + type;
 }
 function makeHttpCacheValue(packet, metadata) {
     const b = encode3(packet);
@@ -7289,9 +7279,9 @@ class DNSResolver {
     primeCache(rxid, url, r, dispatcher) {
         const blocked = r.isBlocked;
         const answered = !emptyBuf(r.dnsBuffer);
-        const qid = makePacketId(r.dnsPacket);
-        this.log.d(rxid, "block?", blocked, "ans?", answered, "id", qid);
-        const k = makeHttpCacheKey(url, qid);
+        const id = makeId(r.dnsPacket);
+        this.log.d(rxid, "block?", blocked, "ans?", answered, "id", id);
+        const k = makeHttpCacheKey(url, id);
         if (!k) {
             this.log.d(rxid, "no cache-key, url/query missing?", url, r.stamps);
             return;
@@ -7407,7 +7397,7 @@ class DNSCacheResponder {
         const rxid = param.rxid;
         const url = param.request.url;
         const packet = param.requestDecodedDnsPacket;
-        const id = makePacketId(packet);
+        const id = makeId(packet);
         const k = makeHttpCacheKey(url, id);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k);
@@ -7494,16 +7484,19 @@ class DnsCache {
             this.log.e("put", e);
         }
     }
-    putLocalCache(key, data) {
-        try {
-            this.localcache.Put(key, data);
-        } catch (e) {
-            this.log.e("putLocalCache", e);
-        }
+    putLocalCache(k, v) {
+        if (!k || !v) return;
+        this.localcache.Put(k, v);
     }
     fromLocalCache(key) {
         const v = this.localcache.Get(key);
         return isValueValid(v) ? v : false;
+    }
+    async putHttpCache(url, data) {
+        const k = url;
+        const v = makeHttpCacheValue(data.dnsPacket, data.metadata);
+        if (!k || !v) return;
+        return this.httpcache.put(k, v);
     }
     async fromHttpCache(key) {
         const response = await this.httpcache.get(key);
@@ -7516,12 +7509,6 @@ class DnsCache {
         const p = decode3(await response.arrayBuffer());
         const m = metadata;
         return makeCacheValue(p, m);
-    }
-    async putHttpCache(url, data) {
-        const k = url;
-        const v = makeHttpCacheValue(data.dnsPacket, data.metadata);
-        if (!k || !v) return;
-        return this.httpcache.put(k, v);
     }
 }
 const services = {
