@@ -205,6 +205,8 @@ export default class RethinkPlugin {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     const blocked = r.isBlocked;
+    // if cache doesn't contain an answer section, upstream the query
+    // since cache doesn't store non-answers like servfail / nxdomains
     const answered = dnsutil.hasAnswers(r.dnsPacket);
     this.log.d(rxid, "cache-handler: block?", blocked, "ans?", answered);
 
@@ -232,23 +234,21 @@ export default class RethinkPlugin {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     const blocked = r.isBlocked;
+    // dns packets may have no answers, but still be a valid response
+    // for example, servfail do not contain any answers, whereas
+    // nxdomain has an authority-section (but no answers).
     const answered = dnsutil.hasAnswers(r.dnsPacket);
     this.log.d(rxid, "resolver: block?", blocked, "ans?", answered);
 
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
-      return;
     } else if (blocked) {
       // TODO: create block packets/buffers in dnsBlocker.js
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
-    } else if (answered) {
+    } else {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
       currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
-    } else {
-      // this shouldn't happen
-      this.log.e(rxid, "no block, no err, no ans", r);
-      this.loadException(rxid, response, currentRequest);
     }
   }
 

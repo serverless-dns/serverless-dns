@@ -34,7 +34,8 @@ export function cacheSize() {
 }
 
 export function servfail(qid, qs) {
-  if (!qid || !qs) return null;
+  // qid == 0 is valid; in fact qid is set to 0 by most doh clients
+  if (qid == null || qid < 0 || util.emptyArray(qs)) return null;
 
   return encode({
     id: qid,

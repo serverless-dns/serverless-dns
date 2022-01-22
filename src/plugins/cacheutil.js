@@ -12,6 +12,8 @@ import * as envutil from "../commons/envutil.js";
 const ttlGraceSec = 30; // 30s cache extra time
 const cheader = "x-rdnscache-metadata";
 
+// Keep this method in-sync with plugin.js:dnsCacheCallBack
+// which discards any non-answer responses from cacheResponse.js
 export function isAnswerCacheable(dnsPacket) {
   // only noerror ans are cached, that means nxdomain
   // and ans with other rcodes are not cached at all.

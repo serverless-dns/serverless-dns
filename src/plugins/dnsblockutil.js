@@ -110,7 +110,7 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
 
   // TODO: treat every list as a wildcard list?
   // if user-blockstamp doesn't contain any wildcard blocklists, we're done
-  if (util.emptyString(userBlInfo.userServiceListUint)) return r;
+  if (util.emptyArray(userBlInfo.userServiceListUint)) return r;
 
   // check if any subdomain is in blocklists that is also in user-blockstamp
   return applyWildcardBlocklists(

@@ -28,7 +28,7 @@ export default class CurrentRequest {
   }
 
   emptyDecodedDnsPacket() {
-    return { id: 0, questions: null };
+    return { id: null, questions: null };
   }
 
   initDecodedDnsPacketIfNeeded() {
@@ -53,15 +53,15 @@ export default class CurrentRequest {
 
     const qid = this.decodedDnsPacket.id;
     const questions = this.decodedDnsPacket.questions;
+    const servfail = dnsutil.servfail(qid, questions);
     const ex = {
       exceptionFrom: this.exceptionFrom,
       exceptionStack: this.exceptionStack,
     };
-    const servfail = dnsutil.servfail(qid, questions);
 
     this.httpResponse = new Response(servfail, {
       headers: util.concatHeaders(
-        this.headers(),
+        this.headers(servfail),
         this.additionalHeader(JSON.stringify(ex))
       ),
       status: servfail ? 200 : 408, // rfc8484 section-4.2.1
@@ -87,7 +87,9 @@ export default class CurrentRequest {
     this.stopProcessing = true;
     this.decodedDnsPacket = dnsPacket || dnsutil.decode(arrayBuffer);
     this.blockedB64Flag = blockflag || "";
-    this.httpResponse = new Response(arrayBuffer, { headers: this.headers() });
+    this.httpResponse = new Response(arrayBuffer, {
+      headers: this.headers(arrayBuffer),
+    });
   }
 
   // TODO: Enough to make a blocked-response once, and only update qids
@@ -134,8 +136,10 @@ export default class CurrentRequest {
         this.decodedDnsPacket.answers[0].data.svcParams = {};
       }
       this.decodedDnsPacket.authorities = [];
-      this.httpResponse = new Response(dnsutil.encode(this.decodedDnsPacket), {
-        headers: this.headers(),
+
+      const b = dnsutil.encode(this.decodedDnsPacket);
+      this.httpResponse = new Response(b, {
+        headers: this.headers(b),
       });
     } catch (e) {
       this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e);
@@ -152,15 +156,20 @@ export default class CurrentRequest {
     }
   }
 
-  headers() {
+  headers(b = null) {
     const xNileFlags = this.isDnsBlock
       ? { "x-nile-flags": this.blockedB64Flag }
       : null;
-    const xNileFlagsAllowed = this.blockedB64Flag
+    const xNileFlagsOk = this.blockedB64Flag
       ? { "x-nile-flags-allowed": this.blockedB64Flag }
       : null;
 
-    return util.concatHeaders(util.dnsHeaders(), xNileFlags, xNileFlagsAllowed);
+    return util.concatHeaders(
+      util.dnsHeaders(),
+      util.contentLengthHeader(b),
+      xNileFlags,
+      xNileFlagsOk
+    );
   }
 
   additionalHeader(json) {
