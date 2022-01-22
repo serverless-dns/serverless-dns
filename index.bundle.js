@@ -186,9 +186,14 @@ function uid() {
     return (Math.random() + 1).toString(36).slice(1);
 }
 function xid() {
-    const hi = uid().slice(1);
+    const hi = vmid();
     const lo = uid();
     return hi + lo;
+}
+let _vmid = "0";
+function vmid() {
+    if (_vmid === "0") _vmid = uid().slice(1);
+    return _vmid;
 }
 function microtaskBox(...fns) {
     let enqueue = null;
@@ -5594,7 +5599,7 @@ class CurrentRequest {
                 headers: this.headers(b)
             });
         } catch (e) {
-            this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e);
+            this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e.stack);
             this.isException = true;
             this.exceptionStack = e.stack;
             this.exceptionFrom = "CurrentRequest dnsBlockResponse";
@@ -6412,7 +6417,7 @@ class DomainNameCache {
         try {
             this.localCache.Put(key, data);
         } catch (e) {
-            this.log.e("put", e);
+            this.log.e("put", e.stack);
         }
     }
 }
@@ -6711,7 +6716,7 @@ class BlocklistWrapper {
         this.td = null;
         this.rd = null;
         this.ft = null;
-        this.startTime = 0;
+        this.startTime = Date.now();
         this.isBlocklistUnderConstruction = false;
         this.exceptionFrom = "";
         this.exceptionStack = "";
@@ -6744,7 +6749,7 @@ class BlocklistWrapper {
                 response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
             }
         } catch (e) {
-            this.log.e(param.rxid, "main", e);
+            this.log.e(param.rxid, "main", e.stack);
             response = errResponse("blocklistWrapper", e);
         }
         return response;
@@ -6769,7 +6774,7 @@ class BlocklistWrapper {
             this.log.i(rxid, "blocklist-filter setup");
             response.data.blocklistFilter = this.blocklistFilter;
         } catch (e) {
-            this.log.e(rxid, "initBlocklistConstruction", e);
+            this.log.e(rxid, "initBlocklistConstruction", e.stack);
             response = errResponse("initBlocklistConstruction", e);
             this.exceptionFrom = response.exceptionFrom;
             this.exceptionStack = response.exceptionStack;
@@ -6818,7 +6823,7 @@ async function fileFetch(url, typ) {
         }
     });
     if (!res.ok) {
-        log.e(url, res);
+        log.e("file-fetch err", url, res);
         throw new Error(JSON.stringify([
             url,
             res,
@@ -6849,7 +6854,7 @@ async function makeTd(baseurl, n) {
     try {
         return concat(tds);
     } catch (e) {
-        log.e("reject make-td", e);
+        log.e("reject make-td", e.stack);
         throw e;
     }
 }
@@ -6913,7 +6918,7 @@ class CommandControl {
                 response.data.httpResponse = respond400();
             }
         } catch (e) {
-            this.log.e(rxid, "err cc:op", e);
+            this.log.e(rxid, "err cc:op", e.stack);
             response = errResponse("cc:op", e);
             response.data.httpResponse = jsonResponse(e.stack);
         }
@@ -7016,7 +7021,7 @@ class UserCache {
         try {
             this.localCache.Put(key, data);
         } catch (e) {
-            this.log.e("put", e);
+            this.log.e("put", e.stack);
         }
     }
 }
@@ -7060,7 +7065,7 @@ class DnsBlocker {
         const dnsPacket = req.dnsPacket;
         const stamps = req.stamps;
         if (!stamps) {
-            this.log.w(rxid, "q: no stamp");
+            this.log.d(rxid, "q: no stamp");
             return req;
         }
         if (!hasBlockstamp(blockInfo)) {
@@ -7079,7 +7084,7 @@ class DnsBlocker {
         const dnsPacket = res.dnsPacket;
         const stamps = res.stamps;
         if (!stamps || !hasAnswers(dnsPacket)) {
-            this.log.w(rxid, "ans: no stamp / dns-packet");
+            this.log.d(rxid, "ans: no stamp / dns-packet");
             return res;
         }
         if (!hasBlockstamp(blockInfo)) {
@@ -7159,7 +7164,7 @@ function makeHttpCacheValue(packet, metadata) {
     const b = encode3(packet);
     const headers = {
         headers: concatHeaders({
-            "cheader": embedMetadata(metadata),
+            [cheader]: embedMetadata(metadata),
             "Cache-Control": "max-age=604800"
         }, contentLengthHeader(b))
     };
@@ -7226,7 +7231,7 @@ class DNSResolver {
             response.data = await this.resolveDns(param);
         } catch (e) {
             response = errResponse("dnsResolver", e);
-            this.log.e(param.rxid, "main", e);
+            this.log.e(param.rxid, "main", e.stack);
         }
         return response;
     }
@@ -7388,7 +7393,7 @@ class DNSCacheResponder {
         try {
             response.data = await this.resolveFromCache(param);
         } catch (e) {
-            this.log.e(param.rxid, "main", e);
+            this.log.e(param.rxid, "main", e.stack);
             response = errResponse("DnsCacheHandler", e);
         }
         return response;
@@ -7438,15 +7443,15 @@ class CacheApi {
             log.w("not workers, no-op http-cache-api");
         }
     }
-    async get(url) {
+    async get(href) {
         if (this.noop) return false;
-        if (emptyString(url)) return false;
-        return await caches.default.match(url);
+        if (!href) return false;
+        return await caches.default.match(href);
     }
-    put(url, response) {
+    put(href, response) {
         if (this.noop) return false;
-        if (emptyString(url) || emptyObj(response)) return false;
-        return caches.default.put(url, response);
+        if (!href || !response) return false;
+        return caches.default.put(href, response);
     }
 }
 class DnsCache {
@@ -7470,8 +7475,8 @@ class DnsCache {
         }
         return entry;
     }
-    put(url, data, dispatcher) {
-        if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata)) {
+    async put(url, data, dispatcher) {
+        if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata) || emptyObj(data.dnsPacket)) {
             this.log.w("put: empty url/data", url, data);
             return;
         }
@@ -7480,7 +7485,7 @@ class DnsCache {
             this.putLocalCache(url.href, data);
             dispatcher(this.putHttpCache(url, data));
         } catch (e) {
-            this.log.e("put", e);
+            this.log.e("put", url.href, data, e.stack);
         }
     }
     putLocalCache(k, v) {
@@ -7492,13 +7497,14 @@ class DnsCache {
         return isValueValid(v) ? v : false;
     }
     async putHttpCache(url, data) {
-        const k = url;
+        const k = url.href;
         const v = makeHttpCacheValue(data.dnsPacket, data.metadata);
         if (!k || !v) return;
         return this.httpcache.put(k, v);
     }
-    async fromHttpCache(key) {
-        const response = await this.httpcache.get(key);
+    async fromHttpCache(url) {
+        const k = url.href;
+        const response = await this.httpcache.get(k);
         if (!response) return false;
         const metadata = extractMetadata(response);
         this.log.d("http-cache response metadata", metadata);
@@ -7542,7 +7548,7 @@ class RethinkPlugin {
         const rxid = rxidFromHeader(event.request.headers) || xid();
         this.registerParameter("rxid", "[rx." + rxid + "]");
         this.registerParameter("request", event.request);
-        this.registerParameter("dispatcher", event.waitUntil);
+        this.registerParameter("dispatcher", event.waitUntil.bind(event));
         this.log = log.withTags("RethinkPlugin");
         this.plugin = [];
         this.registerPlugin("userOperation", services.userOperation, [
@@ -7725,7 +7731,7 @@ async function proxyRequest(event) {
         , requestTimeout(), async ()=>errorResponse(cr)
         );
     } catch (err) {
-        log.e("doh", "proxy-request error", err);
+        log.e("doh", "proxy-request error", err.stack);
         errorResponse(cr, err);
     }
     const ua = event.request.headers.get("User-Agent");
