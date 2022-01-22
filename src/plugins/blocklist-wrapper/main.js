@@ -18,7 +18,7 @@ class BlocklistWrapper {
     this.td = null; // trie
     this.rd = null; // rank-dir
     this.ft = null; // file-tags
-    this.startTime = 0; // blocklist download timestamp
+    this.startTime = Date.now(); // blocklist download timestamp
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
@@ -79,7 +79,7 @@ class BlocklistWrapper {
         response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
       }
     } catch (e) {
-      this.log.e(param.rxid, "main", e);
+      this.log.e(param.rxid, "main", e.stack);
       response = util.errResponse("blocklistWrapper", e);
     }
 
@@ -145,7 +145,7 @@ class BlocklistWrapper {
 
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
-      this.log.e(rxid, "initBlocklistConstruction", e);
+      this.log.e(rxid, "initBlocklistConstruction", e.stack);
       response = util.errResponse("initBlocklistConstruction", e);
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
@@ -216,7 +216,7 @@ async function fileFetch(url, typ) {
   const res = await fetch(url, { cf: { cacheTtl: /* 2w */ 1209600 } });
 
   if (!res.ok) {
-    log.e(url, res);
+    log.e("file-fetch err", url, res);
     throw new Error(JSON.stringify([url, res, "fileFetch fail"]));
   }
 
@@ -255,7 +255,7 @@ async function makeTd(baseurl, n) {
   try {
     return bufutil.concat(tds);
   } catch (e) {
-    log.e("reject make-td", e);
+    log.e("reject make-td", e.stack);
     throw e;
   }
 }
