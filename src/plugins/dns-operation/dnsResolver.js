@@ -62,7 +62,7 @@ export default class DNSResolver {
       response.data = await this.resolveDns(param);
     } catch (e) {
       response = util.errResponse("dnsResolver", e);
-      this.log.e(param.rxid, "main", e);
+      this.log.e(param.rxid, "main", e.stack);
     }
 
     return response;

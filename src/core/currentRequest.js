@@ -141,7 +141,7 @@ export default class CurrentRequest {
         headers: this.headers(b),
       });
     } catch (e) {
-      this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e);
+      this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e.stack);
       this.isException = true;
       this.exceptionStack = e.stack;
       this.exceptionFrom = "CurrentRequest dnsBlockResponse";

@@ -18,7 +18,7 @@ export class DnsBlocker {
     const stamps = req.stamps;
 
     if (!stamps) {
-      this.log.w(rxid, "q: no stamp");
+      this.log.d(rxid, "q: no stamp");
       return req;
     }
 
@@ -44,7 +44,7 @@ export class DnsBlocker {
 
     // dnsPacket is null when cache only has metadata
     if (!stamps || !dnsutil.hasAnswers(dnsPacket)) {
-      this.log.w(rxid, "ans: no stamp / dns-packet");
+      this.log.d(rxid, "ans: no stamp / dns-packet");
       return res;
     }
 

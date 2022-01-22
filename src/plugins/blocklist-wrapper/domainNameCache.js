@@ -23,7 +23,7 @@ export class DomainNameCache {
     try {
       this.localCache.Put(key, data);
     } catch (e) {
-      this.log.e("put", e);
+      this.log.e("put", e.stack);
     }
   }
 }

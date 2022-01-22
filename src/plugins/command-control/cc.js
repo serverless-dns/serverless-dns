@@ -123,7 +123,7 @@ export class CommandControl {
         response.data.httpResponse = util.respond400();
       }
     } catch (e) {
-      this.log.e(rxid, "err cc:op", e);
+      this.log.e(rxid, "err cc:op", e.stack);
       response = util.errResponse("cc:op", e);
       // TODO: set response status to 5xx
       response.data.httpResponse = jsonResponse(e.stack);

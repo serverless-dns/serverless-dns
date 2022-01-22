@@ -29,7 +29,7 @@ async function proxyRequest(event) {
       /* onTimeout*/ async () => errorResponse(cr)
     );
   } catch (err) {
-    log.e("doh", "proxy-request error", err);
+    log.e("doh", "proxy-request error", err.stack);
     errorResponse(cr, err);
   }
 

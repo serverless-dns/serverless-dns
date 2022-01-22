@@ -35,7 +35,7 @@ export class DNSCacheResponder {
     try {
       response.data = await this.resolveFromCache(param);
     } catch (e) {
-      this.log.e(param.rxid, "main", e);
+      this.log.e(param.rxid, "main", e.stack);
       response = util.errResponse("DnsCacheHandler", e);
     }
 
