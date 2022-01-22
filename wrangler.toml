@@ -10,15 +10,40 @@ webpack_config = "webpack.config.cjs"
 [vars]
 WORKER_TIMEOUT = 10000
 CLOUD_PLATFORM = "cloudflare"
-LOG_LEVEL = "info"
+LOG_LEVEL = "debug"
+CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 5000
+RUNTIME = "worker"
+WORKER_ENV = "development"
+CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"
+CF_LATEST_BLOCKLIST_TIMESTAMP = "1642484493505"
+CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
+TD_NODE_COUNT = 40212525
+TD_PARTS = 2
+
+##################
+#------PROD------#
+##################
+# wrangler doesn't yet support Workers Services and the new "Environments"
+# github.com/cloudflare/cloudflare-docs/pull/3175/files
+# github.com/cloudflare/wrangler2/issues/27
+# developers.cloudflare.com/workers/platform/environments
+[env.prod]
+name = "basic-unbound"
+routes = [
+  "basic.rethinkdns.com/*",
+  "basic.bravedns.com/*",
+]
+# vars are not inherited
+# workers/platform/environment-variables#environment-variables-via-wrangler
+[env.prod.vars]
+WORKER_TIMEOUT = 10000
+CLOUD_PLATFORM = "cloudflare"
+LOG_LEVEL = "debug"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 5000
 RUNTIME = "worker"
 WORKER_ENV = "production"
 CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1638959365361"
-CF_PROCESS_DNS_ON_DNSPARSER_EXCEPTION = false
-CF_ON_INVALID_FLAG_STOPPROCESSING = true
+CF_LATEST_BLOCKLIST_TIMESTAMP = "1642484493505"
 CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-TD_NODE_COUNT = 42112224
+TD_NODE_COUNT = 40212525
 TD_PARTS = 2
-IS_AGGRESSIVE_CACHE_REQ = true
