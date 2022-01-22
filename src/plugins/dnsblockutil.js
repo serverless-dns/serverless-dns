@@ -122,36 +122,26 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
 }
 
 export function blockstampFromCache(cr) {
-  const dnsPacket = cr.dnsPacket;
-  const cacheMetadata = cr.metadata;
+  const p = cr.dnsPacket;
+  const m = cr.metadata;
 
-  if (util.emptyObj(dnsPacket) || util.emptyObj(cacheMetadata)) return false;
+  if (util.emptyObj(p) || util.emptyObj(m)) return false;
 
-  const names = dnsutil.extractDomains(dnsPacket);
-  return domainBlockstamp(names, null, cacheMetadata.stamps);
+  return m.stamps;
 }
 
 export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
-  if (util.emptyObj(dnsPacket) || util.emptyObj(blocklistFilter)) return false;
+  if (util.emptyObj(dnsPacket)) return false;
+  if (!isBlocklistFilterSetup(blocklistFilter)) return false;
 
-  const names = dnsutil.extractDomains(dnsPacket);
-  return domainBlockstamp(names, blocklistFilter, null);
-}
+  const domains = dnsutil.extractDomains(dnsPacket);
 
-function domainBlockstamp(domains, blf, stamps) {
-  // blf (a blocklistFilter) and stamps (an obj) may be null
   if (util.emptyArray(domains)) return false;
 
   const m = new Map();
   for (const n of domains) {
-    let stamp = null;
-    if (!util.emptyObj(stamps) && stamps.hasOwnProperty(n)) {
-      // var as a obj key: stackoverflow.com/a/11508490/402375
-      stamp = util.mapOf({ [n]: stamps[n] });
-    } else if (isBlocklistFilterSetup(blf)) {
-      // may return Map(domain, b64stamp) or false
-      stamp = blf.getDomainInfo(n).searchResult;
-    } // else: 'n' not in any blocklists
+    // may return Map(domain, b64stamp) or false
+    const stamp = blocklistFilter.getDomainInfo(n).searchResult;
 
     if (util.emptyMap(stamp)) continue;
 
@@ -185,7 +175,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
 }
 
 function applyBlocklists(uint1, uint2, flagVersion) {
-  // uint1 -> user blocklists; uint2 -> blocklists including domains/subdomains
+  // uint1 -> user blocklists; uint2 -> blocklists including sub/domains
   const blockedUint = intersect(uint1, uint2);
 
   if (blockedUint) {
@@ -210,11 +200,9 @@ function intersect(flag1, flag2) {
     return null;
   }
 
-  // length of the flag without the header,
-  // its first element (at index 0)
-  // since the loop is processing header's LSBs first,
-  // the loop starts at len and counts down to 0.
-  // ie header is in big-endian format
+  // length of the flag without the header, its first element (at index 0)
+  // since the loop is processing header's LSBs first, the loop starts at
+  // len and counts down to 0, ie header is in big-endian format.
   let flag1Length = flag1.length - 1;
   let flag2Length = flag2.length - 1;
   const intersectBody = [];
@@ -323,7 +311,7 @@ export function isB32Stamp(s) {
 // s[0] is version field, if it doesn't exist
 // then treat it as if version 0.
 export function stampVersion(s) {
-  if (s && s.length > 1) return s[0];
+  if (!util.emptyArray(s)) return s[0];
   else return "0";
 }
 

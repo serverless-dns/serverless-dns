@@ -50,7 +50,7 @@ export class DNSCacheResponder {
     const url = param.request.url;
     const packet = param.requestDecodedDnsPacket;
 
-    const id = cacheutil.makePacketId(packet);
+    const id = cacheutil.makeId(packet);
     const k = cacheutil.makeHttpCacheKey(url, id);
     if (!k) return noAnswer;
 
@@ -60,6 +60,12 @@ export class DNSCacheResponder {
     if (util.emptyObj(cr)) return noAnswer;
 
     const dnsBuffer = dnsutil.encode(cr.dnsPacket);
+    // note: stamps in cr may be out-of-date; for ex, consider a
+    // scenario where v6.example.com AAAA to fda3:: today,
+    // but CNAMEs to v6.test.example.org tomorrow. cr.metadata
+    // would contain stamps for [v6.example.com, example.com]
+    // whereas it should be [v6.example.com, example.com
+    // v6.test.example.org, test.example.org, example.org]
     const stamps = rdnsutil.blockstampFromCache(cr);
     const blockInfo = param.userBlocklistInfo;
     const res = rdnsutil.dnsResponse(cr.dnsPacket, dnsBuffer, stamps);

@@ -25,6 +25,9 @@ export class DnsCache {
       return null;
     }
 
+    // http-cache can be updated by any number of workers
+    // in the region, and could contain latest / full
+    // entry, whereas a local-cache may not.
     let entry = this.fromLocalCache(url.href);
     if (entry) {
       return entry;
@@ -63,17 +66,24 @@ export class DnsCache {
     }
   }
 
-  putLocalCache(key, data) {
-    try {
-      this.localcache.Put(key, data);
-    } catch (e) {
-      this.log.e("putLocalCache", e);
-    }
+  putLocalCache(k, v) {
+    if (!k || !v) return;
+
+    this.localcache.Put(k, v);
   }
 
   fromLocalCache(key) {
     const v = this.localcache.Get(key);
     return cacheutil.isValueValid(v) ? v : false;
+  }
+
+  async putHttpCache(url, data) {
+    const k = url;
+    const v = cacheutil.makeHttpCacheValue(data.dnsPacket, data.metadata);
+
+    if (!k || !v) return;
+
+    return this.httpcache.put(k, v);
   }
 
   async fromHttpCache(key) {
@@ -93,14 +103,5 @@ export class DnsCache {
     const m = metadata;
 
     return cacheutil.makeCacheValue(p, m);
-  }
-
-  async putHttpCache(url, data) {
-    const k = url;
-    const v = cacheutil.makeHttpCacheValue(data.dnsPacket, data.metadata);
-
-    if (!k || !v) return;
-
-    return this.httpcache.put(k, v);
   }
 }

@@ -92,7 +92,6 @@ export default class CurrentRequest {
     });
   }
 
-  // TODO: Enough to make a blocked-response once, and only update qids
   dnsBlockResponse(blockflag) {
     this.initDecodedDnsPacketIfNeeded();
     this.stopProcessing = true;
@@ -185,8 +184,8 @@ export default class CurrentRequest {
     // fetch.spec.whatwg.org/#cors-preflight-fetch (Step 7)
     if (util.emptyObj(this.httpResponse) || !this.httpResponse.ok) return;
 
-    for (const [name, value] of Object.entries(util.corsHeaders())) {
-      this.httpResponse.headers.set(name, value);
+    for (const [k, v] of Object.entries(util.corsHeaders())) {
+      this.httpResponse.headers.set(k, v);
     }
   }
 }

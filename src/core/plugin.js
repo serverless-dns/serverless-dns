@@ -27,6 +27,7 @@ export default class RethinkPlugin {
 
     // caution: event isn't an event on nodejs, but event.request is a request
     this.registerParameter("request", event.request);
+    // TODO: a more generic way for plugins to queue events on all platforms
     this.registerParameter("dispatcher", event.waitUntil);
 
     this.log = log.withTags("RethinkPlugin");

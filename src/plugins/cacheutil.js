@@ -22,6 +22,8 @@ export function isAnswerCacheable(dnsPacket) {
 
   // if there are zero answers, there's nothing to cache
   if (!dnsutil.hasAnswers(dnsPacket)) return false;
+
+  // TODO: do not cache :: / 0.0.0.0 upstream answers?
   return true;
 }
 
@@ -83,7 +85,7 @@ export function updateTtl(decodedDnsPacket, end) {
   }
 }
 
-export function makePacketId(packet) {
+export function makeId(packet) {
   // multiple questions are kind of an undefined behaviour
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;

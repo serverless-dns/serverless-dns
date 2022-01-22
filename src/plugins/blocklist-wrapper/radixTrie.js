@@ -554,14 +554,8 @@ function FrozenTrieNode(trie, index) {
       while (i < this.childCount()) {
         const valueChain = this.getChild(i);
         if (config.debug) {
-          console.log(
-            "vc no-flag end vlet/vflag/vindex/val ",
-            i,
-            valueChain.letter(),
-            valueChain.flag(),
-            valueChain.index,
-            value
-          );
+          console.log("vc no-flag end i/l", i, valueChain.letter());
+          console.log("f/idx/v", valueChain.flag(), valueChain.index, value);
         }
         if (!valueChain.flag()) {
           break;
@@ -581,21 +575,9 @@ function FrozenTrieNode(trie, index) {
   };
 
   if (config.debug) {
-    console.log(
-      index,
-      ":i, fc:",
-      this.firstChild(),
-      "tl:",
-      this.letter(),
-      "c:",
-      this.compressed(),
-      "f:",
-      this.final(),
-      "wh:",
-      this.where(),
-      "flag:",
-      this.flag()
-    );
+    console.log(index, ":i, fc:", this.firstChild(), "tl:", this.letter());
+    console.log("c:", this.compressed(), "f:", this.final());
+    console.log("wh:", this.where(), "flag:", this.flag());
   }
 }
 
