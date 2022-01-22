@@ -200,9 +200,17 @@ export function uid() {
 }
 
 export function xid() {
-  const hi = uid().slice(1);
+  const hi = vmid();
   const lo = uid();
   return hi + lo;
+}
+
+// on Workers, random number can only be generated in a "network-context"
+// and so, _vmid cannot be simply be instantiated as a global.
+let _vmid = "0";
+export function vmid() {
+  if (_vmid === "0") _vmid = uid().slice(1);
+  return _vmid;
 }
 
 // queues fn in a macro-task queue of the event-loop
