@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -eu
+
+banner() {
+  echo "             __   __    _        __       __         ";
+  echo "  ____ ___  / /_ / /   (_)___   / /__ ___/ /___   ___";
+  echo " / __// -_)/ __// _ \ / // _ \ /  '_// _  // _ \ (_-<";
+  echo "/_/   \__/ \__//_//_//_//_//_//_/\_\ \_,_//_//_//___/";
+  echo "                                                     ";
+}
+
+runtime="${1:-node}"
+if [ $runtime = "deno" ]; then
+  echo "using `which deno`";
+  banner
+  deno run --unstable \
+           --allow-env \
+           --allow-net \
+           --allow-read \
+           --import-map=import_map.json \
+           src/server-deno.ts;
+elif [ $runtime = "workers" ]; then
+  echo "using `which wrangler`";
+  banner
+  wrangler dev;
+elif [ $runtime = "help" ]; then
+  echo "note: make sure node / deno / wrangler are in path";
+  echo "usage: $0 [node|deno|workers]";
+else
+  echo "note: nodejs v15+ required";
+  echo "using `which node`";
+  banner
+  node ./src/server-node.js;
+fi
