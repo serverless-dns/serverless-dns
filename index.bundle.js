@@ -7887,7 +7887,7 @@ async function resolveQuery(q) {
     }
 }
 function mkFetchEvent(r, ...fns) {
-    if (emptyObj(r)) throw new Error("missing request");
+    if (!r) throw new Error("missing request");
     return {
         type: "fetch",
         request: r,
