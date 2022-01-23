@@ -10,6 +10,7 @@ banner() {
   echo "                                                     ";
 }
 
+# this script is for development/test runs only
 runtime="${1:-node}"
 if [ $runtime = "deno" ]; then
   echo "using `which deno`";

@@ -12,6 +12,14 @@ on:
       - ".prettierignore"
       - "README.md"
       - "wrangler.toml"
+      - "fly.toml"
+      - "node.Dockerfile"
+      - "deno.Dockerfile"
+      - ".vscode/*"
+      - ".husky/*"
+      - ".prettierrc.json"
+      - "LICENSE"
+      - "run"
   workflow_dispatch:
     inputs:
       git-ref:

@@ -29,6 +29,14 @@ on:
       - ".prettierignore"
       - "fly.toml"
       - "README.md"
+      - "node.Dockerfile"
+      - "deno.Dockerfile"
+      - "import_map.json"
+      - ".vscode/*"
+      - ".husky/*"
+      - ".prettierrc.json"
+      - "LICENSE"
+      - "run"
   repository_dispatch:
 jobs:
   deploy:
@@ -47,6 +55,4 @@ jobs:
           environment: ${{ github.event.inputs.environment }}
         env:
           CF_ACCOUNT_ID: ${{secrets.CF_ACCOUNT_ID}}
-          #
-          #
           GIT_COMMIT_ID: ${{ github.event.inputs.commit }}.

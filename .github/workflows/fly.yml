@@ -12,6 +12,12 @@ on:
       - ".prettierignore"
       - "wrangler.toml"
       - "README.md"
+      - "wrangler.toml"
+      - ".vscode/*"
+      - ".husky/*"
+      - ".prettierrc.json"
+      - "LICENSE"
+      - "run"
   workflow_dispatch:
     inputs:
       git-ref:
