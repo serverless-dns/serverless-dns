@@ -199,7 +199,8 @@ async function resolveQuery(q: Uint8Array) {
 }
 
 function mkFetchEvent(r: Request, ...fns: Function[]) {
-  if (util.emptyObj(r)) throw new Error("missing request");
+  // just like with URL objs, util.emptyObj does not work for Request
+  if (!r) throw new Error("missing request");
 
   // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
   // a service-worker event, with properties: type and request; and methods:

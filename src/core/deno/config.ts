@@ -5,9 +5,9 @@ import EnvManager from "../env.js";
 
 // In global scope.
 declare global {
-  // TypeScript compiler needs to know type of every variable / property.
-  // So, we extend the window object (globalThis) with declaration merging.
-  // See: https://www.typescriptlang.org/docs/handbook/declaration-merging.html
+  // TypeScript must know type of every var / property. Extend Window
+  // (globalThis) with declaration merging (archive.is/YUWh2) to define types
+  // Ref: www.typescriptlang.org/docs/handbook/declaration-merging.html
   interface Window {
     envManager?: EnvManager;
     log?: Log;
@@ -44,7 +44,7 @@ function setup() {
 
   window.log = new Log(
     window.env.logLevel,
-    isProd, // set console level only in prod.
+    isProd // set console level only in prod.
   );
 
   system.pub("ready");
