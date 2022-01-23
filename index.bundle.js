@@ -7788,7 +7788,7 @@ function systemUp() {
         }) : Deno.listen({
             port: 10000
         });
-        up("DoT (no blocking)", dot.addr);
+        up("DoT (no blocklists)", dot.addr);
         for await (const conn of dot){
             log1.d("DoT conn:", conn.remoteAddr);
             serveTcp(conn);
@@ -7805,12 +7805,14 @@ async function serveHttp(conn) {
         try {
             requestEvent = await httpConn.nextRequest();
         } catch (e) {
-            log1.w("error reading http request", e);
+            log1.w("err http req read", e);
         }
         if (!requestEvent) continue;
         let res = null;
         try {
-            res = handleRequest(requestEvent);
+            const req = requestEvent.request;
+            const rw = requestEvent.respondWith.bind(requestEvent);
+            res = handleRequest(mkFetchEvent(req, rw));
         } catch (e1) {
             res = respond405();
             log1.w("serv fail doh request", e1);
@@ -7829,15 +7831,15 @@ async function serveTcp(conn) {
         try {
             n = await conn.read(qlBuf);
         } catch (e) {
-            log1.w("error reading from tcp query socket", e);
+            log1.w("err tcp query read", e);
             break;
         }
         if (n == 0 || n == null) {
-            log1.d("TCP socket clean shutdown");
+            log1.d("tcp socket clean shutdown");
             break;
         }
         if (n < 2) {
-            log1.w("incomplete query length");
+            log1.w("query too small");
             break;
         }
         const ql = new DataView(qlBuf.buffer).getUint16(0);
@@ -7846,7 +7848,7 @@ async function serveTcp(conn) {
         n = await conn.read(q);
         log1.d(`Read ${n} length q`);
         if (n != ql) {
-            log1.w(`incomplete query: ${n} < ${ql}`);
+            log1.w(`query len mismatch: ${n} < ${ql}`);
             break;
         }
         await handleTCPQuery(q, conn);
@@ -7865,7 +7867,7 @@ async function handleTCPQuery(q, conn) {
             log1.e(`res write incomplete: ${n} < ${r.byteLength + 2}`);
         }
     } catch (e) {
-        log1.w("error handling tcp query", e);
+        log1.w("err tcp query resolve", e);
     }
 }
 async function resolveQuery(q) {
