@@ -5412,7 +5412,8 @@ function requestTimeout() {
     return t > 4000 ? Math.min(t, 30000) : 4000;
 }
 function truncated(ans) {
-    if (ans.length < 12) return false;
+    if (emptyBuf(ans)) return false;
+    if (ans.byteLength < 12) return false;
     const flags = ans.readUInt16BE(2);
     const tc = flags >> 9 & 1;
     return tc === 1;
@@ -7300,7 +7301,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
     if (emptyArray(resolverUrls)) {
         const q = bufferOf(query);
         let ans = await this.transport.udpquery(rxid, q);
-        if (ans && truncated(ans)) {
+        if (truncated(ans)) {
             this.log.w(rxid, "ans truncated, retrying over tcp");
             ans = await this.transport.tcpquery(rxid, q);
         }
