@@ -27,8 +27,16 @@ RUN ls -Fla
 
 ENTRYPOINT ["/bin/deno"]
 
+# Unstable API for 'Deno.listenTls#alpn_protocols'
 # This is only used while building, on fly.io
-CMD ["run", "--allow-net", "--allow-env", "--allow-read", "src/server-deno.ts"]
+CMD [
+  "run",
+  "--unstable",
+  "--allow-net",
+  "--allow-env",
+  "--allow-read",
+  "src/server-deno.ts"
+]
 
 # Run port process as a root privilege user. For say port 53
 # USER root

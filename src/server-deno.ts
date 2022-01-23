@@ -44,6 +44,7 @@ function systemUp() {
         ? // doc.deno.land/deno/stable/~/Deno.listenTls
           Deno.listenTls({
             port: DOH_PORT,
+            // obj spread (es2018) works only within objs
             ...tlsOpts,
             ...httpOpts,
           })
@@ -74,7 +75,7 @@ function systemUp() {
             port: DOT_PORT,
           });
 
-    up("DoT (no blocking)", dot.addr as Deno.NetAddr);
+    up("DoT (no blocklists)", dot.addr as Deno.NetAddr);
 
     for await (const conn of dot) {
       log.d("DoT conn:", conn.remoteAddr);
@@ -95,14 +96,18 @@ async function serveHttp(conn: Deno.Conn) {
 
   while (true) {
     try {
-      requestEvent = (await httpConn.nextRequest()) as Request;
+      requestEvent = await httpConn.nextRequest();
     } catch (e) {
-      log.w("error reading http request", e);
+      log.w("err http req read", e);
     }
     if (!requestEvent) continue;
     let res = null;
     try {
-      res = handleRequest(mkFetchEvent(requestEvent));
+      // doc.deno.land/deno/stable/~/Deno.RequestEvent
+      // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
+      const req = requestEvent.request as Request;
+      const rw = requestEvent.respondWith.bind(requestEvent) as Function;
+      res = handleRequest(mkFetchEvent(req, rw));
     } catch (e) {
       res = util.respond405();
       log.w("serv fail doh request", e);
@@ -125,17 +130,17 @@ async function serveTcp(conn: Deno.Conn) {
     try {
       n = await conn.read(qlBuf);
     } catch (e) {
-      log.w("error reading from tcp query socket", e);
+      log.w("err tcp query read", e);
       break;
     }
 
     if (n == 0 || n == null) {
-      log.d("TCP socket clean shutdown");
+      log.d("tcp socket clean shutdown");
       break;
     }
 
     if (n < 2) {
-      log.w("incomplete query length");
+      log.w("query too small");
       break;
     }
 
@@ -147,7 +152,7 @@ async function serveTcp(conn: Deno.Conn) {
     log.d(`Read ${n} length q`);
 
     if (n != ql) {
-      log.w(`incomplete query: ${n} < ${ql}`);
+      log.w(`query len mismatch: ${n} < ${ql}`);
       break;
     }
 
@@ -169,7 +174,7 @@ async function handleTCPQuery(q: Uint8Array, conn: Deno.Conn) {
       log.e(`res write incomplete: ${n} < ${r.byteLength + 2}`);
     }
   } catch (e) {
-    log.w("error handling tcp query", e);
+    log.w("err tcp query resolve", e);
   }
 }
 
