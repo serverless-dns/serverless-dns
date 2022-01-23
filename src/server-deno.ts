@@ -95,14 +95,14 @@ async function serveHttp(conn: Deno.Conn) {
 
   while (true) {
     try {
-      requestEvent = await httpConn.nextRequest();
+      requestEvent = (await httpConn.nextRequest()) as Request;
     } catch (e) {
       log.w("error reading http request", e);
     }
     if (!requestEvent) continue;
     let res = null;
     try {
-      res = handleRequest(requestEvent);
+      res = handleRequest(mkFetchEvent(requestEvent));
     } catch (e) {
       res = util.respond405();
       log.w("serv fail doh request", e);
