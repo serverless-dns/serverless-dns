@@ -31,7 +31,7 @@ export class TcpTx {
   async exchange(rxid, query, timeout) {
     if (this.done) {
       this.log.w(rxid, "no exchange, tx is done");
-      return query;
+      return null;
     }
 
     const onData = (b) => {
@@ -205,7 +205,7 @@ export class UdpTx {
   async exchange(rxid, query, timeout) {
     if (this.done) {
       this.log.w(rxid, "no exchange, tx is done");
-      return query;
+      return null;
     }
 
     const onMessage = (b, addrinfo) => {

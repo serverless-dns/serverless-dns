@@ -64,7 +64,8 @@ export function requestTimeout() {
 }
 
 export function truncated(ans) {
-  if (ans.length < dnsPacketHeaderSize) return false;
+  if (bufutil.emptyBuf(ans)) return false;
+  if (ans.byteLength < dnsPacketHeaderSize) return false;
   // first 2 bytes are query-id
   const flags = ans.readUInt16BE(2);
   // github.com/mafintosh/dns-packet/blob/8e6d91c0/index.js#L147

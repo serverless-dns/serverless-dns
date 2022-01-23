@@ -174,7 +174,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     const q = bufutil.bufferOf(query);
 
     let ans = await this.transport.udpquery(rxid, q);
-    if (ans && dnsutil.truncated(ans)) {
+    if (dnsutil.truncated(ans)) {
       this.log.w(rxid, "ans truncated, retrying over tcp");
       ans = await this.transport.tcpquery(rxid, q);
     }
