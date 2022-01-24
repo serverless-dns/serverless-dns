@@ -155,7 +155,7 @@ function objOf(map) {
     return map.entries ? Object.fromEntries(map) : {};
 }
 function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
-    return new Promise((resolve, _)=>{
+    return new Promise((resolve, reject)=>{
         let timedout = false;
         const defferedOp = ()=>{
             defaultOp().then((v)=>{
@@ -233,9 +233,10 @@ function emptyResponse() {
     };
 }
 function errResponse(id, err) {
+    const st = emptyObj(err) || !err.stack ? "no-stacktrace" : err.stack;
     return {
         isException: true,
-        exceptionStack: err.stack,
+        exceptionStack: st,
         exceptionFrom: id,
         data: {}
     };
@@ -254,7 +255,8 @@ function concatObj(...args) {
     return Object.assign(...args);
 }
 function emptyObj(x) {
-    return !x || Object.keys(x).length <= 0;
+    if (!x) return true;
+    return Object.keys(x).length === 0 && Object.getPrototypeOf(x) === Object.prototype;
 }
 function emptyMap(m) {
     if (!m) return true;
@@ -5561,7 +5563,10 @@ class CurrentRequest {
         });
     }
     hResponse(r) {
-        if (emptyObj(r)) return;
+        if (emptyObj(r)) {
+            this.log.w("no http-res to set, empty obj?", r);
+            return;
+        }
         this.httpResponse = r;
         this.stopProcessing = true;
     }
@@ -6738,7 +6743,7 @@ class BlocklistWrapper {
     }
     async RethinkModule(param) {
         let response = emptyResponse();
-        if (isBlocklistFilterSetup(this.blocklistFilter)) {
+        if (this.isBlocklistFilterSetup()) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
         }
@@ -6751,7 +6756,7 @@ class BlocklistWrapper {
                 let totalWaitms = 0;
                 const waitms = 50;
                 while(totalWaitms < downloadTimeout()){
-                    if (isBlocklistFilterSetup(this.blocklistFilter)) {
+                    if (this.isBlocklistFilterSetup()) {
                         response.data.blocklistFilter = this.blocklistFilter;
                         return response;
                     }
@@ -6767,6 +6772,9 @@ class BlocklistWrapper {
             response = errResponse("blocklistWrapper", e);
         }
         return response;
+    }
+    isBlocklistFilterSetup() {
+        return isBlocklistFilterSetup(this.blocklistFilter);
     }
     initBlocklistFilterConstruction(td, rd, ft, config2) {
         this.isBlocklistUnderConstruction = true;
@@ -6871,11 +6879,10 @@ async function makeTd(baseurl, n) {
 }
 class CommandControl {
     constructor(){
-        this.latestTimestamp = "";
+        this.latestTimestamp = timestamp();
         this.log = log.withTags("CommandControl");
     }
     async RethinkModule(param) {
-        this.latestTimestamp = timestamp();
         if (isGetRequest(param.request)) {
             return this.commandOperation(param.rxid, param.request.url, param.blocklistFilter, param.isDnsMsg);
         }
@@ -7263,10 +7270,10 @@ class DNSResolver {
     async resolveDns(param) {
         const rxid = param.rxid;
         const blInfo = param.userBlocklistInfo;
-        const packet = param.requestBodyBuffer;
+        const rawpacket = param.requestBodyBuffer;
         const blf = param.blocklistFilter;
         const dispatcher = param.dispatcher;
-        const q = await this.makeRdnsResponse(rxid, packet, blf);
+        const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
         this.blocker.blockQuestion(rxid, q, blInfo);
         this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
         if (q.isBlocked) {
@@ -7289,7 +7296,7 @@ class DNSResolver {
         return r;
     }
     async makeRdnsResponse(rxid, raw, blf) {
-        if (!raw) throw new Error(rxid + "mk-res no upstream result");
+        if (!raw) throw new Error(rxid + " mk-res no upstream result");
         const dnsPacket = decode3(raw);
         const stamps = blockstampFromBlocklistFilter(dnsPacket, blf);
         return dnsResponse(dnsPacket, raw, stamps);
@@ -7637,6 +7644,7 @@ class RethinkPlugin {
         const r = response.data;
         this.log.d(rxid, "command-control response");
         if (!emptyObj(r) && r.stopProcessing) {
+            this.log.d(rxid, "command-control reply", r);
             currentRequest.hResponse(r.httpResponse);
         }
     }
@@ -7699,7 +7707,10 @@ class RethinkPlugin {
         currentRequest.id(rxid);
         this.registerParameter("isDnsMsg", isDnsMsg2);
         if (!isDnsMsg2) {
-            if (!isGetRequest(request)) setInvalidResponse(currentRequest);
+            if (!isGetRequest(request)) {
+                this.log.i(rxid, "not a dns-msg, not a GET req either", request);
+                setInvalidResponse(currentRequest);
+            }
             return;
         }
         const question1 = await extractDnsQuestion(request);
@@ -7752,7 +7763,7 @@ function optionsRequest(request) {
     return request.method === "OPTIONS";
 }
 function errorResponse(currentRequest, err = null) {
-    const eres = emptyObj(err) ? null : errResponse("doh.js", err);
+    const eres = errResponse("doh.js", err);
     currentRequest.dnsExceptionResponse(eres);
 }
 let log1 = null;
