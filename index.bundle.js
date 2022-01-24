@@ -507,8 +507,7 @@ class Log {
 const _ENV_VAR_MAPPINGS = {
     runTime: {
         name: "RUNTIME",
-        type: "string",
-        default: "node"
+        type: "string"
     },
     runTimeEnv: {
         name: {
@@ -606,7 +605,7 @@ function _getRuntimeEnv(runtime) {
         else if (runtime === "deno") env[key] = name3 && Deno.env.get(name3);
         else if (runtime === "worker") env[key] = globalThis[name3];
         else throw new Error(`unsupported runtime: ${runtime}`);
-        if (env[key] == null) {
+        if (env[key] == null && val != null) {
             console.warn(key, "env[key] default value:", val);
             env[key] = val;
         }
@@ -638,6 +637,7 @@ class EnvManager {
         const renv = _getRuntimeEnv(this.runtime);
         if (this.runtime === "deno" && !renv.runTime) {
             renv.runTime = "deno";
+            console.debug("Added", "runTime", renv.runTime);
         }
         globalThis.env = renv;
         for (const [k, v] of Object.entries(renv)){
