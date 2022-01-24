@@ -7818,6 +7818,7 @@ async function serveHttp(conn) {
             requestEvent = await httpConn.nextRequest();
         } catch (e) {
             log1.w("err http read", e);
+            break;
         }
         if (!requestEvent) {
             log1.d("no more reqs, bail");
@@ -7830,6 +7831,7 @@ async function serveHttp(conn) {
             await requestEvent.respondWith(res);
         } catch (e1) {
             log1.w("send fail doh response", e1);
+            break;
         }
     }
 }
