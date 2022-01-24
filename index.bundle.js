@@ -680,12 +680,12 @@ function setup() {
             export: true
         });
     } catch (e) {
-        console.warn(".env file may not be loaded => ", e.name, ":", e.message);
+        console.warn(".env missing => ", e.name, e.message);
     }
     try {
         Deno.env.set("RUNTIME", "deno");
     } catch (e1) {
-        console.warn("Deno.env.set() is not available => ", e1.name, ":", e1.message);
+        console.warn("Deno.env.set() => ", e1.name, e1.message);
     }
     window.envManager = new EnvManager();
     window.log = new Log(window.env.logLevel, isProd);
@@ -5385,9 +5385,6 @@ function secondaryDohResolver() {
     if (!env) return null;
     return env.secondaryDohResolver;
 }
-function terminateTls() {
-    return envManager && envManager.get("TERMINATE_TLS");
-}
 function tlsCrtPath() {
     if (!envManager) return "";
     return envManager.get("TLS_CRT_PATH") || "";
@@ -7748,6 +7745,13 @@ let log1 = null;
     pub("prepare");
 })();
 function systemUp() {
+    const onDenoDeploy1 = onDenoDeploy();
+    const dohConnOpts = {
+        port: 8080
+    };
+    const dotConnOpts = {
+        port: 10000
+    };
     const tlsOpts = {
         certFile: tlsCrtPath(),
         keyFile: tlsKeyPath()
@@ -7758,20 +7762,17 @@ function systemUp() {
             "http/1.1"
         ]
     };
-    const onDenoDeploy1 = onDenoDeploy();
-    const terminateTls1 = terminateTls();
     log1 = logger("Deno");
     if (!log1) throw new Error("logger unavailable on system up");
-    log1.i(tlsKeyPath(), tlsCrtPath());
     startDoh();
     startDotIfPossible();
     async function startDoh() {
-        const doh = terminateTls1 ? Deno.listenTls({
-            port: 8080,
+        const doh = terminateTls() ? Deno.listenTls({
+            ...dohConnOpts,
             ...tlsOpts,
             ...httpOpts
         }) : Deno.listen({
-            port: 8080
+            ...dohConnOpts
         });
         up("DoH", doh.addr);
         for await (const conn of doh){
@@ -7781,11 +7782,11 @@ function systemUp() {
     }
     async function startDotIfPossible() {
         if (onDenoDeploy1) return;
-        const dot = terminateTls1 ? Deno.listenTls({
-            port: 10000,
+        const dot = terminateTls() ? Deno.listenTls({
+            ...dotConnOpts,
             ...tlsOpts
         }) : Deno.listen({
-            port: 10000
+            ...dotConnOpts
         });
         up("DoT (no blocklists)", dot.addr);
         for await (const conn of dot){
@@ -7793,31 +7794,31 @@ function systemUp() {
             serveTcp(conn);
         }
     }
-    function up(server, addr) {
-        log1.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
+    function up(p, addr) {
+        log1.i(p, `on [${addr.hostname}]:${addr.port}`, "tls?", terminateTls());
+    }
+    function terminateTls() {
+        if (onDenoDeploy1) return false;
+        if (emptyString(tlsOpts.keyFile)) return false;
+        if (emptyString(tlsOpts.certFile)) return false;
+        return true;
     }
 }
 async function serveHttp(conn) {
     const httpConn = Deno.serveHttp(conn);
     while(true){
-        let requestEvent = null;
         try {
-            requestEvent = await httpConn.nextRequest();
-        } catch (e) {
-            log1.w("err http read", e);
-            break;
-        }
-        if (!requestEvent) {
-            log1.d("no more reqs, bail");
-            break;
-        }
-        try {
+            const requestEvent = await httpConn.nextRequest();
+            if (!requestEvent) {
+                log1.d("no more reqs, bail");
+                break;
+            }
             const req = requestEvent.request;
             const rw = requestEvent.respondWith.bind(requestEvent);
             const res = handleRequest(mkFetchEvent(req, rw));
             await requestEvent.respondWith(res);
-        } catch (e1) {
-            log1.w("send fail doh response", e1);
+        } catch (e) {
+            log1.w("doh fail", e);
             break;
         }
     }
