@@ -15,6 +15,7 @@ import { handleRequest } from "./core/doh.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
+import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
 import "./core/node/config.js";
 
@@ -471,7 +472,7 @@ async function handleHTTPRequest(b, req, res) {
       ...req,
       headers: util.concatHeaders(
         util.rxidHeader(rxid),
-        util.copyNonPseudoHeaders(req.headers)
+        nodeutil.copyNonPseudoHeaders(req.headers)
       ),
       method: req.method,
       body: req.method === "POST" ? b : null,

@@ -7,11 +7,11 @@
  */
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
-import * as dnsBlockUtil from "../dnsblockutil.js";
+import * as rdnsutil from "../dnsblockutil.js";
 
 export class CommandControl {
   constructor() {
-    this.latestTimestamp = "";
+    this.latestTimestamp = envutil.timestamp();
     this.log = log.withTags("CommandControl");
   }
 
@@ -24,8 +24,6 @@ export class CommandControl {
    * @returns
    */
   async RethinkModule(param) {
-    this.latestTimestamp = envutil.timestamp();
-
     // process only GET requests, ignore all others
     if (util.isGetRequest(param.request)) {
       return this.commandOperation(
@@ -80,6 +78,7 @@ export class CommandControl {
       const queryString = reqUrl.searchParams;
       const pathSplit = reqUrl.pathname.split("/");
 
+      // FIXME: isDohGetRequest is redundant, simply trust isDnsMsg as-is
       const isDnsCmd = isDnsMsg || this.isDohGetRequest(queryString);
 
       if (isDnsCmd) {
@@ -215,8 +214,8 @@ function b64ToList(queryString, blocklistFilter) {
     listDetail: {},
   };
 
-  const stamp = dnsBlockUtil.unstamp(b64);
-  if (dnsBlockUtil.hasBlockstamp(stamp)) {
+  const stamp = rdnsutil.unstamp(b64);
+  if (rdnsutil.hasBlockstamp(stamp)) {
     return jsonResponse(r);
   }
 

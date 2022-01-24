@@ -35,6 +35,15 @@ export function getTLSfromEnv(TLS_CRT_KEY) {
  * @return {Object}
  */
 export function copyNonPseudoHeaders(headers) {
+  // nodejs req headers may be of form
+  // ':authority': 'localhost:8080'
+  // ':method': 'GET'
+  // ':path': '/1:AAIAgA==?dns=AAABAAABAAAAAAAACnJldGhpbmtkbnMDY29tAAABAAE'
+  // ':scheme': 'https'
+  // accept: 'application/dns-message'
+  // 'user-agent': 'Go-http-client/2.0'
+  // [Symbol(nodejs.http2.sensitiveHeaders)]: []
+
   const out = {};
 
   if (!headers) return out;

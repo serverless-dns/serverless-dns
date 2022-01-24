@@ -172,6 +172,7 @@ export default class RethinkPlugin {
     this.log.d(rxid, "command-control response");
 
     if (!util.emptyObj(r) && r.stopProcessing) {
+      this.log.d(rxid, "command-control reply", r);
       currentRequest.hResponse(r.httpResponse);
     }
   }
@@ -268,7 +269,10 @@ export default class RethinkPlugin {
       // throw away any request that is not a dns-msg since cc.js
       // processes non-dns msgs only via GET, while rest of the
       // plugins process only dns-msgs via GET and POST.
-      if (!util.isGetRequest(request)) setInvalidResponse(currentRequest);
+      if (!util.isGetRequest(request)) {
+        this.log.i(rxid, "not a dns-msg, not a GET req either", request);
+        setInvalidResponse(currentRequest);
+      }
       return;
     }
 

@@ -33,8 +33,6 @@ async function proxyRequest(event) {
     errorResponse(cr, err);
   }
 
-  // TODO: cors-headers are also set in server-node.js
-  // centralize setting these in just one place, if possible
   const ua = event.request.headers.get("User-Agent");
   if (util.fromBrowser(ua)) cr.setCorsHeadersIfNeeded();
 
@@ -46,6 +44,6 @@ function optionsRequest(request) {
 }
 
 function errorResponse(currentRequest, err = null) {
-  const eres = util.emptyObj(err) ? null : util.errResponse("doh.js", err);
+  const eres = util.errResponse("doh.js", err);
   currentRequest.dnsExceptionResponse(eres);
 }

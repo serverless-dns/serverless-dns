@@ -86,11 +86,11 @@ export default class DNSResolver {
   async resolveDns(param) {
     const rxid = param.rxid;
     const blInfo = param.userBlocklistInfo;
-    const packet = param.requestBodyBuffer;
+    const rawpacket = param.requestBodyBuffer;
     const blf = param.blocklistFilter;
     const dispatcher = param.dispatcher;
 
-    const q = await this.makeRdnsResponse(rxid, packet, blf);
+    const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
 
     this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
     this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
@@ -129,7 +129,7 @@ export default class DNSResolver {
   }
 
   async makeRdnsResponse(rxid, raw, blf) {
-    if (!raw) throw new Error(rxid + "mk-res no upstream result");
+    if (!raw) throw new Error(rxid + " mk-res no upstream result");
 
     const dnsPacket = dnsutil.decode(raw);
     const stamps = rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf);

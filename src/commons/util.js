@@ -91,18 +91,6 @@ export function copyHeaders(request) {
   return headers;
 }
 
-export function copyNonPseudoHeaders(req) {
-  const headers = {};
-  if (!req || !req.headers) return headers;
-
-  // drop http/2 pseudo-headers
-  for (const name in req.headers) {
-    if (name.startsWith(":")) continue;
-    headers[name] = req.headers[name];
-  }
-  return headers;
-}
-
 /**
  * Promise that resolves after `ms`
  * @param {number} ms - Milliseconds to sleep
@@ -157,7 +145,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   // constructs (async, await, catch, then etc) within a
   // "new Promise()" is an anti-pattern and hard to get right:
   // stackoverflow.com/a/23803744 and stackoverflow.com/a/25569299
-  return new Promise((resolve, _) => {
+  return new Promise((resolve, reject) => {
     let timedout = false;
 
     const defferedOp = () => {
@@ -271,9 +259,10 @@ export function emptyResponse() {
 }
 
 export function errResponse(id, err) {
+  const st = emptyObj(err) || !err.stack ? "no-stacktrace" : err.stack;
   return {
     isException: true,
-    exceptionStack: err.stack,
+    exceptionStack: st,
     exceptionFrom: id,
     data: {},
   };
@@ -305,9 +294,13 @@ export function concatObj(...args) {
   return Object.assign(...args);
 }
 
+// stackoverflow.com/a/32108184/402375
 export function emptyObj(x) {
   // note: Object.keys type-errors when x is null / undefined
-  return !x || Object.keys(x).length <= 0;
+  if (!x) return true;
+  return (
+    Object.keys(x).length === 0 && Object.getPrototypeOf(x) === Object.prototype
+  );
 }
 
 export function emptyMap(m) {

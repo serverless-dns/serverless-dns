@@ -69,7 +69,10 @@ export default class CurrentRequest {
   }
 
   hResponse(r) {
-    if (util.emptyObj(r)) return;
+    if (util.emptyObj(r)) {
+      this.log.w("no http-res to set, empty obj?", r);
+      return;
+    }
 
     this.httpResponse = r;
     this.stopProcessing = true;
