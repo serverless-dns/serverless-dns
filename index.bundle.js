@@ -5345,6 +5345,9 @@ function decodeList(list, enc, buf, offset) {
     }
     return offset;
 }
+function onDenoDeploy() {
+    return env && env.cloudPlatform === "deno-deploy";
+}
 function isWorkers() {
     return env && env.runTime === "worker";
 }
@@ -7763,11 +7766,11 @@ function systemUp() {
             "http/1.1"
         ]
     };
-    const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
+    const onDenoDeploy1 = onDenoDeploy();
     log1 = logger("Deno");
     if (!log1) throw new Error("logger unavailable on system up");
     startDoh();
-    !onDenoDeploy && startDot();
+    startDotIfPossible();
     async function startDoh() {
         const doh = TERMINATE_TLS === "true" ? Deno.listenTls({
             port: 8080,
@@ -7782,7 +7785,8 @@ function systemUp() {
             serveHttp(conn);
         }
     }
-    async function startDot() {
+    async function startDotIfPossible() {
+        if (onDenoDeploy1) return;
         const dot = TERMINATE_TLS === "true" ? Deno.listenTls({
             port: 10000,
             ...tlsOpts
@@ -7801,27 +7805,24 @@ function systemUp() {
 }
 async function serveHttp(conn) {
     const httpConn = Deno.serveHttp(conn);
-    let requestEvent = null;
     while(true){
+        let requestEvent = null;
         try {
             requestEvent = await httpConn.nextRequest();
         } catch (e) {
-            log1.w("err http req read", e);
+            log1.w("err http read", e);
         }
-        if (!requestEvent) continue;
-        let res = null;
+        if (!requestEvent) {
+            log1.d("no more reqs, bail");
+            break;
+        }
         try {
             const req = requestEvent.request;
             const rw = requestEvent.respondWith.bind(requestEvent);
-            res = handleRequest(mkFetchEvent(req, rw));
-        } catch (e1) {
-            res = respond405();
-            log1.w("serv fail doh request", e1);
-        }
-        try {
+            const res = handleRequest(mkFetchEvent(req, rw));
             await requestEvent.respondWith(res);
-        } catch (e2) {
-            log1.w("send fail doh response", e2);
+        } catch (e1) {
+            log1.w("send fail doh response", e1);
         }
     }
 }
