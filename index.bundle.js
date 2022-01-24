@@ -257,8 +257,7 @@ function emptyObj(x) {
     return !x || Object.keys(x).length <= 0;
 }
 function emptyMap(m) {
-    if (!m || !m.__proto__) return true;
-    if (!m.__proto__.hasOwnProperty("size")) return true;
+    if (!m) return true;
     return m.size === 0;
 }
 function respond204() {
@@ -5384,6 +5383,17 @@ function secondaryDohResolver() {
     if (!env) return null;
     return env.secondaryDohResolver;
 }
+function terminateTls() {
+    return envManager && envManager.get("TERMINATE_TLS");
+}
+function tlsCrtPath() {
+    if (!envManager) return "";
+    return envManager.get("TLS_CRT_PATH") || "";
+}
+function tlsKeyPath() {
+    if (!envManager) return "";
+    return envManager.get("TLS_KEY_PATH") || "";
+}
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
 function dnsIpv4() {
@@ -6464,7 +6474,7 @@ const _wildcardUint16 = new Uint16Array([
     16320, 
 ]);
 function isBlocklistFilterSetup(blf) {
-    return blf && blf.t && blf.ft;
+    return blf && !emptyObj(blf.t) && !emptyObj(blf.ft);
 }
 function dnsResponse(packet = null, raw = null, stamps = null) {
     if (emptyObj(packet) || emptyBuf(raw)) {
@@ -6475,7 +6485,7 @@ function dnsResponse(packet = null, raw = null, stamps = null) {
         blockedB64Flag: "",
         dnsPacket: packet,
         dnsBuffer: raw,
-        stamps: stamps
+        stamps: stamps || {}
     };
 }
 function copyOnlyBlockProperties(to, from) {
@@ -6489,7 +6499,7 @@ function rdnsNoBlockResponse(flag = "", packet = null, raw = null, stamps = null
         blockedB64Flag: flag || "",
         dnsPacket: packet,
         dnsBuffer: raw,
-        stamps: stamps
+        stamps: stamps || {}
     };
 }
 function rdnsBlockResponse(flag, packet = null, raw = null, stamps = null) {
@@ -6499,7 +6509,7 @@ function rdnsBlockResponse(flag, packet = null, raw = null, stamps = null) {
         blockedB64Flag: flag,
         dnsPacket: packet,
         dnsBuffer: raw,
-        stamps: stamps
+        stamps: stamps || {}
     };
 }
 function doBlock(dn, userBlInfo, dnBlInfo) {
@@ -6728,7 +6738,7 @@ class BlocklistWrapper {
     }
     async RethinkModule(param) {
         let response = emptyResponse();
-        if (this.isBlocklistFilterSetup()) {
+        if (isBlocklistFilterSetup(this.blocklistFilter)) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
         }
@@ -6741,7 +6751,7 @@ class BlocklistWrapper {
                 let totalWaitms = 0;
                 const waitms = 50;
                 while(totalWaitms < downloadTimeout()){
-                    if (this.isBlocklistFilterSetup()) {
+                    if (isBlocklistFilterSetup(this.blocklistFilter)) {
                         response.data.blocklistFilter = this.blocklistFilter;
                         return response;
                     }
@@ -6757,9 +6767,6 @@ class BlocklistWrapper {
             response = errResponse("blocklistWrapper", e);
         }
         return response;
-    }
-    isBlocklistFilterSetup() {
-        return !emptyObj(this.blocklistFilter) && this.blocklistFilter.t;
     }
     initBlocklistFilterConstruction(td, rd, ft, config2) {
         this.isBlocklistUnderConstruction = true;
@@ -7289,9 +7296,8 @@ class DNSResolver {
     }
     primeCache(rxid, r, dispatcher) {
         const blocked = r.isBlocked;
-        const answered = !emptyBuf(r.dnsBuffer);
         const k = makeHttpCacheKey(r.dnsPacket);
-        this.log.d(rxid, "primeCache: block?", blocked, "ans?", answered, "k", k);
+        this.log.d(rxid, "primeCache: block?", blocked, "k", k.href);
         if (!k) {
             this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);
             return;
@@ -7755,10 +7761,9 @@ let log1 = null;
     pub("prepare");
 })();
 function systemUp() {
-    const { TERMINATE_TLS , TLS_CRT_PATH , TLS_KEY_PATH  } = Deno.env.toObject();
     const tlsOpts = {
-        certFile: TLS_CRT_PATH,
-        keyFile: TLS_KEY_PATH
+        certFile: tlsCrtPath(),
+        keyFile: tlsKeyPath()
     };
     const httpOpts = {
         alpnProtocols: [
@@ -7767,12 +7772,14 @@ function systemUp() {
         ]
     };
     const onDenoDeploy1 = onDenoDeploy();
+    const terminateTls1 = terminateTls();
     log1 = logger("Deno");
     if (!log1) throw new Error("logger unavailable on system up");
+    log1.i(tlsKeyPath(), tlsCrtPath());
     startDoh();
     startDotIfPossible();
     async function startDoh() {
-        const doh = TERMINATE_TLS === "true" ? Deno.listenTls({
+        const doh = terminateTls1 ? Deno.listenTls({
             port: 8080,
             ...tlsOpts,
             ...httpOpts
@@ -7787,7 +7794,7 @@ function systemUp() {
     }
     async function startDotIfPossible() {
         if (onDenoDeploy1) return;
-        const dot = TERMINATE_TLS === "true" ? Deno.listenTls({
+        const dot = terminateTls1 ? Deno.listenTls({
             port: 10000,
             ...tlsOpts
         }) : Deno.listen({
