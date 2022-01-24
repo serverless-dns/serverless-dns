@@ -27,7 +27,7 @@ export function wildcards() {
 }
 
 export function isBlocklistFilterSetup(blf) {
-  return blf && blf.t && blf.ft;
+  return blf && !util.emptyObj(blf.t) && !util.emptyObj(blf.ft);
 }
 
 export function dnsResponse(packet = null, raw = null, stamps = null) {
@@ -39,7 +39,7 @@ export function dnsResponse(packet = null, raw = null, stamps = null) {
     blockedB64Flag: "",
     dnsPacket: packet,
     dnsBuffer: raw,
-    stamps: stamps,
+    stamps: stamps || {},
   };
 }
 
@@ -61,7 +61,7 @@ export function rdnsNoBlockResponse(
     blockedB64Flag: flag || "",
     dnsPacket: packet,
     dnsBuffer: raw,
-    stamps: stamps,
+    stamps: stamps || {},
   };
 }
 
@@ -77,7 +77,7 @@ export function rdnsBlockResponse(
     blockedB64Flag: flag,
     dnsPacket: packet,
     dnsBuffer: raw,
-    stamps: stamps,
+    stamps: stamps || {},
   };
 }
 
@@ -147,7 +147,6 @@ export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
 
     for (const [k, v] of stamp) m.set(k, v);
   }
-
   return util.emptyMap(m) ? false : util.objOf(m);
 }
 

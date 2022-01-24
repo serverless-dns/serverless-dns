@@ -11,6 +11,7 @@ import { BlocklistFilter } from "./blocklistFilter.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
+import * as rdnsutil from "../dnsblockutil.js";
 
 class BlocklistWrapper {
   constructor() {
@@ -33,7 +34,7 @@ class BlocklistWrapper {
   async RethinkModule(param) {
     let response = util.emptyResponse();
 
-    if (this.isBlocklistFilterSetup()) {
+    if (rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
       response.data.blocklistFilter = this.blocklistFilter;
       return response;
     }
@@ -66,7 +67,7 @@ class BlocklistWrapper {
         let totalWaitms = 0;
         const waitms = 50;
         while (totalWaitms < envutil.downloadTimeout()) {
-          if (this.isBlocklistFilterSetup()) {
+          if (rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
           }
@@ -84,10 +85,6 @@ class BlocklistWrapper {
     }
 
     return response;
-  }
-
-  isBlocklistFilterSetup() {
-    return !util.emptyObj(this.blocklistFilter) && this.blocklistFilter.t;
   }
 
   initBlocklistFilterConstruction(td, rd, ft, config) {

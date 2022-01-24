@@ -13,6 +13,8 @@ import Log from "../log.js";
   system.when("prepare").then(setup);
 })();
 
+// on Workers, setup is called for every new request,
+// since server-workers.js fires "prepare" on every request
 function setup() {
   // if we're executing this file, we're on workers
   globalThis.RUNTIME = "worker";
@@ -23,10 +25,12 @@ function setup() {
     globalThis.envManager = new EnvManager();
   }
 
-  globalThis.log = new Log(
-    env.logLevel,
-    isProd // set console level only in prod.
-  );
+  if (!globalThis.envManager) {
+    globalThis.log = new Log(
+      env.logLevel,
+      isProd // set console level only in prod.
+    );
+  }
 
   // on Workers, the network-context isn't available in global-scope
   // ie network requests, for ex over fetch-api or xhr, don't work.

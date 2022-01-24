@@ -3,7 +3,6 @@
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
-import { encodeUint8ArrayBE } from "./commons/bufutil.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
@@ -18,43 +17,42 @@ let log: any = null;
 })();
 
 function systemUp() {
-  const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
-
   const DOH_PORT = 8080;
   const DOT_PORT = 10000;
 
   const tlsOpts = {
-    certFile: TLS_CRT_PATH,
-    keyFile: TLS_KEY_PATH,
+    certFile: envutil.tlsCrtPath() as string,
+    keyFile: envutil.tlsKeyPath() as string,
   };
-  // deno.land/manual/runtime/http_server_apis#http2-support
+  // deno.land/manual@v1.18.0/runtime/http_server_apis_low_level
   const httpOpts = {
     alpnProtocols: ["h2", "http/1.1"],
   };
 
-  const onDenoDeploy = envutil.onDenoDeploy() as Boolean;
+  const onDenoDeploy = envutil.onDenoDeploy() as boolean;
+  const terminateTls = envutil.terminateTls() as boolean;
 
   log = util.logger("Deno");
   if (!log) throw new Error("logger unavailable on system up");
 
+  log.i(envutil.tlsKeyPath(), envutil.tlsCrtPath());
   startDoh();
 
   startDotIfPossible();
 
   async function startDoh() {
-    const doh =
-      TERMINATE_TLS === "true"
-        ? // doc.deno.land/deno/stable/~/Deno.listenTls
-          Deno.listenTls({
-            port: DOH_PORT,
-            // obj spread (es2018) works only within objs
-            ...tlsOpts,
-            ...httpOpts,
-          })
-        : // doc.deno.land/deno/stable/~/Deno.listen
-          Deno.listen({
-            port: DOH_PORT,
-          });
+    const doh = terminateTls
+      ? // doc.deno.land/deno/stable/~/Deno.listenTls
+        Deno.listenTls({
+          port: DOH_PORT,
+          // obj spread (es2018) works only within objs
+          ...tlsOpts,
+          ...httpOpts,
+        })
+      : // doc.deno.land/deno/stable/~/Deno.listen
+        Deno.listen({
+          port: DOH_PORT,
+        });
 
     up("DoH", doh.addr as Deno.NetAddr);
 
@@ -71,15 +69,14 @@ function systemUp() {
     // No DoT on Deno Deploy which supports only http workloads
     if (onDenoDeploy) return;
 
-    const dot =
-      TERMINATE_TLS === "true"
-        ? Deno.listenTls({
-            port: DOT_PORT,
-            ...tlsOpts,
-          })
-        : Deno.listen({
-            port: DOT_PORT,
-          });
+    const dot = terminateTls
+      ? Deno.listenTls({
+          port: DOT_PORT,
+          ...tlsOpts,
+        })
+      : Deno.listen({
+          port: DOT_PORT,
+        });
 
     up("DoT (no blocklists)", dot.addr as Deno.NetAddr);
 
@@ -120,7 +117,6 @@ async function serveHttp(conn: Deno.Conn) {
 
       const res = handleRequest(mkFetchEvent(req, rw));
 
-      // TODO: is await required: may prevent concurrent processing of reqs?
       await requestEvent.respondWith(res as Response | Promise<Response>);
     } catch (e) {
       // Client may close conn abruptly before a response could be sent
@@ -177,7 +173,7 @@ async function serveTcp(conn: Deno.Conn) {
 async function handleTCPQuery(q: Uint8Array, conn: Deno.Conn) {
   try {
     const r = await resolveQuery(q);
-    const rlBuf = encodeUint8ArrayBE(r.byteLength, 2);
+    const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
 
     const n = await conn.write(new Uint8Array([...rlBuf, ...r]));
     if (n != r.byteLength + 2) {

@@ -14,8 +14,8 @@ import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
+import * as envutil from "./commons/envutil.js";
 import * as util from "./commons/util.js";
-import { copyNonPseudoHeaders } from "./core/node/util.js";
 import "./core/node/config.js";
 
 /**
@@ -50,8 +50,8 @@ let log = null;
 
 function systemUp() {
   const tlsOpts = {
-    key: env.tlsKey,
-    cert: env.tlsCrt,
+    key: envutil.tlsKey(),
+    cert: envutil.tlsCrt(),
   };
 
   log = util.logger("NodeJs");
@@ -471,7 +471,7 @@ async function handleHTTPRequest(b, req, res) {
       ...req,
       headers: util.concatHeaders(
         util.rxidHeader(rxid),
-        copyNonPseudoHeaders(req.headers)
+        util.copyNonPseudoHeaders(req.headers)
       ),
       method: req.method,
       body: req.method === "POST" ? b : null,

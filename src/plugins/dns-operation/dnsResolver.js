@@ -139,11 +139,10 @@ export default class DNSResolver {
 
   primeCache(rxid, r, dispatcher) {
     const blocked = r.isBlocked;
-    const answered = !bufutil.emptyBuf(r.dnsBuffer);
 
     const k = cacheutil.makeHttpCacheKey(r.dnsPacket);
 
-    this.log.d(rxid, "primeCache: block?", blocked, "ans?", answered, "k", k);
+    this.log.d(rxid, "primeCache: block?", blocked, "k", k.href);
 
     if (!k) {
       this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);

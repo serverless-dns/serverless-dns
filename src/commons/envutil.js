@@ -69,3 +69,27 @@ export function secondaryDohResolver() {
   if (!env) return null;
   return env.secondaryDohResolver;
 }
+
+export function terminateTls() {
+  return envManager && envManager.get("TERMINATE_TLS");
+}
+
+export function tlsCrtPath() {
+  if (!envManager) return "";
+  return envManager.get("TLS_CRT_PATH") || "";
+}
+
+export function tlsKeyPath() {
+  if (!envManager) return "";
+  return envManager.get("TLS_KEY_PATH") || "";
+}
+
+export function tlsCrt() {
+  if (!envManager) return "";
+  return envManager.get("tlsCrt") || "";
+}
+
+export function tlsKey() {
+  if (!envManager) return "";
+  return envManager.get("tlsKey") || "";
+}

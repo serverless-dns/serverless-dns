@@ -311,8 +311,9 @@ export function emptyObj(x) {
 }
 
 export function emptyMap(m) {
-  if (!m || !m.__proto__) return true;
-  if (!m.__proto__.hasOwnProperty("size")) return true;
+  if (!m) return true;
+  // does not hold good on Deno
+  // if (!m.__proto__.hasOwnProperty("size")) return true;
   return m.size === 0;
 }
 
