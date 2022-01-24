@@ -26,7 +26,7 @@ const _ENV_VAR_MAPPINGS = {
   runTime: {
     name: "RUNTIME",
     type: "string",
-    default: "node",
+    // No defaults, this is handled programmatically if missing.
   },
   runTimeEnv: {
     name: {
@@ -44,6 +44,9 @@ const _ENV_VAR_MAPPINGS = {
   cloudPlatform: {
     name: "CLOUD_PLATFORM",
     type: "string",
+
+    // FIXME: This is set in "(fly|wrangler).toml" files.
+    // This should be assumed!? Not to be set in local dev!?
     default: "fly",
   },
   logLevel: {
@@ -139,7 +142,7 @@ function _getRuntimeEnv(runtime) {
     else throw new Error(`unsupported runtime: ${runtime}`);
 
     // assign default value when user-defined value is missing
-    if (env[key] == null) {
+    if (env[key] == null && val != null) {
       console.warn(key, "env[key] default value:", val);
       env[key] = val;
     }
@@ -191,6 +194,7 @@ export default class EnvManager {
     // so, Deno.env.get("RUNTIME") may return null, if programmatically set.
     if (this.runtime === "deno" && !renv.runTime) {
       renv.runTime = "deno";
+      console.debug("Added", "runTime", renv.runTime);
     }
 
     globalThis.env = renv; // global `env` namespace.
