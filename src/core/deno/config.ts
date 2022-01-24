@@ -29,7 +29,7 @@ function setup() {
     dotEnvConfig({ export: true });
   } catch (e) {
     // throws without --allow-read flag
-    console.warn(".env file may not be loaded => ", e.name, ":", e.message);
+    console.warn(".env missing => ", e.name, e.message);
   }
 
   try {
@@ -37,7 +37,7 @@ function setup() {
     Deno.env.set("RUNTIME", "deno");
   } catch (e) {
     // Warning: `set()` method is not available in Deno deploy.
-    console.warn("Deno.env.set() is not available => ", e.name, ":", e.message);
+    console.warn("Deno.env.set() => ", e.name, e.message);
   }
 
   window.envManager = new EnvManager();

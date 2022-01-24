@@ -17,9 +17,9 @@ let log: any = null;
 })();
 
 function systemUp() {
-  const DOH_PORT = 8080;
-  const DOT_PORT = 10000;
-
+  const onDenoDeploy = envutil.onDenoDeploy() as boolean;
+  const dohConnOpts = { port: 8080 };
+  const dotConnOpts = { port: 10000 };
   const tlsOpts = {
     certFile: envutil.tlsCrtPath() as string,
     keyFile: envutil.tlsKeyPath() as string,
@@ -29,30 +29,23 @@ function systemUp() {
     alpnProtocols: ["h2", "http/1.1"],
   };
 
-  const onDenoDeploy = envutil.onDenoDeploy() as boolean;
-  const terminateTls = envutil.terminateTls() as boolean;
-
   log = util.logger("Deno");
   if (!log) throw new Error("logger unavailable on system up");
 
-  log.i(envutil.tlsKeyPath(), envutil.tlsCrtPath());
   startDoh();
 
   startDotIfPossible();
 
   async function startDoh() {
-    const doh = terminateTls
-      ? // doc.deno.land/deno/stable/~/Deno.listenTls
-        Deno.listenTls({
-          port: DOH_PORT,
-          // obj spread (es2018) works only within objs
+    // doc.deno.land/deno/stable/~/Deno.listenTls
+    // doc.deno.land/deno/stable/~/Deno.listen
+    const doh = terminateTls()
+      ? Deno.listenTls({
+          ...dohConnOpts,
           ...tlsOpts,
           ...httpOpts,
         })
-      : // doc.deno.land/deno/stable/~/Deno.listen
-        Deno.listen({
-          port: DOH_PORT,
-        });
+      : Deno.listen({ ...dohConnOpts });
 
     up("DoH", doh.addr as Deno.NetAddr);
 
@@ -69,14 +62,9 @@ function systemUp() {
     // No DoT on Deno Deploy which supports only http workloads
     if (onDenoDeploy) return;
 
-    const dot = terminateTls
-      ? Deno.listenTls({
-          port: DOT_PORT,
-          ...tlsOpts,
-        })
-      : Deno.listen({
-          port: DOT_PORT,
-        });
+    const dot = terminateTls()
+      ? Deno.listenTls({ ...dotConnOpts, ...tlsOpts })
+      : Deno.listen({ ...dotConnOpts });
 
     up("DoT (no blocklists)", dot.addr as Deno.NetAddr);
 
@@ -89,8 +77,15 @@ function systemUp() {
     }
   }
 
-  function up(server: string, addr: Deno.NetAddr) {
-    log.i(server, `listening on: [${addr.hostname}]:${addr.port}`);
+  function up(p: string, addr: Deno.NetAddr) {
+    log.i(p, `on [${addr.hostname}]:${addr.port}`, "tls?", terminateTls());
+  }
+
+  function terminateTls() {
+    if (onDenoDeploy) return false;
+    if (util.emptyString(tlsOpts.keyFile)) return false;
+    if (util.emptyString(tlsOpts.certFile)) return false;
+    return true;
   }
 }
 
@@ -98,19 +93,14 @@ async function serveHttp(conn: Deno.Conn) {
   const httpConn = Deno.serveHttp(conn);
 
   while (true) {
-    let requestEvent = null;
     try {
-      requestEvent = await httpConn.nextRequest();
-    } catch (e) {
-      log.w("err http read", e);
-      break;
-    }
-    if (!requestEvent) {
-      log.d("no more reqs, bail");
-      break;
-    }
+      const requestEvent = await httpConn.nextRequest();
 
-    try {
+      if (!requestEvent) {
+        log.d("no more reqs, bail");
+        break;
+      }
+
       // doc.deno.land/deno/stable/~/Deno.RequestEvent
       // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
       const req = requestEvent.request;
@@ -121,7 +111,7 @@ async function serveHttp(conn: Deno.Conn) {
       await requestEvent.respondWith(res as Response | Promise<Response>);
     } catch (e) {
       // Client may close conn abruptly before a response could be sent
-      log.w("send fail doh response", e);
+      log.w("doh fail", e);
       break;
     }
   }

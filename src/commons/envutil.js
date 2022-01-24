@@ -70,10 +70,6 @@ export function secondaryDohResolver() {
   return env.secondaryDohResolver;
 }
 
-export function terminateTls() {
-  return envManager && envManager.get("TERMINATE_TLS");
-}
-
 export function tlsCrtPath() {
   if (!envManager) return "";
   return envManager.get("TLS_CRT_PATH") || "";
