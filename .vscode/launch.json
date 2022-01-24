@@ -6,6 +6,24 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Deno",
+      "type": "pwa-node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect",
+        "--unstable",
+        "--import-map",
+        "import_map.json",
+        "--allow-all",
+        "src/server-deno.ts"
+      ],
+      // "outputCapture": "std",
+      "attachSimplePort": 9229
+    },
+    {
       "type": "pwa-node",
       "request": "launch",
       "name": "Launch Node Server",
