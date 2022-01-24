@@ -11,7 +11,9 @@ banner() {
 }
 
 # this script is for development/test runs only
-runtime="${1:-node}"
+runtime="${1:-node}";
+echo "run $runtime";
+
 if [ $runtime = "deno" ]; then
   echo "using `which deno`";
   banner

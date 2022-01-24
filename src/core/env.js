@@ -44,9 +44,8 @@ const _ENV_VAR_MAPPINGS = {
   cloudPlatform: {
     name: "CLOUD_PLATFORM",
     type: "string",
-
-    // FIXME: This is set in "(fly|wrangler).toml" files.
-    // This should be assumed!? Not to be set in local dev!?
+    // for local setups, platform is assumed to be fly.io since
+    // the fly-vm is pretty close to a typical dev box setup
     default: "fly",
   },
   logLevel: {

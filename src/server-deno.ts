@@ -7,6 +7,7 @@ import { encodeUint8ArrayBE } from "./commons/bufutil.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
+import * as envutil from "./commons/envutil.js";
 
 let log: any = null;
 
@@ -18,8 +19,10 @@ let log: any = null;
 
 function systemUp() {
   const { TERMINATE_TLS, TLS_CRT_PATH, TLS_KEY_PATH } = Deno.env.toObject();
+
   const DOH_PORT = 8080;
   const DOT_PORT = 10000;
+
   const tlsOpts = {
     certFile: TLS_CRT_PATH,
     keyFile: TLS_KEY_PATH,
@@ -28,15 +31,15 @@ function systemUp() {
   const httpOpts = {
     alpnProtocols: ["h2", "http/1.1"],
   };
-  const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
+
+  const onDenoDeploy = envutil.onDenoDeploy() as Boolean;
 
   log = util.logger("Deno");
   if (!log) throw new Error("logger unavailable on system up");
 
   startDoh();
 
-  // Deno-Deploy only has port 443, port 80 is mapped to it.
-  !onDenoDeploy && startDot();
+  startDotIfPossible();
 
   async function startDoh() {
     const doh =
@@ -64,7 +67,10 @@ function systemUp() {
     }
   }
 
-  async function startDot() {
+  async function startDotIfPossible() {
+    // No DoT on Deno Deploy which supports only http workloads
+    if (onDenoDeploy) return;
+
     const dot =
       TERMINATE_TLS === "true"
         ? Deno.listenTls({
@@ -77,6 +83,7 @@ function systemUp() {
 
     up("DoT (no blocklists)", dot.addr as Deno.NetAddr);
 
+    // TODO: Use the newer http/server API from Deno
     for await (const conn of dot) {
       log.d("DoT conn:", conn.remoteAddr);
 
@@ -92,36 +99,38 @@ function systemUp() {
 
 async function serveHttp(conn: Deno.Conn) {
   const httpConn = Deno.serveHttp(conn);
-  let requestEvent = null;
 
   while (true) {
+    let requestEvent = null;
     try {
       requestEvent = await httpConn.nextRequest();
     } catch (e) {
-      log.w("err http req read", e);
+      log.w("err http read", e);
     }
-    if (!requestEvent) continue;
-    let res = null;
+    if (!requestEvent) {
+      log.d("no more reqs, bail");
+      break;
+    }
+
     try {
       // doc.deno.land/deno/stable/~/Deno.RequestEvent
       // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
-      const req = requestEvent.request as Request;
-      const rw = requestEvent.respondWith.bind(requestEvent) as Function;
-      res = handleRequest(mkFetchEvent(req, rw));
-    } catch (e) {
-      res = util.respond405();
-      log.w("serv fail doh request", e);
-    }
-    try {
+      const req = requestEvent.request;
+      const rw = requestEvent.respondWith.bind(requestEvent);
+
+      const res = handleRequest(mkFetchEvent(req, rw));
+
+      // TODO: is await required: may prevent concurrent processing of reqs?
       await requestEvent.respondWith(res as Response | Promise<Response>);
     } catch (e) {
-      // Client may close the connection abruptly before response is sent
+      // Client may close conn abruptly before a response could be sent
       log.w("send fail doh response", e);
     }
   }
 }
 
 async function serveTcp(conn: Deno.Conn) {
+  // TODO: Sync this impl with serveTcp in server-node.js
   const qlBuf = new Uint8Array(2);
 
   while (true) {
@@ -139,6 +148,7 @@ async function serveTcp(conn: Deno.Conn) {
       break;
     }
 
+    // TODO: use dnsutil.validateSize instead
     if (n < 2) {
       log.w("query too small");
       break;

@@ -11,6 +11,10 @@ export function onFly() {
   return env && env.cloudPlatform === "fly";
 }
 
+export function onDenoDeploy() {
+  return env && env.cloudPlatform === "deno-deploy";
+}
+
 export function hasDisk() {
   // got disk on test nodejs envs and on fly
   return onFly() || (isNode() && !isProd());
