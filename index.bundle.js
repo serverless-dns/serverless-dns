@@ -5402,7 +5402,7 @@ function dnsIpv4() {
     return _dnsCloudflareSec;
 }
 function cacheSize() {
-    return 10000;
+    return 20000;
 }
 function servfail(qid, qs) {
     if (qid == null || qid < 0 || emptyArray(qs)) return null;
@@ -6291,155 +6291,6 @@ function createBlocklistFilter(tdbuf, rdbuf, blocklistFileTag, blocklistBasicCon
         ft: frozentrie
     };
 }
-const minlives = 1;
-const maxlives = 2 ** 14;
-const mincap = 2 ** 5;
-const maxcap = 2 ** 32;
-const minslots = 2;
-class Clock {
-    constructor(cap, slotsperhand = 256, maxlife = 16){
-        cap = this.bound(cap, mincap, maxcap);
-        this.capacity = 2 ** Math.round(Math.log2(cap));
-        this.rb = new Array(this.capacity);
-        this.rb.fill(null);
-        this.store = new Map();
-        this.maxcount = this.bound(maxlife, minlives, maxlives);
-        this.totalhands = Math.max(minslots, Math.round(this.capacity / slotsperhand));
-        this.hands = new Array(this.totalhands);
-        for(let i26 = 0; i26 < this.totalhands; i26++)this.hands[i26] = i26;
-    }
-    next(i27) {
-        const n = i27 + this.totalhands;
-        return (this.capacity + n) % this.capacity;
-    }
-    cur(i28) {
-        return (this.capacity + i28) % this.capacity;
-    }
-    prev(i29) {
-        const p = i29 - this.totalhands;
-        return (this.capacity + p) % this.capacity;
-    }
-    bound(i30, min, max) {
-        i30 = i30 < min ? min : i30;
-        i30 = i30 > max ? max - 1 : i30;
-        return i30;
-    }
-    head(n) {
-        n = this.bound(n, 0, this.totalhands);
-        const h = this.hands[n];
-        return this.cur(h);
-    }
-    incrHead(n) {
-        n = this.bound(n, 0, this.totalhands);
-        this.hands[n] = this.next(this.hands[n]);
-        return this.hands[n];
-    }
-    decrHead(n) {
-        n = this.bound(n, 0, this.totalhands);
-        this.hands[n] = this.prev(this.hands[n]);
-        return this.hands[n];
-    }
-    get size() {
-        return this.store.size;
-    }
-    evict(n, c) {
-        logd("evict start, head/num/size", this.head(n), n, this.size);
-        const start = this.head(n);
-        let h = start;
-        do {
-            const entry = this.rb[h];
-            if (entry === null) return true;
-            entry.count -= c;
-            if (entry.count <= 0) {
-                logd("evict", h, entry);
-                this.store.delete(entry.key);
-                this.rb[h] = null;
-                return true;
-            }
-            h = this.incrHead(n);
-        }while (h !== start)
-        return false;
-    }
-    put(k, v, c = 1) {
-        const cached = this.store.get(k);
-        if (cached) {
-            cached.value = v;
-            const at = this.rb[cached.pos];
-            at.count = Math.min(at.count + c, this.maxcount);
-            return true;
-        }
-        const num = this.rolldice;
-        this.evict(num, c);
-        const h = this.head(num);
-        const hasSlot = this.rb[h] === null;
-        if (!hasSlot) return false;
-        const ringv = {
-            key: k,
-            count: Math.min(c, this.maxcount)
-        };
-        const storev = {
-            value: v,
-            pos: h
-        };
-        this.rb[h] = ringv;
-        this.store.set(k, storev);
-        this.incrHead(num);
-        return true;
-    }
-    val(k, c = 1) {
-        const r = this.store.get(k);
-        if (!r) return null;
-        const at = this.rb[r.pos];
-        at.count = Math.min(at.count + c, this.maxcount);
-        return r.value;
-    }
-    get rolldice() {
-        const max = this.totalhands;
-        return Math.floor(Math.random() * (max - 0)) + 0;
-    }
-}
-function logd() {}
-class LfuCache {
-    constructor(id, capacity){
-        this.id = id;
-        this.cache = new Clock(capacity);
-    }
-    Get(key) {
-        let val = false;
-        try {
-            val = this.cache.val(key) || false;
-        } catch (e) {
-            console.log("Error: " + this.id + " -> Get");
-            console.log(e.stack);
-        }
-        return val;
-    }
-    Put(key, val) {
-        try {
-            this.cache.put(key, val);
-        } catch (e) {
-            console.log("Error: " + this.id + " -> Put");
-            console.log(e.stack);
-        }
-    }
-}
-class DomainNameCache {
-    constructor(size){
-        const name11 = "DomainNameCache";
-        this.localCache = new LfuCache(name11, size);
-        this.log = log.withTags(name11);
-    }
-    get(key) {
-        return this.localCache.Get(key);
-    }
-    put(key, data) {
-        try {
-            this.localCache.Put(key, data);
-        } catch (e) {
-            this.log.e("put", e.stack);
-        }
-    }
-}
 const ALPHA32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function readChar(chr) {
     chr = chr.toUpperCase();
@@ -6456,8 +6307,8 @@ function rbase32(input) {
     let value = 0;
     let index = 0;
     const output = new Uint8Array(length * 5 / 8 | 0);
-    for(let i31 = 0; i31 < length; i31++){
-        value = value << 5 | readChar(input[i31]);
+    for(let i26 = 0; i26 < length; i26++){
+        value = value << 5 | readChar(input[i26]);
         bits += 5;
         if (bits >= 8) {
             output[index++] = value >>> bits - 8 & 255;
@@ -6691,7 +6542,6 @@ class BlocklistFilter {
         this.ft = null;
         this.blocklistBasicConfig = null;
         this.blocklistFileTag = null;
-        this.domainNameCache = null;
         this.enc = new TextEncoder();
     }
     loadFilter(t, ft, blocklistBasicConfig, blocklistFileTag) {
@@ -6699,18 +6549,12 @@ class BlocklistFilter {
         this.ft = ft;
         this.blocklistBasicConfig = blocklistBasicConfig;
         this.blocklistFileTag = blocklistFileTag;
-        this.domainNameCache = new DomainNameCache(cacheSize());
     }
     getDomainInfo(domainName) {
-        domainName = normalizeName(domainName);
-        let domainNameInfo = this.domainNameCache.get(domainName);
-        if (!domainNameInfo) {
-            domainNameInfo = {
-                searchResult: this.hadDomainName(domainName)
-            };
-            this.domainNameCache.put(domainName, domainNameInfo);
-        }
-        return domainNameInfo;
+        const n = normalizeName(domainName);
+        return {
+            searchResult: this.hadDomainName(n)
+        };
     }
     hadDomainName(n) {
         return this.ft.lookup(this.reverseUtf8(n));
@@ -6861,8 +6705,8 @@ async function makeTd(baseurl, n) {
         return fileFetch(baseurl + "/td.txt", "buffer");
     }
     const tdpromises = [];
-    for(let i32 = 0; i32 <= n; i32++){
-        const f = baseurl + "/td" + i32.toLocaleString("en-US", {
+    for(let i27 = 0; i27 <= n; i27++){
+        const f = baseurl + "/td" + i27.toLocaleString("en-US", {
             minimumIntegerDigits: 2,
             useGrouping: false
         }) + ".txt";
@@ -7026,11 +6870,143 @@ function jsonResponse(obj) {
         headers: jsonHeaders()
     });
 }
+const minlives = 1;
+const maxlives = 2 ** 14;
+const mincap = 2 ** 5;
+const maxcap = 2 ** 32;
+const minslots = 2;
+class Clock {
+    constructor(cap, slotsperhand = 256, maxlife = 16){
+        cap = this.bound(cap, mincap, maxcap);
+        this.capacity = 2 ** Math.round(Math.log2(cap));
+        this.rb = new Array(this.capacity);
+        this.rb.fill(null);
+        this.store = new Map();
+        this.maxcount = this.bound(maxlife, minlives, maxlives);
+        this.totalhands = Math.max(minslots, Math.round(this.capacity / slotsperhand));
+        this.hands = new Array(this.totalhands);
+        for(let i28 = 0; i28 < this.totalhands; i28++)this.hands[i28] = i28;
+    }
+    next(i29) {
+        const n = i29 + this.totalhands;
+        return (this.capacity + n) % this.capacity;
+    }
+    cur(i30) {
+        return (this.capacity + i30) % this.capacity;
+    }
+    prev(i31) {
+        const p = i31 - this.totalhands;
+        return (this.capacity + p) % this.capacity;
+    }
+    bound(i32, min, max) {
+        i32 = i32 < min ? min : i32;
+        i32 = i32 > max ? max - 1 : i32;
+        return i32;
+    }
+    head(n) {
+        n = this.bound(n, 0, this.totalhands);
+        const h = this.hands[n];
+        return this.cur(h);
+    }
+    incrHead(n) {
+        n = this.bound(n, 0, this.totalhands);
+        this.hands[n] = this.next(this.hands[n]);
+        return this.hands[n];
+    }
+    decrHead(n) {
+        n = this.bound(n, 0, this.totalhands);
+        this.hands[n] = this.prev(this.hands[n]);
+        return this.hands[n];
+    }
+    get size() {
+        return this.store.size;
+    }
+    evict(n, c) {
+        logd("evict start, head/num/size", this.head(n), n, this.size);
+        const start = this.head(n);
+        let h = start;
+        do {
+            const entry = this.rb[h];
+            if (entry === null) return true;
+            entry.count -= c;
+            if (entry.count <= 0) {
+                logd("evict", h, entry);
+                this.store.delete(entry.key);
+                this.rb[h] = null;
+                return true;
+            }
+            h = this.incrHead(n);
+        }while (h !== start)
+        return false;
+    }
+    put(k, v, c = 1) {
+        const cached = this.store.get(k);
+        if (cached) {
+            cached.value = v;
+            const at = this.rb[cached.pos];
+            at.count = Math.min(at.count + c, this.maxcount);
+            return true;
+        }
+        const num = this.rolldice;
+        this.evict(num, c);
+        const h = this.head(num);
+        const hasSlot = this.rb[h] === null;
+        if (!hasSlot) return false;
+        const ringv = {
+            key: k,
+            count: Math.min(c, this.maxcount)
+        };
+        const storev = {
+            value: v,
+            pos: h
+        };
+        this.rb[h] = ringv;
+        this.store.set(k, storev);
+        this.incrHead(num);
+        return true;
+    }
+    val(k, c = 1) {
+        const r = this.store.get(k);
+        if (!r) return null;
+        const at = this.rb[r.pos];
+        at.count = Math.min(at.count + c, this.maxcount);
+        return r.value;
+    }
+    get rolldice() {
+        const max = this.totalhands;
+        return Math.floor(Math.random() * (max - 0)) + 0;
+    }
+}
+function logd() {}
+class LfuCache {
+    constructor(id, capacity){
+        this.id = id;
+        this.cache = new Clock(capacity);
+    }
+    Get(key) {
+        let val = false;
+        try {
+            val = this.cache.val(key) || false;
+        } catch (e) {
+            console.log("Error: " + this.id + " -> Get");
+            console.log(e.stack);
+        }
+        return val;
+    }
+    Put(key, val) {
+        try {
+            this.cache.put(key, val);
+        } catch (e) {
+            console.log("Error: " + this.id + " -> Put");
+            console.log(e.stack);
+        }
+    }
+}
 class UserCache {
     constructor(size){
-        const name12 = "UserCache";
-        this.localCache = new LfuCache(name12, size);
-        this.log = log.withTags(name12);
+        const name11 = "UserCache";
+        this.localCache = new LfuCache(name11, size);
+        this.log = log.withTags(name11);
     }
     get(key) {
         return this.localCache.Get(key);
@@ -7174,9 +7150,9 @@ function updateTtl(decodedDnsPacket, end) {
 }
 function makeId(packet) {
     if (!hasSingleQuestion(packet)) return null;
-    const name13 = normalizeName(packet.questions[0].name);
+    const name12 = normalizeName(packet.questions[0].name);
     const type = packet.questions[0].type;
-    return name13 + ":" + type;
+    return name12 + ":" + type;
 }
 function makeHttpCacheValue(packet, metadata) {
     const b = encode3(packet);
