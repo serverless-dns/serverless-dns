@@ -56,6 +56,12 @@ List of environment variables can be found in [`.env.example`](.env.example)
 file. Load them as required. For convenience, you can also put them in a `.env`
 file and they will also be loaded into the environment.
 
+Runtime API:
+- https://doc.deno.land/deno/stable
+- https://doc.deno.land/deno/unstable
+
+NOTE: Runtime API of deno-deploy differs from that of Deno. See below.
+
 #### Node
 
 Run:
@@ -71,27 +77,33 @@ file. Load them as required. For convenience in non-production environment, you
 can also put them in a `.env` file and they will be loaded into the environment
 if not already present.
 
+### Platforms
+
+#### Deno Deploy
+
+Runtime API: https://deno.com/deploy/docs/runtime-api
+
 ### Flow
 
 The flow of rethink dns is based on plugin module, current
-[plugin flow](src/helpers/plugin.js) is as below. Five plugins are currently loaded.
+[plugin flow](src/core/plugin.js) is as below. Five plugins are currently loaded.
 
-1. [CommandControl](src/command-control)<br> This
+1. [CommandControl](src/plugins/command-control)<br> This
 	 is optional plugin used to provide command to rethink serverless dns using
 	 GET request.
-2. [UserOperation](src/basic)<br> This plugin
+2. [UserOperation](src/plugins/basic)<br> This plugin
 	 loads current user details if not found in cache.<br> e.g. dns resolve
 	 `google.com` request to rethink serverless cloudflare resolver
 	 `https://example.com/1:AIAA7g==`, configuration string `1:AIAA7g==` is
 	 treated as user id and loads selected blocklists files for configuration
 	 string and cache it under user id.
-3. [DNSBlock](src/dns-operation/dnsBlock.js)<br>
+3. [DNSBlock](src/plugins/dns-operation/dnsBlock.js)<br>
 	 This is optional plugin used to check whether requested domain should be
 	 blocked or processed further.
-4. [DNSResolver](src/dns-operation/dnsResolver.js)<br>
+4. [DNSResolver](src/plugins/dns-operation/dnsResolver.js)<br>
 	 This plugin forward dns request to upstream resolver based on environment
 	 variable `CF_DNS_RESOLVER_URL` if not blocked by DNSBlock plugin.
-5. [DNSCnameBlock](src/dns-operation/dnsCnameBlock.js)<br>
+5. [DNSCnameBlock](src/plugins/dns-operation/dnsCnameBlock.js)<br>
 	 This is optional plugin used to check whether dns resolved response contains
 	 cname and cname has blocked domain name, if cname has blocked domain name
 	 then request is blocked.
