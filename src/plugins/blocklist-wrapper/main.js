@@ -34,7 +34,7 @@ class BlocklistWrapper {
   async RethinkModule(param) {
     let response = util.emptyResponse();
 
-    if (rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+    if (this.isBlocklistFilterSetup()) {
       response.data.blocklistFilter = this.blocklistFilter;
       return response;
     }
@@ -67,7 +67,7 @@ class BlocklistWrapper {
         let totalWaitms = 0;
         const waitms = 50;
         while (totalWaitms < envutil.downloadTimeout()) {
-          if (rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+          if (this.isBlocklistFilterSetup()) {
             response.data.blocklistFilter = this.blocklistFilter;
             return response;
           }
@@ -85,6 +85,10 @@ class BlocklistWrapper {
     }
 
     return response;
+  }
+
+  isBlocklistFilterSetup() {
+    return rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
   }
 
   initBlocklistFilterConstruction(td, rd, ft, config) {

@@ -25,7 +25,7 @@ function setup() {
     globalThis.envManager = new EnvManager();
   }
 
-  if (!globalThis.envManager) {
+  if (!globalThis.log) {
     globalThis.log = new Log(
       env.logLevel,
       isProd // set console level only in prod.
