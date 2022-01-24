@@ -103,6 +103,7 @@ async function serveHttp(conn: Deno.Conn) {
       requestEvent = await httpConn.nextRequest();
     } catch (e) {
       log.w("err http read", e);
+      break;
     }
     if (!requestEvent) {
       log.d("no more reqs, bail");
@@ -121,6 +122,7 @@ async function serveHttp(conn: Deno.Conn) {
     } catch (e) {
       // Client may close conn abruptly before a response could be sent
       log.w("send fail doh response", e);
+      break;
     }
   }
 }
