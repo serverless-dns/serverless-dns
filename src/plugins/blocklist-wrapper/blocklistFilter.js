@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DomainNameCache } from "./domainNameCache.js";
 import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as dnsBlockUtil from "../dnsblockutil.js";
@@ -18,7 +17,6 @@ export class BlocklistFilter {
     this.ft = null;
     this.blocklistBasicConfig = null;
     this.blocklistFileTag = null;
-    this.domainNameCache = null;
     this.enc = new TextEncoder();
   }
 
@@ -27,21 +25,14 @@ export class BlocklistFilter {
     this.ft = ft;
     this.blocklistBasicConfig = blocklistBasicConfig;
     this.blocklistFileTag = blocklistFileTag;
-    this.domainNameCache = new DomainNameCache(dnsutil.cacheSize());
   }
 
   getDomainInfo(domainName) {
-    domainName = dnsutil.normalizeName(domainName);
+    const n = dnsutil.normalizeName(domainName);
 
-    let domainNameInfo = this.domainNameCache.get(domainName);
-    if (!domainNameInfo) {
-      domainNameInfo = {
-        searchResult: this.hadDomainName(domainName),
-      };
-      this.domainNameCache.put(domainName, domainNameInfo);
-    }
-
-    return domainNameInfo;
+    return {
+      searchResult: this.hadDomainName(n),
+    };
   }
 
   hadDomainName(n) {

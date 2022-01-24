@@ -20,7 +20,7 @@ export const maxDNSPacketSize = 4096;
 
 // TODO: move _dns* related settings to env
 const _dnsCloudflareSec = "1.1.1.2";
-const _dnsCacheSize = 10000;
+const _dnsCacheSize = 20000;
 
 const _minRequestTimeout = 4000; // 4s
 const _maxRequestTimeout = 30000; // 30s
