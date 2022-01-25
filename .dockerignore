@@ -3,6 +3,7 @@
 .env
 .env.example
 .github/
+.husky/
 .vscode/
 .prettierrc.json
 .prettierignore
@@ -17,5 +18,6 @@ log/
 
 *.md
 LICENSE
+run
 wrangler.toml
 package-lock.json
