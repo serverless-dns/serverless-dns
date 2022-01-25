@@ -56,6 +56,11 @@ export class DnsCache {
       return;
     }
 
+    if (data.metadata.expiry <= 0) {
+      this.log.d("put: data already expired", url, data.metadata);
+      return;
+    }
+
     try {
       // data -> {dnsPacket, metadata}; dnsPacket may be null
       this.log.d("put: data in cache", data);

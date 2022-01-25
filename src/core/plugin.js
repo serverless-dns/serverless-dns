@@ -202,18 +202,18 @@ export default class RethinkPlugin {
   dnsCacheCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    const blocked = r.isBlocked;
-    // if cache doesn't contain an answer section, upstream the query
-    // since cache doesn't store non-answers like servfail / nxdomains
-    const answered = dnsutil.hasAnswers(r.dnsPacket);
-    this.log.d(rxid, "cache-handler: block?", blocked, "ans?", answered);
+    const deny = r.isBlocked;
+    const isAns = dnsutil.isAnswer(r.dnsPacket);
+    const hasErr = dnsutil.rcodeNoError(r.dnsPacket);
+
+    this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "haserr", hasErr);
 
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
-    } else if (blocked) {
+    } else if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
-    } else if (answered) {
+    } else if (isAns) {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
       currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
@@ -231,18 +231,20 @@ export default class RethinkPlugin {
   dnsResolverCallBack(response, currentRequest) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
-    const blocked = r.isBlocked;
+    const deny = r.isBlocked;
     // dns packets may have no answers, but still be a valid response
     // for example, servfail do not contain any answers, whereas
     // nxdomain has an authority-section (but no answers).
-    const answered = dnsutil.hasAnswers(r.dnsPacket);
-    this.log.d(rxid, "resolver: block?", blocked, "ans?", answered);
+    const isAns = dnsutil.isAnswer(r.dnsPacket);
+    const hasErr = dnsutil.rcodeNoError(r.dnsPacket);
+    this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "dnserr?", hasErr);
 
-    if (response.isException) {
-      this.loadException(rxid, response, currentRequest);
-    } else if (blocked) {
-      // TODO: create block packets/buffers in dnsBlocker.js
+    if (deny) {
+      // TODO: create block packets/buffers in dnsBlocker.js?
       currentRequest.dnsBlockResponse(r.blockedB64Flag);
+    } else if (response.isException || !isAns) {
+      // if not blocked, but then, no-ans or is-exception, then:
+      this.loadException(rxid, response, currentRequest);
     } else {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
@@ -271,7 +273,7 @@ export default class RethinkPlugin {
       // plugins process only dns-msgs via GET and POST.
       if (!util.isGetRequest(request)) {
         this.log.i(rxid, "not a dns-msg, not a GET req either", request);
-        setInvalidResponse(currentRequest);
+        currentRequest.hResponse(util.respond405());
       }
       return;
     }
@@ -309,8 +311,4 @@ async function extractDnsQuestion(request) {
     const dnsQuery = queryString.get("dns");
     return bufutil.base64ToBytes(dnsQuery);
   }
-}
-
-function setInvalidResponse(currentRequest) {
-  currentRequest.hResponse(util.respond405());
 }

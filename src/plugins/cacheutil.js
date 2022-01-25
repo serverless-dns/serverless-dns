@@ -13,41 +13,23 @@ const minTtlSec = 30; // 30s
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 
-// Keep this method in-sync with plugin.js:dnsCacheCallBack
-// which discards any non-answer responses from cacheResponse.js
-export function isAnswerCacheable(dnsPacket) {
-  // only noerror ans are cached, that means nxdomain
-  // and ans with other rcodes are not cached at all.
-  // btw, nxdomain ttls are in the authority section
-  if (!dnsutil.rcodeNoError(dnsPacket)) return false;
-
-  // if there are zero answers, there's nothing to cache
-  if (!dnsutil.hasAnswers(dnsPacket)) return false;
+function determineCacheExpiry(packet) {
+  const expiresImmediately = 0;
+  const someVeryHighTtl = 1 << 30;
 
   // TODO: do not cache :: / 0.0.0.0 upstream answers?
-  return true;
-}
+  // expiresImmediately => packet is not an ans but a question
+  if (!dnsutil.isAnswer(packet)) return expiresImmediately;
 
-export function determineCacheExpiry(dnsPacket) {
-  // expiresImmediately => dnsPacket is not an ans but a question
-  const expiresImmediately = 0;
+  let ttl = someVeryHighTtl;
 
-  // TODO: NXDOMAIN don't have an answers section
-  // but NXDOMAINs aren't cached right now either
-  if (!isAnswerCacheable(dnsPacket)) {
-    return expiresImmediately;
-  }
-
+  // TODO: nxdomain ttls are in the authority section
+  // FIXME: OPT answers do not have a ttl field
   // set min(ttl) among all answers, but at least minTtlSec
-  let ttl = 1 << 30; // some abnormally high ttl
+  for (const a of packet.answers) ttl = Math.min(a.ttl || minTtlSec, ttl);
 
-  for (const a of dnsPacket.answers) {
-    ttl = Math.min(a.ttl || minTtlSec, ttl);
-  }
-
-  if (ttl === 1 << 30) {
-    return expiresImmediately;
-  }
+  // if no answers, set min-ttl
+  if (ttl === someVeryHighTtl) ttl = minTtlSec;
 
   ttl += envutil.cacheTtl();
   const expiry = Date.now() + ttl * 1000;

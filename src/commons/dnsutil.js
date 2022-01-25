@@ -33,6 +33,12 @@ export function cacheSize() {
   return _dnsCacheSize;
 }
 
+export function isAnswer(packet) {
+  if (util.emptyObj(packet)) return false;
+
+  return packet.type === "response";
+}
+
 export function servfail(qid, qs) {
   // qid == 0 is valid; in fact qid is set to 0 by most doh clients
   if (qid == null || qid < 0 || util.emptyArray(qs)) return null;
@@ -94,13 +100,15 @@ export function hasSingleQuestion(packet) {
 }
 
 export function rcodeNoError(packet) {
+  if (util.emptyObj(packet)) return false;
   // github.com/mafintosh/dns-packet/blob/8e6d91c07/rcodes.js
-  return packet && packet.rcode === "NOERROR";
+  return packet.rcode === "NOERROR";
 }
 
 export function optAnswer(a) {
+  if (util.emptyObj(a) || util.emptyString(a.type)) return false;
   // github.com/serverless-dns/dns-parser/blob/7de73303/index.js#L1770
-  return a && a.type && a.type.toUpperCase() === "OPT";
+  return a.type.toUpperCase() === "OPT";
 }
 
 export function decode(arrayBuffer) {

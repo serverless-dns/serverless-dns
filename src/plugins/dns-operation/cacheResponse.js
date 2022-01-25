@@ -14,7 +14,7 @@ import * as util from "../../commons/util.js";
 export class DNSCacheResponder {
   constructor(cache) {
     this.blocker = new DnsBlocker();
-    this.log = log.withTags("DnsCacheResponse");
+    this.log = log.withTags("DnsCacheResponder");
     this.cache = cache;
   }
 
@@ -67,16 +67,19 @@ export class DNSCacheResponder {
     const blockInfo = param.userBlocklistInfo;
     const res = rdnsutil.dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
 
-    await this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
+    this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
 
     if (res.isBlocked) return res;
 
-    if (!cacheutil.isAnswerFresh(cr.metadata)) return noAnswer;
+    if (!cacheutil.isAnswerFresh(cr.metadata)) {
+      this.log.d(rxid, "cache ans not fresh");
+      return noAnswer;
+    }
 
     return updatedAnswer(res, packet.id, cr.metadata.expiry);
   }
 
-  async makeCacheResponse(rxid, r, blockInfo) {
+  makeCacheResponse(rxid, r, blockInfo) {
     // check incoming dns request against blocklists in cache-metadata
     this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo);
     this.log.d(rxid, blockInfo, "question blocked?", r.isBlocked);
