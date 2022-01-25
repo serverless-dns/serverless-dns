@@ -5408,6 +5408,10 @@ function dnsIpv4() {
 function cacheSize() {
     return 20000;
 }
+function isAnswer(packet) {
+    if (emptyObj(packet)) return false;
+    return packet.type === "response";
+}
 function servfail(qid, qs) {
     if (qid == null || qid < 0 || emptyArray(qs)) return null;
     return encode3({
@@ -5450,10 +5454,12 @@ function hasSingleQuestion(packet) {
     return !emptyObj(packet) && !emptyArray(packet.questions) && packet.questions.length === 1;
 }
 function rcodeNoError(packet) {
-    return packet && packet.rcode === "NOERROR";
+    if (emptyObj(packet)) return false;
+    return packet.rcode === "NOERROR";
 }
 function optAnswer(a) {
-    return a && a.type && a.type.toUpperCase() === "OPT";
+    if (emptyObj(a) || emptyString(a.type)) return false;
+    return a.type.toUpperCase() === "OPT";
 }
 function decode3(arrayBuffer) {
     if (!validResponseSize(arrayBuffer)) {
@@ -7109,22 +7115,12 @@ class DnsBlocker {
 const minTtlSec = 30;
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
-function isAnswerCacheable(dnsPacket) {
-    if (!rcodeNoError(dnsPacket)) return false;
-    if (!hasAnswers(dnsPacket)) return false;
-    return true;
-}
-function determineCacheExpiry(dnsPacket) {
-    if (!isAnswerCacheable(dnsPacket)) {
-        return 0;
-    }
-    let ttl = 1 << 30;
-    for (const a of dnsPacket.answers){
-        ttl = Math.min(a.ttl || minTtlSec, ttl);
-    }
-    if (ttl === 1 << 30) {
-        return 0;
-    }
+function determineCacheExpiry(packet) {
+    const someVeryHighTtl = 1 << 30;
+    if (!isAnswer(packet)) return 0;
+    let ttl = someVeryHighTtl;
+    for (const a of packet.answers)ttl = Math.min(a.ttl || minTtlSec, ttl);
+    if (ttl === someVeryHighTtl) ttl = minTtlSec;
     ttl += cacheTtl();
     const expiry = Date.now() + ttl * 1000;
     return expiry;
@@ -7385,7 +7381,7 @@ DNSResolver.prototype.doh2 = async function(rxid, request) {
 class DNSCacheResponder {
     constructor(cache){
         this.blocker = new DnsBlocker();
-        this.log = log.withTags("DnsCacheResponse");
+        this.log = log.withTags("DnsCacheResponder");
         this.cache = cache;
     }
     async RethinkModule(param) {
@@ -7415,12 +7411,15 @@ class DNSCacheResponder {
         const stamps = blockstampFromCache(cr);
         const blockInfo = param.userBlocklistInfo;
         const res = dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
-        await this.makeCacheResponse(rxid, res, blockInfo);
+        this.makeCacheResponse(rxid, res, blockInfo);
         if (res.isBlocked) return res;
-        if (!isAnswerFresh(cr.metadata)) return noAnswer;
+        if (!isAnswerFresh(cr.metadata)) {
+            this.log.d(rxid, "cache ans not fresh");
+            return noAnswer;
+        }
         return updatedAnswer(res, packet.id, cr.metadata.expiry);
     }
-    async makeCacheResponse(rxid, r, blockInfo) {
+    makeCacheResponse(rxid, r, blockInfo) {
         this.blocker.blockQuestion(rxid, r, blockInfo);
         this.log.d(rxid, blockInfo, "question blocked?", r.isBlocked);
         if (r.isBlocked) {
@@ -7482,6 +7481,10 @@ class DnsCache {
     async put(url, data, dispatcher) {
         if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata) || emptyObj(data.dnsPacket)) {
             this.log.w("put: empty url/data", url, data);
+            return;
+        }
+        if (data.metadata.expiry <= 0) {
+            this.log.d("put: data already expired", url, data.metadata);
             return;
         }
         try {
@@ -7652,14 +7655,15 @@ class RethinkPlugin {
     dnsCacheCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
         const r = response.data;
-        const blocked = r.isBlocked;
-        const answered = hasAnswers(r.dnsPacket);
-        this.log.d(rxid, "cache-handler: block?", blocked, "ans?", answered);
+        const deny = r.isBlocked;
+        const isAns = isAnswer(r.dnsPacket);
+        const hasErr = rcodeNoError(r.dnsPacket);
+        this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "haserr", hasErr);
         if (response.isException) {
             this.loadException(rxid, response, currentRequest);
-        } else if (blocked) {
+        } else if (deny) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
-        } else if (answered) {
+        } else if (isAns) {
             this.registerParameter("responseBodyBuffer", r.dnsBuffer);
             this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
             currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
@@ -7670,13 +7674,14 @@ class RethinkPlugin {
     dnsResolverCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
         const r = response.data;
-        const blocked = r.isBlocked;
-        const answered = hasAnswers(r.dnsPacket);
-        this.log.d(rxid, "resolver: block?", blocked, "ans?", answered);
-        if (response.isException) {
-            this.loadException(rxid, response, currentRequest);
-        } else if (blocked) {
+        const deny = r.isBlocked;
+        const isAns = isAnswer(r.dnsPacket);
+        const hasErr = rcodeNoError(r.dnsPacket);
+        this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "dnserr?", hasErr);
+        if (deny) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
+        } else if (response.isException || !isAns) {
+            this.loadException(rxid, response, currentRequest);
         } else {
             this.registerParameter("responseBodyBuffer", r.dnsBuffer);
             this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
@@ -7696,7 +7701,7 @@ class RethinkPlugin {
         if (!isDnsMsg2) {
             if (!isGetRequest(request)) {
                 this.log.i(rxid, "not a dns-msg, not a GET req either", request);
-                setInvalidResponse(currentRequest);
+                currentRequest.hResponse(respond405());
             }
             return;
         }
@@ -7723,9 +7728,6 @@ async function extractDnsQuestion(request) {
         const dnsQuery = queryString.get("dns");
         return base64ToBytes(dnsQuery);
     }
-}
-function setInvalidResponse(currentRequest) {
-    currentRequest.hResponse(respond405());
 }
 function handleRequest(event) {
     return proxyRequest(event);
