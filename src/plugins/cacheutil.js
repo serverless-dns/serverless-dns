@@ -10,6 +10,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 
 const minTtlSec = 30; // 30s
+const maxTtlSec = 180; // 3m
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 
@@ -67,10 +68,10 @@ export function cacheValueOf(packet, stamps) {
 
 export function updateTtl(packet, end) {
   const now = Date.now();
-  const outttl = Math.max(
-    Math.floor((end - now) / 1000) - envutil.cacheTtl(),
-    minTtlSec
-  );
+  const actualttl = Math.floor((end - now) / 1000) - envutil.cacheTtl();
+  // jitter between min/max to prevent uniform expiry across clients
+  const outttl =
+    actualttl < minTtlSec ? util.rand(minTtlSec, maxTtlSec) : actualttl;
   for (const a of packet.answers) {
     if (!dnsutil.optAnswer(a)) a.ttl = outttl;
   }
@@ -139,16 +140,16 @@ export function hasMetadata(m) {
 
 export function hasAnswer(v) {
   if (!hasMetadata(v.metadata)) return false;
-  return isAnswerFresh(v.metadata);
+  return isAnswerFresh(v.metadata, /* no roll*/ 6);
 }
 
-export function isAnswerFresh(m) {
+export function isAnswerFresh(m, n = 0) {
   // when expiry is 0, c.dnsPacket is a question and not an ans
   // ref: determineCacheExpiry
   const now = Date.now();
   const ttl = envutil.cacheTtl() * 1000;
-  const n = util.rolldice();
-  if (n % 6 === 0) {
+  const r = n || util.rolldice(6);
+  if (r % 6 === 0) {
     // 1 in 6 (~15% of the time), fresh if answer-ttl hasn't expired
     return m.expiry > 0 && now <= m.expiry - ttl;
   } else {

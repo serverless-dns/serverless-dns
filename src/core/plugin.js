@@ -204,9 +204,9 @@ export default class RethinkPlugin {
     const r = response.data;
     const deny = r.isBlocked;
     const isAns = dnsutil.isAnswer(r.dnsPacket);
-    const hasErr = dnsutil.rcodeNoError(r.dnsPacket);
+    const noErr = dnsutil.rcodeNoError(r.dnsPacket);
 
-    this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "haserr", hasErr);
+    this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "noerr", noErr);
 
     if (response.isException) {
       this.loadException(rxid, response, currentRequest);
@@ -236,8 +236,8 @@ export default class RethinkPlugin {
     // for example, servfail do not contain any answers, whereas
     // nxdomain has an authority-section (but no answers).
     const isAns = dnsutil.isAnswer(r.dnsPacket);
-    const hasErr = dnsutil.rcodeNoError(r.dnsPacket);
-    this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "dnserr?", hasErr);
+    const noErr = dnsutil.rcodeNoError(r.dnsPacket);
+    this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "noerr?", noErr);
 
     if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js?

@@ -56,14 +56,20 @@ export class DnsCache {
       return;
     }
 
-    if (data.metadata.expiry <= 0) {
-      this.log.d("put: data already expired", url, data.metadata);
-      return;
-    }
-
     try {
       // data -> {dnsPacket, metadata}; dnsPacket may be null
       this.log.d("put: data in cache", data);
+
+      // a race where the cache may infact have a fresh answer,
+      // but then we override it with this question-only packet
+      // so: get existing entry first to rule that out
+      const cachedEntry = this.fromLocalCache(url.href);
+      const cacheValid = cacheutil.isValueValid(cachedEntry);
+      const incomingHasAns = dnsutil.isAnswer(data.dnsPacket);
+      if (cacheValid && !incomingHasAns) {
+        this.log.w("put: ignore incoming query, since cache has answer");
+        return;
+      } // else: override cachedEntry with incoming
 
       this.putLocalCache(url.href, data);
 

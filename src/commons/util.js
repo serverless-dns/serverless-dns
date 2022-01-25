@@ -181,10 +181,13 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
-export function rolldice() {
-  const max = 7; // exclusive
-  const min = 1; // inclusive
+// min inclusive, max exclusive
+export function rand(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
+}
+
+export function rolldice(sides = 6) {
+  return rand(1, sides + 1);
 }
 
 // stackoverflow.com/a/8084248
