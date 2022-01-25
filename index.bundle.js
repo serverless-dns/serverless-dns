@@ -7492,11 +7492,11 @@ class DnsCache {
         }
         try {
             this.log.d("put: data in cache", data);
-            const cachedEntry = this.fromLocalCache(url.href);
-            const cacheValid = isValueValid(cachedEntry);
+            const c = this.fromLocalCache(url.href);
+            const hasAns = !emptyObj(c) && isAnswer(c.dnsPacket);
             const incomingHasAns = isAnswer(data.dnsPacket);
-            if (cacheValid && !incomingHasAns) {
-                this.log.w("put: ignore incoming query, since cache has answer");
+            if (hasAns && !incomingHasAns) {
+                this.log.w("put ignored: cache has answer, incoming does not");
                 return;
             }
             this.putLocalCache(url.href, data);
