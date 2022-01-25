@@ -89,6 +89,9 @@ export default class DNSResolver {
     const rawpacket = param.requestBodyBuffer;
     const blf = param.blocklistFilter;
     const dispatcher = param.dispatcher;
+    // may be null or empty-obj (stamp then needs to be got from blf)
+    // may be a obj { domainName: String -> blockstamps: Uint16Array }
+    const stamps = param.domainBlockstamp;
 
     const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
 
@@ -118,7 +121,7 @@ export default class DNSResolver {
 
     const ans = await res.arrayBuffer();
 
-    const r = await this.makeRdnsResponse(rxid, ans, blf);
+    const r = await this.makeRdnsResponse(rxid, ans, blf, stamps);
 
     // check outgoing cached dns-packet against blocklists
     this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
@@ -128,11 +131,19 @@ export default class DNSResolver {
     return r;
   }
 
-  async makeRdnsResponse(rxid, raw, blf) {
+  async makeRdnsResponse(rxid, raw, blf, stamps = null) {
     if (!raw) throw new Error(rxid + " mk-res no upstream result");
 
     const dnsPacket = dnsutil.decode(raw);
-    const stamps = rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf);
+    // stamps are empty for domains that are not in any blocklist
+    // but there's no way to know if that was indeed the case as
+    // stamps are shared by cacheResolver, which may or may not
+    // have retrieved the stamps in the first-place (in which case
+    // these would be empty, regardless of whether the domain was
+    // in any of the blocklists or not).
+    stamps = util.emptyObj(stamps)
+      ? rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf)
+      : stamps;
 
     return rdnsutil.dnsResponse(dnsPacket, raw, stamps);
   }

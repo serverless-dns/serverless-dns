@@ -79,6 +79,7 @@ export default class RethinkPlugin {
         "userDnsResolverUrl",
         // resolver-url overriden by user-op
         "userBlocklistInfo",
+        "domainBlockstamp",
         "blocklistFilter",
         "requestBodyBuffer",
       ],
@@ -218,6 +219,7 @@ export default class RethinkPlugin {
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
       currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
     } else {
+      this.registerParameter("domainBlockstamp", r.stamps);
       this.log.d(rxid, "resolve query; no response from cache-handler");
     }
   }

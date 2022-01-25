@@ -71,7 +71,9 @@ export function rdnsBlockResponse(
   raw = null,
   stamps = null
 ) {
-  if (util.emptyString(flag)) throw new Error("no flag set for block-res");
+  if (util.emptyString(flag)) {
+    throw new Error("no flag set for block-res");
+  }
   return {
     isBlocked: true,
     blockedB64Flag: flag,
@@ -147,6 +149,7 @@ export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
 
     for (const [k, v] of stamp) m.set(k, v);
   }
+  // note: stamps must be objs, ref plugin.js "domainBlockstamp"
   return util.emptyMap(m) ? false : util.objOf(m);
 }
 
