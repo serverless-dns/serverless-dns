@@ -26,7 +26,7 @@ const _ENV_VAR_MAPPINGS = {
   runTime: {
     name: "RUNTIME",
     type: "string",
-    // No defaults, this is handled programmatically if missing.
+    // no defaults, since it is set programmatically
   },
   runTimeEnv: {
     name: {
@@ -73,11 +73,6 @@ const _ENV_VAR_MAPPINGS = {
     type: "string",
     default: "https://dns.google/dns-query",
   },
-  onInvalidFlagStopProcessing: {
-    name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
-    type: "boolean",
-    default: "false",
-  },
   workerTimeout: {
     name: "WORKER_TIMEOUT",
     type: "number",
@@ -97,6 +92,11 @@ const _ENV_VAR_MAPPINGS = {
     name: "TD_PARTS",
     type: "number",
     default: "2",
+  },
+  cacheTtl: {
+    name: "CACHE_TTL",
+    type: "number",
+    default: "1800",
   },
 };
 

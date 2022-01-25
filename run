@@ -14,7 +14,7 @@ banner() {
 runtime="${1:-node}";
 echo "run $runtime";
 
-if [ $runtime = "deno" ]; then
+if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
   echo "using `which deno`";
   banner
   deno run --unstable \
@@ -23,11 +23,11 @@ if [ $runtime = "deno" ]; then
            --allow-read \
            --import-map=import_map.json \
            src/server-deno.ts;
-elif [ $runtime = "workers" ]; then
+elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "using `which wrangler`";
   banner
   wrangler dev;
-elif [ $runtime = "help" ]; then
+elif [ $runtime = "help" ] || [ $runtime = "h" ]; then
   echo "note: make sure node / deno / wrangler are in path";
   echo "usage: $0 [node|deno|workers]";
 else

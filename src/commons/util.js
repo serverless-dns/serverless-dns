@@ -181,6 +181,12 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
+export function rolldice() {
+  const max = 7; // exclusive
+  const min = 1; // inclusive
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
 // stackoverflow.com/a/8084248
 export function uid() {
   // ex: ".ww8ja208it"
@@ -222,6 +228,7 @@ export function microtaskBox(...fns) {
   enqueue(() => safeBox(...fns));
 }
 
+// TODO: safeBox for async fns with r.push(await f())?
 export function safeBox(...fns) {
   const r = [];
   for (const f of fns) {
@@ -294,7 +301,7 @@ export function concatObj(...args) {
   return Object.assign(...args);
 }
 
-// stackoverflow.com/a/32108184/402375
+// stackoverflow.com/a/32108184
 export function emptyObj(x) {
   // note: Object.keys type-errors when x is null / undefined
   if (!x) return true;

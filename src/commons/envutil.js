@@ -89,3 +89,8 @@ export function tlsKey() {
   if (!envManager) return "";
   return envManager.get("tlsKey") || "";
 }
+
+export function cacheTtl() {
+  if (!env) return 0;
+  return env.cacheTtl;
+}

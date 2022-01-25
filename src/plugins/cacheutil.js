@@ -9,9 +9,8 @@ import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 
-const ttlGraceSec = 30; // 30s cache extra time
+const minTtlSec = 30; // 30s
 const cheader = "x-rdnscache-metadata";
-
 const _cacheurl = "https://caches.rethinkdns.com/";
 
 // Keep this method in-sync with plugin.js:dnsCacheCallBack
@@ -39,19 +38,19 @@ export function determineCacheExpiry(dnsPacket) {
     return expiresImmediately;
   }
 
-  // set min(ttl) among all answers, but at least ttlGraceSec
-  let minttl = 1 << 30; // some abnormally high ttl
+  // set min(ttl) among all answers, but at least minTtlSec
+  let ttl = 1 << 30; // some abnormally high ttl
 
   for (const a of dnsPacket.answers) {
-    minttl = Math.min(a.ttl || ttlGraceSec, minttl);
+    ttl = Math.min(a.ttl || minTtlSec, ttl);
   }
 
-  if (minttl === 1 << 30) {
+  if (ttl === 1 << 30) {
     return expiresImmediately;
   }
 
-  minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
-  const expiry = Date.now() + minttl * 1000;
+  ttl += envutil.cacheTtl();
+  const expiry = Date.now() + ttl * 1000;
 
   return expiry;
 }
@@ -84,13 +83,13 @@ export function cacheValueOf(packet, stamps) {
   return makeCacheValue(packet, metadata);
 }
 
-export function updateTtl(decodedDnsPacket, end) {
+export function updateTtl(packet, end) {
   const now = Date.now();
   const outttl = Math.max(
-    Math.floor((end - now) / 1000) - ttlGraceSec,
-    ttlGraceSec
+    Math.floor((end - now) / 1000) - envutil.cacheTtl(),
+    minTtlSec
   );
-  for (const a of decodedDnsPacket.answers) {
+  for (const a of packet.answers) {
     if (!dnsutil.optAnswer(a)) a.ttl = outttl;
   }
 }
@@ -164,5 +163,14 @@ export function hasAnswer(v) {
 export function isAnswerFresh(m) {
   // when expiry is 0, c.dnsPacket is a question and not an ans
   // ref: determineCacheExpiry
-  return m.expiry > 0 && Date.now() <= m.expiry;
+  const now = Date.now();
+  const ttl = envutil.cacheTtl() * 1000;
+  const n = util.rolldice();
+  if (n % 6 === 0) {
+    // 1 in 6 (~15% of the time), fresh if answer-ttl hasn't expired
+    return m.expiry > 0 && now <= m.expiry - ttl;
+  } else {
+    // 5 in 6, fresh if cache-ttl hasn't expired, regardless of answer-ttl
+    return m.expiry > 0 && now <= m.expiry;
+  }
 }
