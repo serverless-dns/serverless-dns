@@ -182,6 +182,9 @@ function timeout(ms, callback) {
     if (typeof callback !== "function") return -1;
     return setTimeout(callback, ms);
 }
+function rolldice() {
+    return Math.floor(Math.random() * (7 - 1)) + 1;
+}
 function uid() {
     return (Math.random() + 1).toString(36).slice(1);
 }
@@ -553,11 +556,6 @@ const _ENV_VAR_MAPPINGS = {
         type: "string",
         default: "https://dns.google/dns-query"
     },
-    onInvalidFlagStopProcessing: {
-        name: "CF_ON_INVALID_FLAG_STOPPROCESSING",
-        type: "boolean",
-        default: "false"
-    },
     workerTimeout: {
         name: "WORKER_TIMEOUT",
         type: "number",
@@ -577,6 +575,11 @@ const _ENV_VAR_MAPPINGS = {
         name: "TD_PARTS",
         type: "number",
         default: "2"
+    },
+    cacheTtl: {
+        name: "CACHE_TTL",
+        type: "number",
+        default: "1800"
     }
 };
 function _getRuntimeEnv(runtime) {
@@ -5393,6 +5396,10 @@ function tlsKeyPath() {
     if (!envManager) return "";
     return envManager.get("TLS_KEY_PATH") || "";
 }
+function cacheTtl() {
+    if (!env) return 0;
+    return env.cacheTtl;
+}
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
 function dnsIpv4() {
@@ -7099,7 +7106,7 @@ class DnsBlocker {
         return r;
     }
 }
-const ttlGraceSec = 30;
+const minTtlSec = 30;
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 function isAnswerCacheable(dnsPacket) {
@@ -7111,15 +7118,15 @@ function determineCacheExpiry(dnsPacket) {
     if (!isAnswerCacheable(dnsPacket)) {
         return 0;
     }
-    let minttl = 1 << 30;
+    let ttl = 1 << 30;
     for (const a of dnsPacket.answers){
-        minttl = Math.min(a.ttl || ttlGraceSec, minttl);
+        ttl = Math.min(a.ttl || minTtlSec, ttl);
     }
-    if (minttl === 1 << 30) {
+    if (ttl === 1 << 30) {
         return 0;
     }
-    minttl = Math.max(minttl + ttlGraceSec, ttlGraceSec);
-    const expiry = Date.now() + minttl * 1000;
+    ttl += cacheTtl();
+    const expiry = Date.now() + ttl * 1000;
     return expiry;
 }
 function makeCacheMetadata(dnsPacket, stamps) {
@@ -7138,10 +7145,10 @@ function cacheValueOf(packet, stamps) {
     const metadata = makeCacheMetadata(packet, stamps);
     return makeCacheValue(packet, metadata);
 }
-function updateTtl(decodedDnsPacket, end) {
+function updateTtl(packet, end) {
     const now = Date.now();
-    const outttl = Math.max(Math.floor((end - now) / 1000) - 30, 30);
-    for (const a of decodedDnsPacket.answers){
+    const outttl = Math.max(Math.floor((end - now) / 1000) - cacheTtl(), 30);
+    for (const a of packet.answers){
         if (!optAnswer(a)) a.ttl = outttl;
     }
 }
@@ -7185,7 +7192,14 @@ function hasMetadata(m) {
     return !emptyObj(m);
 }
 function isAnswerFresh(m) {
-    return m.expiry > 0 && Date.now() <= m.expiry;
+    const now = Date.now();
+    const ttl = cacheTtl() * 1000;
+    const n = rolldice();
+    if (n % 6 === 0) {
+        return m.expiry > 0 && now <= m.expiry - ttl;
+    } else {
+        return m.expiry > 0 && now <= m.expiry;
+    }
 }
 class DNSResolver {
     constructor(cache){
