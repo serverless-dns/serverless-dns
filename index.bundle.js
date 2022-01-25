@@ -182,8 +182,11 @@ function timeout(ms, callback) {
     if (typeof callback !== "function") return -1;
     return setTimeout(callback, ms);
 }
-function rolldice() {
-    return Math.floor(Math.random() * (7 - 1)) + 1;
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+function rolldice(sides = 6) {
+    return rand(1, sides + 1);
 }
 function uid() {
     return (Math.random() + 1).toString(36).slice(1);
@@ -6369,7 +6372,9 @@ function rdnsNoBlockResponse(flag = "", packet = null, raw = null, stamps = null
     };
 }
 function rdnsBlockResponse(flag, packet = null, raw = null, stamps = null) {
-    if (emptyString(flag)) throw new Error("no flag set for block-res");
+    if (emptyString(flag)) {
+        throw new Error("no flag set for block-res");
+    }
     return {
         isBlocked: true,
         blockedB64Flag: flag,
@@ -7143,7 +7148,8 @@ function cacheValueOf(packet, stamps) {
 }
 function updateTtl(packet, end) {
     const now = Date.now();
-    const outttl = Math.max(Math.floor((end - now) / 1000) - cacheTtl(), 30);
+    const actualttl = Math.floor((end - now) / 1000) - cacheTtl();
+    const outttl = actualttl < 30 ? rand(30, 180) : actualttl;
     for (const a of packet.answers){
         if (!optAnswer(a)) a.ttl = outttl;
     }
@@ -7187,11 +7193,11 @@ function isValueValid(v) {
 function hasMetadata(m) {
     return !emptyObj(m);
 }
-function isAnswerFresh(m) {
+function isAnswerFresh(m, n = 0) {
     const now = Date.now();
     const ttl = cacheTtl() * 1000;
-    const n = rolldice();
-    if (n % 6 === 0) {
+    const r = n || rolldice(6);
+    if (r % 6 === 0) {
         return m.expiry > 0 && now <= m.expiry - ttl;
     } else {
         return m.expiry > 0 && now <= m.expiry;
@@ -7256,6 +7262,7 @@ class DNSResolver {
         const rawpacket = param.requestBodyBuffer;
         const blf = param.blocklistFilter;
         const dispatcher = param.dispatcher;
+        const stamps = param.domainBlockstamp;
         const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
         this.blocker.blockQuestion(rxid, q, blInfo);
         this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
@@ -7272,16 +7279,16 @@ class DNSResolver {
             throw new Error(ans.status + " http err: " + res.statusText);
         }
         const ans = await res.arrayBuffer();
-        const r = await this.makeRdnsResponse(rxid, ans, blf);
+        const r = await this.makeRdnsResponse(rxid, ans, blf, stamps);
         this.blocker.blockAnswer(rxid, r, blInfo);
         this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
         this.primeCache(rxid, r, dispatcher);
         return r;
     }
-    async makeRdnsResponse(rxid, raw, blf) {
+    async makeRdnsResponse(rxid, raw, blf, stamps = null) {
         if (!raw) throw new Error(rxid + " mk-res no upstream result");
         const dnsPacket = decode3(raw);
-        const stamps = blockstampFromBlocklistFilter(dnsPacket, blf);
+        stamps = emptyObj(stamps) ? blockstampFromBlocklistFilter(dnsPacket, blf) : stamps;
         return dnsResponse(dnsPacket, raw, stamps);
     }
     primeCache(rxid, r, dispatcher) {
@@ -7483,12 +7490,15 @@ class DnsCache {
             this.log.w("put: empty url/data", url, data);
             return;
         }
-        if (data.metadata.expiry <= 0) {
-            this.log.d("put: data already expired", url, data.metadata);
-            return;
-        }
         try {
             this.log.d("put: data in cache", data);
+            const cachedEntry = this.fromLocalCache(url.href);
+            const cacheValid = isValueValid(cachedEntry);
+            const incomingHasAns = isAnswer(data.dnsPacket);
+            if (cacheValid && !incomingHasAns) {
+                this.log.w("put: ignore incoming query, since cache has answer");
+                return;
+            }
             this.putLocalCache(url.href, data);
             dispatcher(this.putHttpCache(url, data));
         } catch (e) {
@@ -7584,6 +7594,7 @@ class RethinkPlugin {
             "request",
             "userDnsResolverUrl",
             "userBlocklistInfo",
+            "domainBlockstamp",
             "blocklistFilter",
             "requestBodyBuffer", 
         ], this.dnsResolverCallBack, false);
@@ -7657,8 +7668,8 @@ class RethinkPlugin {
         const r = response.data;
         const deny = r.isBlocked;
         const isAns = isAnswer(r.dnsPacket);
-        const hasErr = rcodeNoError(r.dnsPacket);
-        this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "haserr", hasErr);
+        const noErr = rcodeNoError(r.dnsPacket);
+        this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "noerr", noErr);
         if (response.isException) {
             this.loadException(rxid, response, currentRequest);
         } else if (deny) {
@@ -7668,6 +7679,7 @@ class RethinkPlugin {
             this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
             currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
         } else {
+            this.registerParameter("domainBlockstamp", r.stamps);
             this.log.d(rxid, "resolve query; no response from cache-handler");
         }
     }
@@ -7676,8 +7688,8 @@ class RethinkPlugin {
         const r = response.data;
         const deny = r.isBlocked;
         const isAns = isAnswer(r.dnsPacket);
-        const hasErr = rcodeNoError(r.dnsPacket);
-        this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "dnserr?", hasErr);
+        const noErr = rcodeNoError(r.dnsPacket);
+        this.log.d(rxid, "rr: block?", deny, "ans?", isAns, "noerr?", noErr);
         if (deny) {
             currentRequest.dnsBlockResponse(r.blockedB64Flag);
         } else if (response.isException || !isAns) {
