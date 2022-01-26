@@ -6,7 +6,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { BlocklistWrapper } from "../plugins/blocklist-wrapper/main.js";
+import {
+  BlocklistFilter,
+  BlocklistWrapper,
+} from "../plugins/blocklist-wrapper/main.js";
 import { CommandControl } from "../plugins/command-control/cc.js";
 import { UserOperation } from "../plugins/basic/basic.js";
 import {
@@ -34,12 +37,13 @@ async function systemReady() {
   log.i("svc: systemReady");
 
   const cache = new DnsCache(dnsutil.cacheSize());
+  const blf = new BlocklistFilter();
 
-  services.blocklistWrapper = new BlocklistWrapper();
-  services.commandControl = new CommandControl();
+  services.blocklistWrapper = new BlocklistWrapper(blf);
+  services.commandControl = new CommandControl(blf);
   services.userOperation = new UserOperation();
-  services.dnsResolver = new DNSResolver(cache);
-  services.dnsCacheHandler = new DNSCacheResponder(cache);
+  services.dnsResolver = new DNSResolver(blf, cache);
+  services.dnsCacheHandler = new DNSCacheResponder(blf, cache);
 
   if (envutil.isNode()) {
     const b = await import("./node/blocklists.js");

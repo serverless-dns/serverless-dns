@@ -19,7 +19,7 @@ export class DnsCache {
     this.log = log.withTags("DnsCache");
   }
 
-  async get(url) {
+  async get(url, localOnly = false) {
     if (!url && util.emptyString(url.href)) {
       this.log.d("get: empty url", url);
       return null;
@@ -32,6 +32,9 @@ export class DnsCache {
     if (entry) {
       return entry;
     }
+
+    // fetch only from local-cache
+    if (localOnly) return null;
 
     // note: http cache api availble only on cloudflare
     entry = await this.fromHttpCache(url);

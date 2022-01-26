@@ -10,15 +10,15 @@ import * as util from "../../commons/util.js";
 import * as rdnsutil from "../dnsblockutil.js";
 
 export class CommandControl {
-  constructor() {
+  constructor(blf) {
     this.latestTimestamp = envutil.timestamp();
     this.log = log.withTags("CommandControl");
+    this.blocklistFilter = blf;
   }
 
   /**
    * @param {Object} param
    * @param {Request} param.request
-   * @param {*} param.blocklistFilter
    * @param {String | Number} param.latestTimestamp
    * @param {Boolean} param.isDnsMsg
    * @returns
@@ -29,7 +29,6 @@ export class CommandControl {
       return this.commandOperation(
         param.rxid,
         param.request.url,
-        param.blocklistFilter,
         param.isDnsMsg
       );
     }
@@ -70,7 +69,9 @@ export class CommandControl {
     return d.length > 1 ? d[0] : emptyFlag;
   }
 
-  commandOperation(rxid, url, blocklistFilter, isDnsMsg) {
+  commandOperation(rxid, url, isDnsMsg) {
+    // note: this.blocklistFilter is assumed to have been setup!
+    const blf = this.blocklistFilter;
     let response = util.emptyResponse();
 
     try {
@@ -96,20 +97,17 @@ export class CommandControl {
       this.log.d(rxid, "processing...", url, command, b64UserFlag);
 
       if (command === "listtob64") {
-        response.data.httpResponse = listToB64(queryString, blocklistFilter);
+        response.data.httpResponse = listToB64(queryString, blf);
       } else if (command === "b64tolist") {
-        response.data.httpResponse = b64ToList(queryString, blocklistFilter);
+        response.data.httpResponse = b64ToList(queryString, blf);
       } else if (command === "dntolist") {
         response.data.httpResponse = domainNameToList(
           queryString,
-          blocklistFilter,
+          blf,
           this.latestTimestamp
         );
       } else if (command === "dntouint") {
-        response.data.httpResponse = domainNameToUint(
-          queryString,
-          blocklistFilter
-        );
+        response.data.httpResponse = domainNameToUint(queryString, blf);
       } else if (command === "config" || command === "configure" || !isDnsCmd) {
         response.data.httpResponse = configRedirect(
           b64UserFlag,

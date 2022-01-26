@@ -64,7 +64,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       services.commandControl,
-      ["rxid", "request", "blocklistFilter", "isDnsMsg"],
+      ["rxid", "request", "isDnsMsg"],
       this.commandControlCallBack,
       false
     );
@@ -80,7 +80,6 @@ export default class RethinkPlugin {
         // resolver-url overriden by user-op
         "userBlocklistInfo",
         "domainBlockstamp",
-        "blocklistFilter",
         "requestBodyBuffer",
       ],
       this.dnsResolverCallBack,
@@ -157,9 +156,7 @@ export default class RethinkPlugin {
       this.log.e(rxid, "err building blocklist-filter", response);
       this.loadException(rxid, response, currentRequest);
       return;
-    }
-
-    this.registerParameter("blocklistFilter", r.blocklistFilter);
+    } // else: blocklist-filter setup complete
   }
 
   /**

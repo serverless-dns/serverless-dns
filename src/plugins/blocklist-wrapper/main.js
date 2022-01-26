@@ -14,8 +14,8 @@ import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../dnsblockutil.js";
 
 class BlocklistWrapper {
-  constructor() {
-    this.blocklistFilter = new BlocklistFilter();
+  constructor(blf) {
+    this.blocklistFilter = blf;
     this.td = null; // trie
     this.rd = null; // rank-dir
     this.ft = null; // file-tags

@@ -12,10 +12,11 @@ import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 
 export class DNSCacheResponder {
-  constructor(cache) {
+  constructor(blf, cache) {
     this.blocker = new DnsBlocker();
     this.log = log.withTags("DnsCacheResponder");
     this.cache = cache;
+    this.blocklistFilter = blf;
   }
 
   /**
@@ -44,15 +45,25 @@ export class DNSCacheResponder {
 
   async resolveFromCache(param) {
     const noAnswer = rdnsutil.rdnsNoBlockResponse();
-
+    // if blocklist-filter is setup, then there's no need to query http-cache
+    // (it introduces 5ms to 10ms latency). Because, the sole purpose of the
+    // cache is to help avoid blocklist-filter downloads which cost 200ms
+    // (when cached by cf) to 5s (uncached, downloaded from s3). Otherwise,
+    // it only add 10s, even on cache-misses. This is expensive especially
+    // when upstream DoHs (like cf, goog) have median response time of 10s.
+    // When other platforms get http-cache / multiple caches (like on-disk),
+    // the above reasoning may not apply, since it is only valid for infra
+    // on Cloudflare, which not only has "free" egress, but also different
+    // runtime (faster hw and sw) and deployment model (v8 isolates).
+    const onlyLocal = rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
     const rxid = param.rxid;
     const packet = param.requestDecodedDnsPacket;
 
     const k = cacheutil.makeHttpCacheKey(packet);
     if (!k) return noAnswer;
 
-    const cr = await this.cache.get(k);
-    this.log.d(param.rxid, "resolveFromCache k/v", k.href, cr);
+    const cr = await this.cache.get(k, onlyLocal);
+    this.log.d(rxid, "local?", onlyLocal, "cached ans", k.href, cr);
 
     if (util.emptyObj(cr)) return noAnswer;
 

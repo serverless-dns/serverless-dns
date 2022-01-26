@@ -20,6 +20,10 @@ export function hasDisk() {
   return onFly() || (isNode() && !isProd());
 }
 
+export function hasHttpCache() {
+  return isWorkers();
+}
+
 export function isProd() {
   return env && env.runTimeEnv === "production";
 }

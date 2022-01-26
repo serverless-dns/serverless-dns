@@ -14,12 +14,13 @@ import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
 
 export default class DNSResolver {
-  constructor(cache) {
+  constructor(blf, cache) {
     this.cache = cache;
     this.http2 = null;
     this.nodeUtil = null;
     this.transport = null;
     this.blocker = new DnsBlocker();
+    this.blocklistFilter = blf;
     this.log = log.withTags("DnsResolver");
     this.preferredDohResolvers = [
       envutil.dohResolver(),
@@ -51,7 +52,6 @@ export default class DNSResolver {
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {String} param.userDnsResolverUrl
-   * @param {} param.blocklistFilter
    * @returns
    */
   async RethinkModule(param) {
@@ -87,7 +87,7 @@ export default class DNSResolver {
     const rxid = param.rxid;
     const blInfo = param.userBlocklistInfo;
     const rawpacket = param.requestBodyBuffer;
-    const blf = param.blocklistFilter;
+    const blf = this.blocklistFilter;
     const dispatcher = param.dispatcher;
     // may be null or empty-obj (stamp then needs to be got from blf)
     // may be a obj { domainName: String -> blockstamps: Uint16Array }

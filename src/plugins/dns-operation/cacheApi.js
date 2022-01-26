@@ -9,10 +9,10 @@ import * as envutil from "../../commons/envutil.js";
 
 export class CacheApi {
   constructor() {
-    this.noop = !envutil.isWorkers();
+    this.noop = !envutil.hasHttpCache();
 
     if (this.noop) {
-      log.w("not workers, no-op http-cache-api");
+      log.w("no-op http-cache-api");
     }
   }
 
