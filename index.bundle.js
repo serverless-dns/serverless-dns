@@ -5355,6 +5355,9 @@ function decodeList(list, enc, buf, offset) {
 function onDenoDeploy() {
     return env && env.cloudPlatform === "deno-deploy";
 }
+function hasHttpCache() {
+    return isWorkers();
+}
 function isWorkers() {
     return env && env.runTime === "worker";
 }
@@ -6589,8 +6592,8 @@ class BlocklistFilter {
     }
 }
 class BlocklistWrapper {
-    constructor(){
-        this.blocklistFilter = new BlocklistFilter();
+    constructor(blf){
+        this.blocklistFilter = blf;
         this.td = null;
         this.rd = null;
         this.ft = null;
@@ -6737,13 +6740,14 @@ async function makeTd(baseurl, n) {
     }
 }
 class CommandControl {
-    constructor(){
+    constructor(blf){
         this.latestTimestamp = timestamp();
         this.log = log.withTags("CommandControl");
+        this.blocklistFilter = blf;
     }
     async RethinkModule(param) {
         if (isGetRequest(param.request)) {
-            return this.commandOperation(param.rxid, param.request.url, param.blocklistFilter, param.isDnsMsg);
+            return this.commandOperation(param.rxid, param.request.url, param.isDnsMsg);
         }
         return emptyResponse();
     }
@@ -6764,7 +6768,8 @@ class CommandControl {
         if (p[1]) return p[1];
         return d.length > 1 ? d[0] : emptyFlag;
     }
-    commandOperation(rxid, url, blocklistFilter, isDnsMsg1) {
+    commandOperation(rxid, url, isDnsMsg1) {
+        const blf = this.blocklistFilter;
         let response = emptyResponse();
         try {
             const reqUrl = new URL(url);
@@ -6781,13 +6786,13 @@ class CommandControl {
             const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
             this.log.d(rxid, "processing...", url, command, b64UserFlag);
             if (command === "listtob64") {
-                response.data.httpResponse = listToB64(queryString, blocklistFilter);
+                response.data.httpResponse = listToB64(queryString, blf);
             } else if (command === "b64tolist") {
-                response.data.httpResponse = b64ToList(queryString, blocklistFilter);
+                response.data.httpResponse = b64ToList(queryString, blf);
             } else if (command === "dntolist") {
-                response.data.httpResponse = domainNameToList(queryString, blocklistFilter, this.latestTimestamp);
+                response.data.httpResponse = domainNameToList(queryString, blf, this.latestTimestamp);
             } else if (command === "dntouint") {
-                response.data.httpResponse = domainNameToUint(queryString, blocklistFilter);
+                response.data.httpResponse = domainNameToUint(queryString, blf);
             } else if (command === "config" || command === "configure" || !isDnsCmd) {
                 response.data.httpResponse = configRedirect(b64UserFlag, reqUrl.origin, this.latestTimestamp, !isDnsCmd);
             } else {
@@ -7204,12 +7209,13 @@ function isAnswerFresh(m, n = 0) {
     }
 }
 class DNSResolver {
-    constructor(cache){
+    constructor(blf, cache){
         this.cache = cache;
         this.http2 = null;
         this.nodeUtil = null;
         this.transport = null;
         this.blocker = new DnsBlocker();
+        this.blocklistFilter = blf;
         this.log = log.withTags("DnsResolver");
         this.preferredDohResolvers = [
             dohResolver(),
@@ -7260,7 +7266,7 @@ class DNSResolver {
         const rxid = param.rxid;
         const blInfo = param.userBlocklistInfo;
         const rawpacket = param.requestBodyBuffer;
-        const blf = param.blocklistFilter;
+        const blf = this.blocklistFilter;
         const dispatcher = param.dispatcher;
         const stamps = param.domainBlockstamp;
         const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
@@ -7386,10 +7392,11 @@ DNSResolver.prototype.doh2 = async function(rxid, request) {
     });
 };
 class DNSCacheResponder {
-    constructor(cache){
+    constructor(blf, cache){
         this.blocker = new DnsBlocker();
         this.log = log.withTags("DnsCacheResponder");
         this.cache = cache;
+        this.blocklistFilter = blf;
     }
     async RethinkModule(param) {
         let response = emptyResponse();
@@ -7407,12 +7414,13 @@ class DNSCacheResponder {
     }
     async resolveFromCache(param) {
         const noAnswer = rdnsNoBlockResponse();
+        const onlyLocal = isBlocklistFilterSetup(this.blocklistFilter);
         const rxid = param.rxid;
         const packet = param.requestDecodedDnsPacket;
         const k = makeHttpCacheKey(packet);
         if (!k) return noAnswer;
-        const cr = await this.cache.get(k);
-        this.log.d(param.rxid, "resolveFromCache k/v", k.href, cr);
+        const cr = await this.cache.get(k, onlyLocal);
+        this.log.d(rxid, "local?", onlyLocal, "cached ans", k.href, cr);
         if (emptyObj(cr)) return noAnswer;
         const dnsBuffer = encode3(cr.dnsPacket);
         const stamps = blockstampFromCache(cr);
@@ -7448,9 +7456,9 @@ function updatedAnswer(r, qid, expiry) {
 }
 class CacheApi {
     constructor(){
-        this.noop = !isWorkers();
+        this.noop = !hasHttpCache();
         if (this.noop) {
-            log.w("not workers, no-op http-cache-api");
+            log.w("no-op http-cache-api");
         }
     }
     async get(href) {
@@ -7470,7 +7478,7 @@ class DnsCache {
         this.httpcache = new CacheApi();
         this.log = log.withTags("DnsCache");
     }
-    async get(url) {
+    async get(url, localOnly = false) {
         if (!url && emptyString(url.href)) {
             this.log.d("get: empty url", url);
             return null;
@@ -7479,6 +7487,7 @@ class DnsCache {
         if (entry) {
             return entry;
         }
+        if (localOnly) return null;
         entry = await this.fromHttpCache(url);
         if (entry) {
             this.putLocalCache(url.href, entry);
@@ -7543,11 +7552,12 @@ async function systemReady() {
     if (services.ready) return;
     log.i("svc: systemReady");
     const cache = new DnsCache(cacheSize());
-    services.blocklistWrapper = new BlocklistWrapper();
-    services.commandControl = new CommandControl();
+    const blf = new BlocklistFilter();
+    services.blocklistWrapper = new BlocklistWrapper(blf);
+    services.commandControl = new CommandControl(blf);
     services.userOperation = new UserOperation();
-    services.dnsResolver = new DNSResolver(cache);
-    services.dnsCacheHandler = new DNSCacheResponder(cache);
+    services.dnsResolver = new DNSResolver(blf, cache);
+    services.dnsCacheHandler = new DNSCacheResponder(blf, cache);
     if (isNode()) {
         const b = await import("./node/blocklists.js");
         await b.setup(services.blocklistWrapper);
@@ -7585,7 +7595,6 @@ class RethinkPlugin {
         this.registerPlugin("commandControl", services.commandControl, [
             "rxid",
             "request",
-            "blocklistFilter",
             "isDnsMsg"
         ], this.commandControlCallBack, false);
         this.registerPlugin("dnsResolver", services.dnsResolver, [
@@ -7595,7 +7604,6 @@ class RethinkPlugin {
             "userDnsResolverUrl",
             "userBlocklistInfo",
             "domainBlockstamp",
-            "blocklistFilter",
             "requestBodyBuffer", 
         ], this.dnsResolverCallBack, false);
     }
@@ -7638,7 +7646,6 @@ class RethinkPlugin {
             this.loadException(rxid, response, currentRequest);
             return;
         }
-        this.registerParameter("blocklistFilter", r.blocklistFilter);
     }
     async commandControlCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
