@@ -7125,6 +7125,11 @@ class DnsBlocker {
 const minTtlSec = 30;
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
+const _cacheHeaderKey = "x-rdns-cache";
+const _cacheHeaderHitValue = "hit";
+const _cacheHeaders = {
+    [_cacheHeaderKey]: _cacheHeaderHitValue
+};
 function determineCacheExpiry(packet) {
     const someVeryHighTtl = 1 << 30;
     if (!isAnswer(packet)) return 0;
@@ -7186,6 +7191,13 @@ function extractMetadata(cres) {
 function embedMetadata(m) {
     return JSON.stringify(m);
 }
+function cacheHeaders() {
+    return _cacheHeaders;
+}
+function hasCacheHeader(h) {
+    if (!h) return false;
+    return h.get(_cacheHeaderKey) === _cacheHeaderHitValue;
+}
 function updateQueryId(decodedDnsPacket, queryId) {
     if (queryId === decodedDnsPacket.id) return false;
     decodedDnsPacket.id = queryId;
@@ -7207,6 +7219,11 @@ function isAnswerFresh(m, n = 0) {
     } else {
         return m.expiry > 0 && now <= m.expiry;
     }
+}
+function updatedAnswer(dnsPacket, qid, expiry) {
+    updateQueryId(dnsPacket, qid);
+    updateTtl(dnsPacket, expiry);
+    return dnsPacket;
 }
 class DNSResolver {
     constructor(blf, cache){
@@ -7248,9 +7265,8 @@ class DNSResolver {
         }
         return response;
     }
-    determineDohResolvers(param) {
+    determineDohResolvers(preferredByUser) {
         if (this.transport) return [];
-        const preferredByUser = param.userDnsResolverUrl;
         if (!emptyString(preferredByUser)) {
             return [
                 preferredByUser
@@ -7266,18 +7282,24 @@ class DNSResolver {
         const rxid = param.rxid;
         const blInfo = param.userBlocklistInfo;
         const rawpacket = param.requestBodyBuffer;
-        const blf = this.blocklistFilter;
+        const decodedpacket = param.requestDecodedDnsPacket;
+        const userDns = param.userDnsResolverUrl;
         const dispatcher = param.dispatcher;
+        const blf = this.blocklistFilter;
         const stamps = param.domainBlockstamp;
-        const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
+        const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
         this.blocker.blockQuestion(rxid, q, blInfo);
         this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
         if (q.isBlocked) {
             this.primeCache(rxid, q, dispatcher);
             return q;
         }
-        const upstreams = this.determineDohResolvers(param);
-        const res = await this.resolveDnsUpstream(rxid, param.request, upstreams, param.requestBodyBuffer);
+        const res1 = this.resolveDnsFromCache(rxid, decodedpacket);
+        const res2 = this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket);
+        const res = await Promise.any([
+            res1,
+            res2
+        ]);
         if (!res) throw new Error(rxid + "no upstream result");
         if (!res.ok) {
             const txt = await res.text();
@@ -7287,8 +7309,11 @@ class DNSResolver {
         const ans = await res.arrayBuffer();
         const r = await this.makeRdnsResponse(rxid, ans, blf, stamps);
         this.blocker.blockAnswer(rxid, r, blInfo);
-        this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
-        this.primeCache(rxid, r, dispatcher);
+        const fromCache = hasCacheHeader(res.headers);
+        this.log.d(rxid, "ans block?", r.isBlocked, "from cache?", fromCache);
+        if (!fromCache) {
+            this.primeCache(rxid, r, dispatcher);
+        }
         return r;
     }
     async makeRdnsResponse(rxid, raw, blf, stamps = null) {
@@ -7352,6 +7377,23 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
     }
     return Promise.any(promisedRes);
 };
+DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
+    const k = makeHttpCacheKey(packet);
+    if (!k) throw new Error("resolver: no cache-key");
+    const cr = await this.cache.get(k);
+    const hasVal = isValueValid(cr);
+    const hasAns = hasVal && isAnswer(cr.dnsPacket);
+    const freshAns = hasVal && isAnswerFresh(cr.metadata);
+    this.log.d(rxid, "cache ans", k.href, hasVal, "fresh?", freshAns);
+    if (!hasAns || !freshAns) {
+        throw new Error("resolver: cache miss");
+    }
+    updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
+    const b = encode3(cr.dnsPacket);
+    return new Response(b, {
+        headers: cacheHeaders()
+    });
+};
 DNSResolver.prototype.doh2 = async function(rxid, request) {
     if (!this.http2 || !this.nodeUtil) {
         throw new Error("h2 / node-util not setup, bailing");
@@ -7405,18 +7447,16 @@ class DNSCacheResponder {
             return response;
         }
         try {
-            response.data = await this.resolveFromCache(param);
+            response.data = await this.resolveFromCache(param.rxid, param.requestDecodedDnsPacket, param.userBlocklistInfo);
         } catch (e) {
             this.log.e(param.rxid, "main", e.stack);
             response = errResponse("DnsCacheHandler", e);
         }
         return response;
     }
-    async resolveFromCache(param) {
+    async resolveFromCache(rxid, packet, blockInfo) {
         const noAnswer = rdnsNoBlockResponse();
         const onlyLocal = isBlocklistFilterSetup(this.blocklistFilter);
-        const rxid = param.rxid;
-        const packet = param.requestDecodedDnsPacket;
         const k = makeHttpCacheKey(packet);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k, onlyLocal);
@@ -7424,7 +7464,6 @@ class DNSCacheResponder {
         if (emptyObj(cr)) return noAnswer;
         const dnsBuffer = encode3(cr.dnsPacket);
         const stamps = blockstampFromCache(cr);
-        const blockInfo = param.userBlocklistInfo;
         const res = dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
         this.makeCacheResponse(rxid, res, blockInfo);
         if (res.isBlocked) return res;
@@ -7432,7 +7471,9 @@ class DNSCacheResponder {
             this.log.d(rxid, "cache ans not fresh");
             return noAnswer;
         }
-        return updatedAnswer(res, packet.id, cr.metadata.expiry);
+        updatedAnswer(res.dnsPacket, packet.id, cr.metadata.expiry);
+        const reencoded = encode3(res.dnsPacket);
+        return dnsResponse(res.dnsPacket, reencoded, res.stamps);
     }
     makeCacheResponse(rxid, r, blockInfo) {
         this.blocker.blockQuestion(rxid, r, blockInfo);
@@ -7447,12 +7488,6 @@ class DNSCacheResponder {
         this.log.d(rxid, "answer block?", r.isBlocked);
         return r;
     }
-}
-function updatedAnswer(r, qid, expiry) {
-    updateQueryId(r.dnsPacket, qid);
-    updateTtl(r.dnsPacket, expiry);
-    const reencoded = encode3(r.dnsPacket);
-    return dnsResponse(r.dnsPacket, reencoded, r.stamps);
 }
 class CacheApi {
     constructor(){
@@ -7531,7 +7566,7 @@ class DnsCache {
     async fromHttpCache(url) {
         const k = url.href;
         const response = await this.httpcache.get(k);
-        if (!response) return false;
+        if (!response || !response.ok) return false;
         const metadata = extractMetadata(response);
         this.log.d("http-cache response metadata", metadata);
         if (!hasMetadata(metadata)) {
@@ -7604,6 +7639,7 @@ class RethinkPlugin {
             "userDnsResolverUrl",
             "userBlocklistInfo",
             "domainBlockstamp",
+            "requestDecodedDnsPacket",
             "requestBodyBuffer", 
         ], this.dnsResolverCallBack, false);
     }
