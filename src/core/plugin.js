@@ -80,6 +80,7 @@ export default class RethinkPlugin {
         // resolver-url overriden by user-op
         "userBlocklistInfo",
         "domainBlockstamp",
+        "requestDecodedDnsPacket",
         "requestBodyBuffer",
       ],
       this.dnsResolverCallBack,

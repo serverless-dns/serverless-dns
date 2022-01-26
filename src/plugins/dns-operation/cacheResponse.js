@@ -34,7 +34,11 @@ export class DNSCacheResponder {
     }
 
     try {
-      response.data = await this.resolveFromCache(param);
+      response.data = await this.resolveFromCache(
+        param.rxid,
+        param.requestDecodedDnsPacket,
+        param.userBlocklistInfo
+      );
     } catch (e) {
       this.log.e(param.rxid, "main", e.stack);
       response = util.errResponse("DnsCacheHandler", e);
@@ -43,7 +47,7 @@ export class DNSCacheResponder {
     return response;
   }
 
-  async resolveFromCache(param) {
+  async resolveFromCache(rxid, packet, blockInfo) {
     const noAnswer = rdnsutil.rdnsNoBlockResponse();
     // if blocklist-filter is setup, then there's no need to query http-cache
     // (it introduces 5ms to 10ms latency). Because, the sole purpose of the
@@ -56,8 +60,6 @@ export class DNSCacheResponder {
     // on Cloudflare, which not only has "free" egress, but also different
     // runtime (faster hw and sw) and deployment model (v8 isolates).
     const onlyLocal = rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
-    const rxid = param.rxid;
-    const packet = param.requestDecodedDnsPacket;
 
     const k = cacheutil.makeHttpCacheKey(packet);
     if (!k) return noAnswer;
@@ -75,7 +77,6 @@ export class DNSCacheResponder {
     // whereas it should be [v6.example.com, example.com
     // v6.test.example.org, test.example.org, example.org]
     const stamps = rdnsutil.blockstampFromCache(cr);
-    const blockInfo = param.userBlocklistInfo;
     const res = rdnsutil.dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
 
     this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
@@ -87,7 +88,15 @@ export class DNSCacheResponder {
       return noAnswer;
     }
 
-    return updatedAnswer(res, packet.id, cr.metadata.expiry);
+    cacheutil.updatedAnswer(
+      /* out*/ res.dnsPacket,
+      packet.id,
+      cr.metadata.expiry
+    );
+
+    const reencoded = dnsutil.encode(res.dnsPacket);
+
+    return rdnsutil.dnsResponse(res.dnsPacket, reencoded, res.stamps);
   }
 
   makeCacheResponse(rxid, r, blockInfo) {
@@ -110,13 +119,4 @@ export class DNSCacheResponder {
 
     return r;
   }
-}
-
-function updatedAnswer(r, qid, expiry) {
-  cacheutil.updateQueryId(r.dnsPacket, qid);
-  cacheutil.updateTtl(r.dnsPacket, expiry);
-
-  const reencoded = dnsutil.encode(r.dnsPacket);
-
-  return rdnsutil.dnsResponse(r.dnsPacket, reencoded, r.stamps);
 }

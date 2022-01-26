@@ -52,6 +52,7 @@ export default class DNSResolver {
    * @param {Request} param.request
    * @param {ArrayBuffer} param.requestBodyBuffer
    * @param {String} param.userDnsResolverUrl
+   * @param {Object} param.requestDecodedDnsPacket
    * @returns
    */
   async RethinkModule(param) {
@@ -68,11 +69,10 @@ export default class DNSResolver {
     return response;
   }
 
-  determineDohResolvers(param) {
+  determineDohResolvers(preferredByUser) {
     // when this.transport is set, do not use doh
     if (this.transport) return [];
 
-    const preferredByUser = param.userDnsResolverUrl;
     if (!util.emptyString(preferredByUser)) {
       return [preferredByUser];
     } else if (envutil.isWorkers()) {
@@ -87,13 +87,15 @@ export default class DNSResolver {
     const rxid = param.rxid;
     const blInfo = param.userBlocklistInfo;
     const rawpacket = param.requestBodyBuffer;
-    const blf = this.blocklistFilter;
+    const decodedpacket = param.requestDecodedDnsPacket;
+    const userDns = param.userDnsResolverUrl;
     const dispatcher = param.dispatcher;
+    const blf = this.blocklistFilter;
     // may be null or empty-obj (stamp then needs to be got from blf)
     // may be a obj { domainName: String -> blockstamps: Uint16Array }
     const stamps = param.domainBlockstamp;
 
-    const q = await this.makeRdnsResponse(rxid, rawpacket, blf);
+    const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
 
     this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
     this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
@@ -103,13 +105,15 @@ export default class DNSResolver {
       return q;
     }
 
-    const upstreams = this.determineDohResolvers(param);
-    const res = await this.resolveDnsUpstream(
+    const res1 = this.resolveDnsFromCache(rxid, decodedpacket);
+    const res2 = this.resolveDnsUpstream(
       rxid,
       param.request,
-      upstreams,
-      param.requestBodyBuffer
+      this.determineDohResolvers(userDns),
+      rawpacket
     );
+
+    const res = await Promise.any([res1, res2]);
 
     if (!res) throw new Error(rxid + "no upstream result");
 
@@ -125,9 +129,13 @@ export default class DNSResolver {
 
     // check outgoing cached dns-packet against blocklists
     this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
-    this.log.d(rxid, blInfo, "answer blocked?", r.isBlocked);
+    const fromCache = cacheutil.hasCacheHeader(res.headers);
+    this.log.d(rxid, "ans block?", r.isBlocked, "from cache?", fromCache);
 
-    this.primeCache(rxid, r, dispatcher);
+    // res was already fetched from caches...
+    if (!fromCache) {
+      this.primeCache(rxid, r, dispatcher);
+    }
     return r;
   }
 
@@ -229,6 +237,27 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   }
   // Promise.any returns any rejected promise if none resolved; node v15+
   return Promise.any(promisedRes);
+};
+
+DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
+  const k = cacheutil.makeHttpCacheKey(packet);
+  if (!k) throw new Error("resolver: no cache-key");
+
+  const cr = await this.cache.get(k);
+  const hasVal = cacheutil.isValueValid(cr);
+  const hasAns = hasVal && dnsutil.isAnswer(cr.dnsPacket);
+  const freshAns = hasVal && cacheutil.isAnswerFresh(cr.metadata);
+  this.log.d(rxid, "cache ans", k.href, hasVal, "fresh?", freshAns);
+
+  if (!hasAns || !freshAns) {
+    throw new Error("resolver: cache miss");
+  }
+
+  cacheutil.updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
+
+  const b = dnsutil.encode(cr.dnsPacket);
+
+  return new Response(b, { headers: cacheutil.cacheHeaders() });
 };
 
 /**

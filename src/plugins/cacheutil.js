@@ -14,6 +14,10 @@ const maxTtlSec = 180; // 3m
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 
+const _cacheHeaderKey = "x-rdns-cache";
+const _cacheHeaderHitValue = "hit";
+const _cacheHeaders = { [_cacheHeaderKey]: _cacheHeaderHitValue };
+
 function determineCacheExpiry(packet) {
   const expiresImmediately = 0;
   const someVeryHighTtl = 1 << 30;
@@ -122,6 +126,15 @@ function embedMetadata(m) {
   return JSON.stringify(m);
 }
 
+export function cacheHeaders() {
+  return _cacheHeaders;
+}
+
+export function hasCacheHeader(h) {
+  if (!h) return false;
+  return h.get(_cacheHeaderKey) === _cacheHeaderHitValue;
+}
+
 export function updateQueryId(decodedDnsPacket, queryId) {
   if (queryId === decodedDnsPacket.id) return false; // no change
   decodedDnsPacket.id = queryId;
@@ -156,4 +169,10 @@ export function isAnswerFresh(m, n = 0) {
     // 5 in 6, fresh if cache-ttl hasn't expired, regardless of answer-ttl
     return m.expiry > 0 && now <= m.expiry;
   }
+}
+
+export function updatedAnswer(dnsPacket, qid, expiry) {
+  updateQueryId(dnsPacket, qid);
+  updateTtl(dnsPacket, expiry);
+  return dnsPacket;
 }

@@ -105,7 +105,7 @@ export class DnsCache {
   async fromHttpCache(url) {
     const k = url.href;
     const response = await this.httpcache.get(k);
-    if (!response) return false;
+    if (!response || !response.ok) return false;
 
     const metadata = cacheutil.extractMetadata(response);
     this.log.d("http-cache response metadata", metadata);
