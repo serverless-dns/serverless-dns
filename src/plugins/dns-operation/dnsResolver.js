@@ -253,7 +253,7 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
     throw new Error("resolver: cache miss");
   }
 
-  cacheutil.updatedAnswer(cr.dnsPacket, packet.id);
+  cacheutil.updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
   const b = dnsutil.encode(cr.dnsPacket);
 
   return new Response(b, { headers: cacheutil.cacheHeaders() });
