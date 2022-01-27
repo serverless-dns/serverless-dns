@@ -8,6 +8,7 @@
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
 import { CacheApi } from "./cacheApi.js";
+import * as bufutil from "../../commons/bufutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 import * as cacheutil from "../cacheutil.js";
@@ -53,14 +54,15 @@ export class DnsCache {
       util.emptyString(url.href) ||
       util.emptyObj(data) ||
       util.emptyObj(data.metadata) ||
-      util.emptyObj(data.dnsPacket)
+      util.emptyObj(data.dnsPacket) ||
+      bufutil.emptyBuf(data.dnsBuffer)
     ) {
       this.log.w("put: empty url/data", url, data);
       return;
     }
 
     try {
-      // data -> {dnsPacket, metadata}; dnsPacket may be null
+      // data: {dnsPacket, dnsBuffer, metadata}; dnsPacket/Buffer may be null
       this.log.d("put: data in cache", data);
 
       // a race where the cache may infact have a fresh answer,
@@ -74,7 +76,7 @@ export class DnsCache {
         return;
       } // else: override cachedEntry with incoming
 
-      this.putLocalCache(url.href, data);
+      this.putLocalCache(url, data);
 
       dispatcher(this.putHttpCache(url, data));
     } catch (e) {
@@ -82,20 +84,32 @@ export class DnsCache {
     }
   }
 
-  putLocalCache(k, v) {
+  putLocalCache(url, data) {
+    const k = url.href;
+    const v = cacheutil.makeLocalCacheValue(data.dnsBuffer, data.metadata);
+
     if (!k || !v) return;
 
     this.localcache.Put(k, v);
   }
 
   fromLocalCache(key) {
-    const v = this.localcache.Get(key);
-    return cacheutil.isValueValid(v) ? v : false;
+    const res = this.localcache.Get(key);
+
+    if (util.emptyObj(res)) return false;
+
+    const b = res.dnsBuffer;
+    const p = dnsutil.decode(b);
+    const m = res.metadata;
+
+    const cr = cacheutil.makeCacheValue(p, b, m);
+
+    return cacheutil.isValueValid(cr) ? cr : false;
   }
 
   async putHttpCache(url, data) {
     const k = url.href;
-    const v = cacheutil.makeHttpCacheValue(data.dnsPacket, data.metadata);
+    const v = cacheutil.makeHttpCacheValue(data.dnsBuffer, data.metadata);
 
     if (!k || !v) return;
 
@@ -110,15 +124,15 @@ export class DnsCache {
     const metadata = cacheutil.extractMetadata(response);
     this.log.d("http-cache response metadata", metadata);
 
-    if (!cacheutil.hasMetadata(metadata)) {
-      return false;
-    }
-
-    // 'p' may be null or just a dns question or a dns answer
-    const p = dnsutil.decode(await response.arrayBuffer());
+    // 'b' shouldn't be null; but a dns question or a dns answer
+    const b = await response.arrayBuffer();
+    // when 'b' is less than dns-packet header-size, decode errs out
+    const p = dnsutil.decode(b);
     // though 'm' is never empty
     const m = metadata;
 
-    return cacheutil.makeCacheValue(p, m);
+    const cr = cacheutil.makeCacheValue(p, b, m);
+
+    return cacheutil.isValueValid(cr) ? cr : false;
   }
 }

@@ -145,7 +145,7 @@ export default class DNSResolver {
     const dnsPacket = dnsutil.decode(raw);
     // stamps are empty for domains that are not in any blocklist
     // but there's no way to know if that was indeed the case as
-    // stamps are shared by cacheResolver, which may or may not
+    // stamps are sent here by cacheResolver, which may or may not
     // have retrieved the stamps in the first-place (in which case
     // these would be empty, regardless of whether the domain was
     // in any of the blocklists or not).
@@ -168,7 +168,7 @@ export default class DNSResolver {
       return;
     }
 
-    const v = cacheutil.cacheValueOf(r.dnsPacket, r.stamps);
+    const v = cacheutil.cacheValueOf(r);
 
     this.cache.put(k, v, dispatcher);
   }
@@ -206,6 +206,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       this.log.w(rxid, "missing resolver url", rurl);
       continue;
     }
+
     const u = new URL(request.url);
     const upstream = new URL(rurl);
     u.hostname = upstream.hostname; // default cloudflare-dns.com
@@ -244,17 +245,15 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
   if (!k) throw new Error("resolver: no cache-key");
 
   const cr = await this.cache.get(k);
-  const hasVal = cacheutil.isValueValid(cr);
-  const hasAns = hasVal && dnsutil.isAnswer(cr.dnsPacket);
-  const freshAns = hasVal && cacheutil.isAnswerFresh(cr.metadata);
-  this.log.d(rxid, "cache ans", k.href, hasVal, "fresh?", freshAns);
+  const hasAns = dnsutil.isAnswer(cr.dnsPacket);
+  const freshAns = cacheutil.isAnswerFresh(cr.metadata);
+  this.log.d(rxid, "cache ans", k.href, "ans?", hasAns, "fresh?", freshAns);
 
   if (!hasAns || !freshAns) {
     throw new Error("resolver: cache miss");
   }
 
-  cacheutil.updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
-
+  cacheutil.updatedAnswer(cr.dnsPacket, packet.id);
   const b = dnsutil.encode(cr.dnsPacket);
 
   return new Response(b, { headers: cacheutil.cacheHeaders() });

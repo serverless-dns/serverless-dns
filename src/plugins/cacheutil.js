@@ -57,17 +57,22 @@ function makeCacheMetadata(dnsPacket, stamps) {
   };
 }
 
-export function makeCacheValue(packet, metadata) {
-  // null value allowed for packet
+export function makeCacheValue(packet, raw, metadata) {
+  // null value allowed for packet / raw
   return {
     dnsPacket: packet,
+    dnsBuffer: raw,
     metadata: metadata,
   };
 }
 
-export function cacheValueOf(packet, stamps) {
+export function cacheValueOf(rdnsResponse) {
+  const stamps = rdnsResponse.stamps;
+  const packet = rdnsResponse.dnsPacket;
+  const raw = rdnsResponse.dnsBuffer;
+
   const metadata = makeCacheMetadata(packet, stamps);
-  return makeCacheValue(packet, metadata);
+  return makeCacheValue(packet, raw, metadata);
 }
 
 export function updateTtl(packet, end) {
@@ -91,9 +96,14 @@ function makeId(packet) {
   return name + ":" + type;
 }
 
-export function makeHttpCacheValue(packet, metadata) {
-  const b = dnsutil.encode(packet);
+export function makeLocalCacheValue(b, metadata) {
+  return {
+    dnsBuffer: b,
+    metadata: metadata,
+  };
+}
 
+export function makeHttpCacheValue(b, metadata) {
   const headers = {
     headers: util.concatHeaders(
       {

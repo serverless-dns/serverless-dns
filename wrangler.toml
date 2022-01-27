@@ -4,7 +4,7 @@ type = "webpack"
 account_id = ""
 workers_dev = true
 zone_id = ""
-compatibility_date = "2021-09-21"
+compatibility_date = "2021-11-10"
 webpack_config = "webpack.config.cjs"
 
 [vars]
