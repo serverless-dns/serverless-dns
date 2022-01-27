@@ -7396,7 +7396,7 @@ DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
     if (!hasAns || !freshAns) {
         throw new Error("resolver: cache miss");
     }
-    updatedAnswer(cr.dnsPacket, packet.id);
+    updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
     const b = encode3(cr.dnsPacket);
     return new Response(b, {
         headers: cacheHeaders()
