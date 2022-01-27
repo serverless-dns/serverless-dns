@@ -7146,15 +7146,19 @@ function makeCacheMetadata(dnsPacket, stamps) {
         stamps: stamps
     };
 }
-function makeCacheValue(packet, metadata) {
+function makeCacheValue(packet, raw, metadata) {
     return {
         dnsPacket: packet,
+        dnsBuffer: raw,
         metadata: metadata
     };
 }
-function cacheValueOf(packet, stamps) {
+function cacheValueOf(rdnsResponse) {
+    const stamps = rdnsResponse.stamps;
+    const packet = rdnsResponse.dnsPacket;
+    const raw = rdnsResponse.dnsBuffer;
     const metadata = makeCacheMetadata(packet, stamps);
-    return makeCacheValue(packet, metadata);
+    return makeCacheValue(packet, raw, metadata);
 }
 function updateTtl(packet, end) {
     const now = Date.now();
@@ -7170,8 +7174,13 @@ function makeId(packet) {
     const type = packet.questions[0].type;
     return name12 + ":" + type;
 }
-function makeHttpCacheValue(packet, metadata) {
-    const b = encode3(packet);
+function makeLocalCacheValue(b, metadata) {
+    return {
+        dnsBuffer: b,
+        metadata: metadata
+    };
+}
+function makeHttpCacheValue(b, metadata) {
     const headers = {
         headers: concatHeaders({
             [cheader]: embedMetadata(metadata),
@@ -7330,7 +7339,7 @@ class DNSResolver {
             this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);
             return;
         }
-        const v = cacheValueOf(r.dnsPacket, r.stamps);
+        const v = cacheValueOf(r);
         this.cache.put(k, v, dispatcher);
     }
 }
@@ -7381,14 +7390,13 @@ DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
     const k = makeHttpCacheKey(packet);
     if (!k) throw new Error("resolver: no cache-key");
     const cr = await this.cache.get(k);
-    const hasVal = isValueValid(cr);
-    const hasAns = hasVal && isAnswer(cr.dnsPacket);
-    const freshAns = hasVal && isAnswerFresh(cr.metadata);
-    this.log.d(rxid, "cache ans", k.href, hasVal, "fresh?", freshAns);
+    const hasAns = isAnswer(cr.dnsPacket);
+    const freshAns = isAnswerFresh(cr.metadata);
+    this.log.d(rxid, "cache ans", k.href, "ans?", hasAns, "fresh?", freshAns);
     if (!hasAns || !freshAns) {
         throw new Error("resolver: cache miss");
     }
-    updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
+    updatedAnswer(cr.dnsPacket, packet.id);
     const b = encode3(cr.dnsPacket);
     return new Response(b, {
         headers: cacheHeaders()
@@ -7462,9 +7470,8 @@ class DNSCacheResponder {
         const cr = await this.cache.get(k, onlyLocal);
         this.log.d(rxid, "local?", onlyLocal, "cached ans", k.href, cr);
         if (emptyObj(cr)) return noAnswer;
-        const dnsBuffer = encode3(cr.dnsPacket);
         const stamps = blockstampFromCache(cr);
-        const res = dnsResponse(cr.dnsPacket, dnsBuffer, stamps);
+        const res = dnsResponse(cr.dnsPacket, cr.dnsBuffer, stamps);
         this.makeCacheResponse(rxid, res, blockInfo);
         if (res.isBlocked) return res;
         if (!isAnswerFresh(cr.metadata)) {
@@ -7530,7 +7537,7 @@ class DnsCache {
         return entry;
     }
     async put(url, data, dispatcher) {
-        if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata) || emptyObj(data.dnsPacket)) {
+        if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata) || emptyObj(data.dnsPacket) || emptyBuf(data.dnsBuffer)) {
             this.log.w("put: empty url/data", url, data);
             return;
         }
@@ -7543,23 +7550,30 @@ class DnsCache {
                 this.log.w("put ignored: cache has answer, incoming does not");
                 return;
             }
-            this.putLocalCache(url.href, data);
+            this.putLocalCache(url, data);
             dispatcher(this.putHttpCache(url, data));
         } catch (e) {
             this.log.e("put", url.href, data, e.stack);
         }
     }
-    putLocalCache(k, v) {
+    putLocalCache(url, data) {
+        const k = url.href;
+        const v = makeLocalCacheValue(data.dnsBuffer, data.metadata);
         if (!k || !v) return;
         this.localcache.Put(k, v);
     }
     fromLocalCache(key) {
-        const v = this.localcache.Get(key);
-        return isValueValid(v) ? v : false;
+        const res = this.localcache.Get(key);
+        if (emptyObj(res)) return false;
+        const b = res.dnsBuffer;
+        const p = decode3(b);
+        const m = res.metadata;
+        const cr = makeCacheValue(p, b, m);
+        return isValueValid(cr) ? cr : false;
     }
     async putHttpCache(url, data) {
         const k = url.href;
-        const v = makeHttpCacheValue(data.dnsPacket, data.metadata);
+        const v = makeHttpCacheValue(data.dnsBuffer, data.metadata);
         if (!k || !v) return;
         return this.httpcache.put(k, v);
     }
@@ -7569,12 +7583,11 @@ class DnsCache {
         if (!response || !response.ok) return false;
         const metadata = extractMetadata(response);
         this.log.d("http-cache response metadata", metadata);
-        if (!hasMetadata(metadata)) {
-            return false;
-        }
-        const p = decode3(await response.arrayBuffer());
+        const b = await response.arrayBuffer();
+        const p = decode3(b);
         const m = metadata;
-        return makeCacheValue(p, m);
+        const cr = makeCacheValue(p, b, m);
+        return isValueValid(cr) ? cr : false;
     }
 }
 const services = {
