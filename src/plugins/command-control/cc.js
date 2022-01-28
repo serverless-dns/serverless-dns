@@ -213,7 +213,7 @@ function b64ToList(queryString, blocklistFilter) {
   };
 
   const stamp = rdnsutil.unstamp(b64);
-  if (rdnsutil.hasBlockstamp(stamp)) {
+  if (!rdnsutil.hasBlockstamp(stamp)) {
     return jsonResponse(r);
   }
 
