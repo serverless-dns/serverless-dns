@@ -98,8 +98,9 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
     return noblock;
   }
 
-  const dnUint = dnBlInfo[dn];
-  if (!dnUint) return noblock;
+  const dnUint = new Uint16Array(dnBlInfo[dn]);
+
+  if (util.emptyArray(dnUint)) return noblock;
 
   const r = applyBlocklists(
     userBlInfo.userBlocklistFlagUint,
@@ -194,62 +195,62 @@ function intersect(flag1, flag2) {
 
   // flag has 16-bit header (at index 0) followed by var-length 16-bit array,
   // whose length is encoded in the header.
-  let flag1Header = flag1[0];
-  let flag2Header = flag2[0];
+  let header1 = flag1[0];
+  let header2 = flag2[0];
 
-  let intersectHeader = flag1Header & flag2Header;
-  if (intersectHeader === 0) {
+  let commonHeader = header1 & header2;
+  if (commonHeader === 0) {
     return null;
   }
 
   // length of the flag without the header, its first element (at index 0)
   // since the loop is processing header's LSBs first, the loop starts at
   // len and counts down to 0, ie header is in big-endian format.
-  let flag1Length = flag1.length - 1;
-  let flag2Length = flag2.length - 1;
-  const intersectBody = [];
-  let tmpIntersectHeader = intersectHeader;
-  let maskHeaderForBodyEmpty = 1;
-  for (; tmpIntersectHeader !== 0; ) {
+  let i = flag1.length - 1;
+  let j = flag2.length - 1;
+  let h = commonHeader;
+  let pos = 0;
+  const commonBody = [];
+  while (h !== 0) {
+    if (i < 0 || j < 0) throw new Error("blockstamp header/body mismatch");
+
     // check if LSB of the intersection-header is set
-    if ((tmpIntersectHeader & 0x1) === 1) {
-      const tmpBodyIntersect = flag1[flag1Length] & flag2[flag2Length];
+    if ((h & 0x1) === 1) {
+      const commonFlags = flag1[i] & flag2[j];
       // if there's no intersection in their bodies,
       // discard the corresponding header from the output
-      if (tmpBodyIntersect === 0) {
-        intersectHeader = intersectHeader ^ maskHeaderForBodyEmpty;
+      if (commonFlags === 0) {
+        commonHeader = clearbit(commonHeader, pos);
       } else {
-        intersectBody.push(tmpBodyIntersect);
+        commonBody.push(commonFlags);
       }
     }
 
-    if ((flag1Header & 1) === 1) {
-      flag1Length -= 1;
+    if ((header1 & 0x1) === 1) {
+      i -= 1;
     }
-    if ((flag2Header & 1) === 1) {
-      flag2Length -= 1;
+    if ((header2 & 0x1) === 1) {
+      j -= 1;
     }
 
     // next header-bit, remove the LSB bit already processed
-    flag1Header >>>= 1;
-    flag2Header >>>= 1;
-    tmpIntersectHeader >>>= 1;
-
-    // tracks the header bit index to be reset in case bodies do not intersect
-    maskHeaderForBodyEmpty <<= 1;
+    header1 >>>= 1;
+    header2 >>>= 1;
+    h >>>= 1;
+    pos += 1;
   }
 
-  if (intersectHeader === 0) {
+  if (commonHeader === 0) {
     return null;
   }
 
-  const out = new Uint16Array(/* header*/ 1 + intersectBody.length);
-  // always set the header at index 0
-  out.set([intersectHeader], 0);
-  // set the body starting at index 1
-  out.set(intersectBody, 1);
+  // intersectBody is reversed, as in, MSB positions are in LSB.
+  // intersectHeader is already setup in the expected order.
+  return Uint16Array.of(commonHeader, ...commonBody.reverse());
+}
 
-  return out;
+function clearbit(uint, pos) {
+  return uint & ~(1 << pos);
 }
 
 function getB64Flag(uint16Arr, flagVersion) {
