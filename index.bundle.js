@@ -5364,6 +5364,9 @@ function isWorkers() {
 function isNode() {
     return env && env.runTime === "node";
 }
+function isDeno() {
+    return env && env.runTime === "deno";
+}
 function workersTimeout(missing = 0) {
     return env && env.workerTimeout || missing;
 }
@@ -6388,7 +6391,7 @@ function rdnsBlockResponse(flag, packet = null, raw = null, stamps = null) {
 }
 function doBlock(dn, userBlInfo, dnBlInfo) {
     const noblock = rdnsNoBlockResponse();
-    if (emptyObj(userBlInfo) || emptyObj(dnBlInfo) || emptyString(dn)) {
+    if (emptyString(dn) || emptyObj(dnBlInfo) || emptyObj(userBlInfo)) {
         return noblock;
     }
     const dnUint = new Uint16Array(dnBlInfo[dn]);
@@ -6731,12 +6734,7 @@ async function makeTd(baseurl, n) {
     }
     const tds = await Promise.all(tdpromises);
     log.i("tds downloaded");
-    try {
-        return concat(tds);
-    } catch (e) {
-        log.e("reject make-td", e.stack);
-        throw e;
-    }
+    return concat(tds);
 }
 class CommandControl {
     constructor(blf){
@@ -7302,15 +7300,11 @@ class DNSResolver {
             this.primeCache(rxid, q, dispatcher);
             return q;
         }
-        const res1 = this.resolveDnsFromCache(rxid, decodedpacket);
-        const res2 = this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket);
-        const res = await Promise.any([
-            res1,
-            res2
-        ]);
+        const promisedPromises = await this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket);
+        const res = await Promise.any(promisedPromises);
         if (!res) throw new Error(rxid + "no upstream result");
         if (!res.ok) {
-            const txt = await res.text();
+            const txt = res.text && await res.text();
             this.log.d(rxid, "!OK", res.status, res.statusText, txt);
             throw new Error(ans.status + " http err: " + res.statusText);
         }
@@ -7342,64 +7336,82 @@ class DNSResolver {
         this.cache.put(k, v, dispatcher);
     }
 }
-DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolverUrls, query) {
+DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolverUrls, query, packet) {
+    const promisedPromises = [];
     if (emptyArray(resolverUrls)) {
-        const q = bufferOf(query);
-        let ans = await this.transport.udpquery(rxid, q);
-        if (truncated(ans)) {
-            this.log.w(rxid, "ans truncated, retrying over tcp");
-            ans = await this.transport.tcpquery(rxid, q);
+        try {
+            const q = bufferOf(query);
+            let ans = await this.transport.udpquery(rxid, q);
+            if (truncated(ans)) {
+                this.log.w(rxid, "ans truncated, retrying over tcp");
+                ans = await this.transport.tcpquery(rxid, q);
+            }
+            if (ans) {
+                const r = new Response(arrayBufferOf(ans));
+                promisedPromises.push(Promise.resolve(r));
+            } else {
+                promisedPromises.push(Promise.resolve(respond503()));
+            }
+        } catch (e) {
+            this.log.e(rxid, "err when querying plain old dns", e.stack);
+            promisedPromises.push(Promise.reject(e));
         }
-        return ans ? new Response(arrayBufferOf(ans)) : respond503();
+        return promisedPromises;
     }
-    const promisedRes = [
-        Promise.reject(new Error("no upstream"))
-    ];
-    for (const rurl of resolverUrls){
-        if (emptyString(rurl)) {
-            this.log.w(rxid, "missing resolver url", rurl);
-            continue;
+    try {
+        this.log.d(rxid, "upstream cache");
+        promisedPromises.push(this.resolveDnsFromCache(rxid, packet));
+        for (const rurl of resolverUrls){
+            if (emptyString(rurl)) {
+                this.log.w(rxid, "missing resolver url", rurl);
+                continue;
+            }
+            const u = new URL(request.url);
+            const upstream = new URL(rurl);
+            u.hostname = upstream.hostname;
+            u.pathname = upstream.pathname;
+            u.port = upstream.port;
+            u.protocol = upstream.protocol;
+            let dnsreq = null;
+            if (isGetRequest(request)) {
+                u.search = "?dns=" + bytesToBase64Url(query);
+                dnsreq = new Request(u.href, {
+                    method: "GET"
+                });
+            } else if (isPostRequest(request)) {
+                dnsreq = new Request(u.href, {
+                    method: "POST",
+                    headers: concatHeaders(contentLengthHeader(query), dnsHeaders()),
+                    body: query
+                });
+            } else {
+                throw new Error("get/post only");
+            }
+            this.log.d(rxid, "upstream doh2/fetch", u.href);
+            promisedPromises.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
         }
-        const u = new URL(request.url);
-        const upstream = new URL(rurl);
-        u.hostname = upstream.hostname;
-        u.pathname = upstream.pathname;
-        u.port = upstream.port;
-        u.protocol = upstream.protocol;
-        let dnsreq = null;
-        if (isGetRequest(request)) {
-            u.search = "?dns=" + bytesToBase64Url(query);
-            dnsreq = new Request(u.href, {
-                method: "GET"
-            });
-        } else if (isPostRequest(request)) {
-            dnsreq = new Request(u.href, {
-                method: "POST",
-                headers: concatHeaders(contentLengthHeader(query), dnsHeaders()),
-                body: query
-            });
-        } else {
-            return Promise.reject(new Error("get/post requests only"));
-        }
-        promisedRes.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
+    } catch (e) {
+        this.log.e(rxid, "err doh2/fetch upstream", e.stack);
+        promisedPromises.push(Promise.reject(e));
     }
-    return Promise.any(promisedRes);
+    return promisedPromises;
 };
 DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
     const k = makeHttpCacheKey(packet);
     if (!k) throw new Error("resolver: no cache-key");
     const cr = await this.cache.get(k);
-    const hasAns = isAnswer(cr.dnsPacket);
-    const freshAns = isAnswerFresh(cr.metadata);
+    const hasAns = cr && isAnswer(cr.dnsPacket);
+    const freshAns = hasAns && isAnswerFresh(cr.metadata);
     this.log.d(rxid, "cache ans", k.href, "ans?", hasAns, "fresh?", freshAns);
     if (!hasAns || !freshAns) {
-        throw new Error("resolver: cache miss");
+        return Promise.reject(new Error("resolver: cache miss"));
     }
     updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
     const b = encode3(cr.dnsPacket);
-    return new Response(b, {
+    const r = new Response(b, {
         headers: cacheHeaders()
     });
+    return Promise.resolve(r);
 };
 DNSResolver.prototype.doh2 = async function(rxid, request) {
     if (!this.http2 || !this.nodeUtil) {
@@ -7607,6 +7619,9 @@ async function systemReady() {
     services.dnsCacheHandler = new DNSCacheResponder(blf, cache);
     if (isNode()) {
         const b = await import("./node/blocklists.js");
+        await b.setup(services.blocklistWrapper);
+    } else if (isDeno()) {
+        const b = await import("./deno/blocklists.ts");
         await b.setup(services.blocklistWrapper);
     }
     done();
