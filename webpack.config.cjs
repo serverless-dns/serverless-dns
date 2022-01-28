@@ -5,7 +5,7 @@ module.exports = {
   plugins: [
     new webpack.IgnorePlugin({
       resourceRegExp:
-        /(^dgram$)|(^http2$)|(\/node\/.*\.js$)|(.*-node\.js$)|(.*\.node\.js$)/,
+        /(^dgram$)|(^http2$)|(\/deno\/.*\.ts$)|(.*-deno\.ts$)|(.*\.deno\.ts$)|(\/node\/.*\.js$)|(.*-node\.js$)|(.*\.node\.js$)/,
     }),
   ],
   optimization: {
