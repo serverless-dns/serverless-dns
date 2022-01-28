@@ -91,9 +91,9 @@ export function rdnsBlockResponse(
 export function doBlock(dn, userBlInfo, dnBlInfo) {
   const noblock = rdnsNoBlockResponse();
   if (
-    util.emptyObj(userBlInfo) ||
+    util.emptyString(dn) ||
     util.emptyObj(dnBlInfo) ||
-    util.emptyString(dn)
+    util.emptyObj(userBlInfo)
   ) {
     return noblock;
   }

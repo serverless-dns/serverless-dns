@@ -253,12 +253,7 @@ async function makeTd(baseurl, n) {
 
   log.i("tds downloaded");
 
-  try {
-    return bufutil.concat(tds);
-  } catch (e) {
-    log.e("reject make-td", e.stack);
-    throw e;
-  }
+  return bufutil.concat(tds);
 }
 
 export { BlocklistFilter, BlocklistWrapper };

@@ -929,6 +929,14 @@ function createBlocklistFilter(
     tag[fileuname] = v.split("").reverse().join("");
   }
 
+  // tdbuf, rdbuf must be untyped arraybuffers on all platforms
+  // bufutil.concat, as one example, creates untyped arraybuffer,
+  // as does nodejs' Buffer module. If what's passed is a typedarray,
+  // then bufferView would not work as expected. For example,
+  // tdbuf is Uint8Array([0x00, 0xff, 0xf3, 0x00]), then
+  // tdv is Uint16Array([0x00, 0xff, 0xff, 0x00]), but
+  // the expectation is that tdv is a "view" and not a copy of uint8
+  // that is, tdv must instead be Uint16Array([0xff00, 0x00f3])
   const tags = new Tags(fl);
   const tdv = new bufferView[W](tdbuf);
   const rdv = new bufferView[W](rdbuf);

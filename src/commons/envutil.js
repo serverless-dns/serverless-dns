@@ -17,7 +17,7 @@ export function onDenoDeploy() {
 
 export function hasDisk() {
   // got disk on test nodejs envs and on fly
-  return onFly() || (isNode() && !isProd());
+  return onFly() || (isNode() && !isProd()) || (isDeno() && !isProd());
 }
 
 export function hasHttpCache() {
@@ -34,6 +34,10 @@ export function isWorkers() {
 
 export function isNode() {
   return env && env.runTime === "node";
+}
+
+export function isDeno() {
+  return env && env.runTime === "deno";
 }
 
 export function workersTimeout(missing = 0) {

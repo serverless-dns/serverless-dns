@@ -21,6 +21,7 @@ if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
            --allow-env \
            --allow-net \
            --allow-read \
+           --allow-write \
            --import-map=import_map.json \
            src/server-deno.ts;
 elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then

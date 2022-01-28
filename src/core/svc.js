@@ -48,7 +48,10 @@ async function systemReady() {
   if (envutil.isNode()) {
     const b = await import("./node/blocklists.js");
     await b.setup(services.blocklistWrapper);
-  }
+  } else if (envutil.isDeno()) {
+    const b = await import("./deno/blocklists.ts");
+    await b.setup(services.blocklistWrapper);
+  } // else: setup blocklists on-demand; for ex, on workers
 
   done();
 }
