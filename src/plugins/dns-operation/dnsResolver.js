@@ -105,20 +105,28 @@ export default class DNSResolver {
       return q;
     }
 
-    const res1 = this.resolveDnsFromCache(rxid, decodedpacket);
-    const res2 = this.resolveDnsUpstream(
+    // nested async calls (async fn calling another async fn)
+    // need to await differently depending on what's returned:
+    // fulfiller = async () => { return "123"; }
+    // wrapper = async () => { return fulfiller(); }
+    // result = await wrapper() :: outputs "123"
+    // arrayWrapper = async () => { return [fulfiller()]; }
+    // result1 = await arrayWrapper() :: outputs "Array[Promise{}]"
+    // result2 = await result1[0] :: outputs "123"
+    const promisedPromises = await this.resolveDnsUpstream(
       rxid,
       param.request,
       this.determineDohResolvers(userDns),
-      rawpacket
+      rawpacket,
+      decodedpacket
     );
 
-    const res = await Promise.any([res1, res2]);
+    const res = await Promise.any(promisedPromises);
 
     if (!res) throw new Error(rxid + "no upstream result");
 
     if (!res.ok) {
-      const txt = await res.text();
+      const txt = res.text && (await res.text());
       this.log.d(rxid, "!OK", res.status, res.statusText, txt);
       throw new Error(ans.status + " http err: " + res.statusText);
     }
@@ -185,59 +193,89 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   rxid,
   request,
   resolverUrls,
-  query
+  query,
+  packet
 ) {
+  const promisedPromises = [];
+
   // if no doh upstreams set, resolve over plain-old dns
   if (util.emptyArray(resolverUrls)) {
-    const q = bufutil.bufferOf(query);
+    // do not let exceptions passthrough to the caller which
+    // expects promise{[array-of-promises]} and not just promise{}
+    try {
+      const q = bufutil.bufferOf(query);
 
-    let ans = await this.transport.udpquery(rxid, q);
-    if (dnsutil.truncated(ans)) {
-      this.log.w(rxid, "ans truncated, retrying over tcp");
-      ans = await this.transport.tcpquery(rxid, q);
+      let ans = await this.transport.udpquery(rxid, q);
+      if (dnsutil.truncated(ans)) {
+        this.log.w(rxid, "ans truncated, retrying over tcp");
+        ans = await this.transport.tcpquery(rxid, q);
+      }
+
+      if (ans) {
+        const r = new Response(bufutil.arrayBufferOf(ans));
+        promisedPromises.push(Promise.resolve(r));
+      } else {
+        promisedPromises.push(Promise.resolve(util.respond503()));
+      }
+    } catch (e) {
+      this.log.e(rxid, "err when querying plain old dns", e.stack);
+      promisedPromises.push(Promise.reject(e));
     }
 
-    return ans ? new Response(bufutil.arrayBufferOf(ans)) : util.respond503();
+    return promisedPromises;
   }
 
-  const promisedRes = [Promise.reject(new Error("no upstream"))];
-  for (const rurl of resolverUrls) {
-    if (util.emptyString(rurl)) {
-      this.log.w(rxid, "missing resolver url", rurl);
-      continue;
-    }
+  try {
+    // upstream to cache
+    this.log.d(rxid, "upstream cache");
+    promisedPromises.push(this.resolveDnsFromCache(rxid, packet));
 
-    const u = new URL(request.url);
-    const upstream = new URL(rurl);
-    u.hostname = upstream.hostname; // default cloudflare-dns.com
-    u.pathname = upstream.pathname; // override path, default /dns-query
-    u.port = upstream.port; // override port, default 443
-    u.protocol = upstream.protocol; // override proto, default https
+    // upstream to resolvers
+    for (const rurl of resolverUrls) {
+      if (util.emptyString(rurl)) {
+        this.log.w(rxid, "missing resolver url", rurl);
+        continue;
+      }
 
-    let dnsreq = null;
-    // even for GET requests, plugin.js:getBodyBuffer converts contents of
-    // u.search into an arraybuffer that then needs to be reconverted back
-    if (util.isGetRequest(request)) {
-      u.search = "?dns=" + bufutil.bytesToBase64Url(query);
-      dnsreq = new Request(u.href, {
-        method: "GET",
-      });
-    } else if (util.isPostRequest(request)) {
-      dnsreq = new Request(u.href, {
-        method: "POST",
-        headers: util.concatHeaders(
-          util.contentLengthHeader(query),
-          util.dnsHeaders()
-        ),
-        body: query,
-      });
-    } else {
-      return Promise.reject(new Error("get/post requests only"));
+      const u = new URL(request.url);
+      const upstream = new URL(rurl);
+      u.hostname = upstream.hostname; // default cloudflare-dns.com
+      u.pathname = upstream.pathname; // override path, default /dns-query
+      u.port = upstream.port; // override port, default 443
+      u.protocol = upstream.protocol; // override proto, default https
+
+      let dnsreq = null;
+      // even for GET requests, plugin.js:getBodyBuffer converts contents of
+      // u.search into an arraybuffer that then needs to be reconverted back
+      if (util.isGetRequest(request)) {
+        u.search = "?dns=" + bufutil.bytesToBase64Url(query);
+        dnsreq = new Request(u.href, {
+          method: "GET",
+        });
+      } else if (util.isPostRequest(request)) {
+        dnsreq = new Request(u.href, {
+          method: "POST",
+          headers: util.concatHeaders(
+            util.contentLengthHeader(query),
+            util.dnsHeaders()
+          ),
+          body: query,
+        });
+      } else {
+        throw new Error("get/post only");
+      }
+      this.log.d(rxid, "upstream doh2/fetch", u.href);
+      promisedPromises.push(
+        this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq)
+      );
     }
-    promisedRes.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
+  } catch (e) {
+    this.log.e(rxid, "err doh2/fetch upstream", e.stack);
+    promisedPromises.push(Promise.reject(e));
   }
+
   // Promise.any returns any rejected promise if none resolved; node v15+
-  return Promise.any(promisedRes);
+  return promisedPromises;
 };
 
 DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
@@ -245,18 +283,19 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
   if (!k) throw new Error("resolver: no cache-key");
 
   const cr = await this.cache.get(k);
-  const hasAns = dnsutil.isAnswer(cr.dnsPacket);
-  const freshAns = cacheutil.isAnswerFresh(cr.metadata);
+  const hasAns = cr && dnsutil.isAnswer(cr.dnsPacket);
+  const freshAns = hasAns && cacheutil.isAnswerFresh(cr.metadata);
   this.log.d(rxid, "cache ans", k.href, "ans?", hasAns, "fresh?", freshAns);
 
   if (!hasAns || !freshAns) {
-    throw new Error("resolver: cache miss");
+    return Promise.reject(new Error("resolver: cache miss"));
   }
 
   cacheutil.updatedAnswer(cr.dnsPacket, packet.id, cr.metadata.expiry);
   const b = dnsutil.encode(cr.dnsPacket);
+  const r = new Response(b, { headers: cacheutil.cacheHeaders() });
 
-  return new Response(b, { headers: cacheutil.cacheHeaders() });
+  return Promise.resolve(r);
 };
 
 /**
