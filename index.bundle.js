@@ -6391,8 +6391,8 @@ function doBlock(dn, userBlInfo, dnBlInfo) {
     if (emptyObj(userBlInfo) || emptyObj(dnBlInfo) || emptyString(dn)) {
         return noblock;
     }
-    const dnUint = dnBlInfo[dn];
-    if (!dnUint) return noblock;
+    const dnUint = new Uint16Array(dnBlInfo[dn]);
+    if (emptyArray(dnUint)) return noblock;
     const r = applyBlocklists(userBlInfo.userBlocklistFlagUint, dnUint, userBlInfo.flagVersion);
     if (r.isBlocked) return r;
     if (emptyArray(userBlInfo.userServiceListUint)) return r;
@@ -6440,46 +6440,45 @@ function applyBlocklists(uint1, uint2, flagVersion) {
 }
 function intersect(flag1, flag2) {
     if (emptyArray(flag1) || emptyArray(flag2)) return null;
-    let flag1Header = flag1[0];
-    let flag2Header = flag2[0];
-    let intersectHeader = flag1Header & flag2Header;
-    if (intersectHeader === 0) {
+    let header1 = flag1[0];
+    let header2 = flag2[0];
+    let commonHeader = header1 & header2;
+    if (commonHeader === 0) {
         return null;
     }
-    let flag1Length = flag1.length - 1;
-    let flag2Length = flag2.length - 1;
-    const intersectBody = [];
-    let tmpIntersectHeader = intersectHeader;
-    let maskHeaderForBodyEmpty = 1;
-    for(; tmpIntersectHeader !== 0;){
-        if ((tmpIntersectHeader & 1) === 1) {
-            const tmpBodyIntersect = flag1[flag1Length] & flag2[flag2Length];
-            if (tmpBodyIntersect === 0) {
-                intersectHeader = intersectHeader ^ maskHeaderForBodyEmpty;
+    let i27 = flag1.length - 1;
+    let j = flag2.length - 1;
+    let h = commonHeader;
+    let pos = 0;
+    const commonBody = [];
+    while(h !== 0){
+        if (i27 < 0 || j < 0) throw new Error("blockstamp header/body mismatch");
+        if ((h & 1) === 1) {
+            const commonFlags = flag1[i27] & flag2[j];
+            if (commonFlags === 0) {
+                commonHeader = clearbit(commonHeader, pos);
             } else {
-                intersectBody.push(tmpBodyIntersect);
+                commonBody.push(commonFlags);
             }
         }
-        if ((flag1Header & 1) === 1) {
-            flag1Length -= 1;
+        if ((header1 & 1) === 1) {
+            i27 -= 1;
         }
-        if ((flag2Header & 1) === 1) {
-            flag2Length -= 1;
+        if ((header2 & 1) === 1) {
+            j -= 1;
         }
-        flag1Header >>>= 1;
-        flag2Header >>>= 1;
-        tmpIntersectHeader >>>= 1;
-        maskHeaderForBodyEmpty <<= 1;
+        header1 >>>= 1;
+        header2 >>>= 1;
+        h >>>= 1;
+        pos += 1;
     }
-    if (intersectHeader === 0) {
+    if (commonHeader === 0) {
         return null;
     }
-    const out = new Uint16Array(1 + intersectBody.length);
-    out.set([
-        intersectHeader
-    ], 0);
-    out.set(intersectBody, 1);
-    return out;
+    return Uint16Array.of(commonHeader, ...commonBody.reverse());
+}
+function clearbit(uint, pos) {
+    return uint & ~(1 << pos);
 }
 function getB64Flag1(uint16Arr, flagVersion) {
     if (emptyArray(uint16Arr)) return "";
@@ -6723,8 +6722,8 @@ async function makeTd(baseurl, n) {
         return fileFetch(baseurl + "/td.txt", "buffer");
     }
     const tdpromises = [];
-    for(let i27 = 0; i27 <= n; i27++){
-        const f = baseurl + "/td" + i27.toLocaleString("en-US", {
+    for(let i28 = 0; i28 <= n; i28++){
+        const f = baseurl + "/td" + i28.toLocaleString("en-US", {
             minimumIntegerDigits: 2,
             useGrouping: false
         }) + ".txt";
@@ -6876,7 +6875,7 @@ function b64ToList(queryString, blocklistFilter) {
         listDetail: {}
     };
     const stamp = unstamp(b64);
-    if (hasBlockstamp(stamp)) {
+    if (!hasBlockstamp(stamp)) {
         return jsonResponse(r);
     }
     r.list = blocklistFilter.getTag(stamp.userBlocklistFlagUint);
@@ -6905,23 +6904,23 @@ class Clock {
         this.maxcount = this.bound(maxlife, minlives, maxlives);
         this.totalhands = Math.max(minslots, Math.round(this.capacity / slotsperhand));
         this.hands = new Array(this.totalhands);
-        for(let i28 = 0; i28 < this.totalhands; i28++)this.hands[i28] = i28;
+        for(let i29 = 0; i29 < this.totalhands; i29++)this.hands[i29] = i29;
     }
-    next(i29) {
-        const n = i29 + this.totalhands;
+    next(i30) {
+        const n = i30 + this.totalhands;
         return (this.capacity + n) % this.capacity;
     }
-    cur(i30) {
-        return (this.capacity + i30) % this.capacity;
+    cur(i31) {
+        return (this.capacity + i31) % this.capacity;
     }
-    prev(i31) {
-        const p = i31 - this.totalhands;
+    prev(i32) {
+        const p = i32 - this.totalhands;
         return (this.capacity + p) % this.capacity;
     }
-    bound(i32, min, max) {
-        i32 = i32 < min ? min : i32;
-        i32 = i32 > max ? max - 1 : i32;
-        return i32;
+    bound(i33, min, max) {
+        i33 = i33 < min ? min : i33;
+        i33 = i33 > max ? max - 1 : i33;
+        return i33;
     }
     head(n) {
         n = this.bound(n, 0, this.totalhands);
