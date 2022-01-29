@@ -68,14 +68,15 @@ export function tdParts() {
   return env.tdParts;
 }
 
-export function dohResolver() {
+export function dohResolvers() {
   if (!env) return null;
-  return env.dnsResolverUrl;
-}
 
-export function secondaryDohResolver() {
-  if (!env) return null;
-  return env.secondaryDohResolver;
+  if (isWorkers()) {
+    // upstream to two resolvers on workers; since egress is free,
+    // faster among the 2 should help lower tail latencies at zero-cost
+    return [env.dnsResolverUrl, env.secondaryDohResolver];
+  }
+  return [env.dnsResolverUrl];
 }
 
 export function tlsCrtPath() {

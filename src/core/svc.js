@@ -36,21 +36,20 @@ async function systemReady() {
 
   log.i("svc: systemReady");
 
+  const bw = new BlocklistWrapper();
   const cache = new DnsCache(dnsutil.cacheSize());
-  const blf = new BlocklistFilter();
 
-  services.blocklistWrapper = new BlocklistWrapper(blf);
-  services.commandControl = new CommandControl(blf);
   services.userOperation = new UserOperation();
-  services.dnsResolver = new DNSResolver(blf, cache);
-  services.dnsCacheHandler = new DNSCacheResponder(blf, cache);
+  services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
+  services.commandControl = new CommandControl(bw);
+  services.dnsResolver = new DNSResolver(bw, cache);
 
   if (envutil.isNode()) {
     const b = await import("./node/blocklists.js");
-    await b.setup(services.blocklistWrapper);
+    await b.setup(bw);
   } else if (envutil.isDeno()) {
     const b = await import("./deno/blocklists.ts");
-    await b.setup(services.blocklistWrapper);
+    await b.setup(bw);
   } // else: setup blocklists on-demand; for ex, on workers
 
   done();

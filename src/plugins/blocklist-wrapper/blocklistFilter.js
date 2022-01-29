@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { customTagToFlag as _customTagToFlag } from "./radixTrie.js";
+import { customTagToFlag } from "./radixTrie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as dnsBlockUtil from "../dnsblockutil.js";
 
@@ -20,22 +20,20 @@ export class BlocklistFilter {
     this.enc = new TextEncoder();
   }
 
-  loadFilter(t, ft, blocklistBasicConfig, blocklistFileTag) {
+  load(t, ft, blocklistBasicConfig, blocklistFileTag) {
     this.t = t;
     this.ft = ft;
     this.blocklistBasicConfig = blocklistBasicConfig;
     this.blocklistFileTag = blocklistFileTag;
   }
 
-  getDomainInfo(domainName) {
+  blockstamp(domainName) {
     const n = dnsutil.normalizeName(domainName);
 
-    return {
-      searchResult: this.hadDomainName(n),
-    };
+    return this.lookup(n);
   }
 
-  hadDomainName(n) {
+  lookup(n) {
     return this.ft.lookup(this.reverseUtf8(n));
   }
 
@@ -47,12 +45,8 @@ export class BlocklistFilter {
     return this.t.flagsToTag(uintFlag);
   }
 
-  customTagToFlag(tagList) {
-    return _customTagToFlag(tagList, this.blocklistFileTag);
-  }
-
   getB64FlagFromTag(tagList, flagVersion) {
-    const uintFlag = this.customTagToFlag(tagList);
+    const uintFlag = customTagToFlag(tagList, this.blocklistFileTag);
     return dnsBlockUtil.getB64Flag(uintFlag, flagVersion);
   }
 }

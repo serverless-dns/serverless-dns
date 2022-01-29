@@ -12,11 +12,11 @@ import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 
 export class DNSCacheResponder {
-  constructor(blf, cache) {
+  constructor(blocklistWrapper, cache) {
     this.blocker = new DnsBlocker();
     this.log = log.withTags("DnsCacheResponder");
     this.cache = cache;
-    this.blocklistFilter = blf;
+    this.bw = blocklistWrapper;
   }
 
   /**
@@ -59,7 +59,8 @@ export class DNSCacheResponder {
     // the above reasoning may not apply, since it is only valid for infra
     // on Cloudflare, which not only has "free" egress, but also different
     // runtime (faster hw and sw) and deployment model (v8 isolates).
-    const onlyLocal = rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
+    const blf = this.bw.getBlocklistFilter();
+    const onlyLocal = rdnsutil.isBlocklistFilterSetup(blf);
 
     const k = cacheutil.makeHttpCacheKey(packet);
     if (!k) return noAnswer;

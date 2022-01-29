@@ -29,13 +29,7 @@ export async function setup(bw: any) {
     return true;
   }
 
-  console.info(
-    "dowloading bl u/ts/nc/parts",
-    url,
-    timestamp,
-    nodecount,
-    tdparts
-  );
+  console.info("dowloading bl u/ts/nc/parts", url, timestamp);
   await bw.initBlocklistConstruction(
     /* rxid*/ "bl-download",
     now,

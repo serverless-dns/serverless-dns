@@ -54,14 +54,6 @@ export default class RethinkPlugin {
     );
 
     this.registerPlugin(
-      "blocklistFilter",
-      services.blocklistWrapper,
-      ["rxid"],
-      this.blocklistFilterCallBack,
-      false
-    );
-
-    this.registerPlugin(
       "commandControl",
       services.commandControl,
       ["rxid", "request", "isDnsMsg"],
@@ -135,29 +127,6 @@ export default class RethinkPlugin {
       this.log.lapTime(t, rxid, p.name, "post-callback");
     }
     this.log.endTime(t);
-  }
-
-  /**
-   * Adds "blocklistFilter" to RethinkPlugin params
-   * @param {*} response - Contains `data` which is `blocklistFilter`
-   * @param {*} currentRequest
-   */
-  blocklistFilterCallBack(response, currentRequest) {
-    const rxid = this.parameter.get("rxid");
-    const r = response.data;
-    this.log.d(rxid, "blocklist-filter response");
-
-    if (
-      response.isException ||
-      util.emptyObj(r) ||
-      // FIXME: check if blocklist-filter has t/ft vars set?
-      // ref: blocklistWrapper:isBlocklistFilterSetup
-      util.emptyObj(r.blocklistFilter)
-    ) {
-      this.log.e(rxid, "err building blocklist-filter", response);
-      this.loadException(rxid, response, currentRequest);
-      return;
-    } // else: blocklist-filter setup complete
   }
 
   /**

@@ -14,18 +14,14 @@ import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
 
 export default class DNSResolver {
-  constructor(blf, cache) {
+  constructor(blocklistWrapper, cache) {
     this.cache = cache;
     this.http2 = null;
     this.nodeUtil = null;
     this.transport = null;
     this.blocker = new DnsBlocker();
-    this.blocklistFilter = blf;
+    this.bw = blocklistWrapper;
     this.log = log.withTags("DnsResolver");
-    this.preferredDohResolvers = [
-      envutil.dohResolver(),
-      envutil.secondaryDohResolver(),
-    ];
   }
 
   async lazyInit() {
@@ -75,12 +71,9 @@ export default class DNSResolver {
 
     if (!util.emptyString(preferredByUser)) {
       return [preferredByUser];
-    } else if (envutil.isWorkers()) {
-      // upstream to two resolvers on workers; since egress is free,
-      // faster among the 2 should help lower tail latencies at zero-cost
-      return this.preferredDohResolvers;
+    } else {
+      return envutil.dohResolvers();
     }
-    return [envutil.dohResolver()];
   }
 
   async resolveDns(param) {
@@ -90,15 +83,18 @@ export default class DNSResolver {
     const decodedpacket = param.requestDecodedDnsPacket;
     const userDns = param.userDnsResolverUrl;
     const dispatcher = param.dispatcher;
-    const blf = this.blocklistFilter;
+    let blf = this.bw.getBlocklistFilter();
     // may be null or empty-obj (stamp then needs to be got from blf)
     // may be a obj { domainName: String -> blockstamps: Uint16Array }
     const stamps = param.domainBlockstamp;
+    const blocklistFilterNotSetup = !rdnsutil.isBlocklistFilterSetup(blf);
 
+    // if both blocklist-filter (blf) and stamps are not setup, question-block
+    // is a no-op, while we expect answer-block to catch the block regardless.
     const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
 
     this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
-    this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
+    this.log.d(rxid, "q block?", q.isBlocked, "blf?", blocklistFilterNotSetup);
 
     if (q.isBlocked) {
       this.primeCache(rxid, q, dispatcher);
@@ -113,15 +109,24 @@ export default class DNSResolver {
     // arrayWrapper = async () => { return [fulfiller()]; }
     // result1 = await arrayWrapper() :: outputs "Array[Promise{}]"
     // result2 = await result1[0] :: outputs "123"
-    const promisedPromises = await this.resolveDnsUpstream(
-      rxid,
-      param.request,
-      this.determineDohResolvers(userDns),
-      rawpacket,
-      decodedpacket
-    );
+    const promisedTasks = await Promise.all([
+      this.resolveDnsUpstream(
+        rxid,
+        param.request,
+        this.determineDohResolvers(userDns),
+        rawpacket,
+        decodedpacket
+      ),
+      this.bw.init(rxid),
+    ]);
 
+    const promisedPromises = promisedTasks[0];
     const res = await Promise.any(promisedPromises);
+
+    if (blocklistFilterNotSetup) {
+      this.log.d(rxid, "blocklist-filter downloaded and setup");
+      blf = this.bw.getBlocklistFilter();
+    }
 
     if (!res) throw new Error(rxid + "no upstream result");
 

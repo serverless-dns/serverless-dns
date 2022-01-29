@@ -14,8 +14,8 @@ import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../dnsblockutil.js";
 
 class BlocklistWrapper {
-  constructor(blf) {
-    this.blocklistFilter = blf;
+  constructor() {
+    this.blocklistFilter = new BlocklistFilter();
     this.td = null; // trie
     this.rd = null; // rank-dir
     this.ft = null; // file-tags
@@ -26,17 +26,11 @@ class BlocklistWrapper {
     this.log = log.withTags("BlocklistWrapper");
   }
 
-  /**
-   * @param {*} param
-   * @param {String} param.rxid
-   * @returns
-   */
-  async RethinkModule(param) {
-    let response = util.emptyResponse();
-
+  async init(rxid) {
     if (this.isBlocklistFilterSetup()) {
-      response.data.blocklistFilter = this.blocklistFilter;
-      return response;
+      const blres = util.emptyResponse();
+      blres.data.blocklistFilter = this.blocklistFilter;
+      return blres;
     }
 
     try {
@@ -47,9 +41,9 @@ class BlocklistWrapper {
         // it has been a while, queue another blocklist-construction
         now - this.startTime > envutil.downloadTimeout() * 2
       ) {
-        this.log.i(param.rxid, "download blocklists", now, this.startTime);
-        return await this.initBlocklistConstruction(
-          param.rxid,
+        this.log.i(rxid, "download blocklists", now, this.startTime);
+        return this.initBlocklistConstruction(
+          rxid,
           now,
           envutil.blocklistUrl(),
           envutil.timestamp(),
@@ -58,53 +52,61 @@ class BlocklistWrapper {
         );
       } else {
         // someone's constructing... wait till finished
-        // res.arrayBuffer() is the most expensive op, taking anywhere
-        // between 700ms to 1.2s for trie. But: We don't want all incoming
-        // reqs to wait until the trie becomes available. 400ms is 1/3rd of
-        // 1.2s and 2x 250ms; both of these values have cost implications:
-        // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
-        // equals cost of one bundled req.
-        let totalWaitms = 0;
-        const waitms = 50;
-        while (totalWaitms < envutil.downloadTimeout()) {
-          if (this.isBlocklistFilterSetup()) {
-            response.data.blocklistFilter = this.blocklistFilter;
-            return response;
-          }
-          await util.sleep(waitms);
-          totalWaitms += waitms;
-        }
-
-        response.isException = true;
-        response.exceptionStack = this.exceptionStack || "download timeout";
-        response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
+        return this.waitUntilDone();
       }
     } catch (e) {
-      this.log.e(param.rxid, "main", e.stack);
-      response = util.errResponse("blocklistWrapper", e);
+      this.log.e(rxid, "main", e.stack);
+      return util.errResponse("blocklistWrapper", e);
     }
+  }
 
-    return response;
+  getBlocklistFilter() {
+    return this.blocklistFilter;
   }
 
   isBlocklistFilterSetup() {
     return rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
   }
 
-  initBlocklistFilterConstruction(td, rd, ft, config) {
+  async waitUntilDone() {
+    // res.arrayBuffer() is the most expensive op, taking anywhere
+    // between 700ms to 1.2s for trie. But: We don't want all incoming
+    // reqs to wait until the trie becomes available. 400ms is 1/3rd of
+    // 1.2s and 2x 250ms; both of these values have cost implications:
+    // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
+    // equals cost of one bundled req.
+    let totalWaitms = 0;
+    const waitms = 50;
+    const response = util.emptyResponse();
+    while (totalWaitms < envutil.downloadTimeout()) {
+      if (this.isBlocklistFilterSetup()) {
+        response.data.blocklistFilter = this.blocklistFilter;
+        return response;
+      }
+      await util.sleep(waitms);
+      totalWaitms += waitms;
+    }
+
+    response.isException = true;
+    response.exceptionStack = this.exceptionStack || "download timeout";
+    response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
+    return response;
+  }
+
+  initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
     const filter = createBlocklistFilter(
       /* trie*/ td,
       /* rank-dir*/ rd,
-      /* file-tags*/ ft,
-      /* basic-config*/ config
+      /* file-tags*/ ftags,
+      /* basic-config*/ bconfig
     );
-    this.blocklistFilter.loadFilter(
+    this.blocklistFilter.load(
       /* trie*/ filter.t,
       /* frozen-trie*/ filter.ft,
-      /* basic-config*/ filter.blocklistBasicConfig,
-      /* file-tags*/ filter.blocklistFileTag
+      /* basic-config*/ bconfig,
+      /* file-tags*/ ftags
     );
     this.isBlocklistUnderConstruction = false;
   }
@@ -130,7 +132,7 @@ class BlocklistWrapper {
         tdParts
       );
 
-      this.blocklistFilter.loadFilter(
+      this.blocklistFilter.load(
         bl.t,
         bl.ft,
         bl.blocklistBasicConfig,
@@ -140,7 +142,7 @@ class BlocklistWrapper {
       this.log.i(rxid, "blocklist-filter setup");
       if (false) {
         // test
-        const result = this.blocklistFilter.getDomainInfo("google.com");
+        const result = this.blocklistFilter.blockstamp("google.com");
         this.log.d(rxid, JSON.stringify(result));
       }
 

@@ -10,10 +10,10 @@ import * as util from "../../commons/util.js";
 import * as rdnsutil from "../dnsblockutil.js";
 
 export class CommandControl {
-  constructor(blf) {
+  constructor(blocklistWrapper) {
     this.latestTimestamp = envutil.timestamp();
     this.log = log.withTags("CommandControl");
-    this.blocklistFilter = blf;
+    this.bw = blocklistWrapper;
   }
 
   /**
@@ -26,7 +26,7 @@ export class CommandControl {
   async RethinkModule(param) {
     // process only GET requests, ignore all others
     if (util.isGetRequest(param.request)) {
-      return this.commandOperation(
+      return await this.commandOperation(
         param.rxid,
         param.request.url,
         param.isDnsMsg
@@ -69,9 +69,7 @@ export class CommandControl {
     return d.length > 1 ? d[0] : emptyFlag;
   }
 
-  commandOperation(rxid, url, isDnsMsg) {
-    // note: this.blocklistFilter is assumed to have been setup!
-    const blf = this.blocklistFilter;
+  async commandOperation(rxid, url, isDnsMsg) {
     let response = util.emptyResponse();
 
     try {
@@ -95,6 +93,10 @@ export class CommandControl {
       const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
 
       this.log.d(rxid, "processing...", url, command, b64UserFlag);
+
+      // blocklistFilter may not to have been setup, so set it up
+      await this.bw.init();
+      const blf = this.bw.getBlocklistFilter();
 
       if (command === "listtob64") {
         response.data.httpResponse = listToB64(queryString, blf);
@@ -152,7 +154,7 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     listDetail: {},
   };
 
-  const searchResult = blocklistFilter.hadDomainName(domainName);
+  const searchResult = blocklistFilter.lookup(domainName);
   if (!searchResult) {
     return jsonResponse(r);
   }
@@ -176,7 +178,7 @@ function domainNameToUint(queryString, blocklistFilter) {
     list: {},
   };
 
-  const searchResult = blocklistFilter.hadDomainName(domainName);
+  const searchResult = blocklistFilter.lookup(domainName);
   if (!searchResult) {
     return jsonResponse(r);
   }

@@ -144,7 +144,7 @@ export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
   const m = new Map();
   for (const n of domains) {
     // may return Map(domain, b64stamp) or false
-    const stamp = blocklistFilter.getDomainInfo(n).searchResult;
+    const stamp = blocklistFilter.blockstamp(n);
 
     if (util.emptyMap(stamp)) continue;
 
@@ -280,6 +280,7 @@ export function blockstampFromUrl(u) {
   if (paths.length <= 1) {
     return "";
   }
+  // TODO: check if paths[1|2] is a valid stamp
   // skip to next if path has `/dns-query`
   if (paths[1].toLowerCase() === "dns-query") {
     return paths[2] || "";
