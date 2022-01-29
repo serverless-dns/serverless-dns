@@ -83,18 +83,19 @@ export default class DNSResolver {
     const decodedpacket = param.requestDecodedDnsPacket;
     const userDns = param.userDnsResolverUrl;
     const dispatcher = param.dispatcher;
-    let blf = this.bw.getBlocklistFilter();
     // may be null or empty-obj (stamp then needs to be got from blf)
     // may be a obj { domainName: String -> blockstamps: Uint16Array }
     const stamps = param.domainBlockstamp;
-    const blocklistFilterNotSetup = !rdnsutil.isBlocklistFilterSetup(blf);
+
+    let blf = this.bw.getBlocklistFilter();
+    let blfNotSetup = !rdnsutil.isBlocklistFilterSetup(blf);
 
     // if both blocklist-filter (blf) and stamps are not setup, question-block
     // is a no-op, while we expect answer-block to catch the block regardless.
     const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
 
     this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
-    this.log.d(rxid, "q block?", q.isBlocked, "blf?", blocklistFilterNotSetup);
+    this.log.d(rxid, "q block?", q.isBlocked, "blf?", blfNotSetup);
 
     if (q.isBlocked) {
       this.primeCache(rxid, q, dispatcher);
@@ -123,12 +124,14 @@ export default class DNSResolver {
     const promisedPromises = promisedTasks[0];
     const res = await Promise.any(promisedPromises);
 
-    if (blocklistFilterNotSetup) {
+    if (blfNotSetup) {
       this.log.d(rxid, "blocklist-filter downloaded and setup");
       blf = this.bw.getBlocklistFilter();
+      blfNotSetup = !rdnsutil.isBlocklistFilterSetup(blf);
     }
 
-    if (!res) throw new Error(rxid + "no upstream result");
+    if (blfNotSetup) throw new Error(rxid + " no blocklist-filter");
+    if (!res) throw new Error(rxid + " no upstream result");
 
     if (!res.ok) {
       const txt = res.text && (await res.text());

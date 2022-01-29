@@ -97,6 +97,9 @@ export class CommandControl {
       // blocklistFilter may not to have been setup, so set it up
       await this.bw.init();
       const blf = this.bw.getBlocklistFilter();
+      const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
+
+      if (!isBlfSetup) throw new Error("no blocklist-filter");
 
       if (command === "listtob64") {
         response.data.httpResponse = listToB64(queryString, blf);
