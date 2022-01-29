@@ -6631,14 +6631,14 @@ class BlocklistWrapper {
     }
     async waitUntilDone() {
         let totalWaitms = 0;
-        const waitms = 50;
+        const waitms = 25;
         const response = emptyResponse();
         while(totalWaitms < downloadTimeout()){
             if (this.isBlocklistFilterSetup()) {
                 response.data.blocklistFilter = this.blocklistFilter;
                 return response;
             }
-            await sleep(50);
+            await sleep(25);
             totalWaitms += waitms;
         }
         response.isException = true;
