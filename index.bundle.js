@@ -5389,13 +5389,17 @@ function tdParts() {
     if (!env) return null;
     return env.tdParts;
 }
-function dohResolver() {
+function dohResolvers() {
     if (!env) return null;
-    return env.dnsResolverUrl;
-}
-function secondaryDohResolver() {
-    if (!env) return null;
-    return env.secondaryDohResolver;
+    if (isWorkers()) {
+        return [
+            env.dnsResolverUrl,
+            env.secondaryDohResolver
+        ];
+    }
+    return [
+        env.dnsResolverUrl
+    ];
 }
 function tlsCrtPath() {
     if (!envManager) return "";
@@ -6414,7 +6418,7 @@ function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
     if (emptyArray(domains)) return false;
     const m = new Map();
     for (const n of domains){
-        const stamp = blocklistFilter.getDomainInfo(n).searchResult;
+        const stamp = blocklistFilter.blockstamp(n);
         if (emptyMap(stamp)) continue;
         for (const [k, v] of stamp)m.set(k, v);
     }
@@ -6564,19 +6568,17 @@ class BlocklistFilter {
         this.blocklistFileTag = null;
         this.enc = new TextEncoder();
     }
-    loadFilter(t, ft, blocklistBasicConfig, blocklistFileTag) {
+    load(t, ft, blocklistBasicConfig, blocklistFileTag) {
         this.t = t;
         this.ft = ft;
         this.blocklistBasicConfig = blocklistBasicConfig;
         this.blocklistFileTag = blocklistFileTag;
     }
-    getDomainInfo(domainName) {
+    blockstamp(domainName) {
         const n = normalizeName(domainName);
-        return {
-            searchResult: this.hadDomainName(n)
-        };
+        return this.lookup(n);
     }
-    hadDomainName(n) {
+    lookup(n) {
         return this.ft.lookup(this.reverseUtf8(n));
     }
     reverseUtf8(s) {
@@ -6585,17 +6587,14 @@ class BlocklistFilter {
     getTag(uintFlag) {
         return this.t.flagsToTag(uintFlag);
     }
-    customTagToFlag(tagList) {
-        return customTagToFlag(tagList, this.blocklistFileTag);
-    }
     getB64FlagFromTag(tagList, flagVersion) {
-        const uintFlag = this.customTagToFlag(tagList);
+        const uintFlag = customTagToFlag(tagList, this.blocklistFileTag);
         return getB64Flag(uintFlag, flagVersion);
     }
 }
 class BlocklistWrapper {
-    constructor(blf){
-        this.blocklistFilter = blf;
+    constructor(){
+        this.blocklistFilter = new BlocklistFilter();
         this.td = null;
         this.rd = null;
         this.ft = null;
@@ -6605,46 +6604,53 @@ class BlocklistWrapper {
         this.exceptionStack = "";
         this.log = log.withTags("BlocklistWrapper");
     }
-    async RethinkModule(param) {
-        let response = emptyResponse();
+    async init(rxid) {
         if (this.isBlocklistFilterSetup()) {
-            response.data.blocklistFilter = this.blocklistFilter;
-            return response;
+            const blres = emptyResponse();
+            blres.data.blocklistFilter = this.blocklistFilter;
+            return blres;
         }
         try {
             const now = Date.now();
             if (!this.isBlocklistUnderConstruction || now - this.startTime > downloadTimeout() * 2) {
-                this.log.i(param.rxid, "download blocklists", now, this.startTime);
-                return await this.initBlocklistConstruction(param.rxid, now, blocklistUrl(), timestamp(), tdNodeCount(), tdParts());
+                this.log.i(rxid, "download blocklists", now, this.startTime);
+                return this.initBlocklistConstruction(rxid, now, blocklistUrl(), timestamp(), tdNodeCount(), tdParts());
             } else {
-                let totalWaitms = 0;
-                const waitms = 50;
-                while(totalWaitms < downloadTimeout()){
-                    if (this.isBlocklistFilterSetup()) {
-                        response.data.blocklistFilter = this.blocklistFilter;
-                        return response;
-                    }
-                    await sleep(50);
-                    totalWaitms += waitms;
-                }
-                response.isException = true;
-                response.exceptionStack = this.exceptionStack || "download timeout";
-                response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
+                return this.waitUntilDone();
             }
         } catch (e) {
-            this.log.e(param.rxid, "main", e.stack);
-            response = errResponse("blocklistWrapper", e);
+            this.log.e(rxid, "main", e.stack);
+            return errResponse("blocklistWrapper", e);
         }
-        return response;
+    }
+    getBlocklistFilter() {
+        return this.blocklistFilter;
     }
     isBlocklistFilterSetup() {
         return isBlocklistFilterSetup(this.blocklistFilter);
     }
-    initBlocklistFilterConstruction(td, rd, ft, config2) {
+    async waitUntilDone() {
+        let totalWaitms = 0;
+        const waitms = 50;
+        const response = emptyResponse();
+        while(totalWaitms < downloadTimeout()){
+            if (this.isBlocklistFilterSetup()) {
+                response.data.blocklistFilter = this.blocklistFilter;
+                return response;
+            }
+            await sleep(50);
+            totalWaitms += waitms;
+        }
+        response.isException = true;
+        response.exceptionStack = this.exceptionStack || "download timeout";
+        response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
+        return response;
+    }
+    initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
         this.isBlocklistUnderConstruction = true;
         this.startTime = Date.now();
-        const filter = createBlocklistFilter(td, rd, ft, config2);
-        this.blocklistFilter.loadFilter(filter.t, filter.ft, filter.blocklistBasicConfig, filter.blocklistFileTag);
+        const filter = createBlocklistFilter(td, rd, ftags, bconfig);
+        this.blocklistFilter.load(filter.t, filter.ft, bconfig, ftags);
         this.isBlocklistUnderConstruction = false;
     }
     async initBlocklistConstruction(rxid, when1, blocklistUrl1, latestTimestamp, tdNodecount, tdParts1) {
@@ -6653,7 +6659,7 @@ class BlocklistWrapper {
         let response = emptyResponse();
         try {
             const bl = await this.downloadBuildBlocklist(rxid, blocklistUrl1, latestTimestamp, tdNodecount, tdParts1);
-            this.blocklistFilter.loadFilter(bl.t, bl.ft, bl.blocklistBasicConfig, bl.blocklistFileTag);
+            this.blocklistFilter.load(bl.t, bl.ft, bl.blocklistBasicConfig, bl.blocklistFileTag);
             this.log.i(rxid, "blocklist-filter setup");
             response.data.blocklistFilter = this.blocklistFilter;
         } catch (e) {
@@ -6737,14 +6743,14 @@ async function makeTd(baseurl, n) {
     return concat(tds);
 }
 class CommandControl {
-    constructor(blf){
+    constructor(blocklistWrapper){
         this.latestTimestamp = timestamp();
         this.log = log.withTags("CommandControl");
-        this.blocklistFilter = blf;
+        this.bw = blocklistWrapper;
     }
     async RethinkModule(param) {
         if (isGetRequest(param.request)) {
-            return this.commandOperation(param.rxid, param.request.url, param.isDnsMsg);
+            return await this.commandOperation(param.rxid, param.request.url, param.isDnsMsg);
         }
         return emptyResponse();
     }
@@ -6765,8 +6771,7 @@ class CommandControl {
         if (p[1]) return p[1];
         return d.length > 1 ? d[0] : emptyFlag;
     }
-    commandOperation(rxid, url, isDnsMsg1) {
-        const blf = this.blocklistFilter;
+    async commandOperation(rxid, url, isDnsMsg1) {
         let response = emptyResponse();
         try {
             const reqUrl = new URL(url);
@@ -6782,6 +6787,8 @@ class CommandControl {
             const command = pathSplit[1];
             const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
             this.log.d(rxid, "processing...", url, command, b64UserFlag);
+            await this.bw.init();
+            const blf = this.bw.getBlocklistFilter();
             if (command === "listtob64") {
                 response.data.httpResponse = listToB64(queryString, blf);
             } else if (command === "b64tolist") {
@@ -6823,7 +6830,7 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
         list: {},
         listDetail: {}
     };
-    const searchResult = blocklistFilter.hadDomainName(domainName);
+    const searchResult = blocklistFilter.lookup(domainName);
     if (!searchResult) {
         return jsonResponse(r);
     }
@@ -6843,7 +6850,7 @@ function domainNameToUint(queryString, blocklistFilter) {
         domainName: domainName,
         list: {}
     };
-    const searchResult = blocklistFilter.hadDomainName(domainName);
+    const searchResult = blocklistFilter.lookup(domainName);
     if (!searchResult) {
         return jsonResponse(r);
     }
@@ -7232,18 +7239,14 @@ function updatedAnswer(dnsPacket, qid, expiry) {
     return dnsPacket;
 }
 class DNSResolver {
-    constructor(blf, cache){
+    constructor(blocklistWrapper, cache){
         this.cache = cache;
         this.http2 = null;
         this.nodeUtil = null;
         this.transport = null;
         this.blocker = new DnsBlocker();
-        this.blocklistFilter = blf;
+        this.bw = blocklistWrapper;
         this.log = log.withTags("DnsResolver");
-        this.preferredDohResolvers = [
-            dohResolver(),
-            secondaryDohResolver(), 
-        ];
     }
     async lazyInit() {
         if (isNode() && !this.http2) {
@@ -7277,12 +7280,9 @@ class DNSResolver {
             return [
                 preferredByUser
             ];
-        } else if (isWorkers()) {
-            return this.preferredDohResolvers;
+        } else {
+            return dohResolvers();
         }
-        return [
-            dohResolver()
-        ];
     }
     async resolveDns(param) {
         const rxid = param.rxid;
@@ -7291,17 +7291,26 @@ class DNSResolver {
         const decodedpacket = param.requestDecodedDnsPacket;
         const userDns = param.userDnsResolverUrl;
         const dispatcher = param.dispatcher;
-        const blf = this.blocklistFilter;
+        let blf = this.bw.getBlocklistFilter();
         const stamps = param.domainBlockstamp;
+        const blocklistFilterNotSetup = !isBlocklistFilterSetup(blf);
         const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
         this.blocker.blockQuestion(rxid, q, blInfo);
-        this.log.d(rxid, blInfo, "question blocked?", q.isBlocked);
+        this.log.d(rxid, "q block?", q.isBlocked, "blf?", blocklistFilterNotSetup);
         if (q.isBlocked) {
             this.primeCache(rxid, q, dispatcher);
             return q;
         }
-        const promisedPromises = await this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket);
+        const promisedTasks = await Promise.all([
+            this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket),
+            this.bw.init(rxid), 
+        ]);
+        const promisedPromises = promisedTasks[0];
         const res = await Promise.any(promisedPromises);
+        if (blocklistFilterNotSetup) {
+            this.log.d(rxid, "blocklist-filter downloaded and setup");
+            blf = this.bw.getBlocklistFilter();
+        }
         if (!res) throw new Error(rxid + "no upstream result");
         if (!res.ok) {
             const txt = res.text && await res.text();
@@ -7453,11 +7462,11 @@ DNSResolver.prototype.doh2 = async function(rxid, request) {
     });
 };
 class DNSCacheResponder {
-    constructor(blf, cache){
+    constructor(blocklistWrapper, cache){
         this.blocker = new DnsBlocker();
         this.log = log.withTags("DnsCacheResponder");
         this.cache = cache;
-        this.blocklistFilter = blf;
+        this.bw = blocklistWrapper;
     }
     async RethinkModule(param) {
         let response = emptyResponse();
@@ -7475,7 +7484,8 @@ class DNSCacheResponder {
     }
     async resolveFromCache(rxid, packet, blockInfo) {
         const noAnswer = rdnsNoBlockResponse();
-        const onlyLocal = isBlocklistFilterSetup(this.blocklistFilter);
+        const blf = this.bw.getBlocklistFilter();
+        const onlyLocal = isBlocklistFilterSetup(blf);
         const k = makeHttpCacheKey(packet);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k, onlyLocal);
@@ -7610,19 +7620,18 @@ const services = {
 async function systemReady() {
     if (services.ready) return;
     log.i("svc: systemReady");
+    const bw = new BlocklistWrapper();
     const cache = new DnsCache(cacheSize());
-    const blf = new BlocklistFilter();
-    services.blocklistWrapper = new BlocklistWrapper(blf);
-    services.commandControl = new CommandControl(blf);
     services.userOperation = new UserOperation();
-    services.dnsResolver = new DNSResolver(blf, cache);
-    services.dnsCacheHandler = new DNSCacheResponder(blf, cache);
+    services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
+    services.commandControl = new CommandControl(bw);
+    services.dnsResolver = new DNSResolver(bw, cache);
     if (isNode()) {
         const b = await import("./node/blocklists.js");
-        await b.setup(services.blocklistWrapper);
+        await b.setup(bw);
     } else if (isDeno()) {
         const b = await import("./deno/blocklists.ts");
-        await b.setup(services.blocklistWrapper);
+        await b.setup(bw);
     }
     done();
 }
@@ -7651,9 +7660,6 @@ class RethinkPlugin {
             "requestDecodedDnsPacket",
             "isDnsMsg"
         ], this.dnsCacheCallBack, false);
-        this.registerPlugin("blocklistFilter", services.blocklistWrapper, [
-            "rxid"
-        ], this.blocklistFilterCallBack, false);
         this.registerPlugin("commandControl", services.commandControl, [
             "rxid",
             "request",
@@ -7699,16 +7705,6 @@ class RethinkPlugin {
             this.log.lapTime(t, rxid, p.name, "post-callback");
         }
         this.log.endTime(t);
-    }
-    blocklistFilterCallBack(response, currentRequest) {
-        const rxid = this.parameter.get("rxid");
-        const r = response.data;
-        this.log.d(rxid, "blocklist-filter response");
-        if (response.isException || emptyObj(r) || emptyObj(r.blocklistFilter)) {
-            this.log.e(rxid, "err building blocklist-filter", response);
-            this.loadException(rxid, response, currentRequest);
-            return;
-        }
     }
     async commandControlCallBack(response, currentRequest) {
         const rxid = this.parameter.get("rxid");
