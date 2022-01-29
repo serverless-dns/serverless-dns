@@ -36,7 +36,7 @@ export function dnsResponse(packet = null, raw = null, stamps = null) {
   }
   return {
     isBlocked: false,
-    blockedB64Flag: "",
+    flag: "",
     dnsPacket: packet,
     dnsBuffer: raw,
     stamps: stamps || {},
@@ -45,7 +45,7 @@ export function dnsResponse(packet = null, raw = null, stamps = null) {
 
 export function copyOnlyBlockProperties(to, from) {
   to.isBlocked = from.isBlocked;
-  to.blockedB64Flag = from.blockedB64Flag;
+  to.flag = from.flag;
 
   return to;
 }
@@ -58,7 +58,7 @@ export function rdnsNoBlockResponse(
 ) {
   return {
     isBlocked: false,
-    blockedB64Flag: flag || "",
+    flag: "",
     dnsPacket: packet,
     dnsBuffer: raw,
     stamps: stamps || {},
@@ -76,7 +76,7 @@ export function rdnsBlockResponse(
   }
   return {
     isBlocked: true,
-    blockedB64Flag: flag,
+    flag: flag,
     dnsPacket: packet,
     dnsBuffer: raw,
     stamps: stamps || {},

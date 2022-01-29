@@ -12,7 +12,7 @@ import * as util from "../commons/util.js";
 
 export default class CurrentRequest {
   constructor() {
-    this.blockedB64Flag = "";
+    this.flag = "";
     this.decodedDnsPacket = this.emptyDecodedDnsPacket();
     this.httpResponse = undefined;
     this.isException = false;
@@ -89,7 +89,7 @@ export default class CurrentRequest {
 
     this.stopProcessing = true;
     this.decodedDnsPacket = dnsPacket || dnsutil.decode(arrayBuffer);
-    this.blockedB64Flag = blockflag || "";
+    this.flag = blockflag || "";
     this.httpResponse = new Response(arrayBuffer, {
       headers: this.headers(arrayBuffer),
     });
@@ -99,7 +99,7 @@ export default class CurrentRequest {
     this.initDecodedDnsPacketIfNeeded();
     this.stopProcessing = true;
     this.isDnsBlock = true;
-    this.blockedB64Flag = blockflag;
+    this.flag = blockflag;
 
     try {
       if (util.emptyObj(this.decodedDnsPacket.questions)) {
@@ -159,12 +159,8 @@ export default class CurrentRequest {
   }
 
   headers(b = null) {
-    const xNileFlags = this.isDnsBlock
-      ? { "x-nile-flags": this.blockedB64Flag }
-      : null;
-    const xNileFlagsOk = this.blockedB64Flag
-      ? { "x-nile-flags-allowed": this.blockedB64Flag }
-      : null;
+    const xNileFlags = this.isDnsBlock ? { "x-nile-flags": this.flag } : null;
+    const xNileFlagsOk = !xNileFlags ? { "x-nile-flags-dn": this.flag } : null;
 
     return util.concatHeaders(
       util.dnsHeaders(),

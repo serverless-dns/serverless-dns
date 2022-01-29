@@ -180,11 +180,11 @@ export default class RethinkPlugin {
       this.loadException(rxid, response, currentRequest);
     } else if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js
-      currentRequest.dnsBlockResponse(r.blockedB64Flag);
+      currentRequest.dnsBlockResponse(r.flag);
     } else if (isAns) {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
+      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     } else {
       this.registerParameter("domainBlockstamp", r.stamps);
       this.log.d(rxid, "resolve query; no response from cache-handler");
@@ -210,14 +210,14 @@ export default class RethinkPlugin {
 
     if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js?
-      currentRequest.dnsBlockResponse(r.blockedB64Flag);
+      currentRequest.dnsBlockResponse(r.flag);
     } else if (response.isException || !isAns) {
       // if not blocked, but then, no-ans or is-exception, then:
       this.loadException(rxid, response, currentRequest);
     } else {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.blockedB64Flag);
+      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     }
   }
 
