@@ -58,7 +58,7 @@ export function rdnsNoBlockResponse(
 ) {
   return {
     isBlocked: false,
-    flag: "",
+    flag: flag || "",
     dnsPacket: packet,
     dnsBuffer: raw,
     stamps: stamps || {},
