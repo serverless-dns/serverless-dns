@@ -76,7 +76,7 @@ class BlocklistWrapper {
     // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
     // equals cost of one bundled req.
     let totalWaitms = 0;
-    const waitms = 50;
+    const waitms = 25;
     const response = util.emptyResponse();
     while (totalWaitms < envutil.downloadTimeout()) {
       if (this.isBlocklistFilterSetup()) {
