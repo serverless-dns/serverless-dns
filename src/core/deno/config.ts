@@ -20,6 +20,7 @@ declare global {
 })();
 
 function setup() {
+  // if this file execs... assume we're on deno.
   if (!Deno) throw new Error("failed loading deno-specific config");
 
   const isProd = Deno.env.get("DENO_ENV") === "production";
@@ -32,18 +33,10 @@ function setup() {
     console.warn(".env missing => ", e.name, e.message);
   }
 
-  try {
-    // override: if we are running this file, then we're on Deno
-    Deno.env.set("RUNTIME", "deno");
-  } catch (e) {
-    // Warning: `set()` method is not available in Deno deploy.
-    console.warn("Deno.env.set() => ", e.name, e.message);
-  }
-
   window.envManager = new EnvManager();
 
   window.log = new Log(
-    window.env.logLevel,
+    window.envManager.get("LOG_LEVEL"),
     isProd // set console level only in prod.
   );
 

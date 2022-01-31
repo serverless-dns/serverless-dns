@@ -63,7 +63,7 @@ function base32(arrbuf, padding) {
   return output;
 }
 
-function rbase32(input) {
+export function rbase32(input) {
   input = input.replace(/=+$/, "");
 
   const length = input.length;
@@ -86,5 +86,3 @@ function rbase32(input) {
 
   return output;
 }
-
-export { base32, rbase32 };

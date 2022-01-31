@@ -18,8 +18,8 @@ let log: any = null;
 
 function systemUp() {
   const onDenoDeploy = envutil.onDenoDeploy() as boolean;
-  const dohConnOpts = { port: 8080 };
-  const dotConnOpts = { port: 10000 };
+  const dohConnOpts = { port: envutil.dohBackendPort() };
+  const dotConnOpts = { port: envutil.dotBackendPort() };
   const tlsOpts = {
     certFile: envutil.tlsCrtPath() as string,
     keyFile: envutil.tlsKeyPath() as string,

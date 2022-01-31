@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "license": "MPL-2.0",
   "description": "Rethink Free Dns with Blocklist, one click install from github to cloudflare",
-  "main": "src/server-node.js",
+  "main": "./src/server-workers.js",
   "type": "module",
   "scripts": {
     "clean": "npm run clean:wrangler",
@@ -31,13 +31,15 @@
   },
   "devDependencies": {
     "@types/node": "^16.11.7",
+    "buffer": "^6.0.3",
     "eslint": "^8.5.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-prettier": "^4.0.0",
     "husky": "^7.0.4",
     "lint-staged": "^12.1.4",
     "prettier": "2.5.1",
-    "webpack": "^5.65.0"
+    "webpack": "^5.65.0",
+    "webpack-cli": "^4.9.2"
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",

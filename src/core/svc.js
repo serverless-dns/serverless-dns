@@ -6,12 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import {
-  BlocklistFilter,
-  BlocklistWrapper,
-} from "../plugins/blocklist-wrapper/main.js";
+import { BlocklistWrapper } from "../plugins/blocklist-wrapper/main.js";
 import { CommandControl } from "../plugins/command-control/cc.js";
-import { UserOperation } from "../plugins/basic/basic.js";
+import { UserOperation } from "../plugins/basic/userOperation.js";
 import {
   DNSCacheResponder,
   DNSResolver,

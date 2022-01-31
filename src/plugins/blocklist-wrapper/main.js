@@ -6,14 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { createBlocklistFilter } from "./radixTrie.js";
+import { createTrie } from "./radixTrie.js";
 import { BlocklistFilter } from "./blocklistFilter.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../dnsblockutil.js";
 
-class BlocklistWrapper {
+export class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
     this.td = null; // trie
@@ -96,7 +96,7 @@ class BlocklistWrapper {
   initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
-    const filter = createBlocklistFilter(
+    const filter = createTrie(
       /* trie*/ td,
       /* rank-dir*/ rd,
       /* file-tags*/ ftags,
@@ -194,7 +194,7 @@ class BlocklistWrapper {
     this.rd = downloads[2];
     this.ft = downloads[0];
 
-    const trie = createBlocklistFilter(
+    const trie = createTrie(
       /* trie*/ this.td,
       /* rank-dir*/ this.rd,
       /* file-tags*/ this.ft,
@@ -257,5 +257,3 @@ async function makeTd(baseurl, n) {
 
   return bufutil.concat(tds);
 }
-
-export { BlocklistFilter, BlocklistWrapper };

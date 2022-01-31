@@ -1,11 +1,22 @@
 name = "serverless-dns"
 route = ""
-type = "webpack"
+type = "javascript"
 account_id = ""
 workers_dev = true
 zone_id = ""
 compatibility_date = "2021-11-10"
-webpack_config = "webpack.config.cjs"
+
+[build]
+command = "npm install && npx webpack"
+
+[build.upload]
+format = "modules"
+dir = "./dist"
+main = "worker.js"
+
+[[build.upload.rules]]
+type = "ESModule"
+globs = ["**/*.js"]
 
 [vars]
 RUNTIME = "worker"

@@ -7,16 +7,21 @@
  */
 
 // musn't import /depend on anything.
+
 export function onFly() {
-  return env && env.cloudPlatform === "fly";
+  if (!envManager) return false;
+
+  return envManager.get("CLOUD_PLATFORM") === "fly";
 }
 
 export function onDenoDeploy() {
-  return env && env.cloudPlatform === "deno-deploy";
+  if (!envManager) return false;
+
+  return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
 
 export function hasDisk() {
-  // got disk on test nodejs envs and on fly
+  // got disk on test nodejs | deno envs and on fly
   return onFly() || (isNode() && !isProd()) || (isDeno() && !isProd());
 }
 
@@ -25,58 +30,95 @@ export function hasHttpCache() {
 }
 
 export function isProd() {
-  return env && env.runTimeEnv === "production";
+  if (!envManager) return false;
+
+  return deployMode() === "production";
+}
+
+export function deployMode(defaultMode = "") {
+  if (!envManager) return defaultMode;
+
+  if (isWorkers()) {
+    return envManager.get("WORKER_ENV");
+  } else if (isNode()) {
+    return envManager.get("NODE_ENV");
+  } else if (isDeno()) {
+    return envManager.get("DENO_ENV");
+  }
+
+  return defaultMode;
 }
 
 export function isWorkers() {
-  return env && env.runTime === "worker";
+  if (!envManager) return false;
+
+  return envManager.get("RUNTIME") === "worker";
 }
 
 export function isNode() {
-  return env && env.runTime === "node";
+  if (!envManager) return false;
+
+  return envManager.get("RUNTIME") === "node";
 }
 
 export function isDeno() {
-  return env && env.runTime === "deno";
+  if (!envManager) return false;
+
+  return envManager.get("RUNTIME") === "deno";
 }
 
 export function workersTimeout(missing = 0) {
-  return (env && env.workerTimeout) || missing;
+  if (!envManager) return missing;
+  return envManager.get("WORKER_TIMEOUT") || missing;
 }
 
 export function downloadTimeout(missing = 0) {
-  return (env && env.fetchTimeout) || missing;
+  if (!envManager) return missing;
+  return envManager.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT") || missing;
 }
 
 export function blocklistUrl() {
-  if (!env) return null;
-  return env.blocklistUrl;
+  if (!envManager) return null;
+  return envManager.get("CF_BLOCKLIST_URL");
 }
 
 export function timestamp() {
-  if (!env) return null;
-  return env.latestTimestamp;
+  if (!envManager) return null;
+  return envManager.get("CF_LATEST_BLOCKLIST_TIMESTAMP");
 }
 
 export function tdNodeCount() {
-  if (!env) return null;
-  return env.tdNodecount;
+  if (!envManager) return null;
+  return envManager.get("TD_NODE_COUNT");
 }
 
 export function tdParts() {
-  if (!env) return null;
-  return env.tdParts;
+  if (!envManager) return null;
+  return envManager.get("TD_PARTS");
+}
+
+export function primaryDohResolver() {
+  if (!envManager) return null;
+
+  return envManager.get("CF_DNS_RESOLVER_URL");
+}
+
+export function secondaryDohResolver() {
+  if (!envManager) return null;
+
+  return envManager.get("CF_DNS_RESOLVER_URL_2");
 }
 
 export function dohResolvers() {
-  if (!env) return null;
+  if (!envManager) return null;
 
   if (isWorkers()) {
     // upstream to two resolvers on workers; since egress is free,
     // faster among the 2 should help lower tail latencies at zero-cost
-    return [env.dnsResolverUrl, env.secondaryDohResolver];
+    return [primaryDohResolver(), secondaryDohResolver()];
   }
-  return [env.dnsResolverUrl];
+
+  return [primaryDohResolver()];
 }
 
 export function tlsCrtPath() {
@@ -91,15 +133,34 @@ export function tlsKeyPath() {
 
 export function tlsCrt() {
   if (!envManager) return "";
-  return envManager.get("tlsCrt") || "";
+  return envManager.get("TLS_CRT") || "";
 }
 
 export function tlsKey() {
   if (!envManager) return "";
-  return envManager.get("tlsKey") || "";
+  return envManager.get("TLS_KEY") || "";
 }
 
 export function cacheTtl() {
-  if (!env) return 0;
-  return env.cacheTtl;
+  if (!envManager) return 0;
+  return envManager.get("CACHE_TTL");
+}
+
+export function isDotOverProxyProto() {
+  if (!envManager) return false;
+
+  return envManager.get("DOT_HAS_PROXY_PROTO") || false;
+}
+
+// Ports which the services are exposed on. Corresponds to fly.toml ports.
+export function dohBackendPort() {
+  return 8080;
+}
+
+export function dotBackendPort() {
+  return isDotOverProxyProto() ? 10001 : 10000;
+}
+
+export function dotProxyProtoBackendPort() {
+  return isDotOverProxyProto() ? 10000 : 0;
 }

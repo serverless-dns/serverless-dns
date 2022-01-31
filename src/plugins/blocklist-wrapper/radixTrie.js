@@ -886,7 +886,7 @@ FrozenTrie.prototype = {
   },
 };
 
-function customTagToFlag(fl, blocklistFileTag) {
+export function customTagToFlag(fl, blocklistFileTag) {
   let res = chr16(0);
   for (const flag of fl) {
     const val = blocklistFileTag[flag].value;
@@ -911,7 +911,7 @@ function customTagToFlag(fl, blocklistFileTag) {
   return res;
 }
 
-function createBlocklistFilter(
+export function createTrie(
   tdbuf,
   rdbuf,
   blocklistFileTag,
@@ -947,5 +947,3 @@ function createBlocklistFilter(
 
   return { t: tags, ft: frozentrie };
 }
-
-export { createBlocklistFilter, customTagToFlag };

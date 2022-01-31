@@ -20,7 +20,7 @@ export default class RethinkPlugin {
     /**
      * Parameters of RethinkPlugin which may be used by individual plugins.
      */
-    this.parameter = new Map(envManager.getMap());
+    this.parameter = new Map();
 
     const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
     this.registerParameter("rxid", "[rx." + rxid + "]");

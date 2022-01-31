@@ -26,18 +26,6 @@ import "./core/node/config.js";
  * @typedef {import("http2").Http2ServerResponse} Http2ServerResponse
  */
 
-// Ports which the services are exposed on. Corresponds to fly.toml ports.
-const DOT_ENTRY_PORT = 10000;
-const DOH_ENTRY_PORT = 8080;
-
-const DOT_IS_PROXY_PROTO = eval(`process.env.DOT_HAS_PROXY_PROTO`);
-const DOT_PROXY_PORT = DOT_ENTRY_PORT; // Unused if proxy proto is disabled
-
-const DOT_PORT = DOT_IS_PROXY_PROTO
-  ? DOT_ENTRY_PORT + 1 // Bump DOT port to allow entry via proxy proto port.
-  : DOT_ENTRY_PORT;
-const DOH_PORT = DOH_ENTRY_PORT;
-
 let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
@@ -60,17 +48,19 @@ function systemUp() {
 
   const dot1 = tls
     .createServer(tlsOpts, serveTLS)
-    .listen(DOT_PORT, () => up("DoT", dot1.address()));
+    .listen(envutil.dotBackendPort(), () => up("DoT", dot1.address()));
 
   const dot2 =
-    DOT_IS_PROXY_PROTO &&
+    envutil.isDotOverProxyProto() &&
     net
       .createServer(serveDoTProxyProto)
-      .listen(DOT_PROXY_PORT, () => up("DoT ProxyProto", dot2.address()));
+      .listen(envutil.dotProxyProtoBackendPort(), () =>
+        up("DoT ProxyProto", dot2.address())
+      );
 
   const doh = http2
     .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
-    .listen(DOH_PORT, () => up("DoH", doh.address()));
+    .listen(envutil.dohBackendPort(), () => up("DoH", doh.address()));
 
   function up(server, addr) {
     log.i(server, `listening on: [${addr.address}]:${addr.port}`);
@@ -102,9 +92,9 @@ function serveDoTProxyProto(clientSocket) {
   let ppHandled = false;
   log.d("--> new client Connection");
 
-  const dotSock = net.connect(DOT_PORT, () => {
-    log.d("DoT socket ready");
-  });
+  const dotSock = net.connect(envutil.dotBackendPort(), () =>
+    log.d("DoT socket ready")
+  );
 
   dotSock.on("error", (e) => {
     log.w("DoT socket error, closing client connection", e);
@@ -397,31 +387,11 @@ async function resolveQuery(rxid, q, host, flag) {
     body: q,
   });
 
-  const r = await handleRequest(mkFetchEvent(freq));
+  const r = await handleRequest(util.mkFetchEvent(freq));
 
   const ans = await r.arrayBuffer();
 
   return !bufutil.emptyBuf(ans) ? new Uint8Array(ans) : dnsutil.servfailQ(q);
-}
-
-function mkFetchEvent(r, ...fns) {
-  if (util.emptyObj(r)) throw new Error("missing request");
-  for (f of fns) {
-    if (f != null && typeof f !== "function") throw new Error("args mismatch");
-  }
-  // a service-worker event, with properties: type and request; and methods:
-  // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
-  return {
-    type: "fetch",
-    request: r,
-    respondWith: fns[0] || stub("event.respondWith"),
-    waitUntil: fns[1] || stub("event.waitUntil"),
-    passThroughOnException: fns[2] || stub("event.passThroughOnException"),
-  };
-}
-
-function stub(fid) {
-  return (...rest) => log.d(fid, "stub fn, args:", ...rest);
 }
 
 /**
@@ -480,7 +450,7 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "upstream-start");
 
-    const fRes = await handleRequest(mkFetchEvent(fReq));
+    const fRes = await handleRequest(util.mkFetchEvent(fReq));
 
     log.lapTime(t, "upstream-end");
 

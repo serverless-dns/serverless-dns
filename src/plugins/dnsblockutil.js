@@ -253,7 +253,7 @@ function clearbit(uint, pos) {
   return uint & ~(1 << pos);
 }
 
-function getB64Flag(uint16Arr, flagVersion) {
+export function getB64Flag(uint16Arr, flagVersion) {
   if (util.emptyArray(uint16Arr)) return "";
 
   const b64url = bufutil.bytesToBase64Url(uint16Arr.buffer);

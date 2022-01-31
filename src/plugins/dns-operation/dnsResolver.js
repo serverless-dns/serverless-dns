@@ -69,6 +69,12 @@ export default class DNSResolver {
     // when this.transport is set, do not use doh
     if (this.transport) return [];
 
+    // if blocklists aren't setup, return only primary because blocklists
+    // themselves need min 4 network-io solts of the 6 available on Workers
+    if (!this.bw.isBlocklistFilterSetup()) {
+      return [envutil.primaryDohResolver()];
+    }
+
     if (!util.emptyString(preferredByUser)) {
       return [preferredByUser];
     } else {

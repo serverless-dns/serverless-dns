@@ -367,3 +367,27 @@ export function isPostRequest(req) {
 export function isGetRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
+
+export function mkFetchEvent(r, ...fns) {
+  if (emptyObj(r)) throw new Error("missing request");
+  for (const f of fns) {
+    if (f != null && typeof f !== "function") throw new Error("args mismatch");
+  }
+  // developer.mozilla.org/en-US/docs/Web/API/FetchEvent
+  // developers.cloudflare.com/workers/runtime-apis/fetch-event
+  // a service-worker event, with properties: type and request; and methods:
+  // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
+  return {
+    type: "fetch",
+    request: r,
+    respondWith: fns[0] || stub("event.respondWith"),
+    waitUntil: fns[1] || stub("event.waitUntil"),
+    passThroughOnException: fns[2] || stub("event.passThroughOnException"),
+  };
+}
+
+function stub(...args) {
+  return (...args) => {
+    /* no-op */
+  };
+}

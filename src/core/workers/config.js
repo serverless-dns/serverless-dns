@@ -16,9 +16,7 @@ import Log from "../log.js";
 // on Workers, setup is called for every new request,
 // since server-workers.js fires "prepare" on every request
 function setup() {
-  // if we're executing this file, we're on workers
-  globalThis.RUNTIME = "worker";
-
+  // if this file execs... assume we're on workers.
   const isProd = globalThis.WORKER_ENV === "production";
 
   if (!globalThis.envManager) {
@@ -27,7 +25,7 @@ function setup() {
 
   if (!globalThis.log) {
     globalThis.log = new Log(
-      env.logLevel,
+      envManager.get("LOG_LEVEL"),
       isProd // set console level only in prod.
     );
   }

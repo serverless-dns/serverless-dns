@@ -27,7 +27,7 @@ if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
 elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "using `which wrangler`";
   banner
-  wrangler dev;
+  wrangler dev --verbose;
 elif [ $runtime = "help" ] || [ $runtime = "h" ]; then
   echo "note: make sure node / deno / wrangler are in path";
   echo "usage: $0 [node|deno|workers]";
@@ -35,5 +35,5 @@ else
   echo "note: nodejs v15+ required";
   echo "using `which node`";
   banner
-  node ./src/server-node.js;
+  node ./src/server-node.js --trace-warnings;
 fi

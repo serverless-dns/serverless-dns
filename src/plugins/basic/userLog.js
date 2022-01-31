@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-class Log {
+export class Log {
   constructor() {}
   async RethinkModule(commonContext, thisRequest, event) {
     if (!thisRequest.IsException) {
@@ -82,5 +82,3 @@ class RequestLogStructure {
     this.cfip = thisRequest.httpRequest.headers.get("CF-Connecting-IP");
   }
 }
-
-module.exports.Log = Log;

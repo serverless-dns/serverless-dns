@@ -11,29 +11,26 @@ import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 
-((main) => {
-  if (typeof addEventListener === "undefined") {
-    throw new Error("workers env missing addEventListener");
-  }
-  // workers/runtime-apis/fetch-event#syntax-service-worker
-  addEventListener("fetch", handleFetch);
-})();
+export default {
+  // workers/runtime-apis/fetch-event#syntax-module-worker
+  async fetch(request, env, context) {
+    return await serveDoh(request, env, context);
+  },
+};
 
-function handleFetch(event) {
-  // FetchEvent handler has to call respondWith() before returning.
-  // Any asynchronous task will be canceled and by default, the
-  // request will be sent unmodified to origin (which doesn't exist
-  // and so these are 4xx responses, in our case). To wait for IO
-  // before generating a Response, calling respondWith() with a
-  // Promise (for the eventual Response) as the argument.
-  event.respondWith(serveDoh(event));
-}
-
-function serveDoh(event) {
+function serveDoh(request, env, ctx) {
+  globalThis.wenv = env;
   // on Workers, the network-context is only available in an event listener
   // and so, publish system prepare from here instead of from main which
   // runs in global-scope.
   system.pub("prepare");
+
+  const event = util.mkFetchEvent(
+    request,
+    null,
+    ctx.waitUntil.bind(ctx),
+    ctx.passThroughOnException.bind(ctx)
+  );
 
   return new Promise((accept) => {
     system

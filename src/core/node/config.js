@@ -25,7 +25,6 @@ import * as swap from "../linux/swap.js";
 
 async function setup() {
   // if this file execs... assume we're on nodejs.
-  const runtime = "node";
   const isProd = process.env.NODE_ENV === "production";
   const onFly = process.env.CLOUD_PLATFORM === "fly";
   let devutils = null;
@@ -45,14 +44,11 @@ async function setup() {
     console.log("loading local .env");
   }
 
-  console.log("override runtime, from", process.env.RUNTIME, "to", runtime);
-  process.env.RUNTIME = runtime; // must call before creating env-manager
-
   globalThis.envManager = new EnvManager();
 
   /** Logger */
   globalThis.log = new Log(
-    env.logLevel,
+    envManager.get("LOG_LEVEL"),
     isProd // set console level only in prod.
   );
 
@@ -66,16 +62,16 @@ async function setup() {
 
   if (isProd || _TLS_CRT_AND_KEY) {
     const [tlsKey, tlsCrt] = getTLSfromEnv(_TLS_CRT_AND_KEY);
-    envManager.set("tlsKey", tlsKey);
-    envManager.set("tlsCrt", tlsCrt);
+    envManager.set("TLS_KEY", tlsKey);
+    envManager.set("TLS_CRT", tlsCrt);
     log.i("env (fly) tls setup");
   } else {
     const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
       process.env.TLS_KEY_PATH,
       process.env.TLS_CRT_PATH
     );
-    envManager.set("tlsKey", tlsKey);
-    envManager.set("tlsCrt", tlsCrt);
+    envManager.set("TLS_KEY", tlsKey);
+    envManager.set("TLS_CRT", tlsCrt);
     log.i("dev (local) tls setup");
   }
 
