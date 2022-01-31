@@ -17,7 +17,7 @@ import Log from "../log.js";
 // since server-workers.js fires "prepare" on every request
 function setup() {
   // if this file execs... assume we're on workers.
-  const isProd = globalThis.WORKER_ENV === "production";
+  const isProd = globalThis.wenv.WORKER_ENV === "production";
 
   if (!globalThis.envManager) {
     globalThis.envManager = new EnvManager();

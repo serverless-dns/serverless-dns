@@ -19,6 +19,7 @@ export default {
 };
 
 function serveDoh(request, env, ctx) {
+  // TODO: a saner way to globalThis: env in a parcel sent to "prepare"?
   globalThis.wenv = env;
   // on Workers, the network-context is only available in an event listener
   // and so, publish system prepare from here instead of from main which
