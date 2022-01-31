@@ -511,125 +511,95 @@ class Log {
         this.level = level;
     }
 }
-const _ENV_VAR_MAPPINGS = {
-    runTime: {
-        name: "RUNTIME",
-        type: "string"
-    },
-    runTimeEnv: {
-        name: {
-            worker: "WORKER_ENV",
-            node: "NODE_ENV",
-            deno: "DENO_ENV"
-        },
+const defaults = {
+    RUNTIME: {
         type: "string",
-        default: {
-            worker: "development",
-            node: "development",
-            deno: "development"
-        }
+        default: _determineRuntime()
     },
-    cloudPlatform: {
-        name: "CLOUD_PLATFORM",
+    WORKER_ENV: {
+        type: "string",
+        default: "development"
+    },
+    DENO_ENV: {
+        type: "string",
+        default: "development"
+    },
+    NODE_ENV: {
+        type: "string",
+        default: "development"
+    },
+    CLOUD_PLATFORM: {
         type: "string",
         default: "fly"
     },
-    logLevel: {
-        name: "LOG_LEVEL",
+    LOG_LEVEL: {
         type: "string",
         default: "debug"
     },
-    blocklistUrl: {
-        name: "CF_BLOCKLIST_URL",
+    CF_BLOCKLIST_URL: {
         type: "string",
         default: "https://dist.rethinkdns.com/blocklists/"
     },
-    latestTimestamp: {
-        name: "CF_LATEST_BLOCKLIST_TIMESTAMP",
+    CF_LATEST_BLOCKLIST_TIMESTAMP: {
         type: "string",
         default: "1638959365361"
     },
-    dnsResolverUrl: {
-        name: "CF_DNS_RESOLVER_URL",
+    CF_DNS_RESOLVER_URL: {
         type: "string",
         default: "https://cloudflare-dns.com/dns-query"
     },
-    secondaryDohResolver: {
-        name: "CF_DNS_RESOLVER_URL_2",
+    CF_DNS_RESOLVER_URL_2: {
         type: "string",
         default: "https://dns.google/dns-query"
     },
-    workerTimeout: {
-        name: "WORKER_TIMEOUT",
+    WORKER_TIMEOUT: {
         type: "number",
         default: "10000"
     },
-    fetchTimeout: {
-        name: "CF_BLOCKLIST_DOWNLOAD_TIMEOUT",
+    CF_BLOCKLIST_DOWNLOAD_TIMEOUT: {
         type: "number",
         default: "5000"
     },
-    tdNodecount: {
-        name: "TD_NODE_COUNT",
+    TD_NODE_COUNT: {
         type: "number",
         default: "42112224"
     },
-    tdParts: {
-        name: "TD_PARTS",
+    TD_PARTS: {
         type: "number",
         default: "2"
     },
-    cacheTtl: {
-        name: "CACHE_TTL",
+    CACHE_TTL: {
         type: "number",
         default: "1800"
     }
 };
-function _getRuntimeEnv(runtime) {
-    console.info("Loading env. from runtime:", runtime);
+function defaultEnv() {
     const env = {};
-    for (const [key, mappedKey] of Object.entries(_ENV_VAR_MAPPINGS)){
-        let name3 = null;
-        let type = null;
-        let val = null;
+    for (const [key, mappedKey] of Object.entries(defaults)){
         if (typeof mappedKey !== "object") continue;
-        if (typeof mappedKey.name === "object") {
-            name3 = mappedKey.name[runtime];
-        } else {
-            name3 = mappedKey.name;
-        }
-        if (typeof mappedKey.default === "object") {
-            val = mappedKey.default[runtime];
-        } else {
-            val = mappedKey.default;
-        }
-        type = mappedKey.type;
-        if (!type) {
-            console.debug(runtime, "untyped env mapping:", key, mappedKey);
+        const type = mappedKey.type;
+        const val = mappedKey.default;
+        if (!type || val == null) {
+            console.debug(key, "incomplete env val:", mappedKey);
             continue;
         }
-        if (runtime === "node") env[key] = process.env[name3];
-        else if (runtime === "deno") env[key] = name3 && Deno.env.get(name3);
-        else if (runtime === "worker") env[key] = globalThis[name3];
-        else throw new Error(`unsupported runtime: ${runtime}`);
-        if (env[key] == null && val != null) {
-            console.warn(key, "env[key] default value:", val);
-            env[key] = val;
-        }
-        if (type === "boolean") env[key] = env[key] === "true";
-        else if (type === "number") env[key] = Number(env[key]);
-        else if (type === "string") env[key] = env[key] || "";
-        else throw new Error(`unsupported type: ${type}`);
-        console.debug("Added", key, env[key]);
+        env[key] = caststr(val, type);
     }
     return env;
+}
+function caststr(x, typ) {
+    if (typeof x === typ) return x;
+    if (typ === "boolean") return x === "true";
+    else if (typ === "number") return Number(x);
+    else if (typ === "string") return x && x + "" || "";
+    else throw new Error(`unsupported type: ${typ}`);
 }
 function _determineRuntime() {
     if (typeof Deno !== "undefined") {
         return Deno.env.get("RUNTIME") || "deno";
     }
+    if (globalThis.wenv) return wenv.RUNTIME || "worker";
     if (typeof process !== "undefined") {
-        if (globalThis.RUNTIME) return globalThis.RUNTIME;
         if (process.env) return process.env.RUNTIME || "node";
     }
     return null;
@@ -641,38 +611,31 @@ class EnvManager {
         this.load();
     }
     load() {
-        const renv = _getRuntimeEnv(this.runtime);
-        if (this.runtime === "deno" && !renv.runTime) {
-            renv.runTime = "deno";
-            console.debug("Added", "runTime", renv.runTime);
-        }
-        globalThis.env = renv;
-        for (const [k, v] of Object.entries(renv)){
+        const d = defaultEnv(this.runtime);
+        for (const [k, v] of Object.entries(d)){
             this.envMap.set(k, v);
         }
-        console.debug("Env loaded: ", JSON.stringify(renv));
+        console.debug("defaults: ", JSON.stringify(d));
     }
-    getMap() {
-        return this.envMap;
-    }
-    toObject() {
-        return Object.fromEntries(this.envMap);
-    }
-    get(key) {
-        const v = this.envMap.get(key);
-        if (v) return v;
+    get(k) {
+        let v = null;
         if (this.runtime === "node") {
-            return process.env[key];
+            v = process.env[k];
         } else if (this.runtime === "deno") {
-            return Deno.env.get(key);
+            v = Deno.env.get(k);
         } else if (this.runtime === "worker") {
-            return globalThis[key];
+            v = globalThis.wenv[k];
         }
-        return null;
+        if (v == null) {
+            v = this.envMap.get(k);
+        }
+        const m = defaults[k];
+        if (m && v != null) v = caststr(v, m.type);
+        return v;
     }
-    set(key, value) {
-        this.envMap.set(key, value);
-        globalThis.env[key] = value;
+    set(k, v, typ) {
+        typ = typ || "string";
+        this.envMap.set(k, caststr(v, typ));
     }
 }
 ((main)=>{
@@ -688,13 +651,8 @@ function setup() {
     } catch (e) {
         console.warn(".env missing => ", e.name, e.message);
     }
-    try {
-        Deno.env.set("RUNTIME", "deno");
-    } catch (e1) {
-        console.warn("Deno.env.set() => ", e1.name, e1.message);
-    }
     window.envManager = new EnvManager();
-    window.log = new Log(window.env.logLevel, isProd);
+    window.log = new Log(window.envManager.get("LOG_LEVEL"), isProd);
     pub("ready");
 }
 const hexTable = new TextEncoder().encode("0123456789abcdef");
@@ -974,11 +932,11 @@ const osType = (()=>{
 })();
 class NodeErrorAbstraction extends Error {
     code;
-    constructor(name4, code, message){
+    constructor(name3, code, message){
         super(message);
         this.code = code;
-        this.name = name4;
-        this.stack = this.stack && `${name4} [${this.code}]${this.stack.slice(20)}`;
+        this.name = name3;
+        this.stack = this.stack && `${name3} [${this.code}]${this.stack.slice(20)}`;
     }
     toString() {
         return `${this.name} [${this.code}]: ${this.message}`;
@@ -1026,15 +984,15 @@ class ERR_OUT_OF_RANGE extends RangeError {
     code = "ERR_OUT_OF_RANGE";
     constructor(str, range, received){
         super(`The value of "${str}" is out of range. It must be ${range}. Received ${received}`);
-        const { name: name5  } = this;
-        this.name = `${name5} [${this.code}]`;
+        const { name: name4  } = this;
+        this.name = `${name4} [${this.code}]`;
         this.stack;
-        this.name = name5;
+        this.name = name4;
     }
 }
 class ERR_BUFFER_OUT_OF_BOUNDS extends NodeRangeError {
-    constructor(name6){
-        super("ERR_BUFFER_OUT_OF_BOUNDS", name6 ? `"${name6}" is outside of buffer bounds` : "Attempt to access memory outside buffer bounds");
+    constructor(name5){
+        super("ERR_BUFFER_OUT_OF_BOUNDS", name5 ? `"${name5}" is outside of buffer bounds` : "Attempt to access memory outside buffer bounds");
     }
 }
 const windows = [
@@ -3227,8 +3185,8 @@ function toString(type) {
     }
     return "UNKNOWN_" + type;
 }
-function toType(name7) {
-    switch(name7.toUpperCase()){
+function toType(name6) {
+    switch(name6.toUpperCase()){
         case "A":
             return 1;
         case "NULL":
@@ -3324,7 +3282,7 @@ function toType(name7) {
         case "HTTPS":
             return 65;
     }
-    if (name7.toUpperCase().startsWith("UNKNOWN_")) return parseInt(name7.slice(8));
+    if (name6.toUpperCase().startsWith("UNKNOWN_")) return parseInt(name6.slice(8));
     return 0;
 }
 "use strict";
@@ -3419,8 +3377,8 @@ function toString3(klass) {
     }
     return "UNKNOWN_" + klass;
 }
-function toClass(name8) {
-    switch(name8.toUpperCase()){
+function toClass(name7) {
+    switch(name7.toUpperCase()){
         case "IN":
             return 1;
         case "CS":
@@ -3471,14 +3429,14 @@ function toString4(type) {
     }
     return `OPTION_${type}`;
 }
-function toCode(name9) {
-    if (typeof name9 === "number") {
-        return name9;
+function toCode(name8) {
+    if (typeof name8 === "number") {
+        return name8;
     }
-    if (!name9) {
+    if (!name8) {
         return -1;
     }
-    switch(name9.toUpperCase()){
+    switch(name8.toUpperCase()){
         case "OPTION_0":
             return 0;
         case "LLQ":
@@ -3514,7 +3472,7 @@ function toCode(name9) {
         case "OPTION_65535":
             return 65535;
     }
-    const m = name9.match(/_(\d+)$/);
+    const m = name8.match(/_(\d+)$/);
     if (m) {
         return parseInt(m[1], 10);
     }
@@ -3540,8 +3498,8 @@ function toString5(type) {
     }
     return "key" + type;
 }
-function toKey(name10) {
-    switch(name10.toLowerCase()){
+function toKey(name9) {
+    switch(name9.toLowerCase()){
         case "mandatory":
             return 0;
         case "alpn":
@@ -3557,7 +3515,7 @@ function toKey(name10) {
         case "ipv6hint":
             return 6;
     }
-    if (name10.toLowerCase().startsWith("key")) return parseInt(name10.slice(3));
+    if (name9.toLowerCase().startsWith("key")) return parseInt(name9.slice(3));
     throw "Invalid svcparam key";
 }
 "use strict";
@@ -5353,52 +5311,66 @@ function decodeList(list, enc, buf, offset) {
     return offset;
 }
 function onDenoDeploy() {
-    return env && env.cloudPlatform === "deno-deploy";
+    if (!envManager) return false;
+    return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
 function hasHttpCache() {
     return isWorkers();
 }
 function isWorkers() {
-    return env && env.runTime === "worker";
+    if (!envManager) return false;
+    return envManager.get("RUNTIME") === "worker";
 }
 function isNode() {
-    return env && env.runTime === "node";
+    if (!envManager) return false;
+    return envManager.get("RUNTIME") === "node";
 }
 function isDeno() {
-    return env && env.runTime === "deno";
+    if (!envManager) return false;
+    return envManager.get("RUNTIME") === "deno";
 }
 function workersTimeout(missing = 0) {
-    return env && env.workerTimeout || missing;
+    if (!envManager) return missing;
+    return envManager.get("WORKER_TIMEOUT") || missing;
 }
 function downloadTimeout(missing = 0) {
-    return env && env.fetchTimeout || missing;
+    if (!envManager) return missing;
+    return envManager.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT") || missing;
 }
 function blocklistUrl() {
-    if (!env) return null;
-    return env.blocklistUrl;
+    if (!envManager) return null;
+    return envManager.get("CF_BLOCKLIST_URL");
 }
 function timestamp() {
-    if (!env) return null;
-    return env.latestTimestamp;
+    if (!envManager) return null;
+    return envManager.get("CF_LATEST_BLOCKLIST_TIMESTAMP");
 }
 function tdNodeCount() {
-    if (!env) return null;
-    return env.tdNodecount;
+    if (!envManager) return null;
+    return envManager.get("TD_NODE_COUNT");
 }
 function tdParts() {
-    if (!env) return null;
-    return env.tdParts;
+    if (!envManager) return null;
+    return envManager.get("TD_PARTS");
+}
+function primaryDohResolver() {
+    if (!envManager) return null;
+    return envManager.get("CF_DNS_RESOLVER_URL");
+}
+function secondaryDohResolver() {
+    if (!envManager) return null;
+    return envManager.get("CF_DNS_RESOLVER_URL_2");
 }
 function dohResolvers() {
-    if (!env) return null;
+    if (!envManager) return null;
     if (isWorkers()) {
         return [
-            env.dnsResolverUrl,
-            env.secondaryDohResolver
+            primaryDohResolver(),
+            secondaryDohResolver()
         ];
     }
     return [
-        env.dnsResolverUrl
+        primaryDohResolver()
     ];
 }
 function tlsCrtPath() {
@@ -5410,8 +5382,18 @@ function tlsKeyPath() {
     return envManager.get("TLS_KEY_PATH") || "";
 }
 function cacheTtl() {
-    if (!env) return 0;
-    return env.cacheTtl;
+    if (!envManager) return 0;
+    return envManager.get("CACHE_TTL");
+}
+function isDotOverProxyProto() {
+    if (!envManager) return false;
+    return envManager.get("DOT_HAS_PROXY_PROTO") || false;
+}
+function dohBackendPort() {
+    return 8080;
+}
+function dotBackendPort() {
+    return isDotOverProxyProto() ? 10001 : 10000;
 }
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
@@ -6292,7 +6274,7 @@ function customTagToFlag(fl, blocklistFileTag) {
     }
     return res;
 }
-function createBlocklistFilter(tdbuf, rdbuf, blocklistFileTag, blocklistBasicConfig) {
+function createTrie(tdbuf, rdbuf, blocklistFileTag, blocklistBasicConfig) {
     initialize();
     const tag = {};
     const fl = [];
@@ -6375,7 +6357,7 @@ function copyOnlyBlockProperties(to, from) {
 function rdnsNoBlockResponse(flag = "", packet = null, raw = null, stamps = null) {
     return {
         isBlocked: false,
-        flag: "",
+        flag: flag || "",
         dnsPacket: packet,
         dnsBuffer: raw,
         stamps: stamps || {}
@@ -6440,9 +6422,9 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
 function applyBlocklists(uint1, uint2, flagVersion) {
     const blockedUint = intersect(uint1, uint2);
     if (blockedUint) {
-        return rdnsBlockResponse(getB64Flag1(blockedUint, flagVersion));
+        return rdnsBlockResponse(getB64Flag(blockedUint, flagVersion));
     } else {
-        return rdnsNoBlockResponse(getB64Flag1(uint2, flagVersion));
+        return rdnsNoBlockResponse(getB64Flag(uint2, flagVersion));
     }
 }
 function intersect(flag1, flag2) {
@@ -6487,7 +6469,7 @@ function intersect(flag1, flag2) {
 function clearbit(uint, pos) {
     return uint & ~(1 << pos);
 }
-function getB64Flag1(uint16Arr, flagVersion) {
+function getB64Flag(uint16Arr, flagVersion) {
     if (emptyArray(uint16Arr)) return "";
     const b64url = bytesToBase64Url(uint16Arr.buffer);
     if (flagVersion === "0") {
@@ -6649,7 +6631,7 @@ class BlocklistWrapper {
     initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
         this.isBlocklistUnderConstruction = true;
         this.startTime = Date.now();
-        const filter = createBlocklistFilter(td, rd, ftags, bconfig);
+        const filter = createTrie(td, rd, ftags, bconfig);
         this.blocklistFilter.load(filter.t, filter.ft, bconfig, ftags);
         this.isBlocklistUnderConstruction = false;
     }
@@ -6692,7 +6674,7 @@ class BlocklistWrapper {
         this.td = downloads[1];
         this.rd = downloads[2];
         this.ft = downloads[0];
-        const trie = createBlocklistFilter(this.td, this.rd, this.ft, blocklistBasicConfig);
+        const trie = createTrie(this.td, this.rd, this.ft, blocklistBasicConfig);
         resp.t = trie.t;
         resp.ft = trie.ft;
         resp.blocklistBasicConfig = blocklistBasicConfig;
@@ -7030,9 +7012,9 @@ class LfuCache {
 }
 class UserCache {
     constructor(size){
-        const name11 = "UserCache";
-        this.localCache = new LfuCache(name11, size);
-        this.log = log.withTags(name11);
+        const name10 = "UserCache";
+        this.localCache = new LfuCache(name10, size);
+        this.log = log.withTags(name10);
     }
     get(key) {
         return this.localCache.Get(key);
@@ -7176,9 +7158,9 @@ function updateTtl(packet, end) {
 }
 function makeId(packet) {
     if (!hasSingleQuestion(packet)) return null;
-    const name12 = normalizeName(packet.questions[0].name);
+    const name11 = normalizeName(packet.questions[0].name);
     const type = packet.questions[0].type;
-    return name12 + ":" + type;
+    return name11 + ":" + type;
 }
 function makeLocalCacheValue(b, metadata) {
     return {
@@ -7278,6 +7260,11 @@ class DNSResolver {
     }
     determineDohResolvers(preferredByUser) {
         if (this.transport) return [];
+        if (!this.bw.isBlocklistFilterSetup()) {
+            return [
+                primaryDohResolver()
+            ];
+        }
         if (!emptyString(preferredByUser)) {
             return [
                 preferredByUser
@@ -7295,10 +7282,10 @@ class DNSResolver {
         const dispatcher = param.dispatcher;
         const stamps = param.domainBlockstamp;
         let blf = this.bw.getBlocklistFilter();
-        let blfNotSetup = !isBlocklistFilterSetup(blf);
+        let isBlfSetup = isBlocklistFilterSetup(blf);
         const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
         this.blocker.blockQuestion(rxid, q, blInfo);
-        this.log.d(rxid, "q block?", q.isBlocked, "blf?", blfNotSetup);
+        this.log.d(rxid, "q block?", q.isBlocked, "blf?", isBlfSetup);
         if (q.isBlocked) {
             this.primeCache(rxid, q, dispatcher);
             return q;
@@ -7309,12 +7296,12 @@ class DNSResolver {
         ]);
         const promisedPromises = promisedTasks[0];
         const res = await Promise.any(promisedPromises);
-        if (blfNotSetup) {
+        if (!isBlfSetup) {
             this.log.d(rxid, "blocklist-filter downloaded and setup");
             blf = this.bw.getBlocklistFilter();
-            blfNotSetup = !isBlocklistFilterSetup(blf);
+            isBlfSetup = isBlocklistFilterSetup(blf);
         }
-        if (blfNotSetup) throw new Error(rxid + " no blocklist-filter");
+        if (!isBlfSetup) throw new Error(rxid + " no blocklist-filter");
         if (!res) throw new Error(rxid + " no upstream result");
         if (!res.ok) {
             const txt = res.text && await res.text();
@@ -7646,7 +7633,7 @@ function done() {
 class RethinkPlugin {
     constructor(event){
         if (!services.ready) throw new Error("services not ready");
-        this.parameter = new Map(envManager.getMap());
+        this.parameter = new Map();
         const rxid = rxidFromHeader(event.request.headers) || xid();
         this.registerParameter("rxid", "[rx." + rxid + "]");
         this.registerParameter("request", event.request);
@@ -7845,10 +7832,10 @@ let log1 = null;
 function systemUp() {
     const onDenoDeploy1 = onDenoDeploy();
     const dohConnOpts = {
-        port: 8080
+        port: dohBackendPort()
     };
     const dotConnOpts = {
-        port: 10000
+        port: dotBackendPort()
     };
     const tlsOpts = {
         certFile: tlsCrtPath(),
