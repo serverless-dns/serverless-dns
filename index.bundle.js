@@ -201,7 +201,7 @@ function vmid() {
     if (_vmid === "0") _vmid = uid().slice(1);
     return _vmid;
 }
-function microtaskBox(...fns) {
+function microtaskBox(fns, arg) {
     let enqueue = null;
     if (typeof queueMicroTask === "function") {
         enqueue = queueMicroTask;
@@ -209,18 +209,26 @@ function microtaskBox(...fns) {
         const p = Promise.resolve();
         enqueue = p.then.bind(p);
     }
-    enqueue(()=>safeBox(...fns)
+    enqueue(()=>safeBox(fns, arg)
     );
 }
-function safeBox(...fns) {
+function safeBox(fns, arg) {
+    if (typeof fns === "function") {
+        fns = [
+            fns
+        ];
+    }
     const r = [];
+    if (!isIterable(fns)) {
+        return r;
+    }
     for (const f of fns){
         if (typeof f !== "function") {
             r.push(null);
             continue;
         }
         try {
-            r.push(f());
+            r.push(f(arg));
         } catch (ignore) {
             r.push(null);
         }
@@ -267,6 +275,10 @@ function emptyObj(x) {
 function emptyMap(m) {
     if (!m) return true;
     return m.size === 0;
+}
+function isIterable(obj) {
+    if (obj == null) return false;
+    return typeof obj[Symbol.iterator] === "function";
 }
 function respond204() {
     return new Response(null, {
@@ -320,9 +332,9 @@ const waitGroup = new Map();
         waitGroup.set(se, new Set());
     }
 })();
-function pub(event) {
-    awaiters(event);
-    callbacks(event);
+function pub(event, parcel = undefined) {
+    awaiters(event, parcel);
+    callbacks(event, parcel);
 }
 function sub(event, cb) {
     const eventCallbacks = listeners.get(event);
@@ -348,28 +360,28 @@ function when(event, timeout1 = 0) {
         const tid = timeout1 > 0 ? timeout(timeout1, ()=>{
             reject(new Error(event + " elapsed " + timeout1));
         }) : -2;
-        const fulfiller = function() {
+        const fulfiller = function(parcel) {
             if (tid >= 0) clearTimeout(tid);
-            accept(event);
+            accept(parcel, event);
         };
         wg.add(fulfiller);
     });
 }
-function awaiters(event) {
+function awaiters(event, parcel) {
     const g = waitGroup.get(event);
     if (!g) return;
     if (stickyEvents.has(event)) {
         waitGroup.delete(event);
     }
-    safeBox(...g);
+    safeBox(g, parcel);
 }
-function callbacks(event) {
-    const eventCallbacks = listeners.get(event);
-    if (!eventCallbacks) return;
+function callbacks(event, parcel) {
+    const cbs = listeners.get(event);
+    if (!cbs) return;
     if (stickyEvents.has(event)) {
         listeners.delete(event);
     }
-    microtaskBox(...eventCallbacks);
+    microtaskBox(cbs, parcel);
 }
 const _LOG_LEVELS = new Map([
     "error",
