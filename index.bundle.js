@@ -7300,11 +7300,10 @@ class DNSResolver {
             return q;
         }
         const promisedTasks = await Promise.all([
-            this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket),
-            this.bw.init(rxid), 
+            this.bw.init(rxid),
+            this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket), 
         ]);
-        const promisedPromises = promisedTasks[0];
-        const res = await Promise.any(promisedPromises);
+        const res = promisedTasks[1];
         if (!isBlfSetup) {
             this.log.d(rxid, "blocklist-filter downloaded and setup");
             blf = this.bw.getBlocklistFilter();
@@ -7365,7 +7364,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
             this.log.e(rxid, "err when querying plain old dns", e.stack);
             promisedPromises.push(Promise.reject(e));
         }
-        return promisedPromises;
+        return Promise.any(promisedPromises);
     }
     try {
         this.log.d(rxid, "upstream cache");
@@ -7403,7 +7402,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
         this.log.e(rxid, "err doh2/fetch upstream", e.stack);
         promisedPromises.push(Promise.reject(e));
     }
-    return promisedPromises;
+    return Promise.any(promisedPromises);
 };
 DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
     const k = makeHttpCacheKey(packet);
