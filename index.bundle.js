@@ -201,13 +201,15 @@ function vmid() {
     if (_vmid === "0") _vmid = uid().slice(1);
     return _vmid;
 }
+const taskboxPromise = {
+    p: Promise.resolve()
+};
 function microtaskBox(fns, arg) {
     let enqueue = null;
-    if (typeof queueMicroTask === "function") {
-        enqueue = queueMicroTask;
+    if (typeof queueMicrotask === "function") {
+        enqueue = queueMicrotask;
     } else {
-        const p = Promise.resolve();
-        enqueue = p.then.bind(p);
+        enqueue = taskboxPromise.p.then.bind(p);
     }
     enqueue(()=>safeBox(fns, arg)
     );
