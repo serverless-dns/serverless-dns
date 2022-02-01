@@ -41,6 +41,14 @@ async function systemReady() {
   services.commandControl = new CommandControl(bw);
   services.dnsResolver = new DNSResolver(bw, cache);
 
+  await maybeSetupBlocklists(bw);
+
+  done();
+}
+
+async function maybeSetupBlocklists(bw) {
+  if (!envutil.hasDynamicImports()) return;
+
   if (envutil.isNode()) {
     const b = await import("./node/blocklists.js");
     await b.setup(bw);
@@ -48,8 +56,6 @@ async function systemReady() {
     const b = await import("./deno/blocklists.ts");
     await b.setup(bw);
   } // else: setup blocklists on-demand; for ex, on workers
-
-  done();
 }
 
 function done() {

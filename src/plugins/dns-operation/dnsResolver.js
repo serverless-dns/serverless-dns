@@ -25,6 +25,8 @@ export default class DNSResolver {
   }
 
   async lazyInit() {
+    if (!envutil.hasDynamicImports()) return;
+
     if (envutil.isNode() && !this.http2) {
       this.http2 = await import("http2");
       this.log.i("created custom http2 client");

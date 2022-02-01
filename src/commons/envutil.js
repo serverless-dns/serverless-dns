@@ -20,9 +20,20 @@ export function onDenoDeploy() {
   return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
 
+export function onCloudflare() {
+  if (!envManager) return false;
+
+  return envManager.get("CLOUD_PLATFORM") === "cloudflare";
+}
+
 export function hasDisk() {
   // got disk on test nodejs | deno envs and on fly
   return onFly() || (isNode() && !isProd()) || (isDeno() && !isProd());
+}
+
+export function hasDynamicImports() {
+  if (onDenoDeploy() || onCloudflare()) return false;
+  return true;
 }
 
 export function hasHttpCache() {
