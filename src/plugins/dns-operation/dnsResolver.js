@@ -119,6 +119,7 @@ export default class DNSResolver {
     // result1 = await arrayWrapper() :: outputs "Array[Promise{}]"
     // result2 = await result1[0] :: outputs "123"
     const promisedTasks = await Promise.all([
+      this.bw.init(rxid),
       this.resolveDnsUpstream(
         rxid,
         param.request,
@@ -126,11 +127,9 @@ export default class DNSResolver {
         rawpacket,
         decodedpacket
       ),
-      this.bw.init(rxid),
     ]);
 
-    const promisedPromises = promisedTasks[0];
-    const res = await Promise.any(promisedPromises);
+    const res = promisedTasks[1];
 
     if (!isBlfSetup) {
       this.log.d(rxid, "blocklist-filter downloaded and setup");
@@ -238,7 +237,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       promisedPromises.push(Promise.reject(e));
     }
 
-    return promisedPromises;
+    return Promise.any(promisedPromises);
   }
 
   try {
@@ -291,7 +290,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   }
 
   // Promise.any returns any rejected promise if none resolved; node v15+
-  return promisedPromises;
+  return Promise.any(promisedPromises);
 };
 
 DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
