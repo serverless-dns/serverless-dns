@@ -2,6 +2,7 @@
 // other modules.
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
+import { serve, serveTls } from "https://deno.land/std@0.123.0/http/server.ts";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
@@ -37,48 +38,42 @@ function systemUp() {
   startDotIfPossible();
 
   async function startDoh() {
-    // doc.deno.land/deno/stable/~/Deno.listenTls
-    // doc.deno.land/deno/stable/~/Deno.listen
-    const doh = terminateTls()
-      ? Deno.listenTls({
-          ...dohConnOpts,
-          ...tlsOpts,
-          ...httpOpts,
-        })
-      : Deno.listen({ ...dohConnOpts });
-
-    up("DoH", doh.addr as Deno.NetAddr);
-
-    // Connections to the listener will be yielded up as an async iterable.
-    for await (const conn of doh) {
-      log.d("DoH conn:", conn.remoteAddr);
-
-      // To not be blocking, handle each connection without awaiting
-      serveHttp(conn);
+    if (terminateTls()) {
+      serveTls(serveDoh, {
+        ...dohConnOpts,
+        ...tlsOpts,
+        ...httpOpts,
+      });
+    } else {
+      serve(serveDoh, { ...dohConnOpts });
     }
+
+    up("DoH", dohConnOpts);
   }
 
   async function startDotIfPossible() {
     // No DoT on Deno Deploy which supports only http workloads
     if (onDenoDeploy) return;
 
+    // doc.deno.land/deno/stable/~/Deno.listenTls
+    // doc.deno.land/deno/stable/~/Deno.listen
     const dot = terminateTls()
       ? Deno.listenTls({ ...dotConnOpts, ...tlsOpts })
       : Deno.listen({ ...dotConnOpts });
 
-    up("DoT (no blocklists)", dot.addr as Deno.NetAddr);
+    up("DoT (no blocklists)", dotConnOpts);
 
-    // TODO: Use the newer http/server API from Deno
+    // deno.land/manual@v1.11.3/runtime/http_server_apis#handling-connections
     for await (const conn of dot) {
       log.d("DoT conn:", conn.remoteAddr);
 
-      // To not be blocking, handle each connection without awaiting
+      // to not block the server and accept further conns, do not await
       serveTcp(conn);
     }
   }
 
-  function up(p: string, addr: Deno.NetAddr) {
-    log.i(p, `on [${addr.hostname}]:${addr.port}`, "tls?", terminateTls());
+  function up(p: string, opts: any) {
+    log.i("up", p, opts, "tls?", terminateTls());
   }
 
   function terminateTls() {
@@ -89,31 +84,14 @@ function systemUp() {
   }
 }
 
-async function serveHttp(conn: Deno.Conn) {
-  const httpConn = Deno.serveHttp(conn);
-
-  while (true) {
-    try {
-      const requestEvent = await httpConn.nextRequest();
-
-      if (!requestEvent) {
-        log.d("no more reqs, bail");
-        break;
-      }
-
-      // doc.deno.land/deno/stable/~/Deno.RequestEvent
-      // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
-      const req = requestEvent.request;
-      const rw = requestEvent.respondWith.bind(requestEvent);
-
-      const res = handleRequest(mkFetchEvent(req, rw));
-
-      await requestEvent.respondWith(res as Response | Promise<Response>);
-    } catch (e) {
-      // Client may close conn abruptly before a response could be sent
-      log.w("doh fail", e);
-      break;
-    }
+async function serveDoh(req: Request) {
+  try {
+    // doc.deno.land/deno/stable/~/Deno.RequestEvent
+    // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
+    return handleRequest(mkFetchEvent(req));
+  } catch (e) {
+    // Client may close conn abruptly before a response could be sent
+    log.w("doh fail", e);
   }
 }
 
@@ -191,8 +169,7 @@ async function resolveQuery(q: Uint8Array) {
   if (!bufutil.emptyBuf(ans)) {
     return new Uint8Array(ans);
   } else {
-    const servfail = dnsutil.servfailQ(bufutil.bufferOf(q));
-    return bufutil.arrayBufferOf(servfail);
+    return new Uint8Array(dnsutil.servfailQ(q));
   }
 }
 

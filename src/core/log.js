@@ -102,6 +102,7 @@ export default class Log {
         return that.endTime(n);
       },
       d: (...args) => {
+        // TODO: that.now when not on cloudPlatform=Cloudflare/DenoDeploy
         that.d(that.now(), "D", ...tags, ...args);
       },
       i: (...args) => {
