@@ -209,7 +209,7 @@ function microtaskBox(fns, arg) {
     if (typeof queueMicrotask === "function") {
         enqueue = queueMicrotask;
     } else {
-        enqueue = taskboxPromise.p.then.bind(p);
+        enqueue = taskboxPromise.p.then.bind(taskboxPromise.p);
     }
     enqueue(()=>safeBox(fns, arg)
     );
