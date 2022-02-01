@@ -5314,6 +5314,14 @@ function onDenoDeploy() {
     if (!envManager) return false;
     return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
+function onCloudflare() {
+    if (!envManager) return false;
+    return envManager.get("CLOUD_PLATFORM") === "cloudflare";
+}
+function hasDynamicImports() {
+    if (onDenoDeploy() || onCloudflare()) return false;
+    return true;
+}
 function hasHttpCache() {
     return isWorkers();
 }
@@ -7233,6 +7241,7 @@ class DNSResolver {
         this.log = log.withTags("DnsResolver");
     }
     async lazyInit() {
+        if (!hasDynamicImports()) return;
         if (isNode() && !this.http2) {
             this.http2 = await import("http2");
             this.log.i("created custom http2 client");
@@ -7617,6 +7626,11 @@ async function systemReady() {
     services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
     services.commandControl = new CommandControl(bw);
     services.dnsResolver = new DNSResolver(bw, cache);
+    await maybeSetupBlocklists(bw);
+    done();
+}
+async function maybeSetupBlocklists(bw) {
+    if (!hasDynamicImports()) return;
     if (isNode()) {
         const b = await import("./node/blocklists.js");
         await b.setup(bw);
@@ -7624,7 +7638,6 @@ async function systemReady() {
         const b = await import("./deno/blocklists.ts");
         await b.setup(bw);
     }
-    done();
 }
 function done() {
     services.ready = true;
