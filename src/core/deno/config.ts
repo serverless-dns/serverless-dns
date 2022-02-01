@@ -37,7 +37,7 @@ function setup() {
 
   window.log = new Log(
     window.envManager.get("LOG_LEVEL"),
-    isProd // set console level only in prod.
+    isProd // set console.log levels only in prod
   );
 
   system.pub("ready");

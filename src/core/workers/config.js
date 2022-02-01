@@ -15,18 +15,23 @@ import Log from "../log.js";
 
 // on Workers, setup is called for every new request,
 // since server-workers.js fires "prepare" on every request
-function setup() {
+function setup(arg) {
   // if this file execs... assume we're on workers.
-  const isProd = globalThis.wenv.WORKER_ENV === "production";
+  if (!arg) throw new Error("are we on workers?");
+  if (!arg.env) throw new Error("workers cannot be setup with empty env");
+
+  globalThis.wenv = arg.env;
 
   if (!globalThis.envManager) {
     globalThis.envManager = new EnvManager();
   }
 
+  const isProd = wenv.WORKER_ENV === "production";
+
   if (!globalThis.log) {
     globalThis.log = new Log(
       envManager.get("LOG_LEVEL"),
-      isProd // set console level only in prod.
+      isProd // set console.log levels only in prod
     );
   }
 

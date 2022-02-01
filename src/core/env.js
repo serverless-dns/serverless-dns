@@ -77,7 +77,7 @@ const defaults = {
   },
   CACHE_TTL: {
     type: "number",
-    default: "1800",
+    default: "1800", // 30m
   },
 };
 

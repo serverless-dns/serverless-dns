@@ -49,7 +49,7 @@ async function setup() {
   /** Logger */
   globalThis.log = new Log(
     envManager.get("LOG_LEVEL"),
-    isProd // set console level only in prod.
+    isProd // set console.log levels only in prod
   );
 
   /** TLS crt and key */

@@ -219,7 +219,7 @@ export function taskBox(fn) {
 // queues fn in a micro-task queue
 // ref: MDN: Web/API/HTML_DOM_API/Microtask_guide/In_depth
 // queue-task polyfill: stackoverflow.com/a/61605098
-export function microtaskBox(...fns) {
+export function microtaskBox(fns, arg) {
   let enqueue = null;
   if (typeof queueMicroTask === "function") {
     enqueue = queueMicroTask;
@@ -228,23 +228,32 @@ export function microtaskBox(...fns) {
     enqueue = p.then.bind(p);
   }
 
-  enqueue(() => safeBox(...fns));
+  enqueue(() => safeBox(fns, arg));
 }
 
 // TODO: safeBox for async fns with r.push(await f())?
-export function safeBox(...fns) {
+export function safeBox(fns, arg) {
+  if (typeof fns === "function") {
+    fns = [fns];
+  }
+
   const r = [];
+  if (!isIterable(fns)) {
+    return r;
+  }
+
   for (const f of fns) {
     if (typeof f !== "function") {
       r.push(null);
       continue;
     }
     try {
-      r.push(f());
+      r.push(f(arg));
     } catch (ignore) {
       r.push(null);
     }
   }
+
   return r;
 }
 
@@ -318,6 +327,13 @@ export function emptyMap(m) {
   // does not hold good on Deno
   // if (!m.__proto__.hasOwnProperty("size")) return true;
   return m.size === 0;
+}
+
+// stackoverflow.com/a/32538867
+function isIterable(obj) {
+  if (obj == null) return false;
+
+  return typeof obj[Symbol.iterator] === "function";
 }
 
 export function respond204() {

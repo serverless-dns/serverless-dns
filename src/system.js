@@ -35,9 +35,9 @@ const waitGroup = new Map();
 })();
 
 // fires an event
-export function pub(event) {
-  awaiters(event);
-  callbacks(event);
+export function pub(event, parcel = undefined) {
+  awaiters(event, parcel);
+  callbacks(event, parcel);
 }
 
 // invokes cb when event is fired
@@ -78,15 +78,15 @@ export function when(event, timeout = 0) {
             reject(new Error(event + " elapsed " + timeout));
           })
         : -2;
-    const fulfiller = function () {
+    const fulfiller = function (parcel) {
       if (tid >= 0) clearTimeout(tid);
-      accept(event);
+      accept(parcel, event);
     };
     wg.add(fulfiller);
   });
 }
 
-function awaiters(event) {
+function awaiters(event, parcel) {
   const g = waitGroup.get(event);
 
   if (!g) return;
@@ -96,22 +96,23 @@ function awaiters(event) {
     waitGroup.delete(event);
   }
 
-  util.safeBox(...g);
+  util.safeBox(g, parcel);
 }
 
-function callbacks(event) {
-  const eventCallbacks = listeners.get(event);
+function callbacks(event, parcel) {
+  const cbs = listeners.get(event);
 
-  if (!eventCallbacks) return;
+  if (!cbs) return;
 
   // listeners valid just the once for stickyEvents
   if (stickyEvents.has(event)) {
     listeners.delete(event);
   }
+
   // callbacks are queued async and don't block the caller. On Workers,
   // where IOs or timers require event-context aka network-context,
   // which is only available when fns are invoked in response to an
   // incoming request (through the fetch event handler), such callbacks
   // may not even fire. Instead use: awaiters and not callbacks.
-  util.microtaskBox(...eventCallbacks);
+  util.microtaskBox(cbs, parcel);
 }
