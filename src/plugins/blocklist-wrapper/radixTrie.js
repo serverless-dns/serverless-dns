@@ -8,6 +8,9 @@
 
 // impl based on S Hanov's succinct-trie: stevehanov.ca/blog/?id=120
 
+import * as util from "../../commons/util.js";
+import { TrieCache } from "./trie-cache.js";
+
 const BASE64 =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
 
@@ -624,6 +627,8 @@ FrozenTrie.prototype = {
     // The position of the first bit of the data in 0th node. In non-root
     // nodes, this would contain bitslen letters.
     this.letterStart = nodeCount * 2 + 1;
+
+    this.nodecache = new TrieCache();
   },
 
   /**
@@ -632,7 +637,12 @@ FrozenTrie.prototype = {
    */
   getNodeByIndex: function (index) {
     // todo: index less than letterStart?
-    return new FrozenTrieNode(this, index);
+    let ftnode = this.nodecache.get(index);
+    if (util.emptyObj(ftnode)) {
+      ftnode = new FrozenTrieNode(this, index);
+      util.microtaskBox(() => this.nodecache.put(index, ftnode));
+    } // else: cache-hit
+    return ftnode;
   },
 
   /**
@@ -650,10 +660,12 @@ FrozenTrie.prototype = {
   lookup: function (word) {
     const index = word.lastIndexOf(ENC_DELIM[0]);
     if (index > 0) word = word.slice(0, index); // : word.slice(index + 1)
+
     const debug = config.debug;
     let node = this.getRoot();
     let child;
     let returnValue = false;
+
     for (let i = 0; i < word.length; i++) {
       let isFlag = -1;
       let that;
@@ -666,6 +678,7 @@ FrozenTrie.prototype = {
           );
         }
       }
+
       do {
         that = node.getChild(isFlag + 1);
         if (!that.flag()) break;
