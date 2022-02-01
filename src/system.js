@@ -7,6 +7,8 @@
  */
 import * as util from "./commons/util.js";
 
+// Evaluate if EventTarget APIs can replace this hand-rolled impl
+// developers.cloudflare.com/workers/platform/changelog#2021-09-24
 // once emitted, they stick; firing off new listeners forever, just the once.
 const stickyEvents = new Set([
   // when process bring-up is done

@@ -139,6 +139,8 @@ export function timedOp(op, ms, cleanup = () => {}) {
   });
 }
 
+// TODO: Use AbortSignal.timeout (supported on Node and Deno, too)?
+// developers.cloudflare.com/workers/platform/changelog#2021-12-10
 export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   // aggregating promises is a valid use-case for the otherwise
   // "deferred promise anti-pattern". That is, using promise
@@ -210,6 +212,8 @@ export function vmid() {
   return _vmid;
 }
 
+// TODO: could be replaced with scheduler.wait
+// developers.cloudflare.com/workers/platform/changelog#2021-12-10
 // queues fn in a macro-task queue of the event-loop
 // exec order: github.com/nodejs/node/issues/22257
 export function taskBox(fn) {
@@ -225,7 +229,7 @@ export function microtaskBox(fns, arg) {
   if (typeof queueMicrotask === "function") {
     enqueue = queueMicrotask;
   } else {
-    enqueue = taskboxPromise.p.then.bind(p);
+    enqueue = taskboxPromise.p.then.bind(taskboxPromise.p);
   }
 
   enqueue(() => safeBox(fns, arg));
