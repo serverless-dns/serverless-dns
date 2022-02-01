@@ -219,13 +219,13 @@ export function taskBox(fn) {
 // queues fn in a micro-task queue
 // ref: MDN: Web/API/HTML_DOM_API/Microtask_guide/In_depth
 // queue-task polyfill: stackoverflow.com/a/61605098
+const taskboxPromise = { p: Promise.resolve() };
 export function microtaskBox(fns, arg) {
   let enqueue = null;
-  if (typeof queueMicroTask === "function") {
-    enqueue = queueMicroTask;
+  if (typeof queueMicrotask === "function") {
+    enqueue = queueMicrotask;
   } else {
-    const p = Promise.resolve();
-    enqueue = p.then.bind(p);
+    enqueue = taskboxPromise.p.then.bind(p);
   }
 
   enqueue(() => safeBox(fns, arg));
