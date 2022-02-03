@@ -5812,14 +5812,17 @@ class LfuCache {
 class TrieCache {
     constructor(){
         const name10 = "TrieNodeCache";
+        if (true) return;
         const size = Math.floor(tdNodeCount() * 0.2);
         this.localCache = new LfuCache(name10, size);
         this.log = log.withTags(name10);
     }
     get(key) {
+        if (true) return false;
         return this.localCache.Get(key);
     }
     put(key, val) {
+        if (true) return;
         try {
             this.localCache.Put(key, val);
         } catch (e) {
@@ -7352,8 +7355,8 @@ class DNSResolver {
         if (!res) throw new Error(rxid + " no upstream result");
         if (!res.ok) {
             const txt = res.text && await res.text();
-            this.log.d(rxid, "!OK", res.status, res.statusText, txt);
-            throw new Error(ans.status + " http err: " + res.statusText);
+            this.log.d(rxid, "!OK", res, txt);
+            throw new Error(txt + " http err: " + res);
         }
         const ans = await res.arrayBuffer();
         const r = await this.makeRdnsResponse(rxid, ans, blf, stamps);
