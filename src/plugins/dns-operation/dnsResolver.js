@@ -142,8 +142,8 @@ export default class DNSResolver {
 
     if (!res.ok) {
       const txt = res.text && (await res.text());
-      this.log.d(rxid, "!OK", res.status, res.statusText, txt);
-      throw new Error(ans.status + " http err: " + res.statusText);
+      this.log.d(rxid, "!OK", res, txt);
+      throw new Error(txt + " http err: " + res);
     }
 
     const ans = await res.arrayBuffer();
@@ -211,12 +211,19 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
   query,
   packet
 ) {
+  // Promise.any on promisedPromises[] only works if there are
+  // zero awaits in this function or any of its downstream calls.
+  // Otherwise, the first reject in promisedPromises[], before
+  // any statement in the call-stack awaits, would throw unhandled
+  // error, since the event loop would have 'ticked' and Promise.any
+  // on promisedPromises[] would still not have been executed, as it
+  // is the last statement of this function (which would have eaten up
+  // all rejects as long as there was one resolved promise).
   const promisedPromises = [];
 
   // if no doh upstreams set, resolve over plain-old dns
   if (util.emptyArray(resolverUrls)) {
-    // do not let exceptions passthrough to the caller which
-    // expects promise{[array-of-promises]} and not just promise{}
+    // do not let exceptions passthrough to the caller
     try {
       const q = bufutil.bufferOf(query);
 
