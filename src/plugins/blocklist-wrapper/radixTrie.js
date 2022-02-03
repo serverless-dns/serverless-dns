@@ -640,7 +640,7 @@ FrozenTrie.prototype = {
     let ftnode = this.nodecache.get(index);
     if (util.emptyObj(ftnode)) {
       ftnode = new FrozenTrieNode(this, index);
-      util.microtaskBox(() => this.nodecache.put(index, ftnode));
+      this.nodecache.put(index, ftnode);
     } // else: cache-hit
     return ftnode;
   },
