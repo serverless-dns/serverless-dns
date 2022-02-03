@@ -6283,8 +6283,7 @@ FrozenTrie.prototype = {
         let ftnode = this.nodecache.get(index);
         if (emptyObj(ftnode)) {
             ftnode = new FrozenTrieNode(this, index);
-            microtaskBox(()=>this.nodecache.put(index, ftnode)
-            );
+            this.nodecache.put(index, ftnode);
         }
         return ftnode;
     },
