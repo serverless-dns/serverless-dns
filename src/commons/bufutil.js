@@ -62,7 +62,7 @@ export function decodeFromBinaryArray(b) {
 }
 
 export function emptyBuf(b) {
-  return !b || (!!b.byteLength && b.byteLength <= 0);
+  return !b || (!b.byteLength && b.byteLength <= 0) || false;
 }
 
 // stackoverflow.com/a/31394257
@@ -76,7 +76,7 @@ export function arrayBufferOf(buf) {
 
 // stackoverflow.com/a/17064149
 export function bufferOf(arrayBuf) {
-  if (!arrayBuf) return null;
+  if (emptyBuf(arrayBuf)) return null;
 
   return Buffer.from(new Uint8Array(arrayBuf));
 }
