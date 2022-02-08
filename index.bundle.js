@@ -541,6 +541,14 @@ const defaults = {
         type: "string",
         default: "fly"
     },
+    TLS_KEY_PATH: {
+        type: "string",
+        default: "test/data/tls/dns.rethinkdns.localhost.key"
+    },
+    TLS_CRT_PATH: {
+        type: "string",
+        default: "test/data/tls/dns.rethinkdns.localhost.crt"
+    },
     LOG_LEVEL: {
         type: "string",
         default: "debug"
