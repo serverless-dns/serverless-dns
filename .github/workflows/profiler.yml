@@ -22,6 +22,15 @@ on:
         options:
         - node
         - deno
+      mode:
+        description: "p1 (fetch) / p2 (http2) / p3 (udp/tcp)"
+        required: false
+        default: 'p1'
+        type: choice
+        options:
+        - p1
+        - p2
+        - p3
       maxtime:
         description: "run time (in seconds)"
         required: false
@@ -32,6 +41,7 @@ env:
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '60s'
   NODE_VER: '17.x'
+  MODE: 'p1'
   QDOH: 'q'
 
 jobs:
@@ -85,14 +95,15 @@ jobs:
           sudo apt update
           sudo apt install q
 
+      # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
+      # timeout exit-code: stackoverflow.com/a/60996259
       - name: Run profiler
         if: success()
         run: |
-          # timeout exit-code: stackoverflow.com/a/60996259
-          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" p1 || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
+          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" "$MODE" || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
         shell: bash
-        # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
         env:
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
+          MODE: $ {{ github.event.inputs.mode || env.MODE }}
           TLS_KEY_PATH: 'test/data/tls/dns.rethinkdns.localhost.key'
           TLS_CRT_PATH: 'test/data/tls/dns.rethinkdns.localhost.crt'

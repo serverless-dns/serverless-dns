@@ -113,6 +113,25 @@ elif [ $profiler = "profile2" ] || [ $profiler = "p2" ]; then
     $start &
   sleep 1
   reqs "$waitsec"
+elif [ $profiler = "profile3" ] || [ $profiler = "p3" ]; then
+  if [ ${qdoh} = "invalid" ]; then
+    echo "Specify env QDOH path"
+    exit 1
+  fi
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "Profile3 only valid on Node"
+    exit 1
+  fi
+
+  echo "profiler: running podns";
+  profilerbanner;
+  DISABLE_BLOCKLISTS=true \
+    PROFILE_DNS_RESOLVES=true \
+    NODE_DOH_ONLY=false \
+    LOG_LEVEL=warn \
+    $start &
+  sleep 1
+  reqs "$waitsec"
 else
   banner;
   bgcmd "$start"
