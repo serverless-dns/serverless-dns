@@ -63,7 +63,9 @@ jobs:
         shell: bash
 
       - name: Deps
-        run: npm ci
+        run: npm i
+        # npm ci is faster, but it needs package-lock.json which isn't in main
+        # run: npm ci
       - run: npm run build --if-present
 
       # github.com/natesales/repo
