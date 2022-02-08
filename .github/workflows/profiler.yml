@@ -12,22 +12,27 @@ on:
       git-ref:
         description: "git tip: branch/ref/tag"
         required: false
-        default: "main"
+        default: 'main'
+      # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
       js-runtime:
         description: "proc: deno/node"
         required: false
-        default: "node"
+        default: 'node'
+        type: choice
+        options:
+        - node
+        - deno
       maxtime:
         description: "run time (in seconds)"
         required: false
-        default: "60s"
+        default: '60s'
 
 env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
-  JS_RUNTIME: ${{ github.event.inputs.js-runtime || "node" }}
-  MAXTIME_SEC: ${{ github.event.inputs.maxtime || "60s" }}
-  NODE_VER: "17.x"
-  QDOH: {{ "q" }}
+  JS_RUNTIME: 'node'
+  MAXTIME_SEC: '60s'
+  NODE_VER: '17.x'
+  QDOH: 'q'
 
 jobs:
   deploy:
@@ -74,3 +79,7 @@ jobs:
         run: |
           timeout $MAXTIME_SEC ./run $JS_RUNTIME p1
         shell: bash
+        # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
+        env:
+          JS_RUNTIME: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
+          MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
