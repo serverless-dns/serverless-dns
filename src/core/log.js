@@ -9,16 +9,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { uid } from "../commons/util.js";
+import { uid, stub } from "../commons/util.js";
 
 /**
  * @typedef {'error'|'warn'|'info'|'timer'|'debug'} LogLevels
  */
 
 // high "error" (4); low "debug" (0)
-const _LOG_LEVELS = new Map(
-  ["error", "warn", "info", "timer", "debug"].reverse().map((l, i) => [l, i])
-);
+const _LOG_LEVELS = new Set(["error", "warn", "info", "timer", "debug"]);
 
 /**
  * Configure console level.
@@ -32,15 +30,15 @@ const _LOG_LEVELS = new Map(
 function _setConsoleLevel(level) {
   switch (level) {
     case "error":
-      globalThis.console.warn = () => null;
+      globalThis.console.warn = stub();
     case "warn":
-      globalThis.console.info = () => null;
+      globalThis.console.info = stub();
     case "info":
-      globalThis.console.time = () => null;
-      globalThis.console.timeEnd = () => null;
-      globalThis.console.timeLog = () => null;
+      globalThis.console.time = stub();
+      globalThis.console.timeEnd = stub();
+      globalThis.console.timeLog = stub();
     case "timer":
-      globalThis.console.debug = () => null;
+      globalThis.console.debug = stub();
     case "debug":
       break;
     default:
@@ -60,30 +58,35 @@ export default class Log {
    * Sets log level for the current instance.
    * Default='debug', so as default instance (`new Log()`) is a pure alias.
    * If console level has been set, log level cannot be lower than it.
-   * @param {LogLevels} [level] - log level
-   * @param {boolean} [isConsoleLevel=false] - Set console level to `level`
+   * @param {{
+   * level: string,
+   * levelize: boolean,
+   * withTimestamps: boolean
+   * }} - options
    */
-  constructor(level, isConsoleLevel) {
+  constructor({ level = "debug", levelize = false, withTimestamps = false }) {
     if (!_LOG_LEVELS.has(level)) level = "debug";
-    if (isConsoleLevel && !console.level) _setConsoleLevel(level);
+    if (levelize && !console.level) _setConsoleLevel(level);
 
     this.l = console.log;
     this.log = console.log;
+    this.logTimestamps = withTimestamps;
+
     this.setLevel(level);
   }
 
   _resetLevel() {
-    this.d = () => null;
-    this.debug = () => null;
-    this.lapTime = () => null;
-    this.startTime = () => null;
-    this.endTime = () => null;
-    this.i = () => null;
-    this.info = () => null;
-    this.w = () => null;
-    this.warn = () => null;
-    this.e = () => null;
-    this.error = () => null;
+    this.d = stub();
+    this.debug = stub();
+    this.lapTime = stub();
+    this.startTime = stub();
+    this.endTime = stub();
+    this.i = stub();
+    this.info = stub();
+    this.w = stub();
+    this.warn = stub();
+    this.e = stub();
+    this.error = stub();
   }
 
   withTags(...tags) {
@@ -94,25 +97,35 @@ export default class Log {
       },
       startTime: (n, ...r) => {
         const tid = that.startTime(n);
-        that.d(that.now(), "T", ...tags, "create", tid, ...r);
+        that.d(that.now() + " T", ...tags, "create", tid, ...r);
         return tid;
       },
       endTime: (n, ...r) => {
-        that.d(that.now(), "T", ...tags, "end", n, ...r);
+        that.d(that.now() + " T", ...tags, "end", n, ...r);
         return that.endTime(n);
       },
       d: (...args) => {
-        // TODO: that.now when not on cloudPlatform=Cloudflare/DenoDeploy
-        that.d(that.now(), "D", ...tags, ...args);
+        that.d(that.now() + " D", ...tags, ...args);
       },
       i: (...args) => {
-        that.i(that.now(), "I", ...tags, ...args);
+        that.i(that.now() + " I", ...tags, ...args);
       },
       w: (...args) => {
-        that.w(that.now(), "W", ...tags, ...args);
+        that.w(that.now() + " W", ...tags, ...args);
       },
       e: (...args) => {
-        that.e(that.now(), "E", ...tags, ...args);
+        that.e(that.now() + " E", ...tags, ...args);
+      },
+      q: (...args) => {
+        that.l(that.now() + " Q", ...tags, ...args);
+      },
+      qStart: (...args) => {
+        that.l(that.now() + " Q", ...tags, that.border());
+        that.l(that.now() + " Q", ...tags, ...args);
+      },
+      qEnd: (...args) => {
+        that.l(that.now() + " Q", ...tags, ...args);
+        that.l(that.now() + " Q", ...tags, that.border());
       },
       tag: (t) => {
         tags.push(t);
@@ -121,7 +134,12 @@ export default class Log {
   }
 
   now() {
-    return new Date().toISOString();
+    if (this.logTimestamps) return new Date().toISOString();
+    else return "";
+  }
+
+  border() {
+    return "-------------------------------";
   }
 
   /**
@@ -131,13 +149,6 @@ export default class Log {
    */
   setLevel(level) {
     if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
-
-    if (
-      console.level &&
-      _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)
-    ) {
-      throw new Error(`(log='${level}') < (console='${console.level}')`);
-    }
 
     this._resetLevel();
 
@@ -164,6 +175,7 @@ export default class Log {
         this.e = console.error;
         this.error = console.error;
     }
+
     this.level = level;
   }
 }

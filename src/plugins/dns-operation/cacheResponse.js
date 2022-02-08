@@ -60,7 +60,8 @@ export class DNSCacheResponder {
     // on Cloudflare, which not only has "free" egress, but also different
     // runtime (faster hw and sw) and deployment model (v8 isolates).
     const blf = this.bw.getBlocklistFilter();
-    const onlyLocal = rdnsutil.isBlocklistFilterSetup(blf);
+    const onlyLocal =
+      this.bw.disabled() || rdnsutil.isBlocklistFilterSetup(blf);
 
     const k = cacheutil.makeHttpCacheKey(packet);
     if (!k) return noAnswer;

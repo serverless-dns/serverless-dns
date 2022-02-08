@@ -406,7 +406,7 @@ export function mkFetchEvent(r, ...fns) {
   };
 }
 
-function stub(...args) {
+export function stub(...args) {
   return (...args) => {
     /* no-op */
   };

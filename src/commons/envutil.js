@@ -175,3 +175,40 @@ export function dotBackendPort() {
 export function dotProxyProtoBackendPort() {
   return isDotOverProxyProto() ? 10000 : 0;
 }
+
+export function profileDnsResolves() {
+  if (!envManager) return false;
+
+  return envManager.get("PROFILE_DNS_RESOLVES") || false;
+}
+
+export function forceDoh() {
+  if (!envManager) return true;
+
+  // on other runtimes, continue using doh
+  if (!isNode()) return true;
+
+  // on node, default to using plain old dns
+  return envManager.get("NODE_DOH_ONLY") || false;
+}
+
+export function avoidFetch() {
+  if (!envManager) return false;
+
+  // on other runtimes, continue using fetch
+  if (!isNode()) return false;
+
+  // on node, default to avoiding fetch
+  return envManager.get("NODE_AVOID_FETCH") || true;
+}
+
+export function disableDnsCache() {
+  // disable when profiling dns resolutions
+  return profileDnsResolves();
+}
+
+export function disableBlocklists() {
+  if (!envManager) return false;
+
+  return envManager.get("DISABLE_BLOCKLISTS") || false;
+}

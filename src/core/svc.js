@@ -31,7 +31,7 @@ export const services = {
 async function systemReady() {
   if (services.ready) return;
 
-  log.i("svc: systemReady");
+  log.i("svc", "systemReady");
 
   const bw = new BlocklistWrapper();
   const cache = new DnsCache(dnsutil.cacheSize());
@@ -48,6 +48,10 @@ async function systemReady() {
 
 async function maybeSetupBlocklists(bw) {
   if (!envutil.hasDynamicImports()) return;
+  if (bw.disabled()) {
+    log.w("svc", "blocklists disabled");
+    return;
+  }
 
   if (envutil.isNode()) {
     const b = await import("./node/blocklists.js");

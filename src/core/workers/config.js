@@ -29,10 +29,11 @@ function setup(arg) {
   const isProd = wenv.WORKER_ENV === "production";
 
   if (!globalThis.log) {
-    globalThis.log = new Log(
-      envManager.get("LOG_LEVEL"),
-      isProd // set console.log levels only in prod
-    );
+    globalThis.log = new Log({
+      level: envManager.get("LOG_LEVEL"),
+      levelize: isProd, // levelize only in prod
+      withTimestamps: false, // no need to log ts on workers
+    });
   }
 
   // on Workers, the network-context isn't available in global-scope

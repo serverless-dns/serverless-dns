@@ -27,6 +27,8 @@ async function setup() {
   // if this file execs... assume we're on nodejs.
   const isProd = process.env.NODE_ENV === "production";
   const onFly = process.env.CLOUD_PLATFORM === "fly";
+  const profiling = process.env.PROFILE_DNS_RESOLVES === "true";
+
   let devutils = null;
   let dotenv = null;
 
@@ -47,10 +49,11 @@ async function setup() {
   globalThis.envManager = new EnvManager();
 
   /** Logger */
-  globalThis.log = new Log(
-    envManager.get("LOG_LEVEL"),
-    isProd // set console.log levels only in prod
-  );
+  globalThis.log = new Log({
+    level: envManager.get("LOG_LEVEL"),
+    levelize: isProd || profiling, // levelize if prod or profiling
+    withTimestamps: true, // always log timestamps on node
+  });
 
   /** TLS crt and key */
   // Raw TLS CERT and KEY are stored (base64) in an env var for fly deploys

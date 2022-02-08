@@ -23,11 +23,15 @@ export class BlocklistWrapper {
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
     this.exceptionStack = "";
+    this.noop = envutil.disableBlocklists();
+
     this.log = log.withTags("BlocklistWrapper");
+
+    this.log.w("disabled?", this.noop);
   }
 
   async init(rxid) {
-    if (this.isBlocklistFilterSetup()) {
+    if (this.isBlocklistFilterSetup() || this.disabled()) {
       const blres = util.emptyResponse();
       blres.data.blocklistFilter = this.blocklistFilter;
       return blres;
@@ -58,6 +62,10 @@ export class BlocklistWrapper {
       this.log.e(rxid, "main", e.stack);
       return util.errResponse("blocklistWrapper", e);
     }
+  }
+
+  disabled() {
+    return this.noop;
   }
 
   getBlocklistFilter() {

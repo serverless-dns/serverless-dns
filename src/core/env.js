@@ -79,6 +79,22 @@ const defaults = {
     type: "number",
     default: "1800", // 30m
   },
+  DISABLE_BLOCKLISTS: {
+    type: "boolean",
+    default: false,
+  },
+  PROFILE_DNS_RESOLVES: {
+    type: "boolean",
+    default: false,
+  },
+  NODE_AVOID_FETCH: {
+    type: "boolean",
+    default: true,
+  },
+  NODE_DOH_ONLY: {
+    type: "boolean",
+    default: false,
+  },
 };
 
 /**

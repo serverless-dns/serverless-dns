@@ -10,17 +10,27 @@ import { LfuCache } from "@serverless-dns/lfu-cache";
 import { CacheApi } from "./cacheApi.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
+import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as cacheutil from "../cacheutil.js";
 
 export class DnsCache {
   constructor(size) {
+    this.log = log.withTags("DnsCache");
+    this.disabled = envutil.disableDnsCache();
+
+    if (this.disabled) {
+      this.log.w("DnsCache disabled");
+      return;
+    }
+
     this.localcache = new LfuCache("DnsCache", size);
     this.httpcache = new CacheApi();
-    this.log = log.withTags("DnsCache");
   }
 
   async get(url, localOnly = false) {
+    if (this.disabled) return null;
+
     if (!url && util.emptyString(url.href)) {
       this.log.d("get: empty url", url);
       return null;
@@ -49,6 +59,8 @@ export class DnsCache {
   }
 
   async put(url, data, dispatcher) {
+    if (this.disabled) return;
+
     if (
       !url ||
       util.emptyString(url.href) ||

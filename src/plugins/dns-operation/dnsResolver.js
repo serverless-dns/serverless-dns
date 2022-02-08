@@ -17,11 +17,22 @@ export default class DNSResolver {
   constructor(blocklistWrapper, cache) {
     this.cache = cache;
     this.http2 = null;
-    this.nodeUtil = null;
+    this.nodeutil = null;
     this.transport = null;
     this.blocker = new DnsBlocker();
     this.bw = blocklistWrapper;
     this.log = log.withTags("DnsResolver");
+
+    this.measurements = [];
+    this.profileResolve = envutil.profileDnsResolves();
+    // only valid on nodejs
+    this.forceDoh = envutil.forceDoh();
+    this.avoidFetch = envutil.avoidFetch();
+
+    if (this.profileResolve) {
+      this.log.w("profiling", this.determineDohResolvers());
+      this.log.w("doh?", this.forceDoh, "fetch?", this.avoidFetch);
+    }
   }
 
   async lazyInit() {
@@ -31,8 +42,8 @@ export default class DNSResolver {
       this.http2 = await import("http2");
       this.log.i("created custom http2 client");
     }
-    if (envutil.isNode() && !this.nodeUtil) {
-      this.nodeUtil = await import("../../core/node/util.js");
+    if (envutil.isNode() && !this.nodeutil) {
+      this.nodeutil = await import("../../core/node/util.js");
       this.log.i("imported node-util");
     }
     if (envutil.isNode() && !this.transport) {
@@ -69,19 +80,42 @@ export default class DNSResolver {
 
   determineDohResolvers(preferredByUser) {
     // when this.transport is set, do not use doh
-    if (this.transport) return [];
-
-    // if blocklists aren't setup, return only primary because blocklists
-    // themselves need min 4 network-io solts of the 6 available on Workers
-    if (!this.bw.isBlocklistFilterSetup()) {
-      return [envutil.primaryDohResolver()];
-    }
+    if (this.transport && !this.forceDoh) return [];
 
     if (!util.emptyString(preferredByUser)) {
       return [preferredByUser];
-    } else {
-      return envutil.dohResolvers();
     }
+
+    // if blocklists aren't setup, return only primary because blocklists
+    // themselves need min 4 network-io solts of the 6 available on Workers
+    if (!this.bw.disabled() && !this.bw.isBlocklistFilterSetup()) {
+      return [envutil.primaryDohResolver()];
+    }
+
+    return envutil.dohResolvers();
+  }
+
+  // TODO: nodejs.org/api/perf_hooks.html
+  // Deno perf-hooks: github.com/denoland/deno/issues/5386
+  logMeasurementsPeriodically(period = 100) {
+    const len = this.measurements.length - 1;
+    // log after every 10th measurement
+    if ((len + 1) % period !== 0) return;
+
+    this.measurements.sort((a, b) => a - b);
+    const p10 = this.measurements[Math.floor(len * 0.1)];
+    const p50 = this.measurements[Math.floor(len * 0.5)];
+    const p75 = this.measurements[Math.floor(len * 0.75)];
+    const p90 = this.measurements[Math.floor(len * 0.9)];
+    const p95 = this.measurements[Math.floor(len * 0.95)];
+    const p99 = this.measurements[Math.floor(len * 0.99)];
+    const p999 = this.measurements[Math.floor(len * 0.999)];
+    const p9999 = this.measurements[Math.floor(len * 0.9999)];
+    const p100 = this.measurements[len];
+
+    this.log.qStart("runs:", len + 1);
+    this.log.q("p10/50/75/90/95", p10, p50, p75, p90, p95);
+    this.log.qEnd("p99/99.9/99.99/100", p99, p999, p9999, p100);
   }
 
   async resolveDns(param) {
@@ -96,6 +130,7 @@ export default class DNSResolver {
     const stamps = param.domainBlockstamp;
 
     let blf = this.bw.getBlocklistFilter();
+    const isBlfDisabled = this.bw.disabled();
     let isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
 
     // if both blocklist-filter (blf) and stamps are not setup, question-block
@@ -108,6 +143,12 @@ export default class DNSResolver {
     if (q.isBlocked) {
       this.primeCache(rxid, q, dispatcher);
       return q;
+    }
+
+    let resolveStart = 0;
+    let resolveEnd = 0;
+    if (this.profileResolve) {
+      resolveStart = Date.now();
     }
 
     // nested async calls (async fn calling another async fn)
@@ -129,12 +170,20 @@ export default class DNSResolver {
       ),
     ]);
 
+    if (this.profileResolve) {
+      resolveEnd = Date.now();
+      this.measurements.push(resolveEnd - resolveStart);
+      this.logMeasurementsPeriodically();
+    }
+
     const res = promisedTasks[1];
 
-    if (!isBlfSetup) {
+    if (!isBlfDisabled && !isBlfSetup) {
       this.log.d(rxid, "blocklist-filter downloaded and setup");
       blf = this.bw.getBlocklistFilter();
       isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
+    } else {
+      isBlfSetup = true; // override, as blf is disabled
     }
 
     if (!isBlfSetup) throw new Error(rxid + " no blocklist-filter");
@@ -273,6 +322,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
         u.search = "?dns=" + bufutil.bytesToBase64Url(query);
         dnsreq = new Request(u.href, {
           method: "GET",
+          headers: util.dnsHeaders(),
         });
       } else if (util.isPostRequest(request)) {
         dnsreq = new Request(u.href, {
@@ -288,7 +338,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
       }
       this.log.d(rxid, "upstream doh2/fetch", u.href);
       promisedPromises.push(
-        this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq)
+        this.avoidFetch ? this.doh2(rxid, dnsreq) : fetch(dnsreq)
       );
     }
   } catch (e) {
@@ -327,31 +377,39 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
  * @returns {Promise<Response>}
  */
 DNSResolver.prototype.doh2 = async function (rxid, request) {
-  if (!this.http2 || !this.nodeUtil) {
+  if (!this.http2 || !this.nodeutil) {
     throw new Error("h2 / node-util not setup, bailing");
   }
 
   this.log.d(rxid, "upstream with doh2");
   const http2 = this.http2;
-  const transformPseudoHeaders = this.nodeUtil.transformPseudoHeaders;
 
-  const u = new URL(request.url);
-  const upstreamQuery = bufutil.bufferOf(await request.arrayBuffer());
+  const u = new URL(request.url); // doh.tld/dns-query/?dns=b64
+  const verb = request.method; // GET or POST
+  const path = util.isGetRequest(request)
+    ? u.pathname + u.search // /dns-query/?dns=b64
+    : u.pathname; // /dns-query
+  const qab = await request.arrayBuffer(); // empty for GET
+  const upstreamQuery = bufutil.bufferOf(qab);
   const headers = util.copyHeaders(request);
 
   return new Promise((resolve, reject) => {
     // TODO: h2 conn re-use: archive.is/XXKwn
     // TODO: h2 conn pool
-    const authority = u.origin;
-    const c = http2.connect(authority);
+    if (!util.isGetRequest(request) && !util.isPostRequest(request)) {
+      reject(new Error("Only GET/POST requests allowed"));
+    }
+
+    const c = http2.connect(u.origin);
 
     c.on("error", (err) => {
+      this.log.e(rxid, "conn fail", err.message);
       reject(err.message);
     });
 
     const req = c.request({
-      [http2.constants.HTTP2_HEADER_METHOD]: request.method,
-      [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
+      [http2.constants.HTTP2_HEADER_METHOD]: verb,
+      [http2.constants.HTTP2_HEADER_PATH]: path,
       ...headers,
     });
 
@@ -362,18 +420,19 @@ DNSResolver.prototype.doh2 = async function (rxid, request) {
       });
       req.on("end", () => {
         const rb = bufutil.concatBuf(b);
-        const h = transformPseudoHeaders(headers);
-        util.safeBox(c.close);
+        const h = this.nodeutil.transformPseudoHeaders(headers);
+        util.safeBox(() => c.close());
         resolve(new Response(rb, h));
       });
     });
     // nodejs' async err events go unhandled when the handler
     // is not registered, which ends up killing the process
     req.on("error", (err) => {
+      this.log.e(rxid, "send/recv fail", err.message);
       reject(err.message);
     });
 
-    // req.end write query to upstream over http2.
+    // req.end writes query to upstream over http2.
     // do this only after the event-handlers (response,
     // on, end, error etc) have been registered (above),
     // and not before. Those events aren't resent by
