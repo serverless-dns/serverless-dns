@@ -8,7 +8,7 @@
 
 /* For development environment use only */
 
-import fetch from "node-fetch";
+import fetch from "undici";
 import path from "path";
 import * as fs from "fs";
 
@@ -29,7 +29,6 @@ export function fetchPlus(url, init) {
     const filePath = path.normalize(url.substring("file://".length));
 
     if (!fs.existsSync(filePath)) {
-      // TODO: new error required in rejects?
       reject(new Error(`File not found: ${filePath}`));
     } else {
       const readStream = fs.createReadStream(filePath);
