@@ -1,4 +1,4 @@
-name: Profiler
+name: 🎯 Profiler
 
 on:
   push:
@@ -36,7 +36,7 @@ env:
 
 jobs:
   profiler1:
-    name: Fetch profiler
+    name: Fetch profiler ${{ env.JS_RUNTIME }}
     runs-on: ubuntu-latest
 
     steps:
@@ -86,3 +86,5 @@ jobs:
         env:
           JS_RUNTIME: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
+          TLS_KEY_PATH: 'test/data/tls/dns.rethinkdns.localhost.key'
+          TLS_CRT_PATH: 'test/data/tls/dns.rethinkdns.localhost.crt'
