@@ -316,6 +316,9 @@ function isPostRequest(req) {
 function isGetRequest(req) {
     return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
+function stub(...args) {
+    return (...args)=>{};
+}
 const stickyEvents = new Set([
     "prepare",
     "ready",
@@ -385,35 +388,25 @@ function callbacks(event, parcel) {
     }
     microtaskBox(cbs, parcel);
 }
-const _LOG_LEVELS = new Map([
+const _LOG_LEVELS = new Set([
     "error",
     "warn",
     "info",
     "timer",
     "debug"
-].reverse().map((l, i1)=>[
-        l,
-        i1
-    ]
-));
+]);
 function _setConsoleLevel(level) {
     switch(level){
         case "error":
-            globalThis.console.warn = ()=>null
-            ;
+            globalThis.console.warn = stub();
         case "warn":
-            globalThis.console.info = ()=>null
-            ;
+            globalThis.console.info = stub();
         case "info":
-            globalThis.console.time = ()=>null
-            ;
-            globalThis.console.timeEnd = ()=>null
-            ;
-            globalThis.console.timeLog = ()=>null
-            ;
+            globalThis.console.time = stub();
+            globalThis.console.timeEnd = stub();
+            globalThis.console.timeLog = stub();
         case "timer":
-            globalThis.console.debug = ()=>null
-            ;
+            globalThis.console.debug = stub();
         case "debug":
             break;
         default:
@@ -427,36 +420,26 @@ function _setConsoleLevel(level) {
     return level;
 }
 class Log {
-    constructor(level, isConsoleLevel){
+    constructor({ level ="debug" , levelize =false , withTimestamps =false  }){
         if (!_LOG_LEVELS.has(level)) level = "debug";
-        if (isConsoleLevel && !console.level) _setConsoleLevel(level);
+        if (levelize && !console.level) _setConsoleLevel(level);
         this.l = console.log;
         this.log = console.log;
+        this.logTimestamps = withTimestamps;
         this.setLevel(level);
     }
     _resetLevel() {
-        this.d = ()=>null
-        ;
-        this.debug = ()=>null
-        ;
-        this.lapTime = ()=>null
-        ;
-        this.startTime = ()=>null
-        ;
-        this.endTime = ()=>null
-        ;
-        this.i = ()=>null
-        ;
-        this.info = ()=>null
-        ;
-        this.w = ()=>null
-        ;
-        this.warn = ()=>null
-        ;
-        this.e = ()=>null
-        ;
-        this.error = ()=>null
-        ;
+        this.d = stub();
+        this.debug = stub();
+        this.lapTime = stub();
+        this.startTime = stub();
+        this.endTime = stub();
+        this.i = stub();
+        this.info = stub();
+        this.w = stub();
+        this.warn = stub();
+        this.e = stub();
+        this.error = stub();
     }
     withTags(...tags) {
         const that = this;
@@ -466,24 +449,35 @@ class Log {
             },
             startTime: (n, ...r)=>{
                 const tid = that.startTime(n);
-                that.d(that.now(), "T", ...tags, "create", tid, ...r);
+                that.d(that.now() + " T", ...tags, "create", tid, ...r);
                 return tid;
             },
             endTime: (n, ...r)=>{
-                that.d(that.now(), "T", ...tags, "end", n, ...r);
+                that.d(that.now() + " T", ...tags, "end", n, ...r);
                 return that.endTime(n);
             },
             d: (...args)=>{
-                that.d(that.now(), "D", ...tags, ...args);
+                that.d(that.now() + " D", ...tags, ...args);
             },
             i: (...args)=>{
-                that.i(that.now(), "I", ...tags, ...args);
+                that.i(that.now() + " I", ...tags, ...args);
             },
             w: (...args)=>{
-                that.w(that.now(), "W", ...tags, ...args);
+                that.w(that.now() + " W", ...tags, ...args);
             },
             e: (...args)=>{
-                that.e(that.now(), "E", ...tags, ...args);
+                that.e(that.now() + " E", ...tags, ...args);
+            },
+            q: (...args)=>{
+                that.l(that.now() + " Q", ...tags, ...args);
+            },
+            qStart: (...args)=>{
+                that.l(that.now() + " Q", ...tags, that.border());
+                that.l(that.now() + " Q", ...tags, ...args);
+            },
+            qEnd: (...args)=>{
+                that.l(that.now() + " Q", ...tags, ...args);
+                that.l(that.now() + " Q", ...tags, that.border());
             },
             tag: (t)=>{
                 tags.push(t);
@@ -491,13 +485,14 @@ class Log {
         };
     }
     now() {
-        return new Date().toISOString();
+        if (this.logTimestamps) return new Date().toISOString();
+        else return "";
+    }
+    border() {
+        return "-------------------------------";
     }
     setLevel(level) {
         if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
-        if (console.level && _LOG_LEVELS.get(level) < _LOG_LEVELS.get(console.level)) {
-            throw new Error(`(log='${level}') < (console='${console.level}')`);
-        }
         this._resetLevel();
         switch(level){
             default:
@@ -585,6 +580,22 @@ const defaults = {
     CACHE_TTL: {
         type: "number",
         default: "1800"
+    },
+    DISABLE_BLOCKLISTS: {
+        type: "boolean",
+        default: false
+    },
+    PROFILE_DNS_RESOLVES: {
+        type: "boolean",
+        default: false
+    },
+    NODE_AVOID_FETCH: {
+        type: "boolean",
+        default: true
+    },
+    NODE_DOH_ONLY: {
+        type: "boolean",
+        default: false
     }
 };
 function defaultEnv() {
@@ -657,7 +668,6 @@ class EnvManager {
 })();
 function setup() {
     if (!Deno) throw new Error("failed loading deno-specific config");
-    const isProd = Deno.env.get("DENO_ENV") === "production";
     try {
         config({
             export: true
@@ -665,8 +675,15 @@ function setup() {
     } catch (e) {
         console.warn(".env missing => ", e.name, e.message);
     }
+    const isProd = Deno.env.get("DENO_ENV") === "production";
+    const onDenoDeploy1 = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
+    const profiling = Deno.env.get("PROFILE_DNS_RESOLVES") === "true";
     window.envManager = new EnvManager();
-    window.log = new Log(window.envManager.get("LOG_LEVEL"), isProd);
+    window.log = new Log({
+        level: window.envManager.get("LOG_LEVEL"),
+        levelize: isProd || profiling,
+        withTimestamps: !onDenoDeploy1
+    });
     pub("ready");
 }
 const hexTable = new TextEncoder().encode("0123456789abcdef");
@@ -684,19 +701,19 @@ function fromHexChar(__byte) {
 }
 function encode(src) {
     const dst = new Uint8Array(src.length * 2);
-    for(let i2 = 0; i2 < dst.length; i2++){
-        const v = src[i2];
-        dst[i2 * 2] = hexTable[v >> 4];
-        dst[i2 * 2 + 1] = hexTable[v & 15];
+    for(let i1 = 0; i1 < dst.length; i1++){
+        const v = src[i1];
+        dst[i1 * 2] = hexTable[v >> 4];
+        dst[i1 * 2 + 1] = hexTable[v & 15];
     }
     return dst;
 }
 function decode(src) {
     const dst = new Uint8Array(src.length / 2);
-    for(let i3 = 0; i3 < dst.length; i3++){
-        const a = fromHexChar(src[i3 * 2]);
-        const b = fromHexChar(src[i3 * 2 + 1]);
-        dst[i3] = a << 4 | b;
+    for(let i2 = 0; i2 < dst.length; i2++){
+        const a = fromHexChar(src[i2 * 2]);
+        const b = fromHexChar(src[i2 * 2 + 1]);
+        dst[i2] = a << 4 | b;
     }
     if (src.length % 2 == 1) {
         fromHexChar(src[dst.length * 2]);
@@ -772,23 +789,23 @@ const base64abc = [
 ];
 function encode1(data) {
     const uint8 = typeof data === "string" ? new TextEncoder().encode(data) : data instanceof Uint8Array ? data : new Uint8Array(data);
-    let result = "", i4;
+    let result = "", i3;
     const l = uint8.length;
-    for(i4 = 2; i4 < l; i4 += 3){
-        result += base64abc[uint8[i4 - 2] >> 2];
-        result += base64abc[(uint8[i4 - 2] & 3) << 4 | uint8[i4 - 1] >> 4];
-        result += base64abc[(uint8[i4 - 1] & 15) << 2 | uint8[i4] >> 6];
-        result += base64abc[uint8[i4] & 63];
+    for(i3 = 2; i3 < l; i3 += 3){
+        result += base64abc[uint8[i3 - 2] >> 2];
+        result += base64abc[(uint8[i3 - 2] & 3) << 4 | uint8[i3 - 1] >> 4];
+        result += base64abc[(uint8[i3 - 1] & 15) << 2 | uint8[i3] >> 6];
+        result += base64abc[uint8[i3] & 63];
     }
-    if (i4 === l + 1) {
-        result += base64abc[uint8[i4 - 2] >> 2];
-        result += base64abc[(uint8[i4 - 2] & 3) << 4];
+    if (i3 === l + 1) {
+        result += base64abc[uint8[i3 - 2] >> 2];
+        result += base64abc[(uint8[i3 - 2] & 3) << 4];
         result += "==";
     }
-    if (i4 === l) {
-        result += base64abc[uint8[i4 - 2] >> 2];
-        result += base64abc[(uint8[i4 - 2] & 3) << 4 | uint8[i4 - 1] >> 4];
-        result += base64abc[(uint8[i4 - 1] & 15) << 2];
+    if (i3 === l) {
+        result += base64abc[uint8[i3 - 2] >> 2];
+        result += base64abc[(uint8[i3 - 2] & 3) << 4 | uint8[i3 - 1] >> 4];
+        result += base64abc[(uint8[i3 - 1] & 15) << 2];
         result += "=";
     }
     return result;
@@ -797,8 +814,8 @@ function decode1(b64) {
     const binString = atob(b64);
     const size = binString.length;
     const bytes = new Uint8Array(size);
-    for(let i5 = 0; i5 < size; i5++){
-        bytes[i5] = binString.charCodeAt(i5);
+    for(let i4 = 0; i4 < size; i4++){
+        bytes[i4] = binString.charCodeAt(i4);
     }
     return bytes;
 }
@@ -912,8 +929,8 @@ function promisify(original) {
                 }
                 if (argumentNames !== undefined && values.length > 1) {
                     const obj = {};
-                    for(let i6 = 0; i6 < argumentNames.length; i6++){
-                        obj[argumentNames[i6]] = values[i6];
+                    for(let i5 = 0; i5 < argumentNames.length; i5++){
+                        obj[argumentNames[i5]] = values[i5];
                     }
                     resolve(obj);
                 } else {
@@ -2867,8 +2884,8 @@ class Buffer extends Uint8Array {
         }
         if (this === otherBuffer) return true;
         if (this.byteLength !== otherBuffer.byteLength) return false;
-        for(let i7 = 0; i7 < this.length; i7++){
-            if (this[i7] !== otherBuffer[i7]) return false;
+        for(let i6 = 0; i6 < this.length; i6++){
+            if (this[i6] !== otherBuffer[i6]) return false;
         }
         return true;
     }
@@ -3026,8 +3043,8 @@ function bytesToBase64Url(b) {
 function binaryStringToBytes(bs) {
     const len = bs.length;
     const bytes = new Uint8Array(len);
-    for(let i8 = 0; i8 < len; i8++){
-        bytes[i8] = bs.charCodeAt(i8);
+    for(let i7 = 0; i7 < len; i7++){
+        bytes[i7] = bs.charCodeAt(i7);
     }
     return bytes;
 }
@@ -3057,7 +3074,7 @@ function decodeFromBinaryArray(b) {
     return decodeFromBinary(b, true);
 }
 function emptyBuf(b) {
-    return !b || !!b.byteLength && b.byteLength <= 0;
+    return !b || !b.byteLength && b.byteLength <= 0 || false;
 }
 function arrayBufferOf(buf) {
     if (emptyBuf(buf)) return null;
@@ -3066,7 +3083,7 @@ function arrayBufferOf(buf) {
     return buf.buffer.slice(offset, offset + len);
 }
 function bufferOf(arrayBuf) {
-    if (!arrayBuf) return null;
+    if (emptyBuf(arrayBuf)) return null;
     return Buffer.from(new Uint8Array(arrayBuf));
 }
 function encodeUint8ArrayBE(n, len) {
@@ -3544,16 +3561,16 @@ ip.toBuffer = function(ip1, buff, offset) {
         });
     } else if (this.isV6Format(ip1)) {
         var sections = ip1.split(":", 8);
-        var i9;
-        for(i9 = 0; i9 < sections.length; i9++){
-            var isv4 = this.isV4Format(sections[i9]);
+        var i8;
+        for(i8 = 0; i8 < sections.length; i8++){
+            var isv4 = this.isV4Format(sections[i8]);
             var v4Buffer;
             if (isv4) {
-                v4Buffer = this.toBuffer(sections[i9]);
-                sections[i9] = v4Buffer.slice(0, 2).toString("hex");
+                v4Buffer = this.toBuffer(sections[i8]);
+                sections[i8] = v4Buffer.slice(0, 2).toString("hex");
             }
-            if (v4Buffer && ++i9 < 8) {
-                sections.splice(i9, 0, v4Buffer.slice(2, 4).toString("hex"));
+            if (v4Buffer && ++i8 < 8) {
+                sections.splice(i8, 0, v4Buffer.slice(2, 4).toString("hex"));
             }
         }
         if (sections[0] === "") {
@@ -3561,19 +3578,19 @@ ip.toBuffer = function(ip1, buff, offset) {
         } else if (sections[sections.length - 1] === "") {
             while(sections.length < 8)sections.push("0");
         } else if (sections.length < 8) {
-            for(i9 = 0; i9 < sections.length && sections[i9] !== ""; i9++);
+            for(i8 = 0; i8 < sections.length && sections[i8] !== ""; i8++);
             var argv = [
-                i9,
+                i8,
                 1
             ];
-            for(i9 = 9 - sections.length; i9 > 0; i9--){
+            for(i8 = 9 - sections.length; i8 > 0; i8--){
                 argv.push("0");
             }
             sections.splice.apply(sections, argv);
         }
         result = buff || new Buffer(offset + 16);
-        for(i9 = 0; i9 < sections.length; i9++){
-            var word = parseInt(sections[i9], 16);
+        for(i8 = 0; i8 < sections.length; i8++){
+            var word = parseInt(sections[i8], 16);
             result[offset++] = word >> 8 & 255;
             result[offset++] = word & 255;
         }
@@ -3588,13 +3605,13 @@ ip.toString = function(buff, offset, length) {
     length = length || buff.length - offset;
     var result = [];
     if (length === 4) {
-        for(var i10 = 0; i10 < length; i10++){
-            result.push(buff[offset + i10]);
+        for(var i9 = 0; i9 < length; i9++){
+            result.push(buff[offset + i9]);
         }
         result = result.join(".");
     } else if (length === 16) {
-        for(var i10 = 0; i10 < length; i10 += 2){
-            result.push(buff.readUInt16BE(offset + i10).toString(16));
+        for(var i9 = 0; i9 < length; i9 += 2){
+            result.push(buff.readUInt16BE(offset + i9).toString(16));
         }
         result = result.join(":");
         result = result.replace(/(^|:)0(:0)*:0(:|$)/, "$1::$3");
@@ -3624,13 +3641,13 @@ ip.fromPrefixLen = function(prefixlen, family) {
         len = 16;
     }
     var buff = new Buffer(len);
-    for(var i11 = 0, n = buff.length; i11 < n; ++i11){
+    for(var i10 = 0, n = buff.length; i10 < n; ++i10){
         var bits = 8;
         if (prefixlen < 8) {
             bits = prefixlen;
         }
         prefixlen -= bits;
-        buff[i11] = ~(255 >> bits) & 255;
+        buff[i10] = ~(255 >> bits) & 255;
     }
     return ip.toString(buff);
 };
@@ -3638,28 +3655,28 @@ ip.mask = function(addr, mask) {
     addr = ip.toBuffer(addr);
     mask = ip.toBuffer(mask);
     var result = new Buffer(Math.max(addr.length, mask.length));
-    var i12 = 0;
+    var i11 = 0;
     if (addr.length === mask.length) {
-        for(i12 = 0; i12 < addr.length; i12++){
-            result[i12] = addr[i12] & mask[i12];
+        for(i11 = 0; i11 < addr.length; i11++){
+            result[i11] = addr[i11] & mask[i11];
         }
     } else if (mask.length === 4) {
-        for(i12 = 0; i12 < mask.length; i12++){
-            result[i12] = addr[addr.length - 4 + i12] & mask[i12];
+        for(i11 = 0; i11 < mask.length; i11++){
+            result[i11] = addr[addr.length - 4 + i11] & mask[i11];
         }
     } else {
-        for(var i12 = 0; i12 < result.length - 6; i12++){
-            result[i12] = 0;
+        for(var i11 = 0; i11 < result.length - 6; i11++){
+            result[i11] = 0;
         }
         result[10] = 255;
         result[11] = 255;
-        for(i12 = 0; i12 < addr.length; i12++){
-            result[i12 + 12] = addr[i12] & mask[i12 + 12];
+        for(i11 = 0; i11 < addr.length; i11++){
+            result[i11 + 12] = addr[i11] & mask[i11 + 12];
         }
-        i12 = i12 + 12;
+        i11 = i11 + 12;
     }
-    for(; i12 < result.length; i12++){
-        result[i12] = 0;
+    for(; i11 < result.length; i11++){
+        result[i11] = 0;
     }
     return ip.toString(result);
 };
@@ -3676,11 +3693,11 @@ ip.subnet = function(addr, mask) {
     var networkAddress = ip.toLong(ip.mask(addr, mask));
     var maskBuffer = ip.toBuffer(mask);
     var maskLength = 0;
-    for(var i13 = 0; i13 < maskBuffer.length; i13++){
-        if (maskBuffer[i13] === 255) {
+    for(var i12 = 0; i12 < maskBuffer.length; i12++){
+        if (maskBuffer[i12] === 255) {
             maskLength += 8;
         } else {
-            var octet = maskBuffer[i13] & 255;
+            var octet = maskBuffer[i12] & 255;
             while(octet){
                 octet = octet << 1 & 255;
                 maskLength++;
@@ -3713,8 +3730,8 @@ ip.cidrSubnet = function(cidrString) {
 };
 ip.not = function(addr) {
     var buff = ip.toBuffer(addr);
-    for(var i14 = 0; i14 < buff.length; i14++){
-        buff[i14] = 255 ^ buff[i14];
+    for(var i13 = 0; i13 < buff.length; i13++){
+        buff[i13] = 255 ^ buff[i13];
     }
     return ip.toString(buff);
 };
@@ -3722,8 +3739,8 @@ ip.or = function(a, b) {
     a = ip.toBuffer(a);
     b = ip.toBuffer(b);
     if (a.length === b.length) {
-        for(var i15 = 0; i15 < a.length; ++i15){
-            a[i15] |= b[i15];
+        for(var i14 = 0; i14 < a.length; ++i14){
+            a[i14] |= b[i14];
         }
         return ip.toString(a);
     } else {
@@ -3734,8 +3751,8 @@ ip.or = function(a, b) {
             other = a;
         }
         var offset = buff.length - other.length;
-        for(var i15 = offset; i15 < buff.length; ++i15){
-            buff[i15] |= other[i15 - offset];
+        for(var i14 = offset; i14 < buff.length; ++i14){
+            buff[i14] |= other[i14 - offset];
         }
         return ip.toString(buff);
     }
@@ -3744,8 +3761,8 @@ ip.isEqual = function(a, b) {
     a = ip.toBuffer(a);
     b = ip.toBuffer(b);
     if (a.length === b.length) {
-        for(var i16 = 0; i16 < a.length; i16++){
-            if (a[i16] !== b[i16]) return false;
+        for(var i15 = 0; i15 < a.length; i15++){
+            if (a[i15] !== b[i15]) return false;
         }
         return true;
     }
@@ -3754,13 +3771,13 @@ ip.isEqual = function(a, b) {
         b = a;
         a = t;
     }
-    for(var i16 = 0; i16 < 10; i16++){
-        if (b[i16] !== 0) return false;
+    for(var i15 = 0; i15 < 10; i15++){
+        if (b[i15] !== 0) return false;
     }
     var word = b.readUInt16BE(10);
     if (word !== 0 && word !== 65535) return false;
-    for(var i16 = 0; i16 < 4; i16++){
-        if (a[i16] !== b[i16 + 12]) return false;
+    for(var i15 = 0; i15 < 4; i15++){
+        if (a[i15] !== b[i15 + 12]) return false;
     }
     return true;
 };
@@ -3806,8 +3823,8 @@ name.encode = function(str, buf, offset) {
     const n = str.replace(/^\.|\.$/gm, "");
     if (n.length) {
         const list = n.split(".");
-        for(let i17 = 0; i17 < list.length; i17++){
-            const len = buf.write(list[i17], offset + 1);
+        for(let i16 = 0; i16 < list.length; i16++){
+            const len = buf.write(list[i16], offset + 1);
             buf[offset] = len;
             offset += len + 1;
         }
@@ -4011,11 +4028,11 @@ rtxt.encode = function(data, buf, offset) {
     if (!Array.isArray(data)) data = [
         data
     ];
-    for(let i18 = 0; i18 < data.length; i18++){
-        if (typeof data[i18] === "string") {
-            data[i18] = Buffer.from(data[i18]);
+    for(let i17 = 0; i17 < data.length; i17++){
+        if (typeof data[i17] === "string") {
+            data[i17] = Buffer.from(data[i17]);
         }
-        if (!Buffer.isBuffer(data[i18])) {
+        if (!Buffer.isBuffer(data[i17])) {
             throw new Error("Must be a Buffer");
         }
     }
@@ -4385,7 +4402,7 @@ roption.decode = function(buf, offset) {
             break;
         case 14:
             option.tags = [];
-            for(let i19 = 0; i19 < len; i19 += 2){
+            for(let i18 = 0; i18 < len; i18 += 2){
                 option.tags.push(buf.readUInt16BE(offset));
                 offset += 2;
             }
@@ -4593,17 +4610,17 @@ typebitmap.encode = function(typelist, buf, offset) {
     if (!offset) offset = 0;
     const oldOffset = offset;
     var typesByWindow = [];
-    for(var i20 = 0; i20 < typelist.length; i20++){
-        var typeid = toType(typelist[i20]);
+    for(var i19 = 0; i19 < typelist.length; i19++){
+        var typeid = toType(typelist[i19]);
         if (typesByWindow[typeid >> 8] === undefined) {
             typesByWindow[typeid >> 8] = [];
         }
         typesByWindow[typeid >> 8][typeid >> 3 & 31] |= 1 << 7 - (typeid & 7);
     }
-    for(i20 = 0; i20 < typesByWindow.length; i20++){
-        if (typesByWindow[i20] !== undefined) {
-            var windowBuf = Buffer.from(typesByWindow[i20]);
-            buf.writeUInt8(i20, offset);
+    for(i19 = 0; i19 < typesByWindow.length; i19++){
+        if (typesByWindow[i19] !== undefined) {
+            var windowBuf = Buffer.from(typesByWindow[i19]);
+            buf.writeUInt8(i19, offset);
             offset += 1;
             buf.writeUInt8(windowBuf.length, offset);
             offset += 1;
@@ -4624,11 +4641,11 @@ typebitmap.decode = function(buf, offset, length) {
         offset += 1;
         var windowLength = buf.readUInt8(offset);
         offset += 1;
-        for(var i21 = 0; i21 < windowLength; i21++){
-            var b = buf.readUInt8(offset + i21);
+        for(var i20 = 0; i20 < windowLength; i20++){
+            var b = buf.readUInt8(offset + i20);
             for(var j = 0; j < 8; j++){
                 if (b & 1 << 7 - j) {
-                    var typeid = toString(window << 8 | i21 << 3 | j);
+                    var typeid = toString(window << 8 | i20 << 3 | j);
                     typelist.push(typeid);
                 }
             }
@@ -4641,14 +4658,14 @@ typebitmap.decode = function(buf, offset, length) {
 typebitmap.decode.bytes = 0;
 typebitmap.encodingLength = function(typelist) {
     var extents = [];
-    for(var i22 = 0; i22 < typelist.length; i22++){
-        var typeid = toType(typelist[i22]);
+    for(var i21 = 0; i21 < typelist.length; i21++){
+        var typeid = toType(typelist[i21]);
         extents[typeid >> 8] = Math.max(extents[typeid >> 8] || 0, typeid & 255);
     }
     var len = 0;
-    for(i22 = 0; i22 < extents.length; i22++){
-        if (extents[i22] !== undefined) {
-            len += 2 + Math.ceil((extents[i22] + 1) / 8);
+    for(i21 = 0; i21 < extents.length; i21++){
+        if (extents[i21] !== undefined) {
+            len += 2 + Math.ceil((extents[i21] + 1) / 8);
         }
     }
     return len;
@@ -5307,19 +5324,19 @@ const streamDecode = function(sbuf) {
 streamDecode.bytes = 0;
 function encodingLengthList(list, enc) {
     let len = 0;
-    for(let i23 = 0; i23 < list.length; i23++)len += enc.encodingLength(list[i23]);
+    for(let i22 = 0; i22 < list.length; i22++)len += enc.encodingLength(list[i22]);
     return len;
 }
 function encodeList(list, enc, buf, offset) {
-    for(let i24 = 0; i24 < list.length; i24++){
-        enc.encode(list[i24], buf, offset);
+    for(let i23 = 0; i23 < list.length; i23++){
+        enc.encode(list[i23], buf, offset);
         offset += enc.encode.bytes;
     }
     return offset;
 }
 function decodeList(list, enc, buf, offset) {
-    for(let i25 = 0; i25 < list.length; i25++){
-        list[i25] = enc.decode(buf, offset);
+    for(let i24 = 0; i24 < list.length; i24++){
+        list[i24] = enc.decode(buf, offset);
         offset += enc.decode.bytes;
     }
     return offset;
@@ -5416,6 +5433,27 @@ function dohBackendPort() {
 }
 function dotBackendPort() {
     return isDotOverProxyProto() ? 10001 : 10000;
+}
+function profileDnsResolves() {
+    if (!envManager) return false;
+    return envManager.get("PROFILE_DNS_RESOLVES") || false;
+}
+function forceDoh() {
+    if (!envManager) return true;
+    if (!isNode()) return true;
+    return envManager.get("NODE_DOH_ONLY") || false;
+}
+function avoidFetch() {
+    if (!envManager) return false;
+    if (!isNode()) return false;
+    return envManager.get("NODE_AVOID_FETCH") || true;
+}
+function disableDnsCache() {
+    return profileDnsResolves();
+}
+function disableBlocklists() {
+    if (!envManager) return false;
+    return envManager.get("DISABLE_BLOCKLISTS") || false;
 }
 const minDNSPacketSize = 12 + 5;
 const _dnsCloudflareSec = "1.1.1.2";
@@ -5692,23 +5730,23 @@ class Clock {
         this.maxcount = this.bound(maxlife, minlives, maxlives);
         this.totalhands = Math.max(minslots, Math.round(this.capacity / slotsperhand));
         this.hands = new Array(this.totalhands);
-        for(let i26 = 0; i26 < this.totalhands; i26++)this.hands[i26] = i26;
+        for(let i25 = 0; i25 < this.totalhands; i25++)this.hands[i25] = i25;
     }
-    next(i27) {
-        const n = i27 + this.totalhands;
+    next(i26) {
+        const n = i26 + this.totalhands;
         return (this.capacity + n) % this.capacity;
     }
-    cur(i28) {
-        return (this.capacity + i28) % this.capacity;
+    cur(i27) {
+        return (this.capacity + i27) % this.capacity;
     }
-    prev(i29) {
-        const p = i29 - this.totalhands;
+    prev(i28) {
+        const p = i28 - this.totalhands;
         return (this.capacity + p) % this.capacity;
     }
-    bound(i30, min, max) {
-        i30 = i30 < min ? min : i30;
-        i30 = i30 > max ? max - 1 : i30;
-        return i30;
+    bound(i29, min, max) {
+        i29 = i29 < min ? min : i29;
+        i29 = i29 > max ? max - 1 : i29;
+        return i29;
     }
     head(n) {
         n = this.bound(n, 0, this.totalhands);
@@ -6493,8 +6531,8 @@ function rbase32(input) {
     let value = 0;
     let index = 0;
     const output = new Uint8Array(length * 5 / 8 | 0);
-    for(let i31 = 0; i31 < length; i31++){
-        value = value << 5 | readChar(input[i31]);
+    for(let i30 = 0; i30 < length; i30++){
+        value = value << 5 | readChar(input[i30]);
         bits += 5;
         if (bits >= 8) {
             output[index++] = value >>> bits - 8 & 255;
@@ -6616,15 +6654,15 @@ function intersect(flag1, flag2) {
     if (commonHeader === 0) {
         return null;
     }
-    let i32 = flag1.length - 1;
+    let i31 = flag1.length - 1;
     let j = flag2.length - 1;
     let h = commonHeader;
     let pos = 0;
     const commonBody = [];
     while(h !== 0){
-        if (i32 < 0 || j < 0) throw new Error("blockstamp header/body mismatch");
+        if (i31 < 0 || j < 0) throw new Error("blockstamp header/body mismatch");
         if ((h & 1) === 1) {
-            const commonFlags = flag1[i32] & flag2[j];
+            const commonFlags = flag1[i31] & flag2[j];
             if (commonFlags === 0) {
                 commonHeader = clearbit(commonHeader, pos);
             } else {
@@ -6632,7 +6670,7 @@ function intersect(flag1, flag2) {
             }
         }
         if ((header1 & 1) === 1) {
-            i32 -= 1;
+            i31 -= 1;
         }
         if ((header2 & 1) === 1) {
             j -= 1;
@@ -6765,10 +6803,12 @@ class BlocklistWrapper {
         this.isBlocklistUnderConstruction = false;
         this.exceptionFrom = "";
         this.exceptionStack = "";
+        this.noop = disableBlocklists();
         this.log = log.withTags("BlocklistWrapper");
+        this.log.w("disabled?", this.noop);
     }
     async init(rxid) {
-        if (this.isBlocklistFilterSetup()) {
+        if (this.isBlocklistFilterSetup() || this.disabled()) {
             const blres = emptyResponse();
             blres.data.blocklistFilter = this.blocklistFilter;
             return blres;
@@ -6785,6 +6825,9 @@ class BlocklistWrapper {
             this.log.e(rxid, "main", e.stack);
             return errResponse("blocklistWrapper", e);
         }
+    }
+    disabled() {
+        return this.noop;
     }
     getBlocklistFilter() {
         return this.blocklistFilter;
@@ -6894,8 +6937,8 @@ async function makeTd(baseurl, n) {
         return fileFetch(baseurl + "/td.txt", "buffer");
     }
     const tdpromises = [];
-    for(let i33 = 0; i33 <= n; i33++){
-        const f = baseurl + "/td" + i33.toLocaleString("en-US", {
+    for(let i32 = 0; i32 <= n; i32++){
+        const f = baseurl + "/td" + i32.toLocaleString("en-US", {
             minimumIntegerDigits: 2,
             useGrouping: false
         }) + ".txt";
@@ -7275,11 +7318,19 @@ class DNSResolver {
     constructor(blocklistWrapper, cache){
         this.cache = cache;
         this.http2 = null;
-        this.nodeUtil = null;
+        this.nodeutil = null;
         this.transport = null;
         this.blocker = new DnsBlocker();
         this.bw = blocklistWrapper;
         this.log = log.withTags("DnsResolver");
+        this.measurements = [];
+        this.profileResolve = profileDnsResolves();
+        this.forceDoh = forceDoh();
+        this.avoidFetch = avoidFetch();
+        if (this.profileResolve) {
+            this.log.w("profiling", this.determineDohResolvers());
+            this.log.w("doh?", this.forceDoh, "fetch?", this.avoidFetch);
+        }
     }
     async lazyInit() {
         if (!hasDynamicImports()) return;
@@ -7287,8 +7338,8 @@ class DNSResolver {
             this.http2 = await import("http2");
             this.log.i("created custom http2 client");
         }
-        if (isNode() && !this.nodeUtil) {
-            this.nodeUtil = await import("../../core/node/util.js");
+        if (isNode() && !this.nodeutil) {
+            this.nodeutil = await import("../../core/node/util.js");
             this.log.i("imported node-util");
         }
         if (isNode() && !this.transport) {
@@ -7309,19 +7360,36 @@ class DNSResolver {
         return response;
     }
     determineDohResolvers(preferredByUser) {
-        if (this.transport) return [];
-        if (!this.bw.isBlocklistFilterSetup()) {
-            return [
-                primaryDohResolver()
-            ];
-        }
+        if (this.transport && !this.forceDoh) return [];
         if (!emptyString(preferredByUser)) {
             return [
                 preferredByUser
             ];
-        } else {
-            return dohResolvers();
         }
+        if (!this.bw.disabled() && !this.bw.isBlocklistFilterSetup()) {
+            return [
+                primaryDohResolver()
+            ];
+        }
+        return dohResolvers();
+    }
+    logMeasurementsPeriodically(period = 100) {
+        const len = this.measurements.length - 1;
+        if ((len + 1) % period !== 0) return;
+        this.measurements.sort((a, b)=>a - b
+        );
+        const p10 = this.measurements[Math.floor(len * 0.1)];
+        const p50 = this.measurements[Math.floor(len * 0.5)];
+        const p75 = this.measurements[Math.floor(len * 0.75)];
+        const p90 = this.measurements[Math.floor(len * 0.9)];
+        const p95 = this.measurements[Math.floor(len * 0.95)];
+        const p99 = this.measurements[Math.floor(len * 0.99)];
+        const p999 = this.measurements[Math.floor(len * 0.999)];
+        const p9999 = this.measurements[Math.floor(len * 0.9999)];
+        const p100 = this.measurements[len];
+        this.log.qStart("runs:", len + 1);
+        this.log.q("p10/50/75/90/95", p10, p50, p75, p90, p95);
+        this.log.qEnd("p99/99.9/99.99/100", p99, p999, p9999, p100);
     }
     async resolveDns(param) {
         const rxid = param.rxid;
@@ -7332,6 +7400,7 @@ class DNSResolver {
         const dispatcher = param.dispatcher;
         const stamps = param.domainBlockstamp;
         let blf = this.bw.getBlocklistFilter();
+        const isBlfDisabled = this.bw.disabled();
         let isBlfSetup = isBlocklistFilterSetup(blf);
         const q = await this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
         this.blocker.blockQuestion(rxid, q, blInfo);
@@ -7340,15 +7409,27 @@ class DNSResolver {
             this.primeCache(rxid, q, dispatcher);
             return q;
         }
+        let resolveStart = 0;
+        let resolveEnd = 0;
+        if (this.profileResolve) {
+            resolveStart = Date.now();
+        }
         const promisedTasks = await Promise.all([
             this.bw.init(rxid),
             this.resolveDnsUpstream(rxid, param.request, this.determineDohResolvers(userDns), rawpacket, decodedpacket), 
         ]);
+        if (this.profileResolve) {
+            resolveEnd = Date.now();
+            this.measurements.push(resolveEnd - resolveStart);
+            this.logMeasurementsPeriodically();
+        }
         const res = promisedTasks[1];
-        if (!isBlfSetup) {
+        if (!isBlfDisabled && !isBlfSetup) {
             this.log.d(rxid, "blocklist-filter downloaded and setup");
             blf = this.bw.getBlocklistFilter();
             isBlfSetup = isBlocklistFilterSetup(blf);
+        } else {
+            isBlfSetup = true;
         }
         if (!isBlfSetup) throw new Error(rxid + " no blocklist-filter");
         if (!res) throw new Error(rxid + " no upstream result");
@@ -7425,7 +7506,8 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
             if (isGetRequest(request)) {
                 u.search = "?dns=" + bytesToBase64Url(query);
                 dnsreq = new Request(u.href, {
-                    method: "GET"
+                    method: "GET",
+                    headers: dnsHeaders()
                 });
             } else if (isPostRequest(request)) {
                 dnsreq = new Request(u.href, {
@@ -7437,7 +7519,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function(rxid, request, resolve
                 throw new Error("get/post only");
             }
             this.log.d(rxid, "upstream doh2/fetch", u.href);
-            promisedPromises.push(this.http2 ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
+            promisedPromises.push(this.avoidFetch ? this.doh2(rxid, dnsreq) : fetch(dnsreq));
         }
     } catch (e) {
         this.log.e(rxid, "err doh2/fetch upstream", e.stack);
@@ -7463,24 +7545,29 @@ DNSResolver.prototype.resolveDnsFromCache = async function(rxid, packet) {
     return Promise.resolve(r);
 };
 DNSResolver.prototype.doh2 = async function(rxid, request) {
-    if (!this.http2 || !this.nodeUtil) {
+    if (!this.http2 || !this.nodeutil) {
         throw new Error("h2 / node-util not setup, bailing");
     }
     this.log.d(rxid, "upstream with doh2");
     const http2 = this.http2;
-    const transformPseudoHeaders = this.nodeUtil.transformPseudoHeaders;
     const u = new URL(request.url);
-    const upstreamQuery = bufferOf(await request.arrayBuffer());
+    const verb = request.method;
+    const path = isGetRequest(request) ? u.pathname + u.search : u.pathname;
+    const qab = await request.arrayBuffer();
+    const upstreamQuery = bufferOf(qab);
     const headers1 = copyHeaders(request);
     return new Promise((resolve, reject)=>{
-        const authority = u.origin;
-        const c = http2.connect(authority);
+        if (!isGetRequest(request) && !isPostRequest(request)) {
+            reject(new Error("Only GET/POST requests allowed"));
+        }
+        const c = http2.connect(u.origin);
         c.on("error", (err)=>{
+            this.log.e(rxid, "conn fail", err.message);
             reject(err.message);
         });
         const req = c.request({
-            [http2.constants.HTTP2_HEADER_METHOD]: request.method,
-            [http2.constants.HTTP2_HEADER_PATH]: `${u.pathname}`,
+            [http2.constants.HTTP2_HEADER_METHOD]: verb,
+            [http2.constants.HTTP2_HEADER_PATH]: path,
             ...headers1
         });
         req.on("response", (headers)=>{
@@ -7490,12 +7577,14 @@ DNSResolver.prototype.doh2 = async function(rxid, request) {
             });
             req.on("end", ()=>{
                 const rb = concatBuf(b);
-                const h = transformPseudoHeaders(headers);
-                safeBox(c.close);
+                const h = this.nodeutil.transformPseudoHeaders(headers);
+                safeBox(()=>c.close()
+                );
                 resolve(new Response(rb, h));
             });
         });
         req.on("error", (err)=>{
+            this.log.e(rxid, "send/recv fail", err.message);
             reject(err.message);
         });
         req.end(upstreamQuery);
@@ -7525,7 +7614,7 @@ class DNSCacheResponder {
     async resolveFromCache(rxid, packet, blockInfo) {
         const noAnswer = rdnsNoBlockResponse();
         const blf = this.bw.getBlocklistFilter();
-        const onlyLocal = isBlocklistFilterSetup(blf);
+        const onlyLocal = this.bw.disabled() || isBlocklistFilterSetup(blf);
         const k = makeHttpCacheKey(packet);
         if (!k) return noAnswer;
         const cr = await this.cache.get(k, onlyLocal);
@@ -7577,11 +7666,17 @@ class CacheApi {
 }
 class DnsCache {
     constructor(size){
+        this.log = log.withTags("DnsCache");
+        this.disabled = disableDnsCache();
+        if (this.disabled) {
+            this.log.w("DnsCache disabled");
+            return;
+        }
         this.localcache = new LfuCache("DnsCache", size);
         this.httpcache = new CacheApi();
-        this.log = log.withTags("DnsCache");
     }
     async get(url, localOnly = false) {
+        if (this.disabled) return null;
         if (!url && emptyString(url.href)) {
             this.log.d("get: empty url", url);
             return null;
@@ -7598,6 +7693,7 @@ class DnsCache {
         return entry;
     }
     async put(url, data, dispatcher) {
+        if (this.disabled) return;
         if (!url || emptyString(url.href) || emptyObj(data) || emptyObj(data.metadata) || emptyObj(data.dnsPacket) || emptyBuf(data.dnsBuffer)) {
             this.log.w("put: empty url/data", url, data);
             return;
@@ -7659,7 +7755,7 @@ const services = {
 })();
 async function systemReady() {
     if (services.ready) return;
-    log.i("svc: systemReady");
+    log.i("svc", "systemReady");
     const bw = new BlocklistWrapper();
     const cache = new DnsCache(cacheSize());
     services.userOperation = new UserOperation();
@@ -7671,6 +7767,10 @@ async function systemReady() {
 }
 async function maybeSetupBlocklists(bw) {
     if (!hasDynamicImports()) return;
+    if (bw.disabled()) {
+        log.w("svc", "blocklists disabled");
+        return;
+    }
     if (isNode()) {
         const b = await import("./node/blocklists.js");
         await b.setup(bw);
@@ -7884,14 +7984,14 @@ function delay(ms, options = {}) {
     }
     return new Promise((resolve, reject)=>{
         const abort = ()=>{
-            clearTimeout(i34);
+            clearTimeout(i33);
             reject(new DOMException("Delay was aborted.", "AbortError"));
         };
         const done1 = ()=>{
             signal?.removeEventListener("abort", abort);
             resolve();
         };
-        const i34 = setTimeout(done1, ms);
+        const i33 = setTimeout(done1, ms);
         signal?.addEventListener("abort", abort, {
             once: true
         });
@@ -8101,7 +8201,7 @@ let log1 = null;
     pub("prepare");
 })();
 function systemUp() {
-    const onDenoDeploy1 = onDenoDeploy();
+    const onDenoDeploy2 = onDenoDeploy();
     const dohConnOpts = {
         port: dohBackendPort()
     };
@@ -8137,7 +8237,7 @@ function systemUp() {
         up("DoH", dohConnOpts);
     }
     async function startDotIfPossible() {
-        if (onDenoDeploy1) return;
+        if (onDenoDeploy2) return;
         const dot = terminateTls() ? Deno.listenTls({
             ...dotConnOpts,
             ...tlsOpts
@@ -8154,7 +8254,7 @@ function systemUp() {
         log1.i("up", p, opts, "tls?", terminateTls());
     }
     function terminateTls() {
-        if (onDenoDeploy1) return false;
+        if (onDenoDeploy2) return false;
         if (emptyString(tlsOpts.keyFile)) return false;
         if (emptyString(tlsOpts.certFile)) return false;
         return true;
@@ -8232,12 +8332,12 @@ function mkFetchEvent(r, ...fns) {
     return {
         type: "fetch",
         request: r,
-        respondWith: fns[0] || stub("event.respondWith"),
-        waitUntil: fns[1] || stub("event.waitUntil"),
-        passThroughOnException: fns[2] || stub("event.passThroughOnException")
+        respondWith: fns[0] || stub1("event.respondWith"),
+        waitUntil: fns[1] || stub1("event.waitUntil"),
+        passThroughOnException: fns[2] || stub1("event.passThroughOnException")
     };
 }
-function stub(fid) {
+function stub1(fid) {
     return (...rest)=>log1.d(fid, "stub fn, args:", ...rest)
     ;
 }
