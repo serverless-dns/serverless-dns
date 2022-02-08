@@ -49,14 +49,14 @@ jobs:
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
       - name: Setup Node $NODE_VER
-        if: $JS_RUNTIME == 'node'
+        if: env.JS_RUNTIME == 'node'
         uses: actions/setup-node@v2
         with:
           node-version: $NODE_VER
 
       # deno.land/#installation
       - name: Setup Deno @latest
-        if: $JS_RUNTIME == 'deno'
+        if: env.JS_RUNTIME == 'deno'
         run: |
           echo "::notice::deno install unsafe"
           curl -fsSL https://deno.land/install.sh | sh
