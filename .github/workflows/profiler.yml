@@ -43,7 +43,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
         with:
-          ref: env.GIT_REF
+          ref: ${{ env.GIT_REF }}
       - run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
@@ -52,7 +52,7 @@ jobs:
         if: env.JS_RUNTIME == 'node'
         uses: actions/setup-node@v2
         with:
-          node-version: env.NODE_VER
+          node-version: ${{ env.NODE_VER }}
 
       # deno.land/#installation
       - name: Setup Deno @latest
