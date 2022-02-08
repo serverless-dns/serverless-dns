@@ -46,9 +46,13 @@ jobs:
           ref: ${{ env.GIT_REF }}
       - run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "JS_RUNTIME=${JSR}" >> $GITHUB_ENV
+        shell: bash
+        env:
+          JSR: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
-      - name: Setup Node
+      - name: Setup Node @v17
         if: env.JS_RUNTIME == 'node'
         uses: actions/setup-node@v2
         with:
@@ -80,11 +84,11 @@ jobs:
       - name: Run profiler
         if: success()
         run: |
-          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" p1
+          # timeout exit-code: stackoverflow.com/a/60996259
+          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" p1 || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
         shell: bash
         # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
         env:
-          JS_RUNTIME: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
           TLS_KEY_PATH: 'test/data/tls/dns.rethinkdns.localhost.key'
           TLS_CRT_PATH: 'test/data/tls/dns.rethinkdns.localhost.crt'
