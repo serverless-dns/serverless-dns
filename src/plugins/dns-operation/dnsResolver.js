@@ -97,6 +97,7 @@ export default class DNSResolver {
 
   // TODO: nodejs.org/api/perf_hooks.html
   // Deno perf-hooks: github.com/denoland/deno/issues/5386
+  // WebAPI: developer.mozilla.org/en-US/docs/Web/API/Performance
   logMeasurementsPeriodically(period = 100) {
     const len = this.measurements.length - 1;
     // log after every 10th measurement

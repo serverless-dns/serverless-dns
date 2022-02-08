@@ -86,14 +86,15 @@ jobs:
       - name: Build deps
         run: npm run build --if-present
 
+      # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
       # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
       - name: Setup Q
         run: |
           # sudo and echo: stackoverflow.com/a/550808
           echo "deb [trusted=yes] https://repo.natesales.net/apt /" | sudo tee /etc/apt/sources.list.d/natesales.list > /dev/null
-          sudo apt update
-          sudo apt install q
+          sudo apt-get update
+          sudo apt-get install q
 
       # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
       # timeout exit-code: stackoverflow.com/a/60996259
@@ -104,6 +105,6 @@ jobs:
         shell: bash
         env:
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
-          MODE: $ {{ github.event.inputs.mode || env.MODE }}
+          MODE: ${{ github.event.inputs.mode || env.MODE }}
           TLS_KEY_PATH: 'test/data/tls/dns.rethinkdns.localhost.key'
           TLS_CRT_PATH: 'test/data/tls/dns.rethinkdns.localhost.crt'

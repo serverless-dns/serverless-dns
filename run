@@ -2,6 +2,15 @@
 
 set -eu
 
+# this script is for development/test runs only
+# defaults: stackoverflow.com/a/16753536
+runtime="${1:-node}";
+profiler="${2:-$1}";
+waitsec="${3:-0}";
+qdoh="${QDOH:-invalid}";
+
+echo "run $runtime";
+
 # patorjk.com/software/taag/#p=display&c=echo&f=Small%20Slant&t=r-profiler
 profilerbanner() {
   echo "                              ___ _  __         ";
@@ -47,13 +56,6 @@ reqs() {
 
   done
 }
-
-# this script is for development/test runs only
-runtime="${1:-node}";
-profiler="${2:-$1}";
-waitsec="${3:-0}";
-qdoh="${QDOH:-invalid}";
-echo "run $runtime";
 
 if [ $runtime = "help" ] || [ $runtime = "h" ]; then
   echo "note: make sure node / deno / wrangler are in path";
