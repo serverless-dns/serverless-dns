@@ -20,7 +20,7 @@ on:
       maxtime:
         description: "run time (in seconds)"
         required: false
-        default: "120s"
+        default: "60s"
 
 env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
@@ -61,17 +61,13 @@ jobs:
         run: npm ci
       - run: npm run build --if-present
 
-      # github.com/natesales/as112/blob/8335fbf/roles/packages/tasks/main.yml#L11
-      - name: Setup apt
-        apt_repository:
-          repo: deb [trusted=yes] https://repo.natesales.net/apt /
-          state: present
-
-      - name: Install qdoh
-        apt:
-          update_cache: true
-          pkg:
-            - q
+      # github.com/natesales/repo
+      # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
+      - name: Setup Q
+        run: |
+          sudo echo "deb [trusted=yes] https://repo.natesales.net/apt /" > /etc/apt/sources.list.d/natesales.list
+          sudo apt update
+          sudo apt install q
 
       - name: Run profiler
       - if: success()
