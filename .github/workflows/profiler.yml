@@ -3,9 +3,9 @@ name: 🎯 Profiler
 on:
   push:
     branches:
-      - 'main'
+      - main
     paths:
-      - './src/**'
+      - 'src/**'
 
   workflow_dispatch:
     inputs:
@@ -39,7 +39,7 @@ on:
 env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   JS_RUNTIME: 'node'
-  MAXTIME_SEC: '60s'
+  MAXTIME_SEC: '30s'
   NODE_VER: '17.x'
   MODE: 'p1'
   QDOH: 'q'

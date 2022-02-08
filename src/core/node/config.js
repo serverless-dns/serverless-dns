@@ -12,7 +12,7 @@
  * This module has side effects, sequentially setting up the environment.
  */
 import { atob, btoa } from "buffer";
-import fetch, { Headers, Request, Response } from "node-fetch";
+import { fetch, Headers, Request, Response } from "undici";
 import { getTLSfromEnv } from "./util.js";
 import Log from "../log.js";
 import * as system from "../../system.js";
