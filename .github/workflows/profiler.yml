@@ -64,13 +64,17 @@ jobs:
         run: |
           echo "::notice::deno install unsafe"
           curl -fsSL https://deno.land/install.sh | sh
+          denohome="/home/runner/.deno/"
+          echo "DENO_INSTALL=$denohome" >> $GITHUB_ENV
+          echo "$denohome/bin" >> $GITHUB_PATH
         shell: bash
 
-      - name: Deps
+      - name: Download deps
         run: npm i
         # npm ci is faster, but it needs package-lock.json which isn't in main
         # run: npm ci
-      - run: npm run build --if-present
+      - name: Build deps
+        run: npm run build --if-present
 
       # github.com/natesales/repo
       # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
