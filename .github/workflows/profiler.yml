@@ -43,16 +43,16 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
         with:
-          ref: $GIT_REF
+          ref: env.GIT_REF
       - run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
-      - name: Setup Node $NODE_VER
+      - name: Setup Node
         if: env.JS_RUNTIME == 'node'
         uses: actions/setup-node@v2
         with:
-          node-version: $NODE_VER
+          node-version: env.NODE_VER
 
       # deno.land/#installation
       - name: Setup Deno @latest
@@ -77,7 +77,7 @@ jobs:
       - name: Run profiler
         if: success()
         run: |
-          timeout $MAXTIME_SEC ./run $JS_RUNTIME p1
+          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" p1
         shell: bash
         # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
         env:
