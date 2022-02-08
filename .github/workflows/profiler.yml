@@ -35,8 +35,8 @@ env:
   QDOH: 'q'
 
 jobs:
-  deploy:
-    name: Setup
+  profiler1:
+    name: Fetch profiler
     runs-on: ubuntu-latest
 
     steps:
@@ -72,7 +72,8 @@ jobs:
       # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
       - name: Setup Q
         run: |
-          sudo echo "deb [trusted=yes] https://repo.natesales.net/apt /" > /etc/apt/sources.list.d/natesales.list
+          # sudo and echo: stackoverflow.com/a/550808
+          echo "deb [trusted=yes] https://repo.natesales.net/apt /" | sudo tee /etc/apt/sources.list.d/natesales.list > /dev/null
           sudo apt update
           sudo apt install q
 
