@@ -90,7 +90,7 @@ export class TcpConnPool {
 
   evict(sock) {
     try {
-      if (sock && !sock.destroyed) sock.destroy();
+      if (sock && !sock.destroyed) util.safeBox(() => sock.destroy());
     } catch (ignore) {}
     this.pool.delete(sock);
   }
@@ -176,8 +176,8 @@ export class UdpConnPool {
   }
 
   evict(sock) {
-    util.safeBox(sock.disconnect);
-    util.safeBox(sock.close);
+    util.safeBox(() => sock.disconnect());
+    util.safeBox(() => sock.close());
     this.pool.delete(sock);
   }
 
