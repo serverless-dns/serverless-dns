@@ -79,7 +79,7 @@ export default class DNSResolver {
   }
 
   determineDohResolvers(preferredByUser) {
-    // when this.transport is set, do not use doh
+    // when this.transport is set, do not use doh unless forced
     if (this.transport && !this.forceDoh) return [];
 
     if (!util.emptyString(preferredByUser)) {
@@ -96,11 +96,12 @@ export default class DNSResolver {
   }
 
   // TODO: nodejs.org/api/perf_hooks.html
+  // github: pola-rs/polars@475cf3c/nodejs-polars/benches/list-operations.js
   // Deno perf-hooks: github.com/denoland/deno/issues/5386
   // WebAPI: developer.mozilla.org/en-US/docs/Web/API/Performance
   logMeasurementsPeriodically(period = 100) {
     const len = this.measurements.length - 1;
-    // log after every 10th measurement
+    // log after period number of measurements are done
     if ((len + 1) % period !== 0) return;
 
     this.measurements.sort((a, b) => a - b);
@@ -154,9 +155,11 @@ export default class DNSResolver {
 
     // nested async calls (async fn calling another async fn)
     // need to await differently depending on what's returned:
+    // case1:
     // fulfiller = async () => { return "123"; }
     // wrapper = async () => { return fulfiller(); }
     // result = await wrapper() :: outputs "123"
+    // case2:
     // arrayWrapper = async () => { return [fulfiller()]; }
     // result1 = await arrayWrapper() :: outputs "Array[Promise{}]"
     // result2 = await result1[0] :: outputs "123"
@@ -184,7 +187,7 @@ export default class DNSResolver {
       blf = this.bw.getBlocklistFilter();
       isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
     } else {
-      isBlfSetup = true; // override, as blf is disabled
+      isBlfSetup = true; // override, as blocklists disabled
     }
 
     if (!isBlfSetup) throw new Error(rxid + " no blocklist-filter");
