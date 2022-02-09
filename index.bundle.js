@@ -648,7 +648,7 @@ class EnvManager {
         for (const [k, v] of Object.entries(d)){
             this.envMap.set(k, v);
         }
-        console.debug("defaults: ", JSON.stringify(d));
+        console.debug(this.runtime, "defaults: ", JSON.stringify(d));
     }
     get(k) {
         let v = null;
@@ -7001,7 +7001,7 @@ class CommandControl {
             const command = pathSplit[1];
             const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
             this.log.d(rxid, "processing...", url, command, b64UserFlag);
-            await this.bw.init();
+            await this.bw.init(rxid);
             const blf = this.bw.getBlocklistFilter();
             const isBlfSetup = isBlocklistFilterSetup(blf);
             if (!isBlfSetup) throw new Error("no blocklist-filter");
