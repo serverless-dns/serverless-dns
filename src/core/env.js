@@ -173,7 +173,7 @@ export default class EnvManager {
       this.envMap.set(k, v);
     }
 
-    console.debug("defaults: ", JSON.stringify(d));
+    console.debug(this.runtime, "defaults: ", JSON.stringify(d));
   }
 
   /**

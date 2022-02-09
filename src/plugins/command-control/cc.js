@@ -95,7 +95,7 @@ export class CommandControl {
       this.log.d(rxid, "processing...", url, command, b64UserFlag);
 
       // blocklistFilter may not to have been setup, so set it up
-      await this.bw.init();
+      await this.bw.init(rxid);
       const blf = this.bw.getBlocklistFilter();
       const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
 

@@ -54,7 +54,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: ${{ env.GIT_REF }}
-      - run: |
+
+      - name: Set git tip
+        run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "JS_RUNTIME=${JSR}" >> $GITHUB_ENV
         shell: bash
@@ -83,6 +85,7 @@ jobs:
         run: npm i
         # npm ci is faster, but it needs package-lock.json which isn't in main
         # run: npm ci
+
       - name: Build deps
         run: npm run build --if-present
 
