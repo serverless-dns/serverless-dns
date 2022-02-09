@@ -3082,7 +3082,7 @@ function decodeFromBinaryArray(b) {
     return decodeFromBinary(b, true);
 }
 function emptyBuf(b) {
-    return !b || !b.byteLength && b.byteLength <= 0 || false;
+    return !b || b.byteLength <= 0;
 }
 function arrayBufferOf(buf) {
     if (emptyBuf(buf)) return null;
