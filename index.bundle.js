@@ -6759,7 +6759,8 @@ function unstamp(flag) {
         convertor = isFlagB32 ? base32ToUintV1 : base64ToUintV1;
         f = s[1];
     } else {
-        throw new Error("unknown blocklist stamp version in " + s);
+        log.w("Rdns:unstamp", "unknown blocklist stamp version in " + s);
+        return r;
     }
     r.flagVersion = v;
     r.userBlocklistFlagUint = convertor(f) || null;
