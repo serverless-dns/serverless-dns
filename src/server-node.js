@@ -213,14 +213,20 @@ function getDnRE(socket) {
 function getMetadata(sni) {
   // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
   const s = sni.split(".");
-  // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
-  const host = s.splice(1).join(".");
-  // replace "-" with "+" as doh handlers use "+" to differentiate between
-  // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
-  const flag = s[0].replace(/-/g, "+");
+  if (s.length > 3) {
+    // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
+    const host = s.splice(1).join(".");
+    // replace "-" with "+" as doh handlers use "+" to differentiate between
+    // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
+    const flag = s[0].replace(/-/g, "+");
 
-  log.d(`flag: ${flag}, host: ${host}`);
-  return [flag, host];
+    log.d(`flag: ${flag}, host: ${host}`);
+    return [flag, host];
+  } else {
+    // sni => max.rethinkdns.com
+    log.d(`flag: "", host: ${host}`);
+    return ["", sni];
+  }
 }
 
 /**
@@ -253,6 +259,7 @@ function serveTLS(socket) {
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = makeScratchBuffer();
 
+  log.d("----> DoT request", host, flag);
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
   });
@@ -361,11 +368,10 @@ async function handleTCPQuery(q, socket, host, flag) {
   }
   log.endTime(t);
 
-  // Only close socket on error, else it would break pipelining of queries.
+  // close socket when !ok
   if (!ok && !socket.destroyed) {
-    // TODO: send a 4xx / 5xx? ref: server-workers.js
     close(socket);
-  }
+  } // else: expect pipelined queries on the same socket
 }
 
 /**
@@ -391,7 +397,12 @@ async function resolveQuery(rxid, q, host, flag) {
 
   const ans = await r.arrayBuffer();
 
-  return !bufutil.emptyBuf(ans) ? new Uint8Array(ans) : dnsutil.servfailQ(q);
+  if (!bufutil.emptyBuf(ans)) {
+    return new Uint8Array(ans);
+  } else {
+    log.w(rxid, host, "empty ans, send servfail; flags?", flag);
+    return dnsutil.servfailQ(q);
+  }
 }
 
 /**
@@ -420,7 +431,7 @@ async function serveHTTPS(req, res) {
     return;
   }
 
-  log.d("-> HTTPS req", req.method, bLen);
+  log.d("----> DoH request", req.method, bLen);
   handleHTTPRequest(b, req, res);
 }
 
