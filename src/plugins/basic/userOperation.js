@@ -41,6 +41,7 @@ export class UserOperation {
       let r = this.userConfigCache.get(blocklistFlag);
 
       if (util.emptyObj(r)) {
+        // TODO: blocklistFlag may be invalid, ref blockstampFromUrl impl
         r = dnsBlockUtil.unstamp(blocklistFlag);
 
         // FIXME: add to cache iff !empty(r.userBlocklistFlagUint)?

@@ -254,7 +254,7 @@ function serveTLS(socket) {
     return;
   }
 
-  log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}}`);
+  log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}`);
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = makeScratchBuffer();
