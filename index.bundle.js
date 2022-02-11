@@ -539,7 +539,7 @@ const defaults = {
     },
     CLOUD_PLATFORM: {
         type: "string",
-        default: "fly"
+        default: "local"
     },
     TLS_KEY_PATH: {
         type: "string",
@@ -606,20 +606,6 @@ const defaults = {
         default: false
     }
 };
-function defaultEnv() {
-    const env = {};
-    for (const [key, mappedKey] of Object.entries(defaults)){
-        if (typeof mappedKey !== "object") continue;
-        const type = mappedKey.type;
-        const val = mappedKey.default;
-        if (!type || val == null) {
-            console.debug(key, "incomplete env val:", mappedKey);
-            continue;
-        }
-        env[key] = caststr(val, type);
-    }
-    return env;
-}
 function caststr(x, typ) {
     if (typeof x === typ) return x;
     if (typ === "boolean") return x === "true";
@@ -644,11 +630,40 @@ class EnvManager {
         this.load();
     }
     load() {
-        const d = defaultEnv(this.runtime);
-        for (const [k, v] of Object.entries(d)){
-            this.envMap.set(k, v);
+        this.envMap = this.defaultEnv();
+        console.debug("env defaults", this.envMap);
+    }
+    determineEnvStage() {
+        if (this.runtime === "node") return this.get("NODE_ENV");
+        if (this.runtime === "worker") return this.get("WORKER_ENV");
+        if (this.runtime === "deno") return this.get("DENO_ENV");
+        return null;
+    }
+    mostLikelyCloudPlatform() {
+        const stage = this.determineEnvStage();
+        if (stage === "development") return "local";
+        if (this.runtime === "node") return "fly";
+        if (this.runtime === "worker") return "cloudflare";
+        if (this.runtime === "deno") return "deno-deploy";
+        return null;
+    }
+    defaultEnv() {
+        const env = new Map();
+        for (const [key, mappedKey] of Object.entries(defaults)){
+            if (typeof mappedKey !== "object") continue;
+            const type = mappedKey.type;
+            const val = mappedKey.default;
+            if (!type || val == null) {
+                console.debug(key, "incomplete env val:", mappedKey);
+                continue;
+            }
+            if (key === "CLOUD_PLATFORM") {
+                env.set(key, this.mostLikelyCloudPlatform());
+            } else {
+                env.set(key, caststr(val, type));
+            }
         }
-        console.debug(this.runtime, "defaults: ", JSON.stringify(d));
+        return env;
     }
     get(k) {
         let v = null;
@@ -6814,7 +6829,7 @@ class BlocklistWrapper {
         this.exceptionStack = "";
         this.noop = disableBlocklists();
         this.log = log.withTags("BlocklistWrapper");
-        this.log.w("disabled?", this.noop);
+        if (this.noop) this.log.w("disabled?", this.noop);
     }
     async init(rxid) {
         if (this.isBlocklistFilterSetup() || this.disabled()) {
