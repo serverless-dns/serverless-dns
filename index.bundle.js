@@ -5366,7 +5366,7 @@ function decodeList(list, enc, buf, offset) {
 }
 function onDenoDeploy() {
     if (!envManager) return false;
-    return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
+    return envManager.get("CLOUD_PLATFORM") === "deno-deploy" || envManager.get("DENO_DEPLOYMENT_ID") !== undefined;
 }
 function onCloudflare() {
     if (!envManager) return false;
