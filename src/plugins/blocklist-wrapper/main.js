@@ -27,7 +27,7 @@ export class BlocklistWrapper {
 
     this.log = log.withTags("BlocklistWrapper");
 
-    this.log.w("disabled?", this.noop);
+    if (this.noop) this.log.w("disabled?", this.noop);
   }
 
   async init(rxid) {

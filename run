@@ -78,9 +78,9 @@ elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "using `which wrangler`";
   start="wrangler dev --verbose";
 else
-  echo "note: nodejs v15+ required";
+  echo "note: nodejs v16+ required";
   echo "using `which node`";
-  start="node ./src/server-node.js --trace-warnings";
+  start="node --trace-warnings ./src/server-node.js";
 fi
 
 if [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
