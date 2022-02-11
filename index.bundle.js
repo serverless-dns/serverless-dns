@@ -640,11 +640,15 @@ class EnvManager {
         return null;
     }
     mostLikelyCloudPlatform() {
-        const stage = this.determineEnvStage();
-        if (stage === "development") return "local";
+        const isDev = this.determineEnvStage() === "development";
+        const hasFlyAllocId = this.get("FLY_ALLOC_ID") != null;
+        const hasDenoDeployId = this.get("DENO_DEPLOYMENT_ID") !== undefined;
+        if (hasFlyAllocId) return "fly";
+        if (hasDenoDeployId) return "deno-deploy";
+        if (isDev) return "local";
         if (this.runtime === "node") return "fly";
-        if (this.runtime === "worker") return "cloudflare";
         if (this.runtime === "deno") return "deno-deploy";
+        if (this.runtime === "worker") return "cloudflare";
         return null;
     }
     defaultEnv() {
@@ -5366,7 +5370,7 @@ function decodeList(list, enc, buf, offset) {
 }
 function onDenoDeploy() {
     if (!envManager) return false;
-    return envManager.get("CLOUD_PLATFORM") === "deno-deploy" || envManager.get("DENO_DEPLOYMENT_ID") !== undefined;
+    return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
 function onCloudflare() {
     if (!envManager) return false;
