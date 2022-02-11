@@ -182,12 +182,23 @@ export default class EnvManager {
 
   // most-likely but not definitive platform this code is running on
   mostLikelyCloudPlatform() {
-    const stage = this.determineEnvStage();
-    if (stage === "development") return "local";
+    const isDev = this.determineEnvStage() === "development";
+    // FLY_ALLOC_ID=5778f6b7-3cc2-d011-36b1-dfe057b0dc79 is set on fly-vms
+    const hasFlyAllocId = this.get("FLY_ALLOC_ID") != null;
+    // github.com/denoland/deploy_feedback/issues/73
+    const hasDenoDeployId = this.get("DENO_DEPLOYMENT_ID") !== undefined;
 
+    if (hasFlyAllocId) return "fly";
+    if (hasDenoDeployId) return "deno-deploy";
+    // if dev, then whatever is running is likely local
+    if (isDev) return "local";
+    // if prod, then node is likely running on fly
     if (this.runtime === "node") return "fly";
-    if (this.runtime === "worker") return "cloudflare";
+    // if prod, then deno is likely running on deno-deploy
     if (this.runtime === "deno") return "deno-deploy";
+    // if prod, then worker is likely running on cloudflare
+    if (this.runtime === "worker") return "cloudflare";
+
     return null;
   }
 

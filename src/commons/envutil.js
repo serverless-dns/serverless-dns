@@ -11,21 +11,13 @@
 export function onFly() {
   if (!envManager) return false;
 
-  // FLY_ALLOC_ID=5778f6b7-3cc2-d011-36b1-dfe057b0dc79 is set on fly-vms
-  return (
-    envManager.get("CLOUD_PLATFORM") === "fly" ||
-    envManager.get("FLY_ALLOC_ID") != null
-  );
+  return envManager.get("CLOUD_PLATFORM") === "fly";
 }
 
 export function onDenoDeploy() {
   if (!envManager) return false;
 
-  // how? github.com/denoland/deploy_feedback/issues/73
-  return (
-    envManager.get("CLOUD_PLATFORM") === "deno-deploy" ||
-    envManager.get("DENO_DEPLOYMENT_ID") !== undefined
-  );
+  return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
 }
 
 export function onCloudflare() {
