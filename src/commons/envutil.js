@@ -11,25 +11,35 @@
 export function onFly() {
   if (!envManager) return false;
 
-  return envManager.get("CLOUD_PLATFORM") === "fly";
+  // FLY_ALLOC_ID=5778f6b7-3cc2-d011-36b1-dfe057b0dc79 is set on fly-vms
+  return (
+    envManager.get("CLOUD_PLATFORM") === "fly" ||
+    envManager.get("FLY_ALLOC_ID") != null
+  );
 }
 
 export function onDenoDeploy() {
   if (!envManager) return false;
 
-  return envManager.get("CLOUD_PLATFORM") === "deno-deploy";
+  // how? github.com/denoland/deploy_feedback/issues/73
+  return (
+    envManager.get("CLOUD_PLATFORM") === "deno-deploy" ||
+    envManager.get("DENO_DEPLOYMENT_ID") !== undefined
+  );
 }
 
 export function onCloudflare() {
   if (!envManager) return false;
 
+  // wrangler imitates Workers runtime environment to a tee, and so
+  // checks like the one proposed here archive.is/Izftu do not work
   return envManager.get("CLOUD_PLATFORM") === "cloudflare";
 }
 
 export function onLocal() {
   if (!envManager) return false;
 
-  return envManager.get("CLOUD_PLATFORM") === "local";
+  return !onFly() && !onDenoDeploy() && !onCloudflare();
 }
 
 export function hasDisk() {

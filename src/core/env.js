@@ -180,6 +180,7 @@ export default class EnvManager {
     return null;
   }
 
+  // most-likely but not definitive platform this code is running on
   mostLikelyCloudPlatform() {
     const stage = this.determineEnvStage();
     if (stage === "development") return "local";
