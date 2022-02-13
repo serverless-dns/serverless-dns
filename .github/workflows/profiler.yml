@@ -70,16 +70,12 @@ jobs:
         with:
           node-version: ${{ env.NODE_VER }}
 
-      # deno.land/#installation
-      - name: Setup Deno @latest
+      # deno.com/blog/deploy-static-files#example-a-statically-generated-site
+      - name: Setup Deno @1.18.2
         if: env.JS_RUNTIME == 'deno'
-        run: |
-          echo "::notice::deno install unsafe"
-          curl -fsSL https://deno.land/install.sh | sh
-          denohome="/home/runner/.deno/"
-          echo "DENO_INSTALL=$denohome" >> $GITHUB_ENV
-          echo "$denohome/bin" >> $GITHUB_PATH
-        shell: bash
+        uses: denoland/setup-deno@main
+        with:
+          deno-version: 1.18.2
 
       - name: Download deps
         run: npm i

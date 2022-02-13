@@ -23,25 +23,38 @@ on:
   workflow_dispatch:
     inputs:
       git-ref:
-        description: "Branch / ref / tag to build"
+        description: 'Branch / ref / tag to build'
         required: false
-        default: "main"
+        default: 'main'
       deployment-type:
-        description: "Deployment type: dev || live"
+        description: 'Deploy type'
         required: false
-        default: "dev"
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - live
+      deploy-mode:
+        description: 'Deploy via action or auto'
+        required: false
+        default: 'action'
+        type: choice
+        options:
+        - action
+        - auto
 
 env:
   BUILD_BRANCH: >
     ${{ github.event_name == 'workflow_dispatch' &&
       github.event.inputs.deployment-type == 'live' &&
       'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
-  IN_FILE: "src/server-deno.ts"
-  OUT_FILE: "index.bundle.js"
+  IN_FILE: 'src/server-deno.ts'
+  OUT_FILE: 'index.bundle.js'
+  DEPLOY_MODE: 'action'
 
 jobs:
   deploy:
-    name: 🌯 Bundle app
+    name: 🌯 Deno Deploy
     runs-on: ubuntu-latest
     steps:
       - name: 🚚 Get latest code
@@ -55,15 +68,32 @@ jobs:
           git checkout --orphan ${BUILD_BRANCH} || git checkout ${BUILD_BRANCH}
           git reset
           git merge origin/${BUILD_BRANCH} || :
+          echo "DEPLOY_MODE=${DM}" >> $GITHUB_ENV
+          echo "::notice::deploy mode: $DM"
+        env:
+          DM: ${{ github.event.inputs.deploy-mode || env.DEPLOY_MODE }}
 
-      - name: 📦 Bundling...
+      - name: Installing Deno
+        uses: denoland/setup-deno@main
+        with:
+          deno-version: 1.18.2
+
+      - name: 📦 Bundling
         run: |
-          curl -fsSL https://deno.land/x/install/install.sh | sh
-          export DENO_INSTALL="/home/runner/.deno"
-          export PATH="$DENO_INSTALL/bin:$PATH"
           deno bundle --import-map=import_map.json ${IN_FILE} ${OUT_FILE}
+        shell: bash
+
+      # github.com/denoland/deployctl/blob/febd898/action.yml
+      - name: Deploy
+        id: dd
+        if: ${{ env.DEPLOY_MODE == 'action' }}
+        uses: denoland/deployctl@v1
+        with:
+          project: rdns
+          entrypoint: ${{ env.OUT_FILE }}
 
       - name: 🚢 Pushing to build branch
+        if: ${{ env.DEPLOY_MODE == 'auto' }}
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
