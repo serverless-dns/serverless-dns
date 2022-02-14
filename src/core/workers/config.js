@@ -8,14 +8,16 @@
 import EnvManager from "../env.js";
 import * as system from "../../system.js";
 import Log from "../log.js";
+import { services } from "../svc.js";
 
 ((main) => {
-  system.when("prepare").then(setup);
+  system.when("prepare").then(prep);
+  system.when("steady").then(up);
 })();
 
 // on Workers, setup is called for every new request,
 // since server-workers.js fires "prepare" on every request
-function setup(arg) {
+function prep(arg) {
   // if this file execs... assume we're on workers.
   if (!arg) throw new Error("are we on workers?");
   if (!arg.env) throw new Error("workers cannot be setup with empty env");
@@ -43,4 +45,13 @@ function setup(arg) {
   // to setup blocklist-filter, which otherwise fails when invoked
   // from global-scope (such as the "main" function in this file).
   system.pub("ready");
+}
+
+function up() {
+  if (!services.ready) {
+    log.e("services not yet ready, and we've got a sig-up?!");
+    return;
+  }
+  // nothing else to do on sig-up on Workers; fire a sig-go!
+  system.pub("go");
 }

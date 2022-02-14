@@ -1,5 +1,7 @@
 import { config as dotEnvConfig } from "dotenv";
 import * as system from "../../system.js";
+import * as blocklists from "./blocklists.ts";
+import { services } from "../svc.js";
 import Log from "../log.js";
 import EnvManager from "../env.js";
 
@@ -16,10 +18,11 @@ declare global {
 }
 
 ((main) => {
-  system.when("prepare").then(setup);
+  system.when("prepare").then(prep);
+  system.when("steady").then(up);
 })();
 
-function setup() {
+async function prep() {
   // if this file execs... assume we're on deno.
   if (!Deno) throw new Error("failed loading deno-specific config");
 
@@ -43,5 +46,24 @@ function setup() {
     withTimestamps: !onDenoDeploy, // do not log ts on deno-deploy
   });
 
+  // signal ready
   system.pub("ready");
+}
+
+async function up() {
+  if (!services.ready) {
+    console.error("services not yet ready and there is a sig-up!?");
+    return;
+  }
+
+  const bw = services.blocklistWrapper;
+  if (bw != null && bw.disabled()) {
+    console.warn("nothing to do, blocklists unavailable / disabled");
+    return;
+  }
+
+  await blocklists.setup(bw);
+
+  // signal all system are-a go
+  system.pub("go");
 }

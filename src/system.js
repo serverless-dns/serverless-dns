@@ -15,7 +15,9 @@ const stickyEvents = new Set([
   "prepare",
   // when env setup is done
   "ready",
-  // when plugin setup is done
+  // when svc setup is done
+  "steady",
+  // when all systems are a-go
   "go",
 ]);
 

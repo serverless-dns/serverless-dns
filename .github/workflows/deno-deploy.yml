@@ -56,6 +56,11 @@ jobs:
   deploy:
     name: 🌯 Deno Deploy
     runs-on: ubuntu-latest
+    permissions:
+      # needed for auth with deno.com
+      id-token: write
+      # needed to clone repo
+      contents: read
     steps:
       - name: 🚚 Get latest code
         uses: actions/checkout@v2

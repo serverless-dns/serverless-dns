@@ -14,16 +14,19 @@
 import { atob, btoa } from "buffer";
 import { fetch, Headers, Request, Response } from "undici";
 import { getTLSfromEnv } from "./util.js";
+import * as blocklists from "./blocklists.js";
 import Log from "../log.js";
 import * as system from "../../system.js";
+import { services } from "../svc.js";
 import EnvManager from "../env.js";
 import * as swap from "../linux/swap.js";
 
 (async (main) => {
-  system.when("prepare").then(setup);
+  system.when("prepare").then(prep);
+  system.when("steady").then(up);
 })();
 
-async function setup() {
+async function prep() {
   // if this file execs... assume we're on nodejs.
   const isProd = process.env.NODE_ENV === "production";
   const onFly = process.env.CLOUD_PLATFORM === "fly";
@@ -99,6 +102,24 @@ async function setup() {
     log.i("mkswap done?", ok);
   }
 
-  /** signal up */
+  /** signal ready */
   system.pub("ready");
+}
+
+async function up() {
+  if (!services.ready) {
+    log.e("services not yet ready yet and there is a sig-up!?");
+    return;
+  }
+
+  const bw = services.blocklistWrapper;
+  if (bw.disabled()) {
+    log.w("nothing to do, blocklists disabled");
+    return;
+  }
+
+  await blocklists.setup(bw);
+
+  // signal all system are-a go
+  system.pub("go");
 }
