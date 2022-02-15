@@ -208,6 +208,7 @@ export default class EnvManager {
    */
   defaultEnv() {
     const env = new Map();
+
     for (const [key, mappedKey] of Object.entries(defaults)) {
       if (typeof mappedKey !== "object") continue;
 
@@ -219,12 +220,10 @@ export default class EnvManager {
         continue;
       }
 
-      if (key === "CLOUD_PLATFORM") {
-        env.set(key, this.mostLikelyCloudPlatform());
-      } else {
-        env.set(key, caststr(val, type));
-      }
+      env.set(key, caststr(val, type));
     }
+
+    env.set("CLOUD_PLATFORM", this.mostLikelyCloudPlatform());
 
     return env;
   }
