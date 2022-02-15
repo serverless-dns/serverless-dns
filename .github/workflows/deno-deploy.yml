@@ -35,7 +35,7 @@ on:
         required: false
         default: 'main'
       deployment-type:
-        description: 'Deploy type (used for auto deploy-mode)'
+        description: 'Deploy branch (used for auto deploy-mode)'
         required: false
         default: 'dev'
         type: choice
@@ -68,16 +68,21 @@ jobs:
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
 
-      - name: 🧰 Checkout commit
+      - name: Setup env
+        shell: bash
+        run: |
+          echo "DEPLOY_MODE=${DM}" >> $GITHUB_ENV
+          echo "::notice::deploy mode: $DM, project: $PROJECT_NAME"
+        env:
+          DM: ${{ github.event.inputs.deploy-mode || env.DEPLOY_MODE }}
+
+      - name: 🧰 Checkout deploy-branch
+        if: ${{ env.DEPLOY_MODE == 'auto' }}
         run: |
           git fetch --all
           git checkout --orphan ${BUILD_BRANCH} || git checkout ${BUILD_BRANCH}
           git reset
           git merge origin/${BUILD_BRANCH} || :
-          echo "DEPLOY_MODE=${DM}" >> $GITHUB_ENV
-          echo "::notice::deploy mode: $DM, project: $PROJECT_NAME"
-        env:
-          DM: ${{ github.event.inputs.deploy-mode || env.DEPLOY_MODE }}
 
       - name: Install Deno @1.18
         uses: denoland/setup-deno@main
@@ -98,10 +103,10 @@ jobs:
         if: ${{ env.DEPLOY_MODE == 'action' }}
         uses: denoland/deployctl@v1
         with:
-          project: env.PROJECT_NAME
+          project: ${{ env.PROJECT_NAME }}
           entrypoint: ${{ env.OUT_FILE }}
 
-      - name: 🚢 Code push to deploy branch
+      - name: 🚢 Merge latest code into deploy-branch
         if: ${{ env.DEPLOY_MODE == 'auto' }}
         run: |
           git config --local user.name 'github-actions[bot]'
