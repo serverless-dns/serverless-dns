@@ -22,18 +22,6 @@ on:
       - "run"
   workflow_dispatch:
     inputs:
-      git-ref:
-        description: 'Branch / ref / tag to build'
-        required: false
-        default: 'main'
-      deployment-type:
-        description: 'Deploy type'
-        required: false
-        default: 'dev'
-        type: choice
-        options:
-        - dev
-        - live
       deploy-mode:
         description: 'Deploy via action or auto'
         required: false
@@ -42,15 +30,28 @@ on:
         options:
         - action
         - auto
+      git-ref:
+        description: 'Git branch / tag / commit (used for auto deploy-mode)'
+        required: false
+        default: 'main'
+      deployment-type:
+        description: 'Deploy type (used for auto deploy-mode)'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - live
 
 env:
+  DEPLOY_MODE: 'action'
+  PROJECT_NAME: ${{ secrets.DENO_PROJECT_NAME || 'rdns' }}
   BUILD_BRANCH: >
     ${{ github.event_name == 'workflow_dispatch' &&
       github.event.inputs.deployment-type == 'live' &&
       'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
   IN_FILE: 'src/server-deno.ts'
-  OUT_FILE: 'index.bundle.js'
-  DEPLOY_MODE: 'action'
+  OUT_FILE: 'rethinkdns.js'
 
 jobs:
   deploy:
@@ -62,42 +63,45 @@ jobs:
       # needed to clone repo
       contents: read
     steps:
-      - name: 🚚 Get latest code
+      - name: 🚚 Fetch code
         uses: actions/checkout@v2
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
 
-      - name: 🧰 Configuring workspace
+      - name: 🧰 Checkout commit
         run: |
           git fetch --all
           git checkout --orphan ${BUILD_BRANCH} || git checkout ${BUILD_BRANCH}
           git reset
           git merge origin/${BUILD_BRANCH} || :
           echo "DEPLOY_MODE=${DM}" >> $GITHUB_ENV
-          echo "::notice::deploy mode: $DM"
+          echo "::notice::deploy mode: $DM, project: $PROJECT_NAME"
         env:
           DM: ${{ github.event.inputs.deploy-mode || env.DEPLOY_MODE }}
 
-      - name: Installing Deno
+      - name: Install Deno @1.18
         uses: denoland/setup-deno@main
         with:
           deno-version: 1.18.2
 
-      - name: 📦 Bundling
+      - name: 📦 Bundle up
+        if: ${{ env.DEPLOY_MODE == 'action' }}
         run: |
+          echo "::notice::do not forget to set DENO_PROJECT_NAME via github secrets!"
           deno bundle --import-map=import_map.json ${IN_FILE} ${OUT_FILE}
         shell: bash
 
       # github.com/denoland/deployctl/blob/febd898/action.yml
-      - name: Deploy
+      # step output: www.actionsbyexample.com/outputs.html
+      - name: Deploy to deno.com
         id: dd
         if: ${{ env.DEPLOY_MODE == 'action' }}
         uses: denoland/deployctl@v1
         with:
-          project: rdns
+          project: env.PROJECT_NAME
           entrypoint: ${{ env.OUT_FILE }}
 
-      - name: 🚢 Pushing to build branch
+      - name: 🚢 Code push to deploy branch
         if: ${{ env.DEPLOY_MODE == 'auto' }}
         run: |
           git config --local user.name 'github-actions[bot]'
