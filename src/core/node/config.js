@@ -113,12 +113,11 @@ async function up() {
   }
 
   const bw = services.blocklistWrapper;
-  if (bw.disabled()) {
-    log.w("nothing to do, blocklists disabled");
-    return;
+  if (bw != null && !bw.disabled()) {
+    await blocklists.setup(bw);
+  } else {
+    log.w("Config", "blocklists unavailable / disabled");
   }
-
-  await blocklists.setup(bw);
 
   // signal all system are-a go
   system.pub("go");
