@@ -11,17 +11,17 @@ import { LfuCache } from "@serverless-dns/lfu-cache";
 export class UserCache {
   constructor(size) {
     const name = "UserCache";
-    this.localCache = new LfuCache(name, size);
+    this.cache = new LfuCache(name, size);
     this.log = log.withTags(name);
   }
 
   get(key) {
-    return this.localCache.Get(key);
+    return this.cache.get(key);
   }
 
   put(key, val) {
     try {
-      this.localCache.Put(key, val);
+      this.cache.put(key, val);
     } catch (e) {
       this.log.e("put", key, val, e.stack);
     }

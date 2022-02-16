@@ -22,21 +22,21 @@ export class TrieCache {
     if (noop) return;
 
     const size = Math.floor(envutil.tdNodeCount() * 0.2);
-    this.localCache = new LfuCache(name, size);
+    this.cache = new LfuCache(name, size);
     this.log = log.withTags(name);
   }
 
   get(key) {
     if (noop) return false;
 
-    return this.localCache.Get(key);
+    return this.cache.get(key);
   }
 
   put(key, val) {
     if (noop) return;
 
     try {
-      this.localCache.Put(key, val);
+      this.cache.put(key, val);
     } catch (e) {
       this.log.e("put", key, val, e.stack);
     }

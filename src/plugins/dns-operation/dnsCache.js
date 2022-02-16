@@ -102,11 +102,11 @@ export class DnsCache {
 
     if (!k || !v) return;
 
-    this.localcache.Put(k, v);
+    this.localcache.put(k, v);
   }
 
   fromLocalCache(key) {
-    const res = this.localcache.Get(key);
+    const res = this.localcache.get(key);
 
     if (util.emptyObj(res)) return false;
 
