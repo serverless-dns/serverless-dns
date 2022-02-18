@@ -120,8 +120,11 @@ function bit0(n, p, pad) {
   const r = bit0p(n, p);
   if (r.scanned <= 0) return r.scanned; // r.index
   if (r.index > 0) return r.scanned; // r.index
+  // FIXME: The following should instead be (also see #bit0p)
+  // if (pad <= r.index) return r.index
+  // else error("p-th zero-bit lies is outside of pad+n")
+  // The line below works because p is only ever equal to 1
   if (pad > r.scanned) return r.scanned + 1;
-  // + 1
   else return 0;
 }
 
@@ -131,19 +134,29 @@ function bit0(n, p, pad) {
  * @param {*} p The pth zero bit
  */
 function bit0p(n, p) {
+  // capture m for debug purposes
+  const m = n;
+
+  // 0th zero-bit doesn't exist (nb: valid index begins at 1)
   if (p === 0) return { index: 0, scanned: 0 };
+  // when n = 0, 1st zero-bit is at index 1
   if (n === 0 && p === 1) return { index: 1, scanned: 1 };
   let c = 0;
   let i = 0;
-  const m = n;
-  for (c = 0; n > 0 && p > c; n = n >>> 1) {
-    // increment c when nth lsb (bit) is 0
+  // iterate until either n is 0 or we've counted 'p' zero-bits
+  while (n > 0 && p > c) {
+    // increment c when n-th lsb-bit is 0
     c = c + (n < (n ^ 0x1)) ? 1 : 0;
+    // total bits in 'n' scanned thus far
     i += 1;
+    // next lsb-bit in 'n'
+    n = n >>> 1;
   }
   if (config.debug) {
     console.log(String.fromCharCode(m).charCodeAt(0).toString(2), m, i, p, c);
   }
+  // if 'p' zero-bits are accounted for, then 'i' is the p-th zero-bit in 'n'
+  // FIXME: instead return: { index: i + (p - c), scanned: i }? see: #bit0
   return { index: p === c ? i : 0, scanned: i };
 }
 
@@ -175,7 +188,7 @@ BitString.prototype = {
    * Returns a decimal number, consisting of a certain number of bits (n)
    * starting at a certain position, p.
    */
-  get: function (p, n, debug = false) {
+  get: function (p, n) {
     // supports n <= 31, since js bitwise operations work only on +ve ints
 
     // case 1: bits lie within the given byte
@@ -184,18 +197,15 @@ BitString.prototype = {
         (this.bytes[(p / W) | 0] & BitString.MaskTop[W][p % W]) >>
         (W - (p % W) - n)
       );
-
-      // case 2: bits lie incompletely in the given byte
     } else {
+      // case 2: bits lie incompletely in the given byte
       let result = this.bytes[(p / W) | 0] & BitString.MaskTop[W][p % W];
-      let tmpCount = 0; // santhosh added
 
       const l = W - (p % W);
       p += l;
       n -= l;
 
       while (n >= W) {
-        tmpCount++;
         result = (result << W) | this.bytes[(p / W) | 0];
         p += W;
         n -= W;
