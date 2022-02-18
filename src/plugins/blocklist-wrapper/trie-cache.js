@@ -7,38 +7,32 @@
  */
 
 import * as envutil from "../../commons/envutil.js";
-import { LfuCache } from "@serverless-dns/lfu-cache";
-
-// disabling trie-cache until performance issues are sorted;
-// on Workers, every 1ms increase in cpu time, increases gb-sec
-// by 7x; and it is found that hammering lfu-cache as much as
-// radixTrie.js:lookup is bound to do, cpu in p75 is up 2x at 9ms
-const noop = true;
+import { RangeLfu } from "@serverless-dns/lfu-cache";
 
 export class TrieCache {
   constructor() {
     const name = "TrieNodeCache";
 
-    if (noop) return;
-
-    const size = Math.floor(envutil.tdNodeCount() * 0.2);
-    this.cache = new LfuCache(name, size);
+    const size = Math.floor(envutil.tdNodeCount() * 0.1);
+    this.cache = new RangeLfu(name, size);
     this.log = log.withTags(name);
+    this.log.i("setup capacity:", size);
   }
 
-  get(key) {
-    if (noop) return false;
-
-    return this.cache.get(key);
-  }
-
-  put(key, val) {
-    if (noop) return;
-
+  get(n) {
     try {
-      this.cache.put(key, val);
+      return this.cache.get(n);
     } catch (e) {
-      this.log.e("put", key, val, e.stack);
+      this.log.e("get", n, e.stack);
+    }
+    return false;
+  }
+
+  put(low, high, val) {
+    try {
+      this.cache.put(low, high, val);
+    } catch (e) {
+      this.log.e("put", low, high, val, e.stack);
     }
   }
 }
