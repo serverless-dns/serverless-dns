@@ -13,7 +13,7 @@ export class TrieCache {
   constructor() {
     const name = "TrieNodeCache";
 
-    const size = Math.floor(envutil.tdNodeCount() * 0.1);
+    const size = Math.floor(envutil.tdNodeCount() * 0.05);
     this.cache = new RangeLfu(name, size);
     this.log = log.withTags(name);
     this.log.i("setup capacity:", size);
