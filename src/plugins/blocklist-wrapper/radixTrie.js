@@ -630,7 +630,6 @@ function FrozenTrieNode(trie, index) {
 
   this.value = () => {
     if (typeof valCached === "undefined") {
-      // let valueChain = this;
       const value = [];
       let i = 0;
       let j = 0;
@@ -688,21 +687,17 @@ FrozenTrieNode.prototype = {
 
   lastFlagChild: function () {
     const childcount = this.getChildCount();
-    // no children at all
-    if (childcount === 0) return childcount;
 
     let i = 0;
     // value-nodes (starting at position 0) preceed all their other
     // siblings. That is, in a node{f1, f2, ..., fn, l1, l2 ...},
     // f1..fn are flags (value-nodes), then letter nodes l1..ln follow
-    do {
+    while (i < childcount) {
       const c = this.getChild(i);
-      if (!c.flag()) {
-        // value-node (flag) ended at prev index
-        return i - 1;
-      }
+      // value-node (flag) ended at prev index
+      if (!c.flag()) return i - 1;
       i += 1;
-    } while (i < childcount);
+    }
 
     // likely all children nodes are flags (value-nodes)
     return i;
@@ -761,10 +756,9 @@ FrozenTrie.prototype = {
     const index = word.lastIndexOf(ENC_DELIM[0]);
     if (index > 0) word = word.slice(0, index);
 
+    let returnValue = false;
     let node = this.getRoot();
     let child;
-    let returnValue = false;
-
     let i = 0;
     while (i < word.length) {
       // if '.' is encountered, capture the interim node.value();
@@ -783,7 +777,7 @@ FrozenTrie.prototype = {
 
       // iff flags (value-node) exist but no other children, terminate lookup
       // ie: in child{f1, f2, ..., fn}; all children are flags (value-nodes)
-      if (lastFlagNodeIndex >= node.getChildCount()) {
+      if (lastFlagNodeIndex >= node.getChildCount() - 1) {
         if (debug) {
           console.log("...no more children, rem word:", word.slice(i));
         }
@@ -818,7 +812,7 @@ FrozenTrie.prototype = {
           low = r.loc + comp.length - 1;
           if (debug) console.log("\t\tl", low, comp[0], "<", w[0]);
           continue;
-        }
+        } // else, comp[0] === w[0] and so, match up the rest of comp
 
         // if word length is less than current node length, no match
         // for ex, if word="abcd" and cur-node="abcdef", then bail
@@ -846,7 +840,6 @@ FrozenTrie.prototype = {
       }
 
       if (debug) console.log("\tnext:", child.letter());
-
       node = child;
     }
 
