@@ -543,9 +543,10 @@ function FrozenTrieNode(trie, index) {
   this.radix = (parent) => {
     if (typeof wordCached !== "undefined") return wordCached;
 
+    // location of this child among all other children of its parent
+    const loc = this.index - parent.firstChild();
     // todo: check for index less than letterStart?
-    const prev =
-      this.index > 0 ? new FrozenTrieNode(this.trie, this.index - 1) : null;
+    const prev = loc > 0 ? parent.getChild(loc - 1) : null;
     const isPrevNodeCompressed = prev && prev.compressed() && !prev.flag();
     const isThisNodeCompressed = this.compressed() && !this.flag();
 
@@ -567,19 +568,19 @@ function FrozenTrieNode(trie, index) {
       // startchild len > word len terminate
       // fixme: startchild first letter != w first letter terminate
       do {
-        const temp = parent.getChild(this.index - start);
+        const temp = parent.getChild(loc - start);
         if (!temp.compressed()) break;
         if (temp.flag()) break;
         startchild.push(temp);
         start += 1;
-      } while (this.index - start > 0);
+      } while (loc - start > 0);
 
       // if the child itself the last-node in the sequence, nothing
       // to do, there's no endchild to track; but otherwise, loop:
       if (isThisNodeCompressed) {
         do {
           end += 1;
-          const temp = parent.getChild(this.index + end);
+          const temp = parent.getChild(loc + end);
           endchild.push(temp);
           if (!temp.compressed()) break;
           // would not encounter a flag-node whilst probing higher indices
@@ -588,18 +589,24 @@ function FrozenTrieNode(trie, index) {
       }
       const nodes = startchild.reverse().concat(endchild);
       const w = nodes.map((n) => n.letter());
+      // start index of this compressed node in the overall trie
       const lo = this.index - start + 1;
+      // end index of this compressed node in the overall trie
       const hi = this.index + end;
       wordCached = {
+        // the entire word represented by this compressed-node as utf8 uints
         word: w,
-        loc: lo,
+        // start-index of this compressed-node in its parent
+        loc: lo - parent.firstChild(),
+        // the last node contains refs to all children of this compressed-node
         branch: nodes[nodes.length - 1],
       };
+      // cache compressed-nodes against their trie indices (spawn)
       this.trie.nodecache.put(lo, hi, wordCached);
     } else {
       wordCached = {
-        word: this.letter(),
-        loc: this.index,
+        word: [this.letter()],
+        loc: loc,
         branch: this,
       };
     }
@@ -678,6 +685,28 @@ FrozenTrieNode.prototype = {
   getChild: function (index) {
     return this.trie.getNodeByIndex(this.firstChild() + index);
   },
+
+  lastFlagChild: function () {
+    const childcount = this.getChildCount();
+    // no children at all
+    if (childcount === 0) return childcount;
+
+    let i = 0;
+    // value-nodes (starting at position 0) preceed all their other
+    // siblings. That is, in a node{f1, f2, ..., fn, l1, l2 ...},
+    // f1..fn are flags (value-nodes), then letter nodes l1..ln follow
+    do {
+      const c = this.getChild(i);
+      if (!c.flag()) {
+        // value-node (flag) ended at prev index
+        return i - 1;
+      }
+      i += 1;
+    } while (i < childcount);
+
+    // likely all children nodes are flags (value-nodes)
+    return i;
+  },
 };
 
 /**
@@ -738,9 +767,6 @@ FrozenTrie.prototype = {
 
     let i = 0;
     while (i < word.length) {
-      let isFlag = -1;
-      let that;
-
       // if '.' is encountered, capture the interim node.value();
       // for ex: s.d.com => return values for com. & com.d. & com.d.s
       if (periodEncVal[0] === word[i] && node.final()) {
@@ -749,32 +775,23 @@ FrozenTrie.prototype = {
         returnValue.set(partial, node.value());
       }
 
-      // skip value node (at position isFlag) which are prepend to their
-      // sibling nodes. That is, in node{f1, f2, ..., fn, l1, l2 ...},
-      // f1..fn are flags (value nodes), then letter nodes l1..ln follow
-      do {
-        that = node.getChild(isFlag + 1);
-        if (!that.flag()) break;
-        isFlag += 1;
-      } while (isFlag + 1 < node.getChildCount());
-
-      const minChild = isFlag;
+      const lastFlagNodeIndex = node.lastFlagChild();
       if (debug) {
-        console.log("\tcount/i/w:", node.getChildCount(), i, word[i]);
-        console.log("nl:", node.letter(), "flag:", isFlag);
+        console.log("count/i/w:", node.getChildCount(), i, word[i]);
+        console.log("node-w:", node.letter(), "flag-at:", lastFlagNodeIndex);
       }
 
-      // iff flags (value node) exist but no other children, terminate lookup
-      // ie: child{f1, f2, ..., fn}; the last child is a flag (value node)
-      if (node.getChildCount() - 1 <= minChild) {
+      // iff flags (value-node) exist but no other children, terminate lookup
+      // ie: in child{f1, f2, ..., fn}; all children are flags (value-nodes)
+      if (lastFlagNodeIndex >= node.getChildCount()) {
         if (debug) {
-          console.log("\tno more children, rem word:", word.slice(i));
+          console.log("...no more children, rem word:", word.slice(i));
         }
         return returnValue;
       }
 
       let high = node.getChildCount();
-      let low = isFlag;
+      let low = lastFlagNodeIndex;
 
       while (high - low > 1) {
         const probe = ((high + low) / 2) | 0;
@@ -785,19 +802,21 @@ FrozenTrie.prototype = {
 
         const r = child.radix(node);
         const comp = r.word;
-        const w = comp.length > 1 ? word.slice(i, i + comp.length) : word[i];
+        const w = word.slice(i, i + comp.length);
 
         if (debug) {
-          console.log("p", probe, "s", comp, "w", w);
+          console.log("\t\tp:", probe, "s:", comp, "w:", w);
         }
 
         if (comp[0] > w[0]) {
           // binary search the lower half of the trie
           high = r.loc;
+          if (debug) console.log("\t\th", high, comp[0], ">", w[0]);
           continue;
         } else if (comp[0] < w[0]) {
-          // binary search the upper half
-          low = r.loc + w.length;
+          // binary search the upper half of the trie beyond r.word
+          low = r.loc + comp.length - 1;
+          if (debug) console.log("\t\tl", low, comp[0], "<", w[0]);
           continue;
         }
 
@@ -809,11 +828,12 @@ FrozenTrie.prototype = {
           if (w[u] !== comp[u]) return returnValue;
         }
 
-        if (debug) console.log("it:", probe, "break");
+        if (debug) console.log("\t\tit:", probe, "r", r.loc, "break");
 
         // final child of a compressed-node has refs to all its children
         child = r.branch;
-        i += comp.length;
+        // move ahead to now compare rest of the letters in word[i:length]
+        i += w.length;
         break;
       }
 
