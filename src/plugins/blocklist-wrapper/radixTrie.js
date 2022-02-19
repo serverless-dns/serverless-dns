@@ -758,9 +758,13 @@ FrozenTrie.prototype = {
 
     let returnValue = false;
     let node = this.getRoot();
-    let child;
     let i = 0;
     while (i < word.length) {
+      if (node == null) {
+        if (debug) console.log("...no more nodes, lookup complete");
+        return returnValue;
+      }
+
       // if '.' is encountered, capture the interim node.value();
       // for ex: s.d.com => return values for com. & com.d. & com.d.s
       if (periodEncVal[0] === word[i] && node.final()) {
@@ -786,31 +790,28 @@ FrozenTrie.prototype = {
 
       let high = node.getChildCount();
       let low = lastFlagNodeIndex;
+      let next = null;
 
       while (high - low > 1) {
         const probe = ((high + low) / 2) | 0;
-        child = node.getChild(probe);
-        if (debug) {
-          console.log("\tl/h:", low, high, "c/w:", child.letter(), word[i]);
-        }
-
+        const child = node.getChild(probe);
         const r = child.radix(node);
         const comp = r.word;
         const w = word.slice(i, i + comp.length);
 
         if (debug) {
-          console.log("\t\tp:", probe, "s:", comp, "w:", w);
+          console.log("\t\tl/h:", low, high, "p:", probe, "s:", comp, "w:", w);
         }
 
         if (comp[0] > w[0]) {
           // binary search the lower half of the trie
           high = r.loc;
-          if (debug) console.log("\t\th", high, comp[0], ">", w[0]);
+          if (debug) console.log("\t\tnew h", high, comp[0], ">", w[0]);
           continue;
         } else if (comp[0] < w[0]) {
           // binary search the upper half of the trie beyond r.word
           low = r.loc + comp.length - 1;
-          if (debug) console.log("\t\tl", low, comp[0], "<", w[0]);
+          if (debug) console.log("\t\tnew l", low, comp[0], "<", w[0]);
           continue;
         } // else, comp[0] === w[0] and so, match up the rest of comp
 
@@ -825,29 +826,22 @@ FrozenTrie.prototype = {
         if (debug) console.log("\t\tit:", probe, "r", r.loc, "break");
 
         // final child of a compressed-node has refs to all its children
-        child = r.branch;
+        next = r.branch;
         // move ahead to now compare rest of the letters in word[i:length]
         i += w.length;
         break;
       }
-
-      if (high - low <= 1) {
-        if (debug) {
-          console.log("...hi-lo:", high - low, "t:", node.getChildCount());
-          console.log("...h/l:", high, low, "c/w:", child.letter(), word[i]);
-        }
-        return returnValue;
-      }
-
-      if (debug) console.log("\tnext:", child.letter());
-      node = child;
+      if (debug) console.log("\tnext:", next && next.letter());
+      node = next; // next is null when no match is found
     }
 
-    // fixme: see above re returning "false" vs [false] vs [[0], false]
+    // the entire word to be looked-up has been iterated over, see if
+    // we are on a final-node to know if we've got a match in the trie
     if (node.final()) {
       if (!returnValue) returnValue = new Map();
       returnValue.set(TxtDec.decode(word.reverse()), node.value());
     }
+    // fixme: see above re returning "false" vs [false] vs [[0], false]
     return returnValue;
   },
 };
