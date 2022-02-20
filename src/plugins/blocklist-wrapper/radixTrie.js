@@ -554,6 +554,7 @@ function FrozenTrieNode(trie, index) {
       const entry = this.trie.nodecache.get(this.index);
       if (entry) {
         wordCached = entry;
+        if (config.debug) console.log("\t\t\tnode cached", wordCached.loc);
         return wordCached;
       }
 
@@ -573,7 +574,7 @@ function FrozenTrieNode(trie, index) {
         if (temp.flag()) break;
         startchild.push(temp);
         start += 1;
-      } while (loc - start > 0);
+      } while (true);
 
       // if the child itself the last-node in the sequence, nothing
       // to do, there's no endchild to track; but otherwise, loop:
@@ -841,6 +842,7 @@ FrozenTrie.prototype = {
       if (!returnValue) returnValue = new Map();
       returnValue.set(TxtDec.decode(word.reverse()), node.value());
     }
+    if (debug) console.log("...lookup complete:", returnValue);
     // fixme: see above re returning "false" vs [false] vs [[0], false]
     return returnValue;
   },

@@ -67,7 +67,7 @@ export class DNSCacheResponder {
     if (!k) return noAnswer;
 
     const cr = await this.cache.get(k, onlyLocal);
-    this.log.d(rxid, "local?", onlyLocal, "cached ans", k.href, cr);
+    this.log.d(rxid, onlyLocal, "cache k/m", k.href, cr && cr.metadata);
 
     if (util.emptyObj(cr)) return noAnswer;
 
