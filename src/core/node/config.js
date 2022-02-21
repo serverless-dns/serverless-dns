@@ -73,8 +73,8 @@ async function prep() {
     log.i("env (fly) tls setup");
   } else {
     const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
-      process.env.TLS_KEY_PATH,
-      process.env.TLS_CRT_PATH
+      envManager.get("TLS_KEY_PATH"),
+      envManager.get("TLS_CRT_PATH")
     );
     envManager.set("TLS_KEY", tlsKey);
     envManager.set("TLS_CRT", tlsCrt);
