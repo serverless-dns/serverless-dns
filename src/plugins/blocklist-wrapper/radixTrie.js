@@ -783,9 +783,7 @@ FrozenTrie.prototype = {
       // iff flags (value-node) exist but no other children, terminate lookup
       // ie: in child{f1, f2, ..., fn}; all children are flags (value-nodes)
       if (lastFlagNodeIndex >= node.getChildCount() - 1) {
-        if (debug) {
-          console.log("...no more children, rem word:", word.slice(i));
-        }
+        if (debug) console.log("...no more children, rem:", word.slice(i));
         return returnValue;
       }
 

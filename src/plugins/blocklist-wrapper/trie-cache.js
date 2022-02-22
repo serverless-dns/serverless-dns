@@ -28,11 +28,16 @@ export class TrieCache {
     return false;
   }
 
-  put(low, high, val) {
+  put(lo, hi, val) {
+    if (hi < lo) {
+      this.log.w("put not allowed hi < lo:", hi, "<", lo);
+      return;
+    }
     try {
-      this.cache.put(low, high, val);
+      const frequency = Math.log2((hi - lo) ** 2) | 0;
+      this.cache.put(lo, hi, val, frequency);
     } catch (e) {
-      this.log.e("put", low, high, val, e.stack);
+      this.log.e("put", lo, hi, val, e.stack);
     }
   }
 }
