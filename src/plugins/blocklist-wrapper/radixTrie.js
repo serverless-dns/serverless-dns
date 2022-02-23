@@ -554,9 +554,9 @@ function FrozenTrieNode(trie, index) {
       const entry = this.trie.nodecache.get(this.index);
       if (entry) {
         wordCached = entry;
-        if (config.debug) console.log("\t\t\tnode cached", wordCached.loc);
+        if (config.debug) console.log("\t\t\tnode-c-hit", this.index);
         return wordCached;
-      }
+      } else if (config.debug) console.log("\t\t\tnode-c-miss", this.index);
 
       const startchild = [];
       const endchild = [];
