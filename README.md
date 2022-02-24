@@ -125,7 +125,7 @@ TLS_CN="D1_RETHINKDNS_COM"
 # base64 representation of both key (private) and cert (public chain)
 D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
 
-# note D1_RETHINKDNS_COM env var name matches the value with env var, TLS_CN 
+# note: The env var name "D1_RETHINKDNS_COM" the value stored in env var, TLS_CN
 ```
 
 The process bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
@@ -156,12 +156,11 @@ Ref: _[github/workflows](.github/workflows)_.
 
 ### Blocklists
 
-The blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
+190+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
 to speed up string search ([`lookup`](src/plugins/blocklist-wrapper/radixTrie.js)) at the expense of "succintness". The blocklists are versioned
 with unix timestamp (env var: `CF_LATEST_BLOCKLIST_TIMESTAMP`), and generated once every week, but we'd like to generate 'em daily / hourly,
-if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Amazon S3 (env var: `CF_BLOCKLIST_URL`). `serverless-dns`
-downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16) required to setup
-the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167),
-when serving a DNS request.
+if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Lightsail Object Store (env var: `CF_BLOCKLIST_URL`).
+`serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
+required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167), when serving a DNS request.
 
 `serverless-dns` compiles around ~5M entries (as of Feb 2022) in to the radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
