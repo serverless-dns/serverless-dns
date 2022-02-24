@@ -8,9 +8,9 @@ RethinkDNS runs `serverless-dns` in production at these endpoints:
 
 | Cloud platform     | Server locations | Protocol    | Domain                    | Usage                                   |
 |--------------------|------------------|-------------|---------------------------|-----------------------------------------|
-| Cloudflare Workers | 200+ ([ping](https://check-host.net/check-ping?host=https://basic.rethinkdns.com))        | DoH         | `basic.rethinkdns.com`    | [configure](https://rethinkdns.com/configure?p=doh)  |
-| Deno Deploy        | 30+ ([ping](https://check-host.net/check-ping?host=https://deno.dev))                     | DoH         | _private beta_            |                                         |
-| Fly.io             | 30+ ([ping](https://check-host.net/check-ping?host=https://max.rethinkdns.com))           | DoH and DoT | `max.rethinkdns.com`      | [configure](https://rethinkdns.com/configure?p=dot)  |
+| ⛅ Cloudflare Workers | 200+ ([ping](https://check-host.net/check-ping?host=https://basic.rethinkdns.com))        | DoH         | `basic.rethinkdns.com`    | [configure](https://rethinkdns.com/configure?p=doh)  |
+| 🦕 Deno Deploy        | 30+ ([ping](https://check-host.net/check-ping?host=https://deno.dev))                     | DoH         | _private beta_            |                                         |
+| 🪂 Fly.io             | 30+ ([ping](https://check-host.net/check-ping?host=https://max.rethinkdns.com))           | DoH and DoT | `max.rethinkdns.com`      | [configure](https://rethinkdns.com/configure?p=dot)  |
 
 Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-to-end latency (varies across regions and networks) is between 10ms to 30ms (median).
 
@@ -25,8 +25,8 @@ For step-by-step instructions, refer:
 | Platform       | Difficulty | Runtime                                | Doc                                                                                     |
 | ---------------| ---------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | ⛅ Cloudflare  | Easy       | [v8](https://v8.dev) _Isolates_        | [Hosting on Cloudflare Workers](https://docs.rethinkdns.com/dns/open-source#cloudflare) |
-| 🦕 Deno Deploy | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
-| 🪰 Fly         | Hard       | [Node](https://nodejs.org)             | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
+| 🦕 Deno.com    | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
+| 🪂 Fly.io      | Hard       | [Node](https://nodejs.org)             | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
 
 If anything is not clear, feel free to [open an issue](https://github.com/celzero/docs/issues) or [submit a patch](https://github.com/celzero/docs).
 
@@ -36,6 +36,7 @@ If anything is not clear, feel free to [open an issue](https://github.com/celzer
 
 #### Setup
 
+Node:
 ```bash
 # navigate to work dir
 cd /my/work/dir
@@ -57,6 +58,12 @@ npm i
 # (optional) update dependencies
 npm update
 
+# run serverless-dns on node
+./run n
+```
+
+Deno and Wrangler:
+```bash
 # (optional) install Cloudflare Workers (cli) aka Wrangler
 # https://developers.cloudflare.com/workers/cli-wrangler/install-update
 npm i @cloudflare/wrangler -g
@@ -64,9 +71,6 @@ npm i @cloudflare/wrangler -g
 # (optional) install deno.land v1.18+
 # https://github.com/denoland/deno/#install
 curl -fsSL https://deno.land/install.sh | sh
-
-# run serverless-dns on node
-./run n
 
 # (optional) run serverless-dns on deno
 ./run d
@@ -93,6 +97,13 @@ Configure `.env` ([ref](.env.example)) or [`env.js`](src/core/env.js) if you nee
 Values in `.env` file take precedence over corresponding variables set in `env.js`. For Cloudflare Workers
 setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 
+#### Request flow
+
+1. The request/response flow is: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
+2. The `plugin.js` flow: `userOperation.js` -> `cacheResponse.js` -> `cc.js` -> `dnsResolver.js`
+
+----
+
 #### A note about runtimes
 
 Workers and Deno Deploy are ephemeral runtimes 
@@ -104,31 +115,36 @@ Except on Node, `serverless-dns` uses DoH upstreams defined by env vars, `CF_DNS
 On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f628460/src/commons/dnsutil.js#L28)).
 
 The entrypoint for Node and Deno are [`src/server-node.js`](src/server-node.js), [`src/server-deno.ts`](src/server-deno.ts) respectively,
-and both listen for TCP-over-TLS, HTTP/S connections. For local (non-prod) setups, the key (private) and cert (public chain) files, by default,
-are read from paths defined in `TLS_KEY_PATH` and `TLS_CRT_PATH`. Whilst for prod setup, the key and cert must be base64 encoded in env via
-`TLS_CN` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)). Whereas, the entrypoint for
-Cloudflare Workers, which only listens over HTTP (cli) or over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js).
-
-That is:
+and both listen for TCP-over-TLS, HTTP/S connections; whereas, the entrypoint for Cloudflare Workers, which only listens over HTTP (cli) or
+over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js). For local (non-prod) setups, the key (private) and cert (public chain)
+files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`. Whilst for prod setup, the key and cert _must_ be
+_base64_ encoded in env var via `TLS_CN` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
 
 ```bash
 # defines the domain name in uppercase for which certs have to be loaded for
 # period '.' is subst with `_`, ie, d1.rethinkdns.com is:
 TLS_CN="D1_RETHINKDNS_COM"
+
 # base64 representation of both key (private) and cert (public chain)
 D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
+
+# note D1_RETHINKDNS_COM env var name matches the value with env var, TLS_CN 
 ```
 
 The process bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
 while for Deno, it is [`src/core/deno/config.ts`](src/core/deno/config.ts) and for Workers it is [`src/core/workers/config.js`](src/core/workers/config.js).
 [`src/system.js`](src/system.js) pub-sub co-ordinates the _bringup_ phase among various modules.
 
+On Node and Deno, in-process DNS caching, backed by [`@serverless-dns/lfu-cache`](https://github.com/serverless-dns/lfu-cache)
+is used; on Cloudflare Workers, both, [Cache Web API](https://developers.cloudflare.com/workers/runtime-apis/cache) and
+in-process caches are used. To disable caching altogether on all three platfroms, set env var, `PROFILE_DNS_RESOLVES=true`.
+
 #### Cloud
 
 Ref: _[github/workflows](.github/workflows)_.
 
 Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
-Webpack5 bundles the files in an ESM module which is then uploaded to Cloudflare by Wrangler.
+[Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
 
 For Deno Deploy, the code-base is bundled up in a single javascript file with `deno bundle` and then handed off
 to Deno.com.
@@ -136,12 +152,6 @@ to Deno.com.
 For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml), while deploy directives
 are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets up `serverless-dns`
 on Fly.io's infrastructure.
-
-#### Request flow
-
-1. The request/response flow is: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
-
-2. The `plugin.js` flow: [`userOperation.js`] -> [`cacheResponse.js`] -> [`cc.js`] -> [`dnsResolver.js`]
 
 ### Blocklists
 
