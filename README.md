@@ -1,6 +1,6 @@
 #### It's a bird, it's a plane, it's... a self-hosted, pi-hole esque, DNS resolver
 
-`serverless-dns` is a Pi-Hole esque [content-blocking](https://github.com/serverless-dns/blocklists), serverless, stub DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) resolver. Runs out-of-the-box on [Cloudflare Workers](https://workers.dev), [Deno Deploy](https://deno.com/deploy), and [Fly.io](https://fly.io/). Free tiers of all these services should be enough to cover 10 to 20 devices worth of DNS traffic per month.
+_serverless-dns_ is a Pi-Hole esque [content-blocking](https://github.com/serverless-dns/blocklists), serverless, stub DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) resolver. Runs out-of-the-box on [Cloudflare Workers](https://workers.dev), [Deno Deploy](https://deno.com/deploy), and [Fly.io](https://fly.io/). Free tiers of all these services should be enough to cover 10 to 20 devices worth of DNS traffic per month.
 
 ### The RethinkDNS resolver
 
@@ -26,7 +26,7 @@ For step-by-step instructions, refer:
 | ---------------| ---------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | ⛅ Cloudflare  | Easy       | [v8](https://v8.dev) _Isolates_        | [Hosting on Cloudflare Workers](https://docs.rethinkdns.com/dns/open-source#cloudflare) |
 | 🦕 Deno.com    | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
-| 🪂 Fly.io      | Hard       | [Node](https://nodejs.org)             | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
+| 🪂 Fly.io      | Hard       | [Node](https://nodejs.org) _MicroVM_   | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
 
 If anything is not clear, feel free to [open an issue](https://github.com/celzero/docs/issues) or [submit a patch](https://github.com/celzero/docs).
 
@@ -85,9 +85,8 @@ curl -fsSL https://deno.land/install.sh | sh
 #### Code style
 
 Commits on this repository enforces the Google JavaScript style guide (ref: [.eslintrc.cjs](.eslintrc.cjs)).
-A git `pre-commit` hook that runs linter (eslint) and formatter (prettier) on `.js` files.
-
-Use `git commit --no-verify` to bypass this hook.
+A git `pre-commit` hook that runs linter (eslint) and formatter (prettier) on `.js` files. Use `git commit --no-verify`
+to bypass this hook.
 
 Pull requests are also checked for code style violations and fixed automatically where possible.
 
@@ -106,10 +105,8 @@ setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 
 #### A note about runtimes
 
-Workers and Deno Deploy are ephemeral runtimes 
-
 Deno Deploy and Deno (the runtime) do not expose the same API surface (for example, Deno Deploy only
-supports HTTP/S server-listeners, whereas Deno suports raw TCP/UDP/TLS in addition to plain HTTP and HTTP/S).
+supports HTTP/S server-listeners; whereas, Deno suports raw TCP/UDP/TLS in addition to plain HTTP and HTTP/S).
 
 Except on Node, `serverless-dns` uses DoH upstreams defined by env vars, `CF_DNS_RESOLVER_URL` / `CF_DNS_RESOLVER_URL_2`.
 On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f628460/src/commons/dnsutil.js#L28)).
@@ -141,7 +138,9 @@ in-process caches are used. To disable caching altogether on all three platfroms
 
 #### Cloud
 
-Ref: _[github/workflows](.github/workflows)_.
+Cloudflare Workers and Deno Deploy are ephemeral, as in, the process that serves client request is not long-lived,
+and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) (processes). Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
+like traditional "serverfull" environments.
 
 Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
 [Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
@@ -152,6 +151,8 @@ to Deno.com.
 For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml), while deploy directives
 are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets up `serverless-dns`
 on Fly.io's infrastructure.
+
+Ref: _[github/workflows](.github/workflows)_.
 
 ### Blocklists
 
