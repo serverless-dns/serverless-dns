@@ -28,7 +28,9 @@ For step-by-step instructions, refer:
 | 🦕 Deno.com    | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
 | 🪂 Fly.io      | Hard       | [Node](https://nodejs.org) _MicroVM_   | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
 
-If anything is not clear, feel free to [open an issue](https://github.com/celzero/docs/issues) or [submit a patch](https://github.com/celzero/docs).
+To setup blocklists, visit `https://<my-domain>.tld/configure` from your browser (it should load something similar to [RethinkDNS' _configure_ page](https://rethinkdns.com/configure)).
+
+For help or assistance, feel free to [open an issue](https://github.com/celzero/docs/issues) or [submit a patch](https://github.com/celzero/docs).
 
 ---
 
@@ -36,7 +38,7 @@ If anything is not clear, feel free to [open an issue](https://github.com/celzer
 
 #### Setup
 
-Node:
+Code:
 ```bash
 # navigate to work dir
 cd /my/work/dir
@@ -46,7 +48,10 @@ git clone https://github.com/serverless-dns/serverless-dns.git
 
 # navigate to serverless-dns
 cd ./serverless-dns
+```
 
+Node:
+```
 # install node v16+ via nvm, if required
 # https://github.com/nvm-sh/nvm#installing-and-updating
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
@@ -105,7 +110,7 @@ setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 
 #### A note about runtimes
 
-Deno Deploy and Deno (the runtime) do not expose the same API surface (for example, Deno Deploy only
+Deno Deploy (cloud) and Deno (the runtime) do not expose the same API surface (for example, Deno Deploy only
 supports HTTP/S server-listeners; whereas, Deno suports raw TCP/UDP/TLS in addition to plain HTTP and HTTP/S).
 
 Except on Node, `serverless-dns` uses DoH upstreams defined by env vars, `CF_DNS_RESOLVER_URL` / `CF_DNS_RESOLVER_URL_2`.
@@ -128,7 +133,7 @@ D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
 # note: The env var name "D1_RETHINKDNS_COM" the value stored in env var, TLS_CN
 ```
 
-The process bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
+_Process_ bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
 while for Deno, it is [`src/core/deno/config.ts`](src/core/deno/config.ts) and for Workers it is [`src/core/workers/config.js`](src/core/workers/config.js).
 [`src/system.js`](src/system.js) pub-sub co-ordinates the _bringup_ phase among various modules.
 
@@ -163,4 +168,4 @@ if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and 
 `serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
 required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167), when serving a DNS request.
 
-`serverless-dns` compiles around ~5M entries (as of Feb 2022) in to the radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+`serverless-dns` compiles around ~5M entries (as of Feb 2022) in to a succinct radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
