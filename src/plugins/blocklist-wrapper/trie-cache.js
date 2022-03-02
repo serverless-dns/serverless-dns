@@ -29,8 +29,8 @@ export class TrieCache {
   }
 
   put(lo, hi, val) {
-    if (hi < lo) {
-      this.log.w("put not allowed hi < lo:", hi, "<", lo);
+    if (hi < lo || val == null) {
+      this.log.w(val, "put not allowed hi < lo:", hi, "<", lo);
       return;
     }
     try {
@@ -39,5 +39,15 @@ export class TrieCache {
     } catch (e) {
       this.log.e("put", lo, hi, val, e.stack);
     }
+  }
+
+  find(n, cursor = null) {
+    try {
+      // returns {value: v, cursor: c}
+      return this.cache.find(n, cursor);
+    } catch (e) {
+      this.log.e("find", n, cursor, e.stack);
+    }
+    return false;
   }
 }

@@ -481,6 +481,7 @@ function FrozenTrieNode(trie, index) {
   let valCached;
   let flagCached;
   let wordCached;
+  let cursorCached;
 
   this.trie = trie;
   this.index = index;
@@ -540,8 +541,8 @@ function FrozenTrieNode(trie, index) {
 
   this.letter = () => this.where();
 
-  this.radix = (parent) => {
-    if (typeof wordCached !== "undefined") return wordCached;
+  this.radix = (parent, cachecursor = null) => {
+    if (typeof wordCached !== "undefined") return [wordCached, cursorCached];
 
     // location of this child among all other children of its parent
     const loc = this.index - parent.firstChild();
@@ -551,12 +552,15 @@ function FrozenTrieNode(trie, index) {
     const isThisNodeCompressed = this.compressed() && !this.flag();
 
     if (isThisNodeCompressed || isPrevNodeCompressed) {
-      const entry = this.trie.nodecache.get(this.index);
-      if (entry) {
-        wordCached = entry;
+      const cc = this.trie.nodecache.find(this.index, cachecursor);
+      if (cc != null && cc.value != null) {
+        wordCached = cc.value;
+        cursorCached = cc.cursor;
         if (config.debug) console.log("\t\t\tnode-c-hit", this.index);
-        return wordCached;
-      } else if (config.debug) console.log("\t\t\tnode-c-miss", this.index);
+        return [wordCached, cursorCached];
+      }
+
+      if (config.debug) console.log("\t\t\tnode-c-miss, add:", this.index);
 
       const startchild = [];
       const endchild = [];
@@ -612,7 +616,7 @@ function FrozenTrieNode(trie, index) {
       };
     }
 
-    return wordCached;
+    return [wordCached, cursorCached || null];
   };
 
   this.firstChild = () => {
@@ -757,8 +761,13 @@ FrozenTrie.prototype = {
     const index = word.lastIndexOf(ENC_DELIM[0]);
     if (index > 0) word = word.slice(0, index);
 
+    // cursor tracks position of previous cache-hit in frozentrie:nodecache
+    let cachecursor = null;
+    // the output of this fn
     let returnValue = false;
+    // the current trie node to query
     let node = this.getRoot();
+    // index in the incoming word utf-8 array
     let i = 0;
     while (i < word.length) {
       if (node == null) {
@@ -794,13 +803,18 @@ FrozenTrie.prototype = {
       while (high - low > 1) {
         const probe = ((high + low) / 2) | 0;
         const child = node.getChild(probe);
-        const r = child.radix(node);
+        const [r, cc] = child.radix(node, cachecursor);
         const comp = r.word;
         const w = word.slice(i, i + comp.length);
 
         if (debug) {
           console.log("\t\tl/h:", low, high, "p:", probe, "s:", comp, "w:", w);
+          const pr = cachecursor && cachecursor.range;
+          const nr = cc && cc.range;
+          if (cc) console.log("index", child.index, "now:cc", nr, "p:cc", pr);
         }
+
+        cachecursor = cc != null ? cc : cachecursor;
 
         if (comp[0] > w[0]) {
           // binary search the lower half of the trie
@@ -830,6 +844,7 @@ FrozenTrie.prototype = {
         i += w.length;
         break;
       }
+
       if (debug) console.log("\tnext:", next && next.letter());
       node = next; // next is null when no match is found
     }
@@ -840,7 +855,9 @@ FrozenTrie.prototype = {
       if (!returnValue) returnValue = new Map();
       returnValue.set(TxtDec.decode(word.reverse()), node.value());
     }
+
     if (debug) console.log("...lookup complete:", returnValue);
+
     // fixme: see above re returning "false" vs [false] vs [[0], false]
     return returnValue;
   },
