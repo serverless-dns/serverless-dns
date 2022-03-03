@@ -130,8 +130,8 @@ function mkdirsIfNeeded(timestamp: string) {
   let dinfo2 = null;
 
   try {
-    dinfo2 = Deno.statSync(dir1);
-    dinfo1 = Deno.statSync(dir2);
+    dinfo1 = Deno.statSync(dir1);
+    dinfo2 = Deno.statSync(dir2);
   } catch (ignored) {}
 
   if (!dinfo1 || !dinfo1.isDirectory) {
