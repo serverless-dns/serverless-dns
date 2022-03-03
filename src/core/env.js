@@ -247,7 +247,10 @@ export default class EnvManager {
     }
 
     const m = defaults[k];
-    if (m && v != null) v = caststr(m.default, m.type);
+    // return default when env value v is not set
+    if (m && v == null) v = caststr(m.default, m.type);
+    // if v is set, type-cast if k is among defaults
+    if (m && v != null) v = caststr(v, m.type);
 
     return v;
   }
