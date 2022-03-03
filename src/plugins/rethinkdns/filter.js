@@ -6,9 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { customTagToFlag } from "./radixTrie.js";
+import { customTagToFlag } from "./trie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
-import * as dnsBlockUtil from "../dnsblockutil.js";
+import * as rdnsutil from "../rdns-util.js";
 
 export class BlocklistFilter {
   constructor() {
@@ -47,6 +47,6 @@ export class BlocklistFilter {
 
   getB64FlagFromTag(tagList, flagVersion) {
     const uintFlag = customTagToFlag(tagList, this.blocklistFileTag);
-    return dnsBlockUtil.getB64Flag(uintFlag, flagVersion);
+    return rdnsutil.getB64Flag(uintFlag, flagVersion);
   }
 }

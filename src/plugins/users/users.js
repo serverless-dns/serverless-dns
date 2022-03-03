@@ -6,6 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { UserOperation as UserOperation } from "./userOperation.js";
+import { UserOp } from "./user-op.js";
 
-export { UserOperation };
+export { UserOp };

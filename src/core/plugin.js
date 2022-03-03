@@ -38,10 +38,10 @@ export default class RethinkPlugin {
     this.plugin = [];
 
     this.registerPlugin(
-      "userOperation",
-      services.userOperation,
+      "userOp",
+      services.userOp,
       ["rxid", "request", "isDnsMsg"],
-      this.userOperationCallBack,
+      this.userOpCallback,
       false
     );
 
@@ -132,32 +132,32 @@ export default class RethinkPlugin {
   /**
    * params
    * @param {*} response
-   * @param {*} currentRequest
+   * @param {*} io
    */
-  async commandControlCallBack(response, currentRequest) {
+  async commandControlCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     this.log.d(rxid, "command-control response");
 
     if (!util.emptyObj(r) && r.stopProcessing) {
       this.log.d(rxid, "command-control reply", r);
-      currentRequest.hResponse(r.httpResponse);
+      io.hResponse(r.httpResponse);
     }
   }
 
   /**
    * Adds "userBlocklistInfo" and "dnsResolverUrl" to RethinkPlugin params
    * @param {*} response - Contains `data` which is `userBlocklistInfo`
-   * @param {*} currentRequest
+   * @param {*} io
    */
-  async userOperationCallBack(response, currentRequest) {
+  async userOpCallback(response, io) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     this.log.d(rxid, "user-op response");
 
     if (response.isException) {
       this.log.w(rxid, "unexpected err userOp", r);
-      this.loadException(rxid, response, currentRequest);
+      this.loadException(rxid, response, io);
     } else if (!util.emptyObj(r)) {
       // r.userBlocklistInfo and r.dnsResolverUrl are never "null"
       this.registerParameter("userBlocklistInfo", r.userBlocklistInfo);
@@ -167,7 +167,7 @@ export default class RethinkPlugin {
     }
   }
 
-  dnsCacheCallBack(response, currentRequest) {
+  dnsCacheCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     const deny = r.isBlocked;
@@ -177,14 +177,14 @@ export default class RethinkPlugin {
     this.log.d(rxid, "crr: block?", deny, "ans?", isAns, "noerr", noErr);
 
     if (response.isException) {
-      this.loadException(rxid, response, currentRequest);
+      this.loadException(rxid, response, io);
     } else if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js
-      currentRequest.dnsBlockResponse(r.flag);
+      io.dnsBlockResponse(r.flag);
     } else if (isAns) {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
+      io.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     } else {
       this.registerParameter("domainBlockstamp", r.stamps);
       this.log.d(rxid, "resolve query; no response from cache-handler");
@@ -195,9 +195,9 @@ export default class RethinkPlugin {
    * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
    * resolver) to RethinkPlugin params
    * @param {*} response
-   * @param {*} currentRequest
+   * @param {*} io
    */
-  dnsResolverCallBack(response, currentRequest) {
+  dnsResolverCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
     const deny = r.isBlocked;
@@ -210,28 +210,28 @@ export default class RethinkPlugin {
 
     if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js?
-      currentRequest.dnsBlockResponse(r.flag);
+      io.dnsBlockResponse(r.flag);
     } else if (response.isException || !isAns) {
       // if not blocked, but then, no-ans or is-exception, then:
-      this.loadException(rxid, response, currentRequest);
+      this.loadException(rxid, response, io);
     } else {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
-      currentRequest.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
+      io.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     }
   }
 
-  loadException(rxid, response, currentRequest) {
+  loadException(rxid, response, io) {
     this.log.e(rxid, "exception", JSON.stringify(response));
-    currentRequest.dnsExceptionResponse(response);
+    io.dnsExceptionResponse(response);
   }
 
-  async setRequest(currentRequest) {
+  async setRequest(io) {
     const request = this.parameter.get("request");
     const isDnsMsg = util.isDnsMsg(request);
     const rxid = this.parameter.get("rxid");
 
-    currentRequest.id(rxid);
+    io.id(rxid);
 
     this.registerParameter("isDnsMsg", isDnsMsg);
 
@@ -242,7 +242,7 @@ export default class RethinkPlugin {
       // plugins process only dns-msgs via GET and POST.
       if (!util.isGetRequest(request)) {
         this.log.i(rxid, "not a dns-msg, not a GET req either", request);
-        currentRequest.hResponse(util.respond405());
+        io.hResponse(util.respond405());
       }
       return;
     }
@@ -252,7 +252,7 @@ export default class RethinkPlugin {
 
     this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
 
-    currentRequest.decodedDnsPacket = questionPacket;
+    io.decodedDnsPacket = questionPacket;
     this.registerParameter("requestDecodedDnsPacket", questionPacket);
     this.registerParameter("requestBodyBuffer", question);
   }

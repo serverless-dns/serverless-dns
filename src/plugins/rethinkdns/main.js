@@ -6,12 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { createTrie } from "./radixTrie.js";
-import { BlocklistFilter } from "./blocklistFilter.js";
+import { createTrie } from "./trie.js";
+import { BlocklistFilter } from "./filter.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
-import * as rdnsutil from "../dnsblockutil.js";
+import * as rdnsutil from "../rdns-util.js";
 
 export class BlocklistWrapper {
   constructor() {

@@ -6,14 +6,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { BlocklistWrapper } from "../plugins/blocklist-wrapper/main.js";
+import { BlocklistWrapper } from "../plugins/rethinkdns/main.js";
 import { CommandControl } from "../plugins/command-control/cc.js";
-import { UserOperation } from "../plugins/basic/userOperation.js";
+import { UserOp } from "../plugins/users/user-op.js";
 import {
   DNSCacheResponder,
   DNSResolver,
   DnsCache,
-} from "../plugins/dns-operation/dnsOperation.js";
+} from "../plugins/dns-op/dns-op.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as system from "../system.js";
 
@@ -27,9 +27,9 @@ export const services = {
    */
   blocklistWrapper: null,
   /**
-   * @type {?UserOperation} userOperation
+   * @type {?UserOp} userOp
    */
-  userOperation: null,
+  userOp: null,
   /**
    * @type {?CommandControl} commandControl
    */
@@ -59,7 +59,7 @@ async function systemReady() {
   const cache = new DnsCache(dnsutil.cacheSize());
 
   services.blocklistWrapper = bw;
-  services.userOperation = new UserOperation();
+  services.userOp = new UserOp();
   services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
   services.commandControl = new CommandControl(bw);
   services.dnsResolver = new DNSResolver(bw, cache);

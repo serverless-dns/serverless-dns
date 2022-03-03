@@ -5,9 +5,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { DnsBlocker } from "./dnsBlock.js";
-import * as cacheutil from "../cacheutil.js";
-import * as rdnsutil from "../dnsblockutil.js";
+
+import { DnsBlocker } from "./blocker.js";
+import * as cacheutil from "../cache-util.js";
+import * as rdnsutil from "../rdns-util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 

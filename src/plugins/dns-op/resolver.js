@@ -5,9 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { DnsBlocker } from "./dnsBlock.js";
-import * as rdnsutil from "../dnsblockutil.js";
-import * as cacheutil from "../cacheutil.js";
+import { DnsBlocker } from "./blocker.js";
+import * as rdnsutil from "../rdns-util.js";
+import * as cacheutil from "../cache-util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
@@ -221,10 +221,8 @@ export default class DNSResolver {
     const dnsPacket = dnsutil.decode(raw);
     // stamps are empty for domains that are not in any blocklist
     // but there's no way to know if that was indeed the case as
-    // stamps are sent here by cacheResolver, which may or may not
-    // have retrieved the stamps in the first-place (in which case
-    // these would be empty, regardless of whether the domain was
-    // in any of the blocklists or not).
+    // stamps are sent here by cache-resolver, which may or may not
+    // have retrieved the stamps in the first-place.
     stamps = util.emptyObj(stamps)
       ? rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf)
       : stamps;

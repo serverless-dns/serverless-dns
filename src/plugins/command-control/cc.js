@@ -7,7 +7,7 @@
  */
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
-import * as rdnsutil from "../dnsblockutil.js";
+import * as rdnsutil from "../rdns-util.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {

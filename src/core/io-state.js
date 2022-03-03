@@ -10,7 +10,7 @@ import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as util from "../commons/util.js";
 
-export default class CurrentRequest {
+export default class IOState {
   constructor() {
     this.flag = "";
     this.decodedDnsPacket = this.emptyDecodedDnsPacket();
@@ -20,7 +20,7 @@ export default class CurrentRequest {
     this.exceptionFrom = "";
     this.isDnsBlock = false;
     this.stopProcessing = false;
-    this.log = log.withTags("CurrentRequest");
+    this.log = log.withTags("IOState");
   }
 
   id(rxid) {
@@ -147,7 +147,7 @@ export default class CurrentRequest {
       this.log.e("dnsBlock", JSON.stringify(this.decodedDnsPacket), e.stack);
       this.isException = true;
       this.exceptionStack = e.stack;
-      this.exceptionFrom = "CurrentRequest dnsBlockResponse";
+      this.exceptionFrom = "IOState:dnsBlockResponse";
       this.httpResponse = new Response(null, {
         headers: util.concatHeaders(
           this.headers(),

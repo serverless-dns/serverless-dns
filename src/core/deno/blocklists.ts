@@ -74,7 +74,7 @@ function setupLocally(bw: any, timestamp: string, nodecount: number) {
 
   // TODO: file integrity checks
   // concat converts uint8array to an untyped arraybuffer
-  // that blocklist-wrapper expects, because the actual
+  // that the rethinkdns module expects, 'cause the actual
   // type required is uint16array for the trie
   const ab0 = bufutil.concat([tdbuf]);
   const ab1 = bufutil.concat([rdbuf]);

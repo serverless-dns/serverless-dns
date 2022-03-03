@@ -5,14 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { UserCache } from "./userCache.js";
+import { UserCache } from "./user-cache.js";
 import * as util from "../../commons/util.js";
-import * as dnsBlockUtil from "../dnsblockutil.js";
+import * as rdnsutil from "../rdns-util.js";
 
 // TODO: determine an approp cache-size
 const cacheSize = 10000;
 
-export class UserOperation {
+export class UserOp {
   constructor() {
     this.userConfigCache = new UserCache(cacheSize);
     this.log = log.withTags("UserOp");
@@ -37,17 +37,17 @@ export class UserOperation {
     }
 
     try {
-      const blocklistFlag = dnsBlockUtil.blockstampFromUrl(param.request.url);
+      const blocklistFlag = rdnsutil.blockstampFromUrl(param.request.url);
       let r = this.userConfigCache.get(blocklistFlag);
 
       if (util.emptyObj(r)) {
         // TODO: blocklistFlag may be invalid, ref blockstampFromUrl impl
-        r = dnsBlockUtil.unstamp(blocklistFlag);
+        r = rdnsutil.unstamp(blocklistFlag);
 
         // FIXME: add to cache iff !empty(r.userBlocklistFlagUint)?
         this.log.d(param.rxid, "new cfg cache kv", blocklistFlag, r);
         // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
-        // converted to its b64 form (which both doh and blocklist-wrapper use)
+        // converted to its b64 form (which doh and rethinkdns modules use)
         // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
         this.userConfigCache.put(blocklistFlag, r);
       }

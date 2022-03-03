@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import DNSResolver from "./dnsResolver.js";
-import { DNSCacheResponder } from "./cacheResponse.js";
-import { DnsCache } from "./dnsCache.js";
+import DNSResolver from "./resolver.js";
+import { DNSCacheResponder } from "./cache-resolver.js";
+import { DnsCache } from "./cache.js";
 
 export { DNSResolver, DNSCacheResponder, DnsCache };
