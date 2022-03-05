@@ -118,8 +118,12 @@ On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverl
 
 The entrypoint for Node and Deno are [`src/server-node.js`](src/server-node.js), [`src/server-deno.ts`](src/server-deno.ts) respectively,
 and both listen for TCP-over-TLS, HTTP/S connections; whereas, the entrypoint for Cloudflare Workers, which only listens over HTTP (cli) or
-over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js). For local (non-prod) setups, the key (private) and cert (public chain)
-files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`. Whilst for prod setup, the key and cert _must_ be
+over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js).
+
+For prod setups on Deno and local (non-prod) setups on Node, the key (private) and cert (public chain)
+files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
+
+Whilst for prod setup on Node, the key and cert _must_ be
 _base64_ encoded in env var via `TLS_CN` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
 
 ```bash

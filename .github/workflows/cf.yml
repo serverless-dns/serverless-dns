@@ -44,9 +44,10 @@ on:
       - "LICENSE"
       - "run"
   repository_dispatch:
-  env:
-    GIT_REF: ${{ github.event.inputs.commit || github.ref }}
-    WORKERS_ENV: 'dev'
+
+env:
+  GIT_REF: ${{ github.event.inputs.commit || github.ref }}
+  WORKERS_ENV: 'dev'
 
 jobs:
   deploy:
