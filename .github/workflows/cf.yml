@@ -65,6 +65,7 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           echo "WORKERS_ENV=${WENV}" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
         shell: bash
         env:
           # tagged deploy default to prod
@@ -77,8 +78,6 @@ jobs:
       - name: 📚 Wrangler publish
         # github.com/cloudflare/wrangler-action
         uses: cloudflare/wrangler-action@1.3.0
-        run: |
-          echo "::notice::Deploying to ${WENV} / ${GIT_REF} @ ${COMMIT_SHA}"
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           # input overrides env-defaults, regardless
@@ -86,3 +85,7 @@ jobs:
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GIT_COMMIT_ID: ${{ env.GIT_REF }}
+
+      - name: Notice
+        run: |
+          echo "::notice::Deployed to ${WORKERS_ENV} / ${GIT_REF} @ ${COMMIT_SHA}"
