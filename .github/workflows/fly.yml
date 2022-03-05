@@ -30,34 +30,54 @@ on:
         default: "dev"
 
 env:
+  GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  FLY_APP: ${{ secrets.FLY_APP_NAME }} # default
+  # default fly app to deploy to (typically, dev)
+  FLY_APP: ${{ secrets.FLY_APP_NAME }}
+  FLY_PROD_APP: ${{ secrets.FLY_APP_NAME_LIVE }}
+  FLY_B1_APP: ${{secrets.FLY_APP_NAME_B1 }}
 
 jobs:
   deploy:
     name: 🚀 Deploy app
     runs-on: ubuntu-latest
     steps:
-      - name: 🚚 Get latest code
+      - name: 🚚 Checkout
         uses: actions/checkout@v2
         with:
-          ref: ${{ github.event.inputs.git-ref || github.ref }}
+          ref: ${{ env.GIT_REF }}
       - run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-      - name: ⚠ *B1* Fly App ?
+      - name: ⚠ B1 via Dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
           github.event.inputs.deployment-type == 'b1' }}
         run: |
-          echo "FLY_APP=${{ secrets.FLY_APP_NAME_B1 }}" >> $GITHUB_ENV
-          echo "::notice::B1 deployment"
+          echo "FLY_APP=${FLY_B1_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying ${FLY_B1_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
 
-      - name: 🚨 *LIVE* Fly App ?
+      - name: 🚨 Prod via Dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
           github.event.inputs.deployment-type == 'live' }}
         run: |
-          echo "FLY_APP=${{ secrets.FLY_APP_NAME_LIVE }}" >> $GITHUB_ENV
-          echo "::notice::Live deployment"
+          echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying ${FLY_PROD_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: 🚨 Prod via Tag?
+        # docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        if: github.ref_type == 'tag'
+        run: |
+          echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying ${FLY_PROD_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
 
       - name: 🏗 Build & 🚢 Ship
         uses: superfly/flyctl-actions@1.1
