@@ -47,7 +47,8 @@ on:
 
 env:
   GIT_REF: ${{ github.event.inputs.commit || github.ref }}
-  WORKERS_ENV: 'dev'
+  # default is 'dev' which is really empty/no env
+  WORKERS_ENV: ''
 
 jobs:
   deploy:
@@ -62,7 +63,7 @@ jobs:
 
       - name: Tag?
         # docs.github.com/en/actions/learn-github-actions/contexts#github-context
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' ||  github.event.inputs.environment == 'prod'
         run: |
           echo "WORKERS_ENV=${WENV}" >> $GITHUB_ENV
           echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
@@ -81,7 +82,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           # input overrides env-defaults, regardless
-          environment: ${{ github.event.inputs.environment || env.WORKERS_ENV }}
+          environment: ${{ env.WORKERS_ENV }}
         env:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GIT_COMMIT_ID: ${{ env.GIT_REF }}
