@@ -475,7 +475,10 @@ async function handleHTTPRequest(b, req, res) {
 
     if (!bufutil.emptyBuf(ans)) {
       res.end(bufutil.bufferOf(ans));
-    } // else: expect fRes.status to be set to non 2xx above
+    } else {
+      // expect fRes.status to be set to non 2xx above
+      res.end();
+    }
   } catch (e) {
     res.writeHead(400); // bad request
     res.end();
