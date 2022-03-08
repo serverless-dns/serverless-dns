@@ -50,13 +50,14 @@ jobs:
       - name: 🏗 Git rev-parse
         run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
+        shell: bash
 
       - name: ⚠ B1 via dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
           github.event.inputs.deployment-type == 'b1' }}
         run: |
           echo "FLY_APP=${FLY_B1_APP}" >> $GITHUB_ENV
-          echo "::notice::Deploying ${FLY_B1_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+          echo "::notice::Deploying B1 / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -66,7 +67,7 @@ jobs:
           github.event.inputs.deployment-type == 'live' }}
         run: |
           echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
-          echo "::notice::Deploying ${FLY_PROD_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+          echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -76,7 +77,7 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
-          echo "::notice::Deploying ${FLY_PROD_APP} / ${GIT_REF} @ ${COMMIT_SHA}"
+          echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -89,6 +90,9 @@ jobs:
             --image-label ${{ env.GIT_HEAD }}
             --strategy rolling
             "
+
       - name: Registry
-      - run: |
+        if: success()
+        run: |
           echo "::notice::Image @ registry.fly.io/<fly-app-name>:${{ env.GIT_HEAD }}"
+        shell: bash

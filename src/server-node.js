@@ -469,6 +469,8 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "send-head");
 
+    // ans may be null on non-2xx responses, such as redirects (3xx) by cc.js
+    // or 4xx responses on timeouts or 5xx on invalid http method
     const ans = await fRes.arrayBuffer();
 
     log.lapTime(t, "recv-ans");
