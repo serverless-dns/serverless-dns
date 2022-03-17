@@ -24,9 +24,9 @@ on:
   push:
     # TODO: inputs.environment and inputs.commit
     branches:
-      - main
+      - "main"
     tags:
-      - v*
+      - "v*"
     paths-ignore:
       - ".github/**"
       - "!.github/workflows/cf.yml"
