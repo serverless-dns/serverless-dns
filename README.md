@@ -51,7 +51,7 @@ cd ./serverless-dns
 ```
 
 Node:
-```
+```bash
 # install node v16+ via nvm, if required
 # https://github.com/nvm-sh/nvm#installing-and-updating
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
