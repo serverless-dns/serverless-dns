@@ -41,6 +41,7 @@ env:
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
   NODE_VER: '17.x'
+  DENO_VER: '1.19.3'
   MODE: 'p1'
   QDOH: 'q'
 
@@ -70,20 +71,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VER }}
 
+      - name: Build Node deps
+        if: env.JS_RUNTIME == 'node'
+        run: |
+          # npm ci is faster, but it needs package-lock.json which isn't checked-in
+          npm i
+          npm run build --if-present
+
       # deno.com/blog/deploy-static-files#example-a-statically-generated-site
-      - name: Setup Deno @1.18.2
+      - name: Setup Deno @1.19.3
         if: env.JS_RUNTIME == 'deno'
         uses: denoland/setup-deno@main
         with:
-          deno-version: 1.18.2
-
-      - name: Download deps
-        run: npm i
-        # npm ci is faster, but it needs package-lock.json which isn't in main
-        # run: npm ci
-
-      - name: Build deps
-        run: npm run build --if-present
+          deno-version: ${{ env.DENO_VER }}
 
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
@@ -105,5 +105,4 @@ jobs:
         env:
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
           MODE: ${{ github.event.inputs.mode || env.MODE }}
-          TLS_KEY_PATH: 'test/data/tls/dns.rethinkdns.localhost.key'
-          TLS_CRT_PATH: 'test/data/tls/dns.rethinkdns.localhost.crt'
+
