@@ -83,7 +83,35 @@ else
   start="node --trace-warnings ./src/server-node.js";
 fi
 
-if [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
+if [ $profiler = "cpu" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (cpu): only on node"
+    exit 1
+  fi
+
+  echo "profiler (cpu): running clinicjs flame";
+  echo "profiler (cpu): press ctrl+c to open cpu flame graphs in a browser";
+  profilerbanner;
+  npx clinic flame -- $start
+elif [ $profiler = "mem" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (mem): only on node"
+    exit 1
+  fi
+
+  echo "profiler (mem): running clinicjs heapprofile"
+  echo "profiler (mem): press ctrl+c to open memory flame graphs in a browser"
+  profilerbanner;
+  npx clinic heapprofiler -- $start
+elif [ $profiler = "fn" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (fn): only on node"
+    exit 1
+  fi
+  echo "profiler (fn): running clinicjs bubbleprof"
+  echo "profiler (fn): press ctrl+c to open func bubble graphs in a browser"
+  npx clinic bubbleprof -- $start
+elif [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
   if [ $qdoh = "invalid" ]; then
     echo "Specify env QDOH path"
     exit 1

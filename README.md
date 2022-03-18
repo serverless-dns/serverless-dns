@@ -16,7 +16,7 @@ Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-t
 
 ### Self-host
 
-Cloudflare Workers is the easiest platform to setup `serverless-dns`: 
+Cloudflare Workers is the easiest platform to setup `serverless-dns`:
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
 
@@ -65,26 +65,34 @@ npm update
 
 # run serverless-dns on node
 ./run n
+
+# run a clinicjs.org profiler
+./run n [cpu|fn|mem]
 ```
 
-Deno and Wrangler:
+Deno:
 ```bash
-# (optional) install Cloudflare Workers (cli) aka Wrangler
-# https://developers.cloudflare.com/workers/cli-wrangler/install-update
-npm i @cloudflare/wrangler -g
-
-# (optional) install deno.land v1.18+
+# install deno.land v1.18+
 # https://github.com/denoland/deno/#install
 curl -fsSL https://deno.land/install.sh | sh
 
-# (optional) run serverless-dns on deno
+# run serverless-dns on deno
 ./run d
+```
 
-# (optional) run serverless-dns on Cloudflare Workers (cli)
+Wrangler:
+```bash
+# install Cloudflare Workers (cli) aka Wrangler
+# https://developers.cloudflare.com/workers/cli-wrangler/install-update
+npm i @cloudflare/wrangler -g
+
+# run serverless-dns on Cloudflare Workers (cli)
 # Make sure to setup Wrangler first:
 # https://developers.cloudflare.com/workers/cli-wrangler/authentication
 ./run w
 
+# profile wrangler with Chrome DevTools
+# blog.cloudflare.com/profiling-your-workers-with-wrangler
 ```
 
 #### Code style
@@ -103,7 +111,7 @@ setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 
 #### Request flow
 
-1. The request/response flow is: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
+1. The request/response flow: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
 2. The `plugin.js` flow: `userOperation.js` -> `cacheResponse.js` -> `cc.js` -> `dnsResolver.js`
 
 ----
