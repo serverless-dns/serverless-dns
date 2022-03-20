@@ -38,9 +38,8 @@ bgsilent() {
 }
 
 dohquery() {
+  domain=$1
   resolver="https://localhost:8080/"
-  prefix=$( dd if=/dev/urandom bs=20 count=20 status=none | tr -dc 'A-Z0-9' | xargs echo )
-  domain="${prefix}.dnsleaktest.com"
   pstart="${qdoh} -i -t A -s ${resolver} -q ${domain}"
   bgsilent "$pstart"
 }
@@ -48,7 +47,25 @@ dohquery() {
 reqs() {
   while true
   do
-    dohquery
+
+    prefix=$( dd if=/dev/urandom bs=20 count=20 status=none | tr -dc 'A-Z0-9' | xargs echo )
+    domain="${prefix}.dnsleaktest.com"
+    dohquery ${domain}
+
+    if [ $1 != "0" ]; then
+      sleep $1
+    fi
+
+  done
+}
+
+greqs() {
+  while true
+  do
+    dohquery google.co.pk
+    dohquery google.co.in
+    dohquery google.com
+    dohquery google.co.uk
 
     if [ $1 != "0" ]; then
       sleep $1
@@ -108,8 +125,10 @@ elif [ $profiler = "fn" ]; then
     echo "profiler (fn): only on node"
     exit 1
   fi
+
   echo "profiler (fn): running clinicjs bubbleprof"
   echo "profiler (fn): press ctrl+c to open func bubble graphs in a browser"
+  profilerbanner;
   npx clinic bubbleprof -- $start
 elif [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
   if [ $qdoh = "invalid" ]; then
