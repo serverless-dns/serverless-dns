@@ -85,7 +85,7 @@ export class TcpConnPool {
   }
 
   dead(sock, report) {
-    return !healthy(sock, report);
+    return !this.healthy(sock, report);
   }
 
   evict(sock) {
@@ -172,7 +172,7 @@ export class UdpConnPool {
   }
 
   dead(sock, report) {
-    return !healthy(sock, report);
+    return !this.healthy(sock, report);
   }
 
   evict(sock) {
