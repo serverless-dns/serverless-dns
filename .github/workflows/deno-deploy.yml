@@ -87,7 +87,7 @@ jobs:
       - name: Install Deno @1.18
         uses: denoland/setup-deno@main
         with:
-          deno-version: 1.18.2
+          deno-version: 1.20.1
 
       - name: 📦 Bundle up
         if: ${{ env.DEPLOY_MODE == 'action' }}

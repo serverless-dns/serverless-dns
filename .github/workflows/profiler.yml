@@ -41,7 +41,7 @@ env:
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
   NODE_VER: '17.x'
-  DENO_VER: '1.19.3'
+  DENO_VER: '1.20.1'
   MODE: 'p1'
   QDOH: 'q'
 
@@ -71,7 +71,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VER }}
 
-      - name: Build Node deps
+      - name: Cache Node deps
         if: env.JS_RUNTIME == 'node'
         run: |
           # npm ci is faster, but it needs package-lock.json which isn't checked-in
@@ -84,6 +84,11 @@ jobs:
         uses: denoland/setup-deno@main
         with:
           deno-version: ${{ env.DENO_VER }}
+
+      - name: Cache Deno deps
+        if: env.JS_RUNTIME == 'deno'
+        run: |
+          deno cache ./src/server-deno.ts --import-map ./import-map.json
 
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
