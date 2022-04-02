@@ -25,7 +25,6 @@
   "dependencies": {
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.1",
     "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.1",
-    "clinic": "^11.1.0",
     "dotenv": "^10.0.0",
     "proxy-protocol-js": "^4.0.5",
     "undici": "^4.13.0"
@@ -33,6 +32,7 @@
   "devDependencies": {
     "@types/node": "^16.11.7",
     "buffer": "^6.0.3",
+    "clinic": "^11.1.0",
     "eslint": "^8.5.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-prettier": "^4.0.0",
