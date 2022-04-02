@@ -25,7 +25,7 @@ async function proxyRequest(event) {
     await plugin.initIoState(io);
 
     await util.timedSafeAsyncOp(
-      /* op*/ async () => plugin.executePlugin(),
+      /* op*/ async () => plugin.execute(),
       /* waitMs*/ dnsutil.requestTimeout(),
       /* onTimeout*/ async () => errorResponse(io)
     );

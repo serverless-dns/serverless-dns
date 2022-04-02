@@ -388,6 +388,25 @@ export function isGetRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
 
+export function isGatewayRequest(req) {
+  if (!req || emptyString(req.url)) return false;
+
+  const u = new URL(req.url);
+  const paths = u.pathname.split("/");
+  for (const p of paths) {
+    if (isGatewayQuery(p)) return true;
+  }
+  return false;
+}
+
+export function isDnsQuery(p) {
+  return p === "dns-query";
+}
+
+export function isGatewayQuery(p) {
+  return p === "gateway";
+}
+
 export function mkFetchEvent(r, ...fns) {
   if (emptyObj(r)) throw new Error("missing request");
   for (const f of fns) {

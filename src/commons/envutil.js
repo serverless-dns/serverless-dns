@@ -200,3 +200,11 @@ export function disableBlocklists() {
 
   return envManager.get("DISABLE_BLOCKLISTS") || false;
 }
+
+export function gwip4() {
+  return envManager.get("GW_IP4") || "";
+}
+
+export function gwip6() {
+  return envManager.get("GW_IP6") || "";
+}

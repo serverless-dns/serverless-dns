@@ -283,7 +283,7 @@ export function blockstampFromUrl(u) {
   }
   // TODO: check if paths[1|2] is a valid stamp
   // skip to next if path has `/dns-query`
-  if (paths[1].toLowerCase() === "dns-query") {
+  if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
     return paths[2] || "";
   } else {
     return paths[1] || "";

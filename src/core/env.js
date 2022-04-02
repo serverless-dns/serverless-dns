@@ -126,6 +126,15 @@ const defaults = {
     type: "boolean",
     default: false,
   },
+  // Return 'Gateway IPs' for ALL eligible reqs (ref util.js:isGatewayRequest)
+  GW_IP4: {
+    type: "string",
+    default: "",
+  },
+  GW_IP6: {
+    type: "string",
+    default: "",
+  },
 };
 
 // cast string x to type typ

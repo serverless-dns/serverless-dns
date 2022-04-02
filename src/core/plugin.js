@@ -9,6 +9,7 @@
 import { services } from "./svc.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
+import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
 
 export default class RethinkPlugin {
@@ -100,7 +101,7 @@ export default class RethinkPlugin {
     });
   }
 
-  async executePlugin() {
+  async execute() {
     const io = this.io;
     const rxid = this.parameter.get("rxid");
 
@@ -229,8 +230,9 @@ export default class RethinkPlugin {
     this.io = io;
 
     const request = this.parameter.get("request");
-    const isDnsMsg = util.isDnsMsg(request);
     const rxid = this.parameter.get("rxid");
+    const isDnsMsg = util.isDnsMsg(request);
+    const isGwReq = util.isGatewayRequest(request);
 
     io.id(rxid);
 
@@ -247,6 +249,8 @@ export default class RethinkPlugin {
       }
       return;
     }
+
+    if (isGwReq) io.gatewayAnswersOnly(envutil.gwip4(), envutil.gwip6());
 
     const question = await extractDnsQuestion(request);
     const questionPacket = dnsutil.decode(question);
