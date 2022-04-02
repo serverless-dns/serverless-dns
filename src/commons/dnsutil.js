@@ -131,6 +131,7 @@ export function encode(obj) {
 
 // TODO: All DNS Qs are blockable but only these may eventually
 // result in a IP address answer, so we only block these. For now.
+// FIXME: Missing ALT-SVC checks
 export function isQueryBlockable(packet) {
   return (
     hasSingleQuestion(packet) &&

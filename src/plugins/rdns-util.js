@@ -88,6 +88,7 @@ export function rdnsBlockResponse(
 //               {userBlocklistFlagUint, userServiceListUint}
 // dnBlInfo   -> obj of blocklists stamps for dn and all its subdomains
 //               {string(sub/domain-name) : string(blocklist-stamp) }
+// FIXME: return block-dnspacket depending on altsvc/https/svcb or cname/a/aaaa
 export function doBlock(dn, userBlInfo, dnBlInfo) {
   const noblock = rdnsNoBlockResponse();
   if (

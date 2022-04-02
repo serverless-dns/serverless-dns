@@ -100,19 +100,18 @@ export default class RethinkPlugin {
     });
   }
 
-  async executePlugin(req) {
-    await this.setRequest(req);
-
+  async executePlugin() {
+    const io = this.io;
     const rxid = this.parameter.get("rxid");
 
     const t = this.log.startTime("exec-plugin-" + rxid);
 
     for (const p of this.plugin) {
-      if (req.stopProcessing && !p.continueOnStopProcess) {
+      if (io.stopProcessing && !p.continueOnStopProcess) {
         continue;
       }
 
-      this.log.lapTime(t, rxid, p.name, "send-req");
+      this.log.lapTime(t, rxid, p.name, "send-io");
 
       const res = await p.module.RethinkModule(
         generateParam(this.parameter, p.param)
@@ -120,8 +119,8 @@ export default class RethinkPlugin {
 
       this.log.lapTime(t, rxid, p.name, "got-res");
 
-      if (p.callBack) {
-        await p.callBack.call(this, res, req);
+      if (typeof p.callBack === "function") {
+        await p.callBack.call(this, res, io);
       }
 
       this.log.lapTime(t, rxid, p.name, "post-callback");
@@ -226,7 +225,9 @@ export default class RethinkPlugin {
     io.dnsExceptionResponse(response);
   }
 
-  async setRequest(io) {
+  async initIoState(io) {
+    this.io = io;
+
     const request = this.parameter.get("request");
     const isDnsMsg = util.isDnsMsg(request);
     const rxid = this.parameter.get("rxid");
