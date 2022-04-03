@@ -13,7 +13,7 @@ CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1646028986510"
 TD_NODE_COUNT = "36932169"
 TD_PARTS = "2"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
+CF_DNS_RESOLVER_URL = "https://security.cloudflare-dns.com/dns-query"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 # DOT_HAS_PROXY_PROTO = "true"
 
