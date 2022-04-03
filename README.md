@@ -20,7 +20,7 @@ RethinkDNSは、これらのエンドポイントで`serverless-dns`を実稼働
 
 Cloudflare Workersは、`serverless-dns`をセットアップするための最も簡単なプラットフォームです。<br>
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Akulinas/serverless-dns)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Neuron-Grid/serverless_dns_jp_version)
 
 段階的な説明は、以下を参照してください。
 
