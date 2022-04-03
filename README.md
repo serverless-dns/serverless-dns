@@ -1,183 +1,164 @@
-#### It's a bird, it's a plane, it's... a self-hosted, pi-hole esque, DNS resolver
+##### 「それ」は鳥であり、飛行機であり、「それ」は...Pi-holeの様なセルフホスト型DNSリゾルバです。
 
-_serverless-dns_ is a Pi-Hole esque [content-blocking](https://github.com/serverless-dns/blocklists), serverless, stub DNS-over-HTTPS (DoH) and DNS-over-TLS (DoT) resolver. Runs out-of-the-box on [Cloudflare Workers](https://workers.dev), [Deno Deploy](https://deno.com/deploy), and [Fly.io](https://fly.io/). Free tiers of all these services should be enough to cover 10 to 20 devices worth of DNS traffic per month.
+serverless-dnsは、Pi-Hole風の[コンテンツブロック](https://github.com/serverless-dns/blocklists)、サーバーレス、スタブDNS-over-HTTPSおよびDNS-over-TLSのリゾルバーです。
+[Cloudflare Workers](https://workers.cloudflare.com/)、[Deno Deploy](https://deno.com/deploy)、[Fly.io](https://fly.io/)ですぐに実行できます。これらのサービスの無料版は、1カ月あたり10～20台分のDNSトラフィックをカバーするだけなら十分です。
 
-### The RethinkDNS resolver
+## RethinkDNSの対応リゾルバ
 
-RethinkDNS runs `serverless-dns` in production at these endpoints:
+RethinkDNSは、これらのエンドポイントで`serverless-dns`を実稼働させています。
 
-| Cloud platform     | Server locations | Protocol    | Domain                    | Usage                                   |
-|--------------------|------------------|-------------|---------------------------|-----------------------------------------|
-| ⛅ Cloudflare Workers | 200+ ([ping](https://check-host.net/check-ping?host=https://basic.rethinkdns.com))        | DoH         | `basic.rethinkdns.com`    | [configure](https://rethinkdns.com/configure?p=doh)  |
-| 🦕 Deno Deploy        | 30+ ([ping](https://check-host.net/check-ping?host=https://deno.dev))                     | DoH         | _private beta_            |                                         |
-| 🪂 Fly.io             | 30+ ([ping](https://check-host.net/check-ping?host=https://max.rethinkdns.com))           | DoH and DoT | `max.rethinkdns.com`      | [configure](https://rethinkdns.com/configure?p=dot)  |
+|プラットフォーム  | サーバーの設置場所 | 対応しているプロトコル | 派生元のドメイン | 利用 |
+| ------------- | ---------- | ----------------- | ------------------------------------------------------------------------- | ---------- |
+|  CloudFlare  | 200+ ([公式](https://www.cloudflare.com/ja-jp/network/))       | DoH             | `basic.rethinkdns.com` | [Cloudflareで利用する](https://rethinkdns.com/configure?p=doh) |
+| Deno Deploy | 30+ ([公式](https://deno.com/deploy/docs/regions))  | DoH | 非公開のβ版です。 |   |
+| Fly.io         | 30+ ([公式](https://fly.io/docs/reference/regions/)) | DoHとDoT | `max.rethinkdns.com` | [Fly.ioで利用する](https://rethinkdns.com/configure?p=dot) |
 
-Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-to-end latency (varies across regions and networks) is between 10ms to 30ms (median).
+サーバー側の処理時間は0ミリ秒から2ミリ秒（中央値）、エンドツーエンドの待ち時間は10ミリ秒から30ミリ秒（中央値）です。<br>
+*地域やネット環境によって異なります。
 
-### Self-host
+## セルフホスト
 
-Cloudflare Workers is the easiest platform to setup `serverless-dns`:
+Cloudflare Workersは、`serverless-dns`をセットアップするための最も簡単なプラットフォームです。<br>
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Akulinas/serverless-dns)
 
-For step-by-step instructions, refer:
+段階的な説明は、以下を参照してください。
 
-| Platform       | Difficulty | Runtime                                | Doc                                                                                     |
-| ---------------| ---------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
-| ⛅ Cloudflare  | Easy       | [v8](https://v8.dev) _Isolates_        | [Hosting on Cloudflare Workers](https://docs.rethinkdns.com/dns/open-source#cloudflare) |
-| 🦕 Deno.com    | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
-| 🪂 Fly.io      | Hard       | [Node](https://nodejs.org) _MicroVM_   | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
+|プラットフォーム  | 難易度 | ランタイム |ドック|
+| ------------- | ------ | ------ | --- |
+|⛅ CloudFlare |	簡単 | [v8](https://v8.dev/) Isolates       | 	[Cloudflare Workersにホスティング](https://docs.rethinkdns.com/dns/open-source/#cloudflare)|
+|🦕 Deno.com   | 中程度 | [Deno](https://deno.land/)	Isolates  |     [Deno.comにホスティング](https://docs.rethinkdns.com/dns/open-source/#deno-deploy)|
+|🪂 Fly.io     | 難しい | [Node](https://nodejs.org/en/) MicroVM |     [Fly.ioにホスティング](https://docs.rethinkdns.com/dns/open-source/#fly-io)|
 
-To setup blocklists, visit `https://<my-domain>.tld/configure` from your browser (it should load something similar to [RethinkDNS' _configure_ page](https://rethinkdns.com/configure)).
+ブロックリストの設定は、ブラウザから`https://<my-domain>.tld/configure`にアクセスしてください。<br>
+ヘルプやサポートが必要な場合は、お気軽に[課題を作成](https://github.com/celzero/docs/issues)したり、[パッチを送信](https://github.com/celzero/docs)してください。
 
-For help or assistance, feel free to [open an issue](https://github.com/celzero/docs/issues) or [submit a patch](https://github.com/celzero/docs).
+----
+## 開発者の皆様へ
 
----
+#### セットアップ
 
-### Development
+コード:
 
-#### Setup
-
-Code:
-```bash
-# navigate to work dir
+```
+# work directoryに移動する
 cd /my/work/dir
 
-# clone this repository
-git clone https://github.com/serverless-dns/serverless-dns.git
+# このリポジトリをクローンする
+git clone https://github.com/Neuron-Grid/Rethink_DNS_JP_version.git
 
-# navigate to serverless-dns
-cd ./serverless-dns
+# serverless-dnsに移動する
+cd ./Rethink_DNS_JP_version
 ```
 
-Node:
-```bash
-# install node v16+ via nvm, if required
+ノード:
+```
+# 必要であれば、nvm経由でnode v16+をインストールしてください。
 # https://github.com/nvm-sh/nvm#installing-and-updating
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 nvm install --lts
 
-# get js dependencies
+# jsの依存関係を取得する
 npm i
 
-# (optional) update dependencies
+# 依存関係を更新する (これは任意です)
 npm update
 
-# run serverless-dns on node
+# ノード上でserverless-dnsを実行する
 ./run n
 
-# run a clinicjs.org profiler
-./run n [cpu|fn|mem]
+# clinicjs.orgのプロファイラーを実行する
+./run n [upu|fn|mem]
 ```
 
 Deno:
-```bash
-# install deno.land v1.18+
+```
+# deno.land v1.18+をインストールします。(これは任意です）
 # https://github.com/denoland/deno/#install
 curl -fsSL https://deno.land/install.sh | sh
 
-# run serverless-dns on deno
+# denoでserverless-dnsを実行する。
 ./run d
 ```
-
 Wrangler:
-```bash
-# install Cloudflare Workers (cli) aka Wrangler
+```
+# Cloudflare Workers (cli)、別名Wranglerをインストールします。
 # https://developers.cloudflare.com/workers/cli-wrangler/install-update
 npm i @cloudflare/wrangler -g
 
-# run serverless-dns on Cloudflare Workers (cli)
-# Make sure to setup Wrangler first:
+# Cloudflare Workers(cli)上でserverless-dnsを実行する。
+# Wranglerを先にセットアップしてください。
 # https://developers.cloudflare.com/workers/cli-wrangler/authentication
 ./run w
 
-# profile wrangler with Chrome DevTools
+# Chrome DevToolsを使用したprofile wrangler
 # blog.cloudflare.com/profiling-your-workers-with-wrangler
 ```
+#### コード体系
 
-#### Code style
+このリポジトリへのコミットは、Google JavaScriptスタイルガイド(ref: [.eslintrc.cjs](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/.eslintrc.cjs))に準拠しています。`.js`ファイルに対してlinter (eslint)とformatter (prettier)を実行するgit`pre-commit`フックです。このフックを回避するには、`git commit --no-verify`を使用してください。<br>
 
-Commits on this repository enforces the Google JavaScript style guide (ref: [.eslintrc.cjs](.eslintrc.cjs)).
-A git `pre-commit` hook that runs linter (eslint) and formatter (prettier) on `.js` files. Use `git commit --no-verify`
-to bypass this hook.
+また、Pull requestはコードスタイルに違反がないかチェックされ、可能な限り自動的に修正されます。
 
-Pull requests are also checked for code style violations and fixed automatically where possible.
+#### 環境変数
+デフォルトを微調整する必要がある場合は、`.env`([ref](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/.env.example))または[`env.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/env.js)を設定してください。`.env`ファイルの値は、`env.js`で設定された対応する変数より優先されます。Cloudflare Workers の場合は、[`wrangler.toml`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/wrangler.toml)でenv変数を設定します。<br>
 
-#### Env vars
+#### リクエストのフロー
+1 リクエスト/レスポンスのフローは以下のようになります。<br>
+クライアント ⇆ `src/server-[node|workers|deno]` ⇆ [`doh.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/doh.js) ⇆ [`plugin.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/plugin.js) <br>
+2 plugin.jsのフローは以下のようになります。<br>
+`userOperation.js`　→　`cacheResponse.js` → `cc.js` → `dnsResolver.js`<br>
 
-Configure `.env` ([ref](.env.example)) or [`env.js`](src/core/env.js) if you need to tweak the defaults.
-Values in `.env` file take precedence over corresponding variables set in `env.js`. For Cloudflare Workers
-setup env vars in [`wrangler.toml`](wrangler.toml), instead.
+--------------
 
-#### Request flow
+#### ランタイムに関する注意点
+Deno Deploy（クラウド）とDeno（ランタイム）は同じAPI surfaceを公開していません。（例えば、Deno DeployはHTTP/S server-listenersのみをサポートし、Denoはplain HTTPとHTTP/Sに加え、raw TCP/UDP/TLSをサポートしています。)
 
-1. The request/response flow: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
-2. The `plugin.js` flow: `userOperation.js` -> `cacheResponse.js` -> `cc.js` -> `dnsResolver.js`
+Node 以外では、`serverless-dns`はenv varsの`CF_DNS_RESOLVER_URL` / `CF_DNS_RESOLVER_URL_2`で定義されたDoHアップストリームを使用します。
+Nodeでは、デフォルトのDNSアップストリームは1.1.1.2([ref](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f628460/src/commons/dnsutil.js#L28))です。
 
-----
+NodeとDenoのエントリポイントはそれぞれ[`src/server-node.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/server-node.js)、[`src/server-deno.ts`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/server-deno.ts)で、どちらもTCP-over-TLS、HTTP/S接続を待ちます。一方で、HTTP（cli）またはHTTP/S（prod）のみで待ち受けるCloudflare Workersのエントリポイントは、[`src/server-workers.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/server-workers.js)となります。
 
-#### A note about runtimes
+DenoのprodセットアップとNodeのlocal(non-prod)セットアップでは、デフォルトで鍵(private)とcert(public chain)のファイルはenv varsの`TLS_KEY_PATH`と`TLS_CRT_PATH`で定義したパスから読み込まれるようになっています。<br>
 
-Deno Deploy (cloud) and Deno (the runtime) do not expose the same API surface (for example, Deno Deploy only
-supports HTTP/S server-listeners; whereas, Deno suports raw TCP/UDP/TLS in addition to plain HTTP and HTTP/S).
-
-Except on Node, `serverless-dns` uses DoH upstreams defined by env vars, `CF_DNS_RESOLVER_URL` / `CF_DNS_RESOLVER_URL_2`.
-On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f628460/src/commons/dnsutil.js#L28)).
-
-The entrypoint for Node and Deno are [`src/server-node.js`](src/server-node.js), [`src/server-deno.ts`](src/server-deno.ts) respectively,
-and both listen for TCP-over-TLS, HTTP/S connections; whereas, the entrypoint for Cloudflare Workers, which only listens over HTTP (cli) or
-over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js).
-
-For prod setups on Deno and local (non-prod) setups on Node, the key (private) and cert (public chain)
-files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
-
-Whilst for prod setup on Node, the key and cert _must_ be
-_base64_ encoded in env var via `TLS_CN` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
-
-```bash
-# defines the domain name in uppercase for which certs have to be loaded for
-# period '.' is subst with `_`, ie, d1.rethinkdns.com is:
+Nodeでprodの設定を行う場合は、`TLS_CN`([ref](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f62846/src/core/node/config.js#L61-L82))を介して、鍵や証明書をbase64エンコードしてenv varに格納する必要があるため、以下のようになります。<br>
+```
+#以下に証明書を読み込むドメイン名を大文字で定義します。
+#ピリオド「...」は `_` に置換されます。
 TLS_CN="D1_RETHINKDNS_COM"
-
-# base64 representation of both key (private) and cert (public chain)
+#鍵（秘密鍵）と証明書（公開鍵）の両方のbase64表現してください。
 D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
-
-# note: The env var name "D1_RETHINKDNS_COM" the value stored in env var, TLS_CN
+#注意 : 環境変数名「D1_RETHINKDNS_COM」は、環境変数TLS_CNに格納されている値です。
 ```
 
-_Process_ bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
-while for Deno, it is [`src/core/deno/config.ts`](src/core/deno/config.ts) and for Workers it is [`src/core/workers/config.js`](src/core/workers/config.js).
-[`src/system.js`](src/system.js) pub-sub co-ordinates the _bringup_ phase among various modules.
+プロセスの起動は、それぞれのランタイムで異なります。<br>
+Nodeでは[`src/core/node/config.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/node/config.js)です。<br>
+Denoでは[`src/core/deno/config.ts`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/deno/config.ts)です。<br>
+Workersでは[`src/core/workers/config.js`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/src/core/workers/config.js)がそれぞれ起動にあたります。<br>
 
-On Node and Deno, in-process DNS caching, backed by [`@serverless-dns/lfu-cache`](https://github.com/serverless-dns/lfu-cache)
-is used; on Cloudflare Workers, both, [Cache Web API](https://developers.cloudflare.com/workers/runtime-apis/cache) and
-in-process caches are used. To disable caching altogether on all three platfroms, set env var, `PROFILE_DNS_RESOLVES=true`.
+NodeとDenoでは[`@serverless-dns/lfu-cache`](https://github.com/serverless-dns/lfu-cache)でバックアップされたプロセス内DNSキャッシュが使用されます。
+Cloudflare Workersでは[Cache Web API](https://developers.cloudflare.com/workers/runtime-apis/cache/)とプロセス内キャッシュの両方が使用されます。3つのプラットフォームでキャッシュを完全に無効にするには、環境変数に`PROFILE_DNS_RESOLVES=true`を設定してください。<br>
 
 #### Cloud
 
-Cloudflare Workers and Deno Deploy are ephemeral, as in, the process that serves client request is not long-lived,
-and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) (processes). Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
-like traditional "serverfull" environments.
+Cloudflare WorkersとDeno Deployは、クライアントのリクエストを処理するプロセスは動的です。実際に、2つの異なる[隔離プロセス](https://developers.cloudflare.com/workers/learning/how-workers-works/)により、2つの背中合わせのリクエストが処理される場合があります。Fly.ioのResolverはNodeで動作しており、[永続的なVM](https://fly.io/blog/docker-without-docker/)にバックアップされているため、従来の「サーバフル」な環境と同様に長寿命です。
 
-Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
-[Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
 
-For Deno Deploy, the code-base is bundled up in a single javascript file with `deno bundle` and then handed off
-to Deno.com.
+Cloudflare Workersの構築時および実行時の設定は[`wrangler.toml`](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/wrangler.toml)で定義されています。Webpack5がESMモジュールに[ファイルをバンドル](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/webpack.config.cjs)し、WranglerがCloudflareにアップロードします。
 
-For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml), while deploy directives
-are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets up `serverless-dns`
-on Fly.io's infrastructure.
+Deno Deployの、コードベースはdeno bundleで1つのjavascriptファイルにまとめられ、Deno.comに渡されます。
 
-Ref: _[github/workflows](.github/workflows)_.
+Nodeが動作するFly.ioの場合は、ランタイムディレクティブは[fly.toml](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/fly.toml)に、デプロイディレクティブは[node.Dockerfile](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/main/node.Dockerfile)に定義されています。それに合わせて[flyctl](https://fly.io/docs/flyctl/)はFly.ioのインフラ上に`serverless-dns`をセットアップしています。
 
-### Blocklists
+参考 : [github/workflows](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/tree/main/.github/workflows)
 
-190+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
-to speed up string search ([`lookup`](src/plugins/blocklist-wrapper/radixTrie.js)) at the expense of "succintness". The blocklists are versioned
-with unix timestamp (env var: `CF_LATEST_BLOCKLIST_TIMESTAMP`), and generated once every week, but we'd like to generate 'em daily / hourly,
-if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Lightsail Object Store (env var: `CF_BLOCKLIST_URL`).
-`serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
-required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167), when serving a DNS request.
+#### Blocklist
 
-`serverless-dns` compiles around ~5M entries (as of Feb 2022) in to a succinct radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+190以上のブロックリストをSteve Hanovのimplベース([Succinct Radix Trie](https://stevehanov.ca/blog/?id=120))の技術に圧縮され、「succintness」を犠牲にして文字列検索(lookup)を高速化するように修正されています。Blocklistはnixタイムスタンプで管理され(env var: `CF_LATEST_BLOCKLIST_TIMESTAMP`)週に１回生成されますが、可能であれば毎日/毎時生成したいです。Lightsail Object Storeでホストされます 。(env var: `CF_BLOCKLIST_URL`)
+`serverless-dns`は、実行時の起動時やDNSリクエストの処理時にradix trieを設定するために必要な[3つのブロックリストファイル](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f62846/src/core/node/blocklists.js#L14-L16)をダウンロードします。<br>
+参考 : [src/plugins/dns-operation/dnsResolver.js](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167)
+
+`serverless-dns`は、約190以上のブロックリストから、約500万エントリ（2022年2月現在）を簡潔な基数木にコンパイルします。これらは[serverless-dns/blocklists](https://github.com/serverless-dns/blocklists)リポジトリで定義されています。
+
+Blocklistに関しても日本語版があります。
+もし興味があれば[ご覧ください](https://github.com/Neuron-Grid/BlockLists_for_JP)。
