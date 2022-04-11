@@ -18,7 +18,7 @@ Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-t
 
 Cloudflare Workers is the easiest platform to setup `serverless-dns`:
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns/)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/serverless-dns/serverless-dns)
 
 For step-by-step instructions, refer:
 
