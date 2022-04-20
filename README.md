@@ -132,17 +132,11 @@ For prod setups on Deno and local (non-prod) setups on Node, the key (private) a
 files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
 
 Whilst for prod setup on Node, the key and cert _must_ be
-_base64_ encoded in env var via `TLS_CN` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
+_base64_ encoded in env var `TLS_CERTKEY` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
 
 ```bash
-# defines the domain name in uppercase for which certs have to be loaded for
-# period '.' is subst with `_`, ie, d1.rethinkdns.com is:
-TLS_CN="D1_RETHINKDNS_COM"
-
 # base64 representation of both key (private) and cert (public chain)
-D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
-
-# note: The env var name "D1_RETHINKDNS_COM" the value stored in env var, TLS_CN
+TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
 ```
 
 _Process_ bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;

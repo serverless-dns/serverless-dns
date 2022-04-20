@@ -62,3 +62,12 @@ CF_LATEST_BLOCKLIST_TIMESTAMP = "1649941811557"
 CACHE_TTL = 1800
 TD_NODE_COUNT = 38362827
 TD_PARTS = 2
+
+##################
+#-----SECRETS----#
+##################
+# only for documentation purposes
+# developers.cloudflare.com/workers/platform/environment-variables/#adding-secrets-via-wrangler
+# [secrets]
+# GW_IP4 = ""
+# GW_IP6 = ""
