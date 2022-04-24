@@ -13,7 +13,7 @@
  */
 import { atob, btoa } from "buffer";
 import { fetch, Headers, Request, Response } from "undici";
-import { getTLSfromEnv } from "./util.js";
+import * as util from "./util.js";
 import * as blocklists from "./blocklists.js";
 import Log from "../log.js";
 import * as system from "../../system.js";
@@ -65,12 +65,22 @@ async function prep() {
   // for local non-prod nodejs deploys with self-signed certs).
   const _TLS_CRT_AND_KEY =
     eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
+  const TLS_CERTKEY = process.env.TLS_CERTKEY;
 
-  if (isProd || _TLS_CRT_AND_KEY) {
-    const [tlsKey, tlsCrt] = getTLSfromEnv(_TLS_CRT_AND_KEY);
-    envManager.set("TLS_KEY", tlsKey);
-    envManager.set("TLS_CRT", tlsCrt);
-    log.i("env (fly) tls setup");
+  if (isProd) {
+    if (TLS_CERTKEY) {
+      const [tlsKey, tlsCrt] = util.getTLSFromEnv(TLS_CERTKEY);
+      envManager.set("TLS_KEY", tlsKey);
+      envManager.set("TLS_CRT", tlsCrt);
+      log.i("env (fly) tls setup with tls_certkey");
+    } else if (_TLS_CRT_AND_KEY) {
+      const [tlsKey, tlsCrt] = util.getTLSfromEnv(_TLS_CRT_AND_KEY);
+      envManager.set("TLS_KEY", tlsKey);
+      envManager.set("TLS_CRT", tlsCrt);
+      log.i("[deprecated] env (fly) tls setup with tls_cn");
+    } else {
+      log.w("TLS termination: neither TLS_CERTKEY nor TLS_CN set");
+    }
   } else {
     const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
       envManager.get("TLS_KEY_PATH"),
@@ -78,7 +88,7 @@ async function prep() {
     );
     envManager.set("TLS_KEY", tlsKey);
     envManager.set("TLS_CRT", tlsCrt);
-    log.i("dev (local) tls setup");
+    log.i("dev (local) tls setup from tls_key_path");
   }
 
   /** Polyfills */
