@@ -121,14 +121,10 @@ NodeとDenoのエントリポイントはそれぞれ[`src/server-node.js`](http
 
 DenoのprodセットアップとNodeのlocal(non-prod)セットアップでは、デフォルトで鍵(private)とcert(public chain)のファイルはenv varsの`TLS_KEY_PATH`と`TLS_CRT_PATH`で定義したパスから読み込まれるようになっています。<br>
 
-Nodeでprodの設定を行う場合は、`TLS_CN`([ref](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f62846/src/core/node/config.js#L61-L82))を介して、鍵や証明書をbase64エンコードしてenv varに格納する必要があるため、以下のようになります。<br>
+Nodeでprodの設定を行う場合は、`TLS_CERTKEY`([ref](https://github.com/Neuron-Grid/Rethink_DNS_JP_version/blob/15f62846/src/core/node/config.js#L61-L82))を介して、鍵や証明書をbase64エンコードしてenv varに格納する必要があるため、以下のようになります。<br>
 ```
-#以下に証明書を読み込むドメイン名を大文字で定義します。
-#ピリオド「...」は `_` に置換されます。
-TLS_CN="D1_RETHINKDNS_COM"
 #鍵（秘密鍵）と証明書（公開鍵）の両方のbase64表現してください。
-D1_RETHINKDNS_COM="KEY=b64_key_content\nCRT=b64_cert_content"
-#注意 : 環境変数名「D1_RETHINKDNS_COM」は、環境変数TLS_CNに格納されている値です。
+TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
 ```
 
 プロセスの起動は、それぞれのランタイムで異なります。<br>
