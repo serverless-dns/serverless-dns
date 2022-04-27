@@ -41,7 +41,7 @@ function systemUp() {
   log = util.logger("NodeJs");
   if (!log) throw new Error("logger unavailable on system up");
 
-  const tlsoffload = envutil.isCleartext() || true;
+  const tlsoffload = envutil.isCleartext();
 
   if (tlsoffload) {
     // fly.io terminated tls?
