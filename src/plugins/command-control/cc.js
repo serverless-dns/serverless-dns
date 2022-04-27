@@ -41,10 +41,6 @@ export class CommandControl {
     return s === "configure" || s === "config";
   }
 
-  isDohGetRequest(queryString) {
-    return queryString && queryString.has("dns");
-  }
-
   userFlag(url, isDnsCmd = false) {
     const emptyFlag = "";
     const p = url.pathname.split("/"); // ex: max.rethinkdns.com/cmd/XYZ
@@ -69,7 +65,7 @@ export class CommandControl {
     return d.length > 1 ? d[0] : emptyFlag;
   }
 
-  async commandOperation(rxid, url, isDnsMsg) {
+  async commandOperation(rxid, url, isDnsCmd) {
     let response = util.emptyResponse();
 
     try {
@@ -77,10 +73,8 @@ export class CommandControl {
       const queryString = reqUrl.searchParams;
       const pathSplit = reqUrl.pathname.split("/");
 
-      // FIXME: isDohGetRequest is redundant, simply trust isDnsMsg as-is
-      const isDnsCmd = isDnsMsg || this.isDohGetRequest(queryString);
-
       if (isDnsCmd) {
+        this.log.d(rxid, "cc no-op: dns-msg not cc-msg");
         response.data.stopProcessing = false;
         return response;
       } else {

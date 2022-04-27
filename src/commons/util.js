@@ -261,6 +261,10 @@ export function safeBox(fns, arg) {
   return r;
 }
 
+export function isDohGetRequest(queryString) {
+  return queryString && queryString.has("dns");
+}
+
 /**
  * @param {Request} req - Request
  * @return {Boolean}

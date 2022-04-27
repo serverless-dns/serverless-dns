@@ -1,0 +1,72 @@
+app = ""
+
+kill_signal = "SIGINT"
+kill_timeout = 5
+
+[env]
+# offload TLS to Fly.io's load balancers
+TLS_OFFLOAD = "true"
+DENO_ENV = "production"
+NODE_ENV = "production"
+CLOUD_PLATFORM = "fly"
+LOG_LEVEL = "info"
+CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
+CF_LATEST_BLOCKLIST_TIMESTAMP = "1649941811557"
+TD_NODE_COUNT = "38362827"
+TD_PARTS = "2"
+CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
+CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
+
+[experimental]
+allowed_public_ports = []
+auto_rollback = true
+
+# DNS over HTTP[S]
+[[services]]
+http_checks = []
+internal_port = 8555
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 75
+  soft_limit = 60
+  type = "connections"
+
+  [[services.ports]]
+  handlers = ["tls"]
+  tls_options = { alpn = ["h2", "http/1.1"] }
+  port = 443
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"
+
+# DNS over TCP/TLS
+[[services]]
+http_checks = []
+internal_port = 10555
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 75
+  soft_limit = 60
+  type = "connections"
+
+  [[services.ports]]
+  # TODO: ProxyProto v2
+  handlers = ["tls"]
+  port = 853
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"

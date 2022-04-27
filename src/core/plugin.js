@@ -233,11 +233,11 @@ export default class RethinkPlugin {
     const rxid = this.parameter.get("rxid");
     const isDnsMsg = util.isDnsMsg(request);
     const isGwReq = util.isGatewayRequest(request);
+    let question = null;
 
     io.id(rxid);
 
     this.registerParameter("isDnsMsg", isDnsMsg);
-
     // nothing to do if the current request isn't a dns question
     if (!isDnsMsg) {
       // throw away any request that is not a dns-msg since cc.js
@@ -246,18 +246,21 @@ export default class RethinkPlugin {
       if (!util.isGetRequest(request)) {
         this.log.i(rxid, "not a dns-msg, not a GET req either", request);
         io.hResponse(util.respond405());
+        return;
       }
-      return;
     }
+
+    // else: treat doh as if it was a dns-msg iff "dns" query-string is set
+    question = await extractDnsQuestion(request);
+    if (question == null) return;
+    this.registerParameter("isDnsMsg", true);
 
     if (isGwReq) io.gatewayAnswersOnly(envutil.gwip4(), envutil.gwip6());
 
-    const question = await extractDnsQuestion(request);
     const questionPacket = dnsutil.decode(question);
-
     this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
-
     io.decodedDnsPacket = questionPacket;
+
     this.registerParameter("requestDecodedDnsPacket", questionPacket);
     this.registerParameter("requestBodyBuffer", question);
   }

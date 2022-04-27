@@ -128,14 +128,16 @@ The entrypoint for Node and Deno are [`src/server-node.js`](src/server-node.js),
 and both listen for TCP-over-TLS, HTTP/S connections; whereas, the entrypoint for Cloudflare Workers, which only listens over HTTP (cli) or
 over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js).
 
-For prod setups on Deno and local (non-prod) setups on Node, the key (private) and cert (public chain)
+For prod setups on Deno and local (non-prod) setups on Node, the `key` (private) and `cert` (public chain)
 files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
 
-Whilst for prod setup on Node, the key and cert _must_ be
-_base64_ encoded in env var `TLS_CERTKEY` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/config.js#L61-L82)), like so:
+Whilst for prod setup on Node (on Fly.io), either `TLS_OFFLOAD` must be set to `true` or `key` and `cert` _must_ be
+_base64_ encoded in env var `TLS_CERTKEY` ([ref](https://github.com/serverless-dns/serverless-dns/blob/f57c579/src/core/node/config.js#L61-L92)), like so:
 
 ```bash
-# base64 representation of both key (private) and cert (public chain)
+# EITHER: offload tls to fly.io and set tls_offload to true
+TLS_OFFLOAD="true"
+# OR: base64 representation of both key (private) and cert (public chain)
 TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
 ```
 
@@ -159,9 +161,12 @@ Cloudflare Workers build-time and runtime configurations are defined in [`wrangl
 For Deno Deploy, the code-base is bundled up in a single javascript file with `deno bundle` and then handed off
 to Deno.com.
 
-For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml), while deploy directives
-are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets up `serverless-dns`
-on Fly.io's infrastructure.
+For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml) (used by `dev` and `live` deployment-types),
+while deploy directives are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets
+up `serverless-dns` on Fly.io's infrastructure.
+
+For deploys offloading TLS termination to Fly.io (`B1` deployment-type), the runtime directives are instead defined in
+[`fly.tls.toml`](fly.tls.toml), which sets up HTTP2 Cleartext and HTTP/1.1 on port 443, and DNS over TCP on port 853.
 
 Ref: _[github/workflows](.github/workflows)_.
 

@@ -151,9 +151,21 @@ export function isDotOverProxyProto() {
   return envManager.get("DOT_HAS_PROXY_PROTO") || false;
 }
 
+export function isCleartext() {
+  if (!envManager) return false;
+
+  // when connecting to <appname>.fly.dev domains, fly.io edge handles tls;
+  // and so, conns from fly.io edge to app is in cleartext
+  return envManager.get("TLS_OFFLOAD") || false;
+}
+
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 export function dohBackendPort() {
   return 8080;
+}
+
+export function dohCleartextBackendPort() {
+  return isCleartext() ? 8055 : /* random*/ 0;
 }
 
 export function dotBackendPort() {
@@ -161,7 +173,11 @@ export function dotBackendPort() {
 }
 
 export function dotProxyProtoBackendPort() {
-  return isDotOverProxyProto() ? 10000 : 0;
+  return isDotOverProxyProto() ? 10000 : /* random*/ 0;
+}
+
+export function dotCleartextBackendPort() {
+  return isCleartext() ? 10555 : /* random*/ 0;
 }
 
 export function profileDnsResolves() {

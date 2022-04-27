@@ -54,6 +54,12 @@ const defaults = {
     type: "string",
     default: "test/data/tls/dns.rethinkdns.localhost.crt",
   },
+  // indicate if tls termination is offload to an external process; for example
+  // <appname>.fly.dev as primary access-point w fly.io edge terminating tls.
+  TLS_OFFLOAD: {
+    type: "boolean",
+    default: false,
+  },
   // global log level (debug, info, warn, error)
   LOG_LEVEL: {
     type: "string",

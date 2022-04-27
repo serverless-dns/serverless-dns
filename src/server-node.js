@@ -38,29 +38,53 @@ let log = null;
 })();
 
 function systemUp() {
-  const tlsOpts = {
-    key: envutil.tlsKey(),
-    cert: envutil.tlsCrt(),
-  };
-
   log = util.logger("NodeJs");
   if (!log) throw new Error("logger unavailable on system up");
 
-  const dot1 = tls
-    .createServer(tlsOpts, serveTLS)
-    .listen(envutil.dotBackendPort(), () => up("DoT", dot1.address()));
+  const tlsoffload = envutil.isCleartext() || true;
 
-  const dot2 =
-    envutil.isDotOverProxyProto() &&
-    net
-      .createServer(serveDoTProxyProto)
-      .listen(envutil.dotProxyProtoBackendPort(), () =>
-        up("DoT ProxyProto", dot2.address())
-      );
+  if (tlsoffload) {
+    // fly.io terminated tls?
+    const portdoh = envutil.dohCleartextBackendPort();
+    const portdot = envutil.dotCleartextBackendPort();
 
-  const doh = http2
-    .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
-    .listen(envutil.dohBackendPort(), () => up("DoH", doh.address()));
+    // TODO: ProxyProtoV2 with TLS ClientHello (unsupported by Fly.io, rn)
+    // DNS over TLS Cleartext
+    const dotct = net
+      .createServer(serveTCP)
+      .listen(portdot, () => up("DoT Cleartext", dotct.address()));
+
+    // DNS over HTTPS Cleartext
+    const dohct = http2
+      .createServer({ allowHTTP1: true }, serveHTTPS)
+      .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
+  } else {
+    // terminate tls ourselves
+    const tlsOpts = {
+      key: envutil.tlsKey(),
+      cert: envutil.tlsCrt(),
+    };
+    const portdot1 = envutil.dotBackendPort();
+    const portdot2 = envutil.dotProxyProtoBackendPort();
+    const portdoh = envutil.dohBackendPort();
+
+    // DNS over TLS
+    const dot1 = tls
+      .createServer(tlsOpts, serveTLS)
+      .listen(portdot1, () => up("DoT", dot1.address()));
+
+    // DNS over TLS w ProxyProto
+    const dot2 =
+      envutil.isDotOverProxyProto() &&
+      net
+        .createServer(serveDoTProxyProto)
+        .listen(portdot2, () => up("DoT ProxyProto", dot2.address()));
+
+    // DNS over HTTPS
+    const doh = http2
+      .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
+      .listen(portdoh, () => up("DoH", doh.address()));
+  }
 
   function up(server, addr) {
     log.i(server, `listening on: [${addr.address}]:${addr.port}`);
@@ -268,6 +292,30 @@ function serveTLS(socket) {
   });
   socket.on("error", (e) => {
     log.w("TLS socket error, closing connection");
+    close(socket);
+  });
+}
+
+/**
+ * Services a DNS over TCP connection
+ * @param {Socket} socket
+ */
+function serveTCP(socket) {
+  // TODO: TLS ClientHello is sent in proxy-proto v2, but fly.io
+  // doesn't yet support v2, but only v1. ClientHello would contain
+  // the SNI which we could then use here.
+  const [flag, host] = ["", "ignored.example.com"];
+  const sb = makeScratchBuffer();
+
+  log.d("----> DoT Cleartext request", host, flag);
+  socket.on("data", (data) => {
+    handleTCPData(socket, data, sb, host, flag);
+  });
+  socket.on("end", () => {
+    socket.end();
+  });
+  socket.on("error", (e) => {
+    log.w("TCP socket error, closing connection");
     close(socket);
   });
 }
