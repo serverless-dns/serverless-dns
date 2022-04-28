@@ -21,10 +21,10 @@ CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 allowed_public_ports = []
 auto_rollback = true
 
-# DNS over HTTP[S]
+# DNS over HTTPS (well, h2c and http1.1)
 [[services]]
 http_checks = []
-internal_port = 8555
+internal_port = 8055
 protocol = "tcp"
 script_checks = []
 
