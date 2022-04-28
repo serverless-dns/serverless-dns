@@ -97,6 +97,7 @@ elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
 else
   echo "note: nodejs v16+ required";
   echo "using `which node`";
+  # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
   start="node --trace-warnings ./src/server-node.js";
 fi
 

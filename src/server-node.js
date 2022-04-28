@@ -9,6 +9,7 @@
 import net, { isIPv6 } from "net";
 import tls from "tls";
 import http2 from "http2";
+import * as h2c from "httpx-server";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
@@ -55,8 +56,15 @@ function systemUp() {
       .listen(portdot, () => up("DoT Cleartext", dotct.address()));
 
     // DNS over HTTPS Cleartext
-    const dohct = http2
-      .createServer({ allowHTTP1: true }, serveHTTPS)
+    // Same port for http1.1/h2 does not work on node without tls, that is,
+    // http2.createServer with opts { ALPNProtocols: ["h2", "http/1.1"],
+    // allowHTTP1: true } doesn't handle http1.1 at all (but it does with
+    // http2.createSecureServer which involves tls).
+    // Ref (for servers): github.com/nodejs/node/issues/34296
+    // Ref (for clients): github.com/nodejs/node/issues/31759
+    // Impl: stackoverflow.com/a/42019773
+    const dohct = h2c
+      .createServer(serveHTTPS)
       .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
   } else {
     // terminate tls ourselves
