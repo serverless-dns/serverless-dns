@@ -12,7 +12,7 @@
  * `CRT=` respectively. Ex: `TLS_="KEY=encoded_string\nCRT=encoded_string"`
  * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
  */
-export function getTLSfromEnv(TLS_CRT_KEY) {
+export function getCertKeyFromEnv(TLS_CRT_KEY) {
   if (TLS_CRT_KEY == null) throw new Error("TLS cert / key not found");
 
   TLS_CRT_KEY = TLS_CRT_KEY.replace(/\\n/g, "\n");
