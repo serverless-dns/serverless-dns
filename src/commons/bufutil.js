@@ -18,9 +18,11 @@ export function bytesToBase64Url(b) {
 function binaryStringToBytes(bs) {
   const len = bs.length;
   const bytes = new Uint8Array(len);
+
   for (let i = 0; i < len; i++) {
     bytes[i] = bs.charCodeAt(i);
   }
+
   return bytes;
 }
 
@@ -31,12 +33,14 @@ function regularBase64(b64url) {
 }
 
 function base64ToUint8(b64uri) {
+  b64uri = normalizeb64(b64uri);
   const b64url = decodeURI(b64uri);
   const binaryStr = atob(regularBase64(b64url));
   return binaryStringToBytes(binaryStr);
 }
 
 export function base64ToUint16(b64uri) {
+  b64uri = normalizeb64(b64uri);
   const b64url = decodeURI(b64uri);
   const binaryStr = atob(regularBase64(b64url));
   return decodeFromBinary(binaryStr);
@@ -138,4 +142,14 @@ export function concat(arraybuffers) {
 
 export function concatBuf(these) {
   return Buffer.concat(these);
+}
+
+function normalizeb64(s) {
+  // beware: atob(null) => \u009eée
+  // and: decodeURI(null) => "null"
+  // but: atob("") => ""
+  // and: atob(undefined) => exception
+  // so: convert null to empty str
+  if (util.emptyString(s)) return "";
+  else return s;
 }

@@ -252,17 +252,28 @@ export default class RethinkPlugin {
 
     // else: treat doh as if it was a dns-msg iff "dns" query-string is set
     question = await extractDnsQuestion(request);
-    if (question == null) return;
-    this.registerParameter("isDnsMsg", true);
+
+    // not a dns request
+    if (bufutil.emptyBuf(question)) return;
 
     if (isGwReq) io.gatewayAnswersOnly(envutil.gwip4(), envutil.gwip6());
 
-    const questionPacket = dnsutil.decode(question);
-    this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
-    io.decodedDnsPacket = questionPacket;
+    try {
+      const questionPacket = dnsutil.decode(question);
+      this.registerParameter("isDnsMsg", true);
+      this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
+      io.decodedDnsPacket = questionPacket;
 
-    this.registerParameter("requestDecodedDnsPacket", questionPacket);
-    this.registerParameter("requestBodyBuffer", question);
+      this.registerParameter("requestDecodedDnsPacket", questionPacket);
+      this.registerParameter("requestBodyBuffer", question);
+    } catch (e) {
+      // err if question is not a valid dns-packet
+      this.log.d(rxid, "cannot decode dns query; may be cc GET req?");
+      // TODO: io.hResponse(util.respond400()) instead?
+      // at this point: req is GET and has "dns" in its url-string
+      // but: is not a valid dns request
+      return;
+    }
   }
 }
 
