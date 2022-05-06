@@ -38,10 +38,14 @@ export class UserOp {
 
     try {
       const blocklistFlag = rdnsutil.blockstampFromUrl(param.request.url);
-      let r = this.userConfigCache.get(blocklistFlag);
 
-      if (util.emptyObj(r)) {
-        // TODO: blocklistFlag may be invalid, ref blockstampFromUrl impl
+      if (util.emptyString(blocklistFlag)) {
+        this.log.d(param.rxid, "empty blocklist-flag", param.request.url);
+      }
+
+      // blocklistFlag may be invalid, ref rdnsutil.blockstampFromUrl
+      let r = this.userConfigCache.get(blocklistFlag);
+      if (!util.emptyString(blocklistFlag) && util.emptyObj(r)) {
         r = rdnsutil.unstamp(blocklistFlag);
 
         // FIXME: add to cache iff !empty(r.userBlocklistFlagUint)?
@@ -50,6 +54,8 @@ export class UserOp {
         // converted to its b64 form (which doh and rethinkdns modules use)
         // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
         this.userConfigCache.put(blocklistFlag, r);
+      } else {
+        this.log.d(param.rxid, "cfg cache hit?", r != null, blocklistFlag, r);
       }
 
       response.data.userBlocklistInfo = r;

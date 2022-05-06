@@ -12,10 +12,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
-// on DoT deployments, "-" part of flag contained in SNI is replaced with
-// "+" which isn't a valid char in b64url that doh deployments use.
-// ref: src/server-node.js#L224-L226 @0d217857b
-const _b32delim = "+";
+const _b32delim = "-";
 
 // TODO: wildcard list should be fetched from S3/KV
 const _wildcardUint16 = new Uint16Array([
@@ -275,19 +272,32 @@ export function getB64Flag(uint16Arr, flagVersion) {
  * @returns
  */
 export function blockstampFromUrl(u) {
+  const emptystamp = "";
   const url = new URL(u);
+  let s = emptystamp;
 
   const paths = url.pathname.split("/");
+
   if (paths.length <= 1) {
-    return "";
+    return s;
   }
-  // TODO: check if paths[1|2] is a valid stamp
-  // skip to next if path has `/dns-query`
+
+  // skip to next if path has `/dns-query` or `/gateway`
   if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
-    return paths[2] || "";
+    s = paths[2] || emptystamp;
   } else {
-    return paths[1] || "";
+    s = paths[1] || emptystamp;
   }
+
+  // check if paths[1|2] is a valid stamp
+  try {
+    isB32Stamp(s);
+  } catch (e) {
+    log.w("Rdns:blockstampFromUrl", e);
+    s = emptystamp;
+  }
+
+  return s;
 }
 
 export function base64ToUintV0(b64Flag) {
@@ -310,7 +320,12 @@ export function base32ToUintV1(flag) {
 }
 
 export function isB32Stamp(s) {
-  return s.indexOf(_b32delim) > 0;
+  const idx32 = s.indexOf(_b32delim);
+  const idx64 = s.indexOf(_b64delim);
+  if (idx32 === -1 && idx64 === -1) throw new Error("invalid stamp: " + s);
+  else if (idx32 === -1) return false;
+  else if (idx64 === -1) return true;
+  else return idx32 < idx64;
 }
 
 // s[0] is version field, if it doesn't exist
@@ -335,7 +350,7 @@ export function unstamp(flag) {
   flag = flag.trim();
 
   const isFlagB32 = isB32Stamp(flag);
-  // "v:b64" or "v+b32" or "uriencoded(b64)", where v is uint version
+  // "v:b64" or "v-b32" or "uriencoded(b64)", where v is uint version
   const s = flag.split(isFlagB32 ? _b32delim : _b64delim);
   let convertor = (x) => ""; // empty convertor
   let f = ""; // stamp flag

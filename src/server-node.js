@@ -248,9 +248,11 @@ function getMetadata(sni) {
   if (s.length > 3) {
     // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
     const host = s.splice(1).join(".");
-    // replace "-" with "+" as doh handlers use "+" to differentiate between
-    // a b32 flag and a b64 flag ("-" is a valid b64url char; "+" is not)
-    const flag = s[0].replace(/-/g, "+");
+    // previously, "-" was replaced with "+" as doh handlers used "+" to
+    // differentiate between a b32 flag and a b64 flag ("-" is a valid b64url
+    // char; "+" is not); but not anymore. If ":" appears first, the flag
+    // is treated as b64 or if "-" appears first, then as a b32 flag.
+    const flag = s[0];
 
     log.d(`flag: ${flag}, host: ${host}`);
     return [flag, host];
@@ -487,7 +489,7 @@ async function serveHTTPS(req, res) {
     return;
   }
 
-  log.d("----> DoH request", req.method, bLen);
+  log.d("----> DoH request", req.method, bLen, req.url);
   handleHTTPRequest(b, req, res);
 }
 
@@ -503,6 +505,7 @@ async function handleHTTPRequest(b, req, res) {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
 
+    // nb: req.url is a url-path, for ex: /a/b/c
     const fReq = new Request(new URL(req.url, `https://${host}`), {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
