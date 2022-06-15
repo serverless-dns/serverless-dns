@@ -293,7 +293,7 @@ export function blockstampFromUrl(u) {
   try {
     isB32Stamp(s);
   } catch (e) {
-    log.w("Rdns:blockstampFromUrl", e);
+    log.d("Rdns:blockstampFromUrl", e);
     s = emptystamp;
   }
 
