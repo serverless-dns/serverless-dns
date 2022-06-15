@@ -73,7 +73,7 @@ const defaults = {
   // blocklist files version
   CF_LATEST_BLOCKLIST_TIMESTAMP: {
     type: "string",
-    default: "1646028986510",
+    default: "1655223903366",
   },
   // primary doh upstream
   CF_DNS_RESOLVER_URL: {
@@ -99,7 +99,7 @@ const defaults = {
   // total nodes in trie (td)
   TD_NODE_COUNT: {
     type: "number",
-    default: "36932169",
+    default: "40630834",
   },
   // trie (td) split-files to download and concat, as of Jan '22,
   // trie size is ~60MB which is split in to three ~20MBs+ files

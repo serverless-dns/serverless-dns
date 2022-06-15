@@ -223,8 +223,14 @@ async function fileFetch(url, typ) {
     throw new Error("Unknown conversion type at fileFetch");
   }
 
-  log.i("downloading", url, typ);
-  const res = await fetch(url, { cf: { cacheTtl: /* 2w */ 1209600 } });
+  let res = { ok: false };
+  try {
+    log.i("downloading", url, typ);
+    res = await fetch(url, { cf: { cacheTtl: /* 2w */ 1209600 } });
+  } catch (ex) {
+    log.w("download failed", url, ex, ex.cause);
+    throw ex;
+  }
 
   if (!res.ok) {
     log.e("file-fetch err", url, res);
