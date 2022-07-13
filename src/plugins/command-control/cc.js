@@ -14,6 +14,15 @@ export class CommandControl {
     this.latestTimestamp = envutil.timestamp();
     this.log = log.withTags("CommandControl");
     this.bw = blocklistWrapper;
+    this.cmds = new Set([
+      "configure",
+      "config",
+      "search",
+      "dntolist",
+      "dntouint",
+      "listtob64",
+      "b64tolist",
+    ]);
   }
 
   /**
@@ -37,8 +46,22 @@ export class CommandControl {
     return util.emptyResponse();
   }
 
-  isConfigureCmd(s) {
-    return s === "configure" || s === "config";
+  isAnyCmd(s) {
+    return this.cmds.has(s);
+  }
+
+  userCommands(url) {
+    const emptyCmd = ["", ""];
+    // r.x/a/b/c/ => ["", "a", "b", "c", ""]
+    // abc.r.x/a => ["", "a"]
+    const p = url.pathname.split("/");
+
+    if (!p || p.length <= 1) return emptyCmd;
+
+    const last = p[p.length - 1];
+    const first = p[1]; // may equal last
+
+    return [first, last];
   }
 
   userFlag(url, isDnsCmd = false) {
@@ -46,8 +69,8 @@ export class CommandControl {
     const p = url.pathname.split("/"); // ex: max.rethinkdns.com/cmd/XYZ
     const d = url.host.split("."); // ex: XYZ.max.rethinkdns.com
 
-    // "configure" cmd, blockstamp (userFlag) must be at p[2]
-    if (this.isConfigureCmd(p[1])) {
+    // if cmd is at p[1], blockstamp (userFlag) must be at p[2]
+    if (this.isAnyCmd(p[1])) {
       return p.length >= 3 ? p[2] : emptyFlag;
     }
 
@@ -62,7 +85,7 @@ export class CommandControl {
     if (p[1]) return p[1]; // ex: max.rethinkdns.com/XYZ
 
     // no path, possibly dot
-    return d.length > 1 ? d[0] : emptyFlag;
+    return d.length > 1 ? d[0] : emptyFlag; // ex: XYZ.max.rethinkdns.com
   }
 
   async commandOperation(rxid, url, isDnsCmd) {
@@ -71,7 +94,6 @@ export class CommandControl {
     try {
       const reqUrl = new URL(url);
       const queryString = reqUrl.searchParams;
-      const pathSplit = reqUrl.pathname.split("/");
 
       if (isDnsCmd) {
         this.log.d(rxid, "cc no-op: dns-msg not cc-msg");
@@ -83,10 +105,14 @@ export class CommandControl {
         response.data.stopProcessing = true;
       }
 
-      const command = pathSplit[1];
+      const [cmd1, cmd2] = this.userCommands(reqUrl, isDnsCmd);
       const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
+      // if userflag is same as cmd1, then cmd2 must be the actual cmd
+      // consider urls: r.tld/cmd/flag & r.tld/flag/cmd
+      // by default, treat cmd1 (at path[1]) as cmd, regardless
+      const command = this.isAnyCmd(cmd2) ? cmd2 : cmd1;
 
-      this.log.d(rxid, "processing...", url, command, b64UserFlag);
+      this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
       // blocklistFilter may not to have been setup, so set it up
       await this.bw.init(rxid);
@@ -96,18 +122,26 @@ export class CommandControl {
       if (!isBlfSetup) throw new Error("no blocklist-filter");
 
       if (command === "listtob64") {
+        // convert blocklists (tags) to blockstamp (b64)
         response.data.httpResponse = listToB64(queryString, blf);
       } else if (command === "b64tolist") {
+        // convert blockstamp (b64) to blocklists (tags)
         response.data.httpResponse = b64ToList(queryString, blf);
       } else if (command === "dntolist") {
+        // convert names to blocklists (tags)
         response.data.httpResponse = domainNameToList(
           queryString,
           blf,
           this.latestTimestamp
         );
       } else if (command === "dntouint") {
+        // convert names to flags
         response.data.httpResponse = domainNameToUint(queryString, blf);
+      } else if (command === "search") {
+        // redirect to the search page with blockstamp (b64) preloaded
+        response.data.httpResponse = searchRedirect(b64UserFlag);
       } else if (command === "config" || command === "configure" || !isDnsCmd) {
+        // redirect to configure page
         response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
@@ -131,6 +165,12 @@ export class CommandControl {
 
 function isRethinkDns(hostname) {
   return hostname.indexOf("rethinkdns") >= 0;
+}
+
+function searchRedirect(b64userflag) {
+  const u = "https://rethinkdns.com/search";
+  const q = "?s=" + b64userflag; // must be base64 (not base32 aka dot)
+  return Response.redirect(u + q, 302);
 }
 
 function configRedirect(userFlag, origin, timestamp, highlight) {
