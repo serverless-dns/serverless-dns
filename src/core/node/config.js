@@ -71,12 +71,12 @@ async function prep() {
 
   if (isProd) {
     if (TLS_CERTKEY) {
-      const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(TLS_CERTKEY);
+      const [tlsKey, tlsCrt] = util.getTLSFromEnv(TLS_CERTKEY);
       envManager.set("TLS_KEY", tlsKey);
       envManager.set("TLS_CRT", tlsCrt);
       log.i("env (fly) tls setup with tls_certkey");
     } else if (_TLS_CRT_AND_KEY) {
-      const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
+      const [tlsKey, tlsCrt] = util.getTLSfromEnv(_TLS_CRT_AND_KEY);
       envManager.set("TLS_KEY", tlsKey);
       envManager.set("TLS_CRT", tlsCrt);
       log.i("[deprecated] env (fly) tls setup with tls_cn");
