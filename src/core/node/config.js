@@ -58,6 +58,8 @@ async function prep() {
     withTimestamps: true, // always log timestamps on node
   });
 
+  // ---- log and envManager available only after this line ---- \\
+
   /** TLS crt and key */
   // Raw TLS CERT and KEY are stored (base64) in an env var for fly deploys
   // (fly deploys are dev/prod nodejs deploys where env TLS_CN or TLS_ is set).
@@ -69,12 +71,12 @@ async function prep() {
 
   if (isProd) {
     if (TLS_CERTKEY) {
-      const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(TLS_CERTKEY);
+      const [tlsKey, tlsCrt] = util.getTLSFromEnv(TLS_CERTKEY);
       envManager.set("TLS_KEY", tlsKey);
       envManager.set("TLS_CRT", tlsCrt);
       log.i("env (fly) tls setup with tls_certkey");
     } else if (_TLS_CRT_AND_KEY) {
-      const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
+      const [tlsKey, tlsCrt] = util.getTLSfromEnv(_TLS_CRT_AND_KEY);
       envManager.set("TLS_KEY", tlsKey);
       envManager.set("TLS_CRT", tlsCrt);
       log.i("[deprecated] env (fly) tls setup with tls_cn");
@@ -98,18 +100,24 @@ async function prep() {
     globalThis.Request = Request;
     globalThis.Response = Response;
     log.i("polyfill fetch web api");
+  } else {
+    log.i("no fetch polyfill required");
   }
 
   if (!globalThis.atob || !globalThis.btoa) {
     globalThis.atob = atob;
     globalThis.btoa = btoa;
     log.i("polyfill atob / btoa");
+  } else {
+    log.i("no atob/btoa polyfill required");
   }
 
   /** Swap on Fly */
   if (onFly) {
     const ok = swap.mkswap();
     log.i("mkswap done?", ok);
+  } else {
+    log.i("no swap required");
   }
 
   /** signal ready */
