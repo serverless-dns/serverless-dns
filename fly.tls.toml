@@ -14,7 +14,7 @@ CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
 CF_LATEST_BLOCKLIST_TIMESTAMP = "1651585438711"
 TD_NODE_COUNT = "39790702"
 TD_PARTS = "2"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
+CF_DNS_RESOLVER_URL = "https://security.cloudflare-dns.com/dns-query"
 CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 
 [experimental]
