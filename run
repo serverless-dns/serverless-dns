@@ -29,6 +29,11 @@ banner() {
   echo "                                                     ";
 }
 
+cleanup() {
+    kill $(jobs -p)
+}
+trap cleanup EXIT
+
 bgcmd() {
   $1 &
 }
