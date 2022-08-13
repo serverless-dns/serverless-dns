@@ -105,9 +105,8 @@ Pull requests are also checked for code style violations and fixed automatically
 
 #### Env vars
 
-Configure `.env` ([ref](.env.example)) or [`env.js`](src/core/env.js) if you need to tweak the defaults.
-Values in `.env` file take precedence over corresponding variables set in `env.js`. For Cloudflare Workers
-setup env vars in [`wrangler.toml`](wrangler.toml), instead.
+Configure [`env.js`](src/core/env.js) if you need to tweak the defaults.
+For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 
 #### Request flow
 
@@ -173,10 +172,11 @@ Ref: _[github/workflows](.github/workflows)_.
 ### Blocklists
 
 190+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
-to speed up string search ([`lookup`](src/plugins/blocklist-wrapper/radixTrie.js)) at the expense of "succintness". The blocklists are versioned
+to speed up string search ([`lookup`](src/plugins/rethinkdns/trie.js#L758)) at the expense of "succintness". The blocklists are versioned
 with unix timestamp (env var: `CF_LATEST_BLOCKLIST_TIMESTAMP`), and generated once every week, but we'd like to generate 'em daily / hourly,
 if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Lightsail Object Store (env var: `CF_BLOCKLIST_URL`).
 `serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
-required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/plugins/dns-operation/dnsResolver.js#L167), when serving a DNS request.
+required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/02f9e5bf/src/plugins/dns-op/resolver.js#L167),
+when serving a DNS request.
 
 `serverless-dns` compiles around ~5M entries (as of Feb 2022) in to a succinct radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
