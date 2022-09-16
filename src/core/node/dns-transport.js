@@ -33,6 +33,12 @@ export class Transport {
     this.log.i("transport", host, port, "pool", poolSize, poolTtl);
   }
 
+  async teardown() {
+    const r1 = this.tcpconns.sweep(true);
+    const r2 = this.udpconns.sweep(true);
+    this.log.i("transport teardown tcp | udp done?", r1, "|", r2);
+  }
+
   async udpquery(rxid, q) {
     let sock = this.udpconns.take();
     this.log.d(rxid, "udp pooled?", sock !== null);

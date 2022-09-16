@@ -16,6 +16,9 @@ import {
 } from "../plugins/dns-op/dns-op.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as system from "../system.js";
+import * as util from "../commons/util.js";
+
+let endtimer = null;
 
 export const services = {
   /**
@@ -48,6 +51,7 @@ export const services = {
   // On Workers, asynchronous I/O, timeouts, and generating random values,
   // can only be performed while handling a request.
   system.when("ready").then(systemReady);
+  system.when("stop").then(systemStop);
 })();
 
 async function systemReady() {
@@ -67,4 +71,31 @@ async function systemReady() {
   services.ready = true;
 
   system.pub("steady");
+}
+
+function systemStop() {
+  log.d("svc stop, signal close resolver");
+  services.dnsResolver.close();
+}
+
+function stopProc() {
+  log.d("stopping proc, times-up");
+  system.pub("stop");
+}
+
+export function stopAfter(ms = 0) {
+  if (ms < 0) {
+    log.w("invalid stopAfter", ms);
+    return;
+  }
+  clearEndTimer();
+  endtimer = util.timeout(ms, stopProc);
+  log.d("end ttl extended by", ms + "ms");
+}
+
+function clearEndTimer() {
+  if (util.emptyObj(endtimer)) return false;
+  log.d("revoke end-timer", endtimer);
+  clearTimeout(endtimer);
+  return true;
 }

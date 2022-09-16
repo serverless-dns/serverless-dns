@@ -55,6 +55,11 @@ export default class DNSResolver {
     }
   }
 
+  async close() {
+    this.log.i("closing resolver (& transport?", this.transport != null, ")");
+    if (this.transport) this.transport.teardown();
+  }
+
   /**
    * @param {Object} param
    * @param {String} param.rxid

@@ -44,6 +44,11 @@ const defaults = {
     // also ref: EnvManager.mostLikelyCloudPlatform()
     default: "local",
   },
+  // timeout for proc running on fly machines
+  MACHINES_TIMEOUT_SEC: {
+    type: "number",
+    default: -1,
+  },
   // path to tls (private) key
   TLS_KEY_PATH: {
     type: "string",

@@ -21,7 +21,10 @@ const stickyEvents = new Set([
   "go",
 ]);
 
-const events = new Set();
+const events = new Set([
+  // when server should cease
+  "stop",
+]);
 
 const listeners = new Map();
 const waitGroup = new Map();
@@ -48,12 +51,14 @@ export function pub(event, parcel = undefined) {
 export function sub(event, cb) {
   const eventCallbacks = listeners.get(event);
 
+  // if such even callbacks don't exist
   if (!eventCallbacks) {
-    // if event is sticky, fire off the listener at once
+    // but event is sticky, fire off the listener at once
     if (stickyEvents.has(event)) {
       util.microtaskBox(cb);
       return true;
     }
+    // but event doesn't exist, then there's nothing to do
     return false;
   }
 

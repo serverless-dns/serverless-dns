@@ -13,6 +13,7 @@ import * as h2c from "httpx-server";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
+import { stopAfter } from "./core/svc.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
@@ -32,11 +33,30 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
 
 let log = null;
 
+let listeners = [];
+
 ((main) => {
+  // listen for "go" and start the server
   system.sub("go", systemUp);
+  // listen for "end" and stop the server
+  system.sub("stop", systemDown);
   // ask prepare phase to commence
   system.pub("prepare");
 })();
+
+function systemDown() {
+  log.i("rcv stop signal, stopping servers", listeners.length);
+
+  const srvs = listeners;
+  listeners = [];
+  srvs.forEach((s) => {
+    if (!s) return;
+    const saddr = s.address();
+    log.i("stopping...", saddr);
+    // TODO: drain all sockets stackoverflow.com/a/14636625
+    s.close(() => down(saddr));
+  });
+}
 
 function systemUp() {
   log = util.logger("NodeJs");
@@ -52,6 +72,7 @@ function systemUp() {
     // TODO: ProxyProtoV2 with TLS ClientHello (unsupported by Fly.io, rn)
     // DNS over TLS Cleartext
     const dotct = net
+      // serveTCP must eventually call machines-heartbeat
       .createServer(serveTCP)
       .listen(portdot, () => up("DoT Cleartext", dotct.address()));
 
@@ -64,8 +85,11 @@ function systemUp() {
     // Ref (for clients): github.com/nodejs/node/issues/31759
     // Impl: stackoverflow.com/a/42019773
     const dohct = h2c
+      // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serveHTTPS)
       .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
+
+    listeners = [dotct, dohct];
   } else {
     // terminate tls ourselves
     const tlsOpts = {
@@ -78,6 +102,7 @@ function systemUp() {
 
     // DNS over TLS
     const dot1 = tls
+      // serveTLS must eventually invoke machines-heartbeat
       .createServer(tlsOpts, serveTLS)
       .listen(portdot1, () => up("DoT", dot1.address()));
 
@@ -85,18 +110,28 @@ function systemUp() {
     const dot2 =
       envutil.isDotOverProxyProto() &&
       net
+        // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serveDoTProxyProto)
         .listen(portdot2, () => up("DoT ProxyProto", dot2.address()));
 
     // DNS over HTTPS
     const doh = http2
+      // serverHTTPS must eventually invoke machines-heartbeat
       .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
       .listen(portdoh, () => up("DoH", doh.address()));
-  }
 
-  function up(server, addr) {
-    log.i(server, `listening on: [${addr.address}]:${addr.port}`);
+    // may contain null elements
+    listeners = [dot1, dot2, doh];
   }
+  machinesHeartbeat();
+}
+
+function down(addr) {
+  log.i(`closed: [${addr.address}]:${addr.port}`);
+}
+
+function up(server, addr) {
+  log.i(server, `listening on: [${addr.address}]:${addr.port}`);
 }
 
 function close(sock) {
@@ -288,6 +323,7 @@ function serveTLS(socket) {
     return;
   }
 
+  machinesHeartbeat();
   log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}`);
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
@@ -317,7 +353,9 @@ function serveTCP(socket) {
   const [flag, host] = ["", "ignored.example.com"];
   const sb = makeScratchBuffer();
 
+  machinesHeartbeat();
   log.d("----> DoT Cleartext request", host, flag);
+
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
   });
@@ -489,6 +527,7 @@ async function serveHTTPS(req, res) {
     return;
   }
 
+  machinesHeartbeat();
   log.d("----> DoH request", req.method, bLen, req.url);
   handleHTTPRequest(b, req, res);
 }
@@ -547,4 +586,14 @@ async function handleHTTPRequest(b, req, res) {
   }
 
   log.endTime(t);
+}
+
+function machinesHeartbeat() {
+  // nothing to do, if not on fly
+  if (!envutil.onFly()) return;
+  // if a fly machine app, figure out ttl
+  const t = envutil.machinesTimeoutMillis();
+  log.d("extend-machines-ttl by", t);
+  if (t >= 0) stopAfter(t);
+  // else: not on machines
 }

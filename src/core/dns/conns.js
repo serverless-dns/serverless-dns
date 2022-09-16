@@ -62,10 +62,10 @@ export class TcpConnPool {
     return true;
   }
 
-  sweep() {
+  sweep(clear = false) {
     const start = this.pool.size;
     for (const [sock, report] of this.pool) {
-      if (this.dead(sock, report)) this.evict(sock);
+      if (clear || this.dead(sock, report)) this.evict(sock);
     }
     return start > this.pool.size; // size decreased post-sweep?
   }
@@ -156,10 +156,10 @@ export class UdpConnPool {
     return true;
   }
 
-  sweep() {
+  sweep(clear = false) {
     const start = this.pool.size;
     for (const [sock, report] of this.pool) {
-      if (this.dead(sock, report)) this.evict(sock);
+      if (clear || this.dead(sock, report)) this.evict(sock);
     }
     return start > this.pool.size; // size decreased post-sweep?
   }

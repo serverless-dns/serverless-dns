@@ -14,6 +14,12 @@ export function onFly() {
   return envManager.get("CLOUD_PLATFORM") === "fly";
 }
 
+export function machinesTimeoutMillis() {
+  if (!envManager) return -1;
+
+  return envManager.get("MACHINES_TIMEOUT_SEC") * 1000;
+}
+
 export function onDenoDeploy() {
   if (!envManager) return false;
 

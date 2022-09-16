@@ -12,12 +12,13 @@
  * This module has side effects, sequentially setting up the environment.
  */
 import { atob, btoa } from "buffer";
+import process from "node:process";
 import { fetch, Headers, Request, Response } from "undici";
 import * as util from "./util.js";
 import * as blocklists from "./blocklists.js";
 import Log from "../log.js";
 import * as system from "../../system.js";
-import { services } from "../svc.js";
+import { services, stopAfter } from "../svc.js";
 import EnvManager from "../env.js";
 import * as swap from "../linux/swap.js";
 
@@ -25,6 +26,8 @@ import * as swap from "../linux/swap.js";
   system.when("prepare").then(prep);
   system.when("steady").then(up);
 })();
+
+process.on("SIGINT", (sig) => stopAfter());
 
 async function prep() {
   // if this file execs... assume we're on nodejs.
