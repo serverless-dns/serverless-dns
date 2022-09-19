@@ -27,19 +27,29 @@ on:
         required: false
         default: "main"
       deployment-type:
-        description: "Deployment: dev || live || b1"
-        required: false
-        default: "dev"
+        description: "Fly app type to deploy to"
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+        - mach
+        - b1
 
 env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  # one of immediate, rolling, bluegreen, canary
+  FLY_DEPLOY_STRAT: "rolling"
   # default fly app to deploy to (typically, dev)
   FLY_APP: ${{ secrets.FLY_APP_NAME }}
   FLY_PROD_APP: ${{ secrets.FLY_APP_NAME_LIVE }}
   FLY_B1_APP: ${{ secrets.FLY_APP_NAME_B1 }}
+  FLY_MACHINES_APP: "udns"
   FLY_CFG: "fly.toml"
   FLY_B1_CFG: "fly.tls.toml"
+  FLY_MACHINES_CFG: "fly.machines.toml"
 
 jobs:
   deploy:
@@ -57,7 +67,7 @@ jobs:
           echo "FLY_TOML=${FLY_CFG}" >> $GITHUB_ENV
         shell: bash
 
-      - name: ⚠ B1 via dispatch?
+      - name: 🔐👨‍🚒 B1 via dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
           github.event.inputs.deployment-type == 'b1' }}
         run: |
@@ -68,9 +78,9 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
 
-      - name: 🚨 Prod via dispatch?
+      - name: 🚨👨‍🚒 Prod via dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.deployment-type == 'live' }}
+          github.event.inputs.deployment-type == 'prod' }}
         run: |
           echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
           echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
@@ -78,7 +88,7 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
 
-      - name: 🚨 Prod via tag?
+      - name: 🚨🛺 Prod via tag?
         # docs.github.com/en/actions/learn-github-actions/contexts#github-context
         if: ${{ github.event_name != 'workflow_dispatch' && github.ref_type == 'tag' }}
         run: |
@@ -88,14 +98,30 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
 
-      - name: 🚢 Ship
-        uses: superfly/flyctl-actions@1.3
+      - name: 🚜👨‍🚒 Machines via dispatch?
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment-type == 'mach' }}
+        run: |
+          echo "FLY_APP=${FLY_MACHINES_APP}" >> $GITHUB_ENV
+          echo "FLY_TOML=${FLY_MACHINES_CFG}" >> $GITHUB_ENV
+          echo "FLY_DEPLOY_STRAT=immediate" >> $GITHUB_ENV
+          echo "::notice::Deploying MACH / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      # experimental: github.com/superfly/flyctl-actions/pull/20
+      - name: 🏗 Setup flyctl @ latest
+        uses: superfly/flyctl-actions/setup-flyctl@master
         with:
-          args: "deploy
-            --dockerfile node.Dockerfile
+          version: latest
+
+      - name: 🚢 Ship
+        run: "flyctl deploy
             --image-label ${{ env.GIT_HEAD }}
             --config ${{ env.FLY_TOML }}
-            --strategy rolling
+            --strategy ${{ env.FLY_DEPLOY_STRAT }}
+            --verbose
             "
 
       - name: Registry
