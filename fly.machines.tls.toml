@@ -13,15 +13,11 @@ TLS_OFFLOAD = "true"
 DENO_ENV = "production"
 NODE_ENV = "production"
 CLOUD_PLATFORM = "fly"
-# (set for machines only) node proc shuts itself after this threshold
-MACHINES_TIMEOUT_SEC = "120"
+# (set for machines only) node proc shuts itself after this threshold:
+# on Fly, the in-memory DNS cache is evicted on process exit, hence
+# more efficient to let the Machine linger for as much time affordable
+MACHINES_TIMEOUT_SEC = "180"
 LOG_LEVEL = "info"
-CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1660227070988"
-TD_NODE_COUNT = "45033163"
-TD_PARTS = "2"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 
 [experimental]
 auto_rollback = true

@@ -165,6 +165,13 @@ export function isCleartext() {
   return envManager.get("TLS_OFFLOAD") || false;
 }
 
+export function blocklistDownloadOnly() {
+  if (!envManager) return false;
+
+  // run the server just to download the blocklist files and do nothing else
+  return envManager.get("BLOCKLIST_DOWNLOAD_ONLY");
+}
+
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 export function dohBackendPort() {
   return 8080;
@@ -219,6 +226,9 @@ export function disableDnsCache() {
 
 export function disableBlocklists() {
   if (!envManager) return false;
+
+  // server is up just to download blocklists, so skip this flag
+  if (blocklistDownloadOnly()) return false;
 
   return envManager.get("DISABLE_BLOCKLISTS") || false;
 }

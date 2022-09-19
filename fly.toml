@@ -1,24 +1,19 @@
 app = ""
 
 kill_signal = "SIGINT"
-kill_timeout = 5
-# processes = []
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
 
 [env]
 DENO_ENV = "production"
 NODE_ENV = "production"
 CLOUD_PLATFORM = "fly"
 LOG_LEVEL = "info"
-CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1662384683026"
-TD_NODE_COUNT = "42272846"
-TD_PARTS = "2"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 # DOT_HAS_PROXY_PROTO = "true"
 
 [experimental]
-allowed_public_ports = []
 auto_rollback = true
 
 # Don't use `[processes]`, undocumented and causes problems with [auto]scaling.
@@ -31,7 +26,6 @@ auto_rollback = true
 [[services]]
 http_checks = []
 internal_port = 8080
-# processes = ["app"]
 protocol = "tcp"
 script_checks = []
 
@@ -56,7 +50,6 @@ script_checks = []
 [[services]]
 http_checks = []
 internal_port = 10000
-# processes = ["app"]
 protocol = "tcp"
 script_checks = []
 

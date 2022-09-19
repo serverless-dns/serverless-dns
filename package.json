@@ -26,7 +26,7 @@
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.1",
     "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.1",
     "dotenv": "^10.0.0",
-    "httpx-server": "^1.4.3",
+    "httpx-server": "^1.4.4",
     "proxy-protocol-js": "^4.0.5",
     "undici": "^4.13.0"
   },

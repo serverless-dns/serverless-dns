@@ -1,7 +1,10 @@
 app = ""
 
 kill_signal = "SIGINT"
-kill_timeout = 5
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
 
 [env] 
 # offload TLS to Fly.io's load balancers
@@ -10,15 +13,8 @@ DENO_ENV = "production"
 NODE_ENV = "production"
 CLOUD_PLATFORM = "fly"
 LOG_LEVEL = "info"
-CF_BLOCKLIST_URL = "https://dist.rethinkdns.com/blocklists/"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1662384683026"
-TD_NODE_COUNT = "42272846"
-TD_PARTS = "2"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = "10000"
 
 [experimental]
-allowed_public_ports = []
 auto_rollback = true
 
 # DNS over HTTPS (well, h2c and http1.1)

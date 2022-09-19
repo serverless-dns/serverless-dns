@@ -1,25 +1,25 @@
-FROM node:alpine as deps
-
+FROM node:alpine as setup
+# todo: is git required?
 RUN apk --no-cache add git
-
 WORKDIR /node-dir
-COPY package.json ./
+COPY . .
+# get deps
+RUN npm install --no-package-lock --no-fund --ignore-scripts
+# bundle it up
+RUN npx webpack --config webpack.fly.cjs
+# download blocklists and bake them in the img
+RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.cjs
 
-RUN npm install --production --no-package-lock --no-fund --ignore-scripts
-
+# stage 2
 FROM node:alpine AS runner
 
+# env vals persist even at run-time: archive.is/QpXp2
 ENV NODE_ENV production
-
-RUN addgroup --gid 1001 nodejs
-RUN adduser --uid 1001 --disabled-password nodejs --ingroup nodejs
-RUN mkdir /node-dir/ && chown nodejs:nodejs /node-dir/
-
-WORKDIR /node-dir
-COPY --from=deps --chown=nodejs:nodejs /node-dir/ ./
-COPY --chown=nodejs:nodejs . .
-RUN rm -f *Dockerfile .dockerignore
-
+# get working dir in order
+WORKDIR /app
+COPY --from=setup /node-dir/dist ./
+COPY --from=setup /node-dir/blocklists__ ./blocklists__
+# print files in work dir, must contain blocklists
 RUN ls -Fla
-
-CMD ["node", "src/server-node.js"]
+# run with the default entrypoint (usually, bash or sh)
+CMD ["node", "./fly.cjs"]

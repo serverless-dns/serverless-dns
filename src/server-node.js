@@ -62,7 +62,13 @@ function systemUp() {
   log = util.logger("NodeJs");
   if (!log) throw new Error("logger unavailable on system up");
 
+  const onlydownload = envutil.blocklistDownloadOnly();
   const tlsoffload = envutil.isCleartext();
+
+  if (onlydownload) {
+    log.i("in download mode, not running the dns resolver");
+    return;
+  }
 
   if (tlsoffload) {
     // fly.io terminated tls?

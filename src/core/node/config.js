@@ -41,6 +41,7 @@ async function prep() {
   // dev utilities
   if (!isProd) {
     devutils = await import("./util-dev.js");
+    // TODO: remove .env
     dotenv = await import("dotenv");
   }
 
@@ -64,15 +65,20 @@ async function prep() {
   // ---- log and envManager available only after this line ---- \\
 
   /** TLS crt and key */
+  // If TLS_OFFLOAD == true, skip loading TLS certs and keys; otherwise:
   // Raw TLS CERT and KEY are stored (base64) in an env var for fly deploys
   // (fly deploys are dev/prod nodejs deploys where env TLS_CN or TLS_ is set).
   // Otherwise, retrieve KEY and CERT from the filesystem (this is the case
   // for local non-prod nodejs deploys with self-signed certs).
+  // If requisite TLS secrets are missing, set tlsoffload to true, eventually.
+  let tlsoffload = envManager.get("TLS_OFFLOAD");
   const _TLS_CRT_AND_KEY =
     eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
   const TLS_CERTKEY = process.env.TLS_CERTKEY;
 
-  if (isProd) {
+  if (tlsoffload) {
+    log.i("TLS offload enabled");
+  } else if (isProd) {
     if (TLS_CERTKEY) {
       const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(TLS_CERTKEY);
       envManager.set("TLS_KEY", tlsKey);
@@ -84,17 +90,26 @@ async function prep() {
       envManager.set("TLS_CRT", tlsCrt);
       log.i("[deprecated] env (fly) tls setup with tls_cn");
     } else {
-      log.w("TLS termination: neither TLS_CERTKEY nor TLS_CN set");
+      log.w("Skip TLS: neither TLS_CERTKEY nor TLS_CN set; enable TLS offload");
+      tlsoffload = true;
     }
   } else {
-    const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
-      envManager.get("TLS_KEY_PATH"),
-      envManager.get("TLS_CRT_PATH")
-    );
-    envManager.set("TLS_KEY", tlsKey);
-    envManager.set("TLS_CRT", tlsCrt);
-    log.i("dev (local) tls setup from tls_key_path");
+    try {
+      const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
+        envManager.get("TLS_KEY_PATH"),
+        envManager.get("TLS_CRT_PATH")
+      );
+      envManager.set("TLS_KEY", tlsKey);
+      envManager.set("TLS_CRT", tlsCrt);
+      log.i("dev (local) tls setup from tls_key_path");
+    } catch (ex) {
+      // this can happen when running server in BLOCKLIST_DOWNLOAD_ONLY mode
+      log.w("Skipping TLS: test TLS crt/key missing; enable TLS offload");
+      tlsoffload = true;
+    }
   }
+
+  envManager.set("TLS_OFFLOAD", tlsoffload);
 
   /** Polyfills */
   if (!globalThis.fetch) {
