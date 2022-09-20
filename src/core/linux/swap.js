@@ -28,7 +28,7 @@ export function rmswap() {
 
 // stackoverflow.com/a/53222213
 function hasswap() {
-  return sh("test"[("-e", swapfile)]);
+  return sh("test", [("-e", swapfile)]);
 }
 
 function sh(cmd, args) {
