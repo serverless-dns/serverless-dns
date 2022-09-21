@@ -88,12 +88,12 @@ const defaults = {
   // primary doh upstream
   CF_DNS_RESOLVER_URL: {
     type: "string",
-    default: "https://cloudflare-dns.com/dns-query",
+    default: "https://gw9nzmm35s.cloudflare-gateway.com/dns-query",
   },
   // secondary doh upstream
   CF_DNS_RESOLVER_URL_2: {
     type: "string",
-    default: "https://dns.google/dns-query",
+    default: "https://gw9nzmm35s.cloudflare-gateway.com/dns-query",
   },
   // max doh request processing timeout some requests may have to wait
   // for blocklists to download before being responded to.
@@ -120,7 +120,7 @@ const defaults = {
   // ttl for dns answers, overrides ttls in dns answers
   CACHE_TTL: {
     type: "number",
-    default: "1800", // 30m
+    default: "300", // 30m
   },
   // disable downloading blocklists altogether
   DISABLE_BLOCKLISTS: {
