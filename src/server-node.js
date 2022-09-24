@@ -274,7 +274,7 @@ function getDnRE(socket) {
 
   const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
   const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
-  log.i(rgDnRE, wcDnRE);
+  log.d(rgDnRE, wcDnRE);
   return [rgDnRE, wcDnRE];
 }
 
