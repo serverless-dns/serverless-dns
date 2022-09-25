@@ -79,7 +79,7 @@ function systemStop() {
 }
 
 function stopProc() {
-  log.d("stopping proc, times-up");
+  log.i("stopping proc, times-up");
   system.pub("stop");
 }
 
