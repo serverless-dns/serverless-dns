@@ -151,7 +151,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   return new Promise((resolve, reject) => {
     let timedout = false;
 
-    const defferedOp = () => {
+    const deferredOp = () => {
       defaultOp()
         .then((v) => {
           resolve(v);
@@ -162,7 +162,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
     };
     const tid = timeout(ms, () => {
       timedout = true;
-      defferedOp();
+      deferredOp();
     });
 
     promisedOp()
@@ -173,7 +173,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
         }
       })
       .catch((ignored) => {
-        if (!timedout) defferedOp();
+        if (!timedout) deferredOp();
         // else: handled by timeout
       });
   });

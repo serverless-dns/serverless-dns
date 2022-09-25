@@ -14,6 +14,7 @@ RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.cjs
 FROM node:alpine AS runner
 
 # env vals persist even at run-time: archive.is/QpXp2
+# and overrides fly.toml env values
 ENV NODE_ENV production
 # get working dir in order
 WORKDIR /app

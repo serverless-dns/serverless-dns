@@ -32,7 +32,7 @@ let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
 let log = null;
-
+let noreqs = -1;
 let listeners = [];
 
 ((main) => {
@@ -45,7 +45,7 @@ let listeners = [];
 })();
 
 async function systemDown() {
-  log.i("rcv stop signal, stopping servers", listeners.length);
+  log.i(noreqs, "rcv stop signal, stopping servers", listeners.length);
 
   const srvs = listeners;
   listeners = [];
@@ -63,16 +63,17 @@ async function systemDown() {
   // health checks kick-in and apply a pre-defined restart policy, but as it
   // stands, health checks are unimplemented for machines, and so we wait for
   // a small amount of time, and force exit the process. the irony is, this
-  // timed wait here will keep us the node process for longer than necessary.
+  // timed wait here will keep up the node process for longer than necessary.
   // in other cases where systemDown might be called due to interrupts such as
   // SIGINT, there's already a pre-defined timeout (10s or so) after which
   // fly.io init process should mop it up, regardless of what goes on in here.
-  // FIXME remove this wait once fly.io has health checks in place.
+  // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
-  await util.sleep(/* 2s*/ 2 * 1000);
-  log.i("game over");
-  // exit success aka 0; ref: community.fly.io/t/4547/6
-  process.exit(0);
+  util.timeout(/* 3s*/ 3 * 1000, () => {
+    log.i("game over");
+    // exit success aka 0; ref: community.fly.io/t/4547/6
+    process.exit(0);
+  });
 }
 
 function systemUp() {
@@ -612,6 +613,8 @@ async function handleHTTPRequest(b, req, res) {
 }
 
 function machinesHeartbeat() {
+  // increment no of requests
+  noreqs += 1;
   // nothing to do, if not on fly
   if (!envutil.onFly()) return;
   // if a fly machine app, figure out ttl
