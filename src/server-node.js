@@ -13,7 +13,7 @@ import * as h2c from "httpx-server";
 import { V1ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
-import { stopAfter } from "./core/svc.js";
+import { stopAfter, uptime } from "./core/svc.js";
 import * as bufutil from "./commons/bufutil.js";
 import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
@@ -45,7 +45,7 @@ let listeners = [];
 })();
 
 async function systemDown() {
-  log.i(noreqs, "rcv stop signal, stopping servers", listeners.length);
+  log.i(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
 
   const srvs = listeners;
   listeners = [];
@@ -69,7 +69,7 @@ async function systemDown() {
   // fly.io init process should mop it up, regardless of what goes on in here.
   // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
-  util.timeout(/* 3s*/ 3 * 1000, () => {
+  util.timeout(/* 2s*/ 2 * 1000, () => {
     log.i("game over");
     // exit success aka 0; ref: community.fly.io/t/4547/6
     process.exit(0);
@@ -615,6 +615,9 @@ async function handleHTTPRequest(b, req, res) {
 function machinesHeartbeat() {
   // increment no of requests
   noreqs += 1;
+  if (noreqs % 100 === 0) {
+    log.i(noreqs, "requests so far in", uptime() / 1000, "secs");
+  }
   // nothing to do, if not on fly
   if (!envutil.onFly()) return;
   // if a fly machine app, figure out ttl

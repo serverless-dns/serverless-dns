@@ -18,6 +18,8 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as system from "../system.js";
 import * as util from "../commons/util.js";
 
+// proc up since
+let readytime = 0;
 let endtimer = null;
 // unix timestamp of the latest recorded heartbeat
 let latestHeartbeat = 0;
@@ -74,6 +76,8 @@ async function systemReady() {
 
   services.ready = true;
 
+  readytime = Date.now();
+
   system.pub("steady");
 }
 
@@ -85,6 +89,10 @@ function systemStop() {
 function stopProc() {
   log.i("stopping proc, times-up");
   system.pub("stop");
+}
+
+export function uptime() {
+  return Date.now() - readytime;
 }
 
 export function stopAfter(ms = 0) {
