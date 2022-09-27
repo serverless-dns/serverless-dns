@@ -26,6 +26,9 @@ export default class RethinkPlugin {
     const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
     this.registerParameter("rxid", "[rx." + rxid + "]");
 
+    // works on fly.io and cloudflare
+    this.registerParameter("region", getRegion(event.request) || "");
+
     // caution: event isn't an event on nodejs, but event.request is a request
     this.registerParameter("request", event.request);
     // TODO: a more generic way for plugins to queue events on all platforms
@@ -234,11 +237,12 @@ export default class RethinkPlugin {
 
     const request = this.parameter.get("request");
     const rxid = this.parameter.get("rxid");
+    const region = this.parameter.get("region");
     const isDnsMsg = util.isDnsMsg(request);
     const isGwReq = util.isGatewayRequest(request);
     let question = null;
 
-    io.id(rxid);
+    io.id(rxid, region);
 
     this.registerParameter("isDnsMsg", isDnsMsg);
     // nothing to do if the current request isn't a dns question
@@ -302,4 +306,13 @@ async function extractDnsQuestion(request) {
     const dnsQuery = queryString.get("dns");
     return bufutil.base64ToBytes(dnsQuery);
   }
+}
+
+function getRegion(request) {
+  if (envutil.onCloudflare()) {
+    return util.regionFromCf(request);
+  } else if (envutil.onFly()) {
+    return envutil.region();
+  }
+  return "";
 }

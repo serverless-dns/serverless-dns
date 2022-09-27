@@ -22,12 +22,14 @@ export default class IOState {
     this.alwaysGatewayAnswer = false;
     this.gwip4 = "";
     this.gwip6 = "";
+    this.region = "";
     this.stopProcessing = false;
     this.log = log.withTags("IOState");
   }
 
-  id(rxid) {
+  id(rxid, region) {
     this.log.tag(rxid);
+    this.region = region;
   }
 
   gatewayAnswersOnly(ip4, ip6) {
@@ -151,10 +153,14 @@ export default class IOState {
   headers(b = null) {
     const xNileFlags = this.isDnsBlock ? { "x-nile-flags": this.flag } : null;
     const xNileFlagsOk = !xNileFlags ? { "x-nile-flags-dn": this.flag } : null;
+    const xNileRegion = !util.emptyString(this.region)
+      ? { "x-nile-region": this.region }
+      : null;
 
     return util.concatHeaders(
       util.dnsHeaders(),
       util.contentLengthHeader(b),
+      xNileRegion,
       xNileFlags,
       xNileFlagsOk
     );

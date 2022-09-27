@@ -77,6 +77,12 @@ export function rxidFromHeader(h) {
   return h.get("x-rethinkdns-rxid");
 }
 
+// developers.cloudflare.com/workers/runtime-apis/request
+export function regionFromCf(req) {
+  if (!req || !req.cf) return "";
+  return req.cf.colo || "";
+}
+
 /**
  * @param {Request} request - Request
  * @return {Object} - Headers

@@ -240,3 +240,7 @@ export function gwip4() {
 export function gwip6() {
   return envManager.get("GW_IP6") || "";
 }
+
+export function region() {
+  return envManager.get("FLY_REGION") || "";
+}
