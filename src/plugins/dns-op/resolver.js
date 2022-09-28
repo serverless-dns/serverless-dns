@@ -47,7 +47,7 @@ export default class DNSResolver {
       this.log.i("imported node-util");
     }
     if (envutil.isNode() && !this.transport) {
-      const plainOldDnsIp = dnsutil.dnsIpv4();
+      const plainOldDnsIp = dnsutil.dnsaddr();
       this.transport = new (
         await import("../../core/node/dns-transport.js")
       ).Transport(plainOldDnsIp, 53);
