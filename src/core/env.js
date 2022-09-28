@@ -195,7 +195,8 @@ export default class EnvManager {
   load() {
     this.envMap = this.defaultEnv();
 
-    console.debug("env defaults", this.envMap);
+    // verbose log:
+    // console.debug("env defaults", this.envMap);
   }
 
   determineEnvStage() {
