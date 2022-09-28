@@ -24,13 +24,22 @@ export class Transport {
     this.port = port;
     this.connectTimeout = opts.connectTimeout || 3000; // 3s
     this.ioTimeout = opts.ioTimeout || 10000; // 10s
+    this.ipproto = net.isIP(host); // 4, 6, or 0
     const poolSize = opts.poolSize || 100; // conns
     const poolTtl = opts.poolTtl || 60000; // 1m
     this.tcpconns = new TcpConnPool(poolSize, poolTtl);
     this.udpconns = new UdpConnPool(poolSize, poolTtl);
 
     this.log = log.withTags("DnsTransport");
-    this.log.i("transport", host, port, "pool", poolSize, poolTtl);
+    this.log.i(
+      this.ipproto,
+      "transport",
+      host,
+      port,
+      "pool",
+      poolSize,
+      poolTtl
+    );
   }
 
   async teardown() {
@@ -105,7 +114,13 @@ export class Transport {
     } else if (proto === "udp") {
       // connected udp-sockets: archive.is/JJxaV
       const udpconnect = (cb) => {
-        const sock = dgram.createSocket("udp4");
+        let sock = null;
+        if (this.ipproto === 6) {
+          sock = dgram.createSocket("udp6");
+        } else {
+          // default
+          sock = dgram.createSocket("udp4");
+        }
         // connect error, if any, is sent to the connection-callback
         sock.connect(this.port, this.host, (err) => cb(sock, err));
       };
