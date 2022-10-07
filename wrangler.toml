@@ -43,6 +43,8 @@ TD_PARTS = 2
 [env.prod]
 name = "basic-unbound"
 routes = [
+  "sky.rethinkdns.com/*",
+  "sky.bravedns.com/*",
   "basic.rethinkdns.com/*",
   "basic.bravedns.com/*",
 ]
