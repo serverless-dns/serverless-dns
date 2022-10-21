@@ -25,7 +25,7 @@ export class Transport {
     this.connectTimeout = opts.connectTimeout || 3000; // 3s
     this.ioTimeout = opts.ioTimeout || 10000; // 10s
     this.ipproto = net.isIP(host); // 4, 6, or 0
-    const poolSize = opts.poolSize || 100; // conns
+    const poolSize = opts.poolSize || 500; // conns
     const poolTtl = opts.poolTtl || 60000; // 1m
     this.tcpconns = new TcpConnPool(poolSize, poolTtl);
     this.udpconns = new UdpConnPool(poolSize, poolTtl);
