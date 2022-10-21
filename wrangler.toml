@@ -1,20 +1,16 @@
 name = "serverless-dns"
 route = ""
-type = "javascript"
+main = "./dist/worker.js"
 account_id = ""
 workers_dev = true
-zone_id = ""
-compatibility_date = "2021-11-10"
+# use node_compat or custom build
+# node_compat = true
+compatibility_date = "2022-11-30"
 
 [build]
 command = "npm install && npx webpack"
 
-[build.upload]
-format = "modules"
-dir = "./dist"
-main = "worker.js"
-
-[[build.upload.rules]]
+[[rules]]
 type = "ESModule"
 globs = ["**/*.js"]
 
