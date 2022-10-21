@@ -213,9 +213,14 @@ export default class EnvManager {
     const hasFlyAllocId = this.get("FLY_ALLOC_ID") != null;
     // github.com/denoland/deploy_feedback/issues/73
     const hasDenoDeployId = this.get("DENO_DEPLOYMENT_ID") !== undefined;
+    const hasWorkersUa =
+      globalThis.navigator != null
+        ? navigator.userAgent === "Cloudflare-Workers"
+        : false;
 
     if (hasFlyAllocId) return "fly";
     if (hasDenoDeployId) return "deno-deploy";
+    if (hasWorkersUa) return "cloudflare";
     // if dev, then whatever is running is likely local
     if (isDev) return "local";
     // if prod, then node is likely running on fly
