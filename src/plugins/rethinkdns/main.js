@@ -6,7 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { createTrie } from "./trie.js";
+import { TrieCache } from "./trie-cache.js";
+import { createTrie } from "@serverless-dns/trie/ftrie.js";
 import { BlocklistFilter } from "./filter.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
@@ -16,8 +17,8 @@ import * as rdnsutil from "../rdns-util.js";
 export class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
-    this.td = null; // trie
-    this.rd = null; // rank-dir
+    this.td = null; // trie-data
+    this.rd = null; // rank-data
     this.ft = null; // file-tags
     this.startTime = Date.now(); // blocklist download timestamp
     this.isBlocklistUnderConstruction = false;
@@ -104,19 +105,13 @@ export class BlocklistWrapper {
   initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
-    const filter = createTrie(
-      /* trie*/ td,
-      /* rank-dir*/ rd,
-      /* file-tags*/ ftags,
-      /* basic-config*/ bconfig
-    );
-    this.blocklistFilter.load(
-      /* trie*/ filter.t,
-      /* frozen-trie*/ filter.ft,
-      /* basic-config*/ bconfig,
-      /* file-tags*/ ftags
-    );
+    const ftrie = this.makeTrie(td, rd, bconfig);
+    this.blocklistFilter.load(ftrie, bconfig, ftags);
     this.isBlocklistUnderConstruction = false;
+  }
+
+  makeTrie(tdbuf, rdbuf, bconfig) {
+    return createTrie(tdbuf, rdbuf, bconfig, new TrieCache());
   }
 
   async initBlocklistConstruction(
@@ -132,7 +127,7 @@ export class BlocklistWrapper {
 
     let response = util.emptyResponse();
     try {
-      const bl = await this.downloadBuildBlocklist(
+      const r = await this.downloadBuildBlocklist(
         rxid,
         blocklistUrl,
         latestTimestamp,
@@ -140,12 +135,7 @@ export class BlocklistWrapper {
         tdParts
       );
 
-      this.blocklistFilter.load(
-        bl.t,
-        bl.ft,
-        bl.blocklistBasicConfig,
-        bl.blocklistFileTag
-      );
+      this.blocklistFilter.load(r.ftrie, r.bconfig, r.filetag);
 
       this.log.i(rxid, "blocklist-filter setup");
       if (false) {
@@ -178,7 +168,7 @@ export class BlocklistWrapper {
 
     const resp = {};
     const baseurl = blocklistUrl + latestTimestamp;
-    const blocklistBasicConfig = {
+    const bconfig = {
       nodecount: tdNodecount || -1,
       tdparts: tdParts || -1,
     };
@@ -191,28 +181,22 @@ export class BlocklistWrapper {
     // The result will probably be corrupted. Consider checking the
     // Content-Type header before interpreting entities as text.
     const buf0 = fileFetch(baseurl + "/filetag.json", "json");
-    const buf1 = makeTd(baseurl, blocklistBasicConfig.tdparts);
+    const buf1 = makeTd(baseurl, bconfig.tdparts);
     const buf2 = fileFetch(baseurl + "/rd.txt", "buffer");
 
     const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    this.log.i(rxid, "create trie", blocklistBasicConfig);
+    this.log.i(rxid, "create trie", bconfig);
 
     this.td = downloads[1];
     this.rd = downloads[2];
     this.ft = downloads[0];
 
-    const trie = createTrie(
-      /* trie*/ this.td,
-      /* rank-dir*/ this.rd,
-      /* file-tags*/ this.ft,
-      /* basic-config*/ blocklistBasicConfig
-    );
+    const ftrie = this.makeTrie(this.td, this.rd, bconfig);
 
-    resp.t = trie.t; // tags
-    resp.ft = trie.ft; // frozen-trie
-    resp.blocklistBasicConfig = blocklistBasicConfig;
-    resp.blocklistFileTag = this.ft;
+    resp.ftrie = ftrie; // frozen-trie
+    resp.bconfig = bconfig; // basic-config
+    resp.filetag = this.ft; // file-tag
     return resp;
   }
 }

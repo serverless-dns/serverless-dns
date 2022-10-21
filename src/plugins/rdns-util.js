@@ -24,7 +24,7 @@ export function wildcards() {
 }
 
 export function isBlocklistFilterSetup(blf) {
-  return blf && !util.emptyObj(blf.t) && !util.emptyObj(blf.ft);
+  return blf && !util.emptyObj(blf.ftrie);
 }
 
 export function dnsResponse(packet = null, raw = null, stamps = null) {

@@ -6,25 +6,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { customTagToFlag } from "./trie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
-import * as rdnsutil from "../rdns-util.js";
+import { transform } from "@serverless-dns/trie";
 
 export class BlocklistFilter {
   constructor() {
     // see: src/helpers/node/blocklists.js:hasBlocklistFiles
-    this.t = null;
-    this.ft = null;
-    this.blocklistBasicConfig = null;
-    this.blocklistFileTag = null;
-    this.enc = new TextEncoder();
+    this.ftrie = null;
+    this.basicconfig = null;
+    this.filetag = null;
   }
 
-  load(t, ft, blocklistBasicConfig, blocklistFileTag) {
-    this.t = t;
-    this.ft = ft;
-    this.blocklistBasicConfig = blocklistBasicConfig;
-    this.blocklistFileTag = blocklistFileTag;
+  load(ft, bconfig, filetag) {
+    this.ftrie = ft;
+    this.basicconfig = bconfig;
+    this.filetag = filetag;
   }
 
   blockstamp(domainName) {
@@ -34,19 +30,12 @@ export class BlocklistFilter {
   }
 
   lookup(n) {
-    return this.ft.lookup(this.reverseUtf8(n));
+    return this.ftrie.lookup(transform(n));
   }
 
-  reverseUtf8(s) {
-    return this.enc.encode(s).reverse();
-  }
-
-  getTag(uintFlag) {
-    return this.t.flagsToTag(uintFlag);
-  }
-
-  getB64FlagFromTag(tagList, flagVersion) {
-    const uintFlag = customTagToFlag(tagList, this.blocklistFileTag);
-    return rdnsutil.getB64Flag(uintFlag, flagVersion);
+  extract(ids) {
+    const r = {};
+    for (const id of ids) r[id] = this.filetag[id];
+    return r;
   }
 }

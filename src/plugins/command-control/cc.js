@@ -8,6 +8,7 @@
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
+import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {
@@ -188,7 +189,6 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     domainName: domainName,
     version: latestTimestamp,
     list: {},
-    listDetail: {},
   };
 
   const searchResult = blocklistFilter.lookup(domainName);
@@ -196,12 +196,27 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     return jsonResponse(r);
   }
 
+  // ex: max.rethinkdns.com/dntolist?dn=google.com
+  // res: { "domainName": "google.com",
+  //        "version":"1655223903366",
+  //        "list": {  "google.com": {
+  //                      "NUI": {
+  //                          "value":149,
+  //                          "uname":"NUI",
+  //                          "vname":"No Google",
+  //                          "group":"privacy",
+  //                          "subg":"",
+  //                          "url":"https://raw.githubuserc...",
+  //                          "show":1,
+  //                          "entries":304
+  //                       }
+  //                    }
+  //                 },
+  //        ...
+  //      }
   for (const entry of searchResult) {
-    const list = blocklistFilter.getTag(entry[1]);
-    const listDetail = {};
-    for (const listValue of list) {
-      listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
-    }
+    const list = flagsToTags(entry[1]);
+    const listDetail = blocklistFilter.extract(list);
     r.list[entry[0]] = listDetail;
   }
 
@@ -231,12 +246,13 @@ function listToB64(queryString, blocklistFilter) {
   const list = queryString.get("list") || [];
   const flagVersion = queryString.get("flagversion") || "0";
   const tags = list.split(",");
+  const stamp = rdnsutil.getB64Flag(tagsToFlags(tags), flagVersion);
 
   const r = {
     command: "List To B64String",
     inputList: list,
     flagVersion: flagVersion,
-    b64String: blocklistFilter.getB64FlagFromTag(tags, flagVersion),
+    b64String: stamp,
   };
 
   return jsonResponse(r);
@@ -256,10 +272,25 @@ function b64ToList(queryString, blocklistFilter) {
     return jsonResponse(r);
   }
 
-  r.list = blocklistFilter.getTag(stamp.userBlocklistFlagUint);
-  for (const listValue of r.list) {
-    r.listDetail[listValue] = blocklistFilter.blocklistFileTag[listValue];
-  }
+  // ex: max.rethinkdns.com/b64tolist?b64=1:8N8B2ADg_wP______3____u___Pp_3Ao
+  // res: {
+  //   "command": "Base64 To List",
+  //   "inputB64": "1:8N8B2ADg_wP______3____u___Pp_3Ao",
+  //   "list": ["MTF","KBI","HBP","NIM","CZM","HYS","XIF", ...],
+  //   "listDetail": { "172": { "value": 172, "uname": "172",
+  //                            "vname": "Spotify Ads (GoodbyeAds)",
+  //                            "group": "privacy", "subg" : "",
+  //                            "url":"https://raw.githubusercontent.com/...",
+  //                            "show":1,"entries":3784 },
+  //                   "175": {"value":175, "uname":"175",
+  //                           "vname":"Combined Privacy Block Lists: Final",
+  //                           ...
+  //                          }
+  //                 ...
+  //                 }
+  // }
+  r.list = flagsToTags(stamp.userBlocklistFlagUint);
+  r.listDetail = blocklistFilter.extract(r.list);
 
   return jsonResponse(r);
 }
