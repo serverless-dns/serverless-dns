@@ -71,11 +71,16 @@ export function emptyBuf(b) {
 
 // stackoverflow.com/a/31394257
 export function arrayBufferOf(buf) {
+  // buf is either TypedArray or node:Buffer
   if (emptyBuf(buf)) return null;
 
   const offset = buf.byteOffset;
   const len = buf.byteLength;
-  return buf.buffer.slice(offset, offset + len);
+  // slice creates a view when buf is node:Buffer, but:
+  // slice creates a copy when buf is an TypedArray; otoh,
+  // subarray creates a view for both TypedArray & node:Buffer
+  // ref: nodejs.org/api/buffer.html#buffers-and-typedarrays
+  return buf.subarray(offset, offset + len);
 }
 
 // stackoverflow.com/a/17064149
