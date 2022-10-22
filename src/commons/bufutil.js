@@ -8,6 +8,8 @@
 import { Buffer } from "buffer";
 import * as util from "./util.js";
 
+const ZERO = new Uint8Array(0);
+
 export function bytesToBase64Url(b) {
   return btoa(String.fromCharCode(...new Uint8Array(b)))
     .replace(/\//g, "_")
@@ -47,17 +49,17 @@ export function base64ToUint16(b64uri) {
 }
 
 export function base64ToBytes(b64uri) {
-  return base64ToUint8(b64uri).buffer;
+  return raw(base64ToUint8(b64uri));
 }
 
 export function decodeFromBinary(b, u8) {
   // if b is a u8 array, simply u16 it
-  if (u8) return new Uint16Array(b.buffer);
+  if (u8) return new Uint16Array(raw(b));
 
   // if b is a binary-string, convert it to u8
   const bytes = binaryStringToBytes(b);
   // ...and then to u16
-  return new Uint16Array(bytes.buffer);
+  return new Uint16Array(raw(bytes));
 }
 
 export function decodeFromBinaryArray(b) {
@@ -67,6 +69,34 @@ export function decodeFromBinaryArray(b) {
 
 export function emptyBuf(b) {
   return !b || b.byteLength <= 0;
+}
+
+// returns underlying buffer prop when b is TypedArray or node:Buffer
+function raw(b) {
+  if (!b || !b.buffer) b = ZERO;
+
+  return b.buffer;
+}
+
+// normalize8 returns the underlying buffer if any, as Uint8Array
+// b is either an ArrayBuffer, a TypedArray, or a node:Buffer
+export function normalize8(b) {
+  // no .buffer prop but...
+  if (!b || !b.buffer) {
+    // ... has byteLength property
+    if (!emptyBuf(b)) {
+      // b must be of type ArrayBuffer;
+      // convert it to a u8 TypedArray
+      return new Uint8Array(b);
+    } else {
+      return null;
+    }
+  }
+
+  // when b is node:Buffer, this underlying buffer is not its
+  // TypedArray equivalent: nodejs.org/api/buffer.html#bufbuffer
+  // but node:Buffer is a subclass of Uint8Array (a TypedArray)
+  return arrayBufferOf(b);
 }
 
 // stackoverflow.com/a/31394257
