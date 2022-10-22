@@ -17,9 +17,6 @@ import * as rdnsutil from "../rdns-util.js";
 export class BlocklistWrapper {
   constructor() {
     this.blocklistFilter = new BlocklistFilter();
-    this.td = null; // trie-data
-    this.rd = null; // rank-data
-    this.ft = null; // file-tags
     this.startTime = Date.now(); // blocklist download timestamp
     this.isBlocklistUnderConstruction = false;
     this.exceptionFrom = "";
@@ -82,8 +79,8 @@ export class BlocklistWrapper {
     // between 700ms to 1.2s for trie. But: We don't want all incoming
     // reqs to wait until the trie becomes available. 400ms is 1/3rd of
     // 1.2s and 2x 250ms; both of these values have cost implications:
-    // 250ms (0.28GB-sec or 218ms wall time) in unbound usage per req
-    // equals cost of one bundled req.
+    // 250ms (0.28GB-sec or 218ms wall time) in unbound-worker per req
+    // and equals cost of one bundled-worker req.
     let totalWaitms = 0;
     const waitms = 25;
     const response = util.emptyResponse();
@@ -106,7 +103,7 @@ export class BlocklistWrapper {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
     const ftrie = this.makeTrie(td, rd, bconfig);
-    this.blocklistFilter.load(ftrie, bconfig, ftags);
+    this.blocklistFilter.load(ftrie, ftags);
     this.isBlocklistUnderConstruction = false;
   }
 
