@@ -81,7 +81,7 @@ function setupLocally(bw: any, timestamp: string, nodecount: number) {
   const json1 = JSON.parse(ftbuf);
   const json2 = { nodecount: nodecount };
 
-  bw.initBlocklistFilterConstruction(
+  bw.buildBlocklistFilter(
     /* trie*/ ab0,
     /* rank-dir*/ ab1,
     /* file-tag*/ json1,

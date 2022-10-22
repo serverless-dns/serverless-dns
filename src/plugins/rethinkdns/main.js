@@ -102,7 +102,7 @@ export class BlocklistWrapper {
     return response;
   }
 
-  initBlocklistFilterConstruction(td, rd, ftags, bconfig) {
+  buildBlocklistFilter(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
     const ftrie = this.makeTrie(td, rd, bconfig);
@@ -127,15 +127,13 @@ export class BlocklistWrapper {
 
     let response = util.emptyResponse();
     try {
-      const r = await this.downloadBuildBlocklist(
+      await this.downloadAndBuildBlocklistFilter(
         rxid,
         blocklistUrl,
         latestTimestamp,
         tdNodecount,
         tdParts
       );
-
-      this.blocklistFilter.load(r.ftrie, r.bconfig, r.filetag);
 
       this.log.i(rxid, "blocklist-filter setup");
       if (false) {
@@ -157,7 +155,7 @@ export class BlocklistWrapper {
     return response;
   }
 
-  async downloadBuildBlocklist(
+  async downloadAndBuildBlocklistFilter(
     rxid,
     blocklistUrl,
     latestTimestamp,
@@ -186,18 +184,17 @@ export class BlocklistWrapper {
 
     const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    this.log.i(rxid, "create trie", bconfig);
+    this.log.i(rxid, "create trie w/ config", bconfig);
 
-    this.td = downloads[1];
-    this.rd = downloads[2];
-    this.ft = downloads[0];
+    const td = downloads[1];
+    const rd = downloads[2];
+    const ft = downloads[0];
 
-    const ftrie = this.makeTrie(this.td, this.rd, bconfig);
+    const ftrie = this.makeTrie(td, rd, bconfig);
 
-    resp.ftrie = ftrie; // frozen-trie
-    resp.bconfig = bconfig; // basic-config
-    resp.filetag = this.ft; // file-tag
-    return resp;
+    this.blocklistFilter.load(ftrie, ft);
+
+    return;
   }
 }
 
