@@ -9,6 +9,7 @@
 import { TrieCache } from "./trie-cache.js";
 import { createTrie } from "@serverless-dns/trie/ftrie.js";
 import { BlocklistFilter } from "./filter.js";
+import { withDefaults } from "./trie-config.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
@@ -102,6 +103,8 @@ export class BlocklistWrapper {
   buildBlocklistFilter(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
+    // if optflags is undefined, then explicitly set it to be false
+    bconfig = withDefaults(bconfig);
     const ftrie = this.makeTrie(td, rd, bconfig);
     this.blocklistFilter.load(ftrie, ftags);
     this.isBlocklistUnderConstruction = false;
@@ -161,12 +164,13 @@ export class BlocklistWrapper {
   ) {
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
-    const resp = {};
     const baseurl = blocklistUrl + latestTimestamp;
     const bconfig = {
       nodecount: tdNodecount || -1,
       tdparts: tdParts || -1,
     };
+
+    bconfig = withDefaults(bconfig);
 
     this.log.d(rxid, blocklistUrl, latestTimestamp, tdNodecount, tdParts);
     // filetag is fetched as application/octet-stream and so,
