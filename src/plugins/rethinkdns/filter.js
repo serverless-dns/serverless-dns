@@ -7,19 +7,16 @@
  */
 
 import * as dnsutil from "../../commons/dnsutil.js";
-import { transform } from "@serverless-dns/trie";
 
 export class BlocklistFilter {
   constructor() {
     // see: src/helpers/node/blocklists.js:hasBlocklistFiles
     this.ftrie = null;
-    this.basicconfig = null;
     this.filetag = null;
   }
 
-  load(ft, bconfig, filetag) {
+  load(ft, filetag) {
     this.ftrie = ft;
-    this.basicconfig = bconfig;
     this.filetag = filetag;
   }
 
@@ -30,7 +27,7 @@ export class BlocklistFilter {
   }
 
   lookup(n) {
-    return this.ftrie.lookup(transform(n));
+    return this.ftrie.lookup(ftrie.transform(n));
   }
 
   extract(ids) {
