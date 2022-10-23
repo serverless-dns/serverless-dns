@@ -109,8 +109,10 @@ export function arrayBufferOf(buf) {
   // slice creates a view when buf is node:Buffer, but:
   // slice creates a copy when buf is an TypedArray; otoh,
   // subarray creates a view for both TypedArray & node:Buffer
-  // ref: nodejs.org/api/buffer.html#buffers-and-typedarrays
-  return raw(buf.subarray(offset, offset + len));
+  // ref: nodejs.org/api/buffer.html#buffers-and-typedarrays.
+  // what we want to return is an array-buffer after copying
+  // the relevant contents from the the underlying-buffer.
+  return buf.buffer.slice(offset, offset + len);
 }
 
 // stackoverflow.com/a/17064149
