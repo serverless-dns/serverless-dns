@@ -166,7 +166,7 @@ export class BlocklistWrapper {
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
     const baseurl = blocklistUrl + latestTimestamp;
-    const bconfig = {
+    let bconfig = {
       nodecount: tdNodecount || -1,
       tdparts: tdParts || -1,
     };
