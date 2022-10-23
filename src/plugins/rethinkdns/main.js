@@ -107,6 +107,7 @@ export class BlocklistWrapper {
     bconfig = withDefaults(bconfig);
     const ftrie = this.makeTrie(td, rd, bconfig);
     this.blocklistFilter.load(ftrie, ftags);
+    this.log.i("fs:trie w/ config", bconfig);
     this.isBlocklistUnderConstruction = false;
   }
 
@@ -185,7 +186,7 @@ export class BlocklistWrapper {
 
     const downloads = await Promise.all([buf0, buf1, buf2]);
 
-    this.log.i(rxid, "create trie w/ config", bconfig);
+    this.log.i(rxid, "d:trie w/ config", bconfig);
 
     const td = downloads[1];
     const rd = downloads[2];
