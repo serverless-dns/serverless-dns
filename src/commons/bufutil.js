@@ -72,7 +72,7 @@ export function emptyBuf(b) {
 }
 
 // returns underlying buffer prop when b is TypedArray or node:Buffer
-function raw(b) {
+export function raw(b) {
   if (!b || b.buffer == null) b = ZERO;
 
   return b.buffer;

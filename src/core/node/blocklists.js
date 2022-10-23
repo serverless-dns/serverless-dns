@@ -50,10 +50,13 @@ function save(bw, timestamp) {
 
   const [tdfp, rdfp, ftfp] = getFilePaths(timestamp);
 
+  const td = bw.triedata();
+  const rd = bw.rankdata();
+  const ft = bw.filetag();
   // write out array-buffers to disk
-  fs.writeFileSync(tdfp, bufutil.bufferOf(bw.td));
-  fs.writeFileSync(rdfp, bufutil.bufferOf(bw.rd));
-  fs.writeFileSync(ftfp, JSON.stringify(bw.ft));
+  fs.writeFileSync(tdfp, bufutil.bufferOf(td));
+  fs.writeFileSync(rdfp, bufutil.bufferOf(rd));
+  fs.writeFileSync(ftfp, JSON.stringify(ft));
 
   log.i("blocklists written to disk");
 

@@ -48,10 +48,13 @@ function save(bw: any, timestamp: string) {
 
   const [tdfp, rdfp, ftfp] = getFilePaths(timestamp);
 
+  const td = bw.triedata();
+  const rd = bw.rankdata();
+  const ft = bw.filetag();
   // Deno only writes uint8arrays to disk, never raw arraybuffers
-  Deno.writeFileSync(tdfp, new Uint8Array(bw.td));
-  Deno.writeFileSync(rdfp, new Uint8Array(bw.rd));
-  Deno.writeTextFileSync(ftfp, JSON.stringify(bw.ft));
+  Deno.writeFileSync(tdfp, new Uint8Array(td));
+  Deno.writeFileSync(rdfp, new Uint8Array(rd));
+  Deno.writeTextFileSync(ftfp, JSON.stringify(ft));
 
   console.info("blocklists written to disk");
 

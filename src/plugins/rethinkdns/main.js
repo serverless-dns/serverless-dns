@@ -198,6 +198,27 @@ export class BlocklistWrapper {
 
     return;
   }
+
+  triedata() {
+    const blf = this.blocklistFilter;
+    const ftrie = blf.ftrie;
+    const rdir = ftrie.directory;
+    const d = rdir.data;
+    return bufutil.raw(d.bytes);
+  }
+
+  rankdata() {
+    const blf = this.blocklistFilter;
+    const ftrie = blf.ftrie;
+    const rdir = ftrie.directory;
+    const d = rdir.directory;
+    return bufutil.raw(d.bytes);
+  }
+
+  filetag() {
+    const blf = this.blocklistFilter;
+    return blf.filetag;
+  }
 }
 
 async function fileFetch(url, typ) {
