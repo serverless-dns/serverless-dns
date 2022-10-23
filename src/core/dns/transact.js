@@ -261,16 +261,15 @@ export class UdpTx {
 
   promisedRead(timeout = 0) {
     const that = this;
-    return new Promise((resolve, reject) => {
-      that.resolve = resolve;
-      that.reject = reject;
-    });
-
     if (timeout > 0) {
       that.timeoutTimerId = util.timeout(timeout, () => {
         that.no("timeout");
       });
     }
+    return new Promise((resolve, reject) => {
+      that.resolve = resolve;
+      that.reject = reject;
+    });
   }
 
   yes(val) {
