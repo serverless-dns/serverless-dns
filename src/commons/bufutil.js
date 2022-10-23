@@ -73,7 +73,7 @@ export function emptyBuf(b) {
 
 // returns underlying buffer prop when b is TypedArray or node:Buffer
 function raw(b) {
-  if (!b || !b.buffer) b = ZERO;
+  if (!b || b.buffer == null) b = ZERO;
 
   return b.buffer;
 }
@@ -81,22 +81,19 @@ function raw(b) {
 // normalize8 returns the underlying buffer if any, as Uint8Array
 // b is either an ArrayBuffer, a TypedArray, or a node:Buffer
 export function normalize8(b) {
-  // no .buffer prop but...
-  if (!b || !b.buffer) {
-    // ... has byteLength property
-    if (!emptyBuf(b)) {
-      // b must be of type ArrayBuffer;
-      // convert it to a u8 TypedArray
-      return new Uint8Array(b);
-    } else {
-      return null;
-    }
-  }
+  if (emptyBuf(b)) return null;
 
+  let underlyingBuffer = null;
+  // ... has byteLength property, b must be of type ArrayBuffer;
+  if (b instanceof ArrayBuffer) underlyingBuffer = b;
   // when b is node:Buffer, this underlying buffer is not its
   // TypedArray equivalent: nodejs.org/api/buffer.html#bufbuffer
   // but node:Buffer is a subclass of Uint8Array (a TypedArray)
-  return arrayBufferOf(b);
+  // first though, slice out the relevant range from node:Buffer
+  else if (b instanceof Buffer) underlyingBuffer = arrayBufferOf(b);
+  else underlyingBuffer = raw(b);
+
+  return new Uint8Array(underlyingBuffer);
 }
 
 // stackoverflow.com/a/31394257
