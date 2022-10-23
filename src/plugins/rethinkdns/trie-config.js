@@ -19,5 +19,6 @@ const defaults = {
 };
 
 export function withDefaults(cfg) {
-  return Object.assign(defaults, cfg);
+  const base = Object.assign({}, defaults);
+  return Object.assign(base, cfg);
 }
