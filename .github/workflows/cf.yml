@@ -78,7 +78,7 @@ jobs:
 
       - name: 📚 Wrangler publish
         # github.com/cloudflare/wrangler-action
-        uses: cloudflare/wrangler-action@1.3.0
+        uses: cloudflare/wrangler-action@2.0.0
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           # input overrides env-defaults, regardless
