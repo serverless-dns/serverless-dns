@@ -15,8 +15,8 @@ export class BlocklistFilter {
     this.filetag = null;
   }
 
-  load(ft, filetag) {
-    this.ftrie = ft;
+  load(frozentrie, filetag) {
+    this.ftrie = frozentrie;
     this.filetag = filetag;
   }
 
@@ -27,7 +27,8 @@ export class BlocklistFilter {
   }
 
   lookup(n) {
-    return this.ftrie.lookup(ftrie.transform(n));
+    const t = this.ftrie;
+    return t.lookup(t.transform(n));
   }
 
   extract(ids) {
