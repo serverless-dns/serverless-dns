@@ -84,6 +84,7 @@ const defaults = {
   CF_LATEST_BLOCKLIST_TIMESTAMP: {
     type: "string",
     default: "1662384683026",
+    // test: default: "1653479771694",
   },
   // primary doh upstream
   CF_DNS_RESOLVER_URL: {
@@ -110,6 +111,7 @@ const defaults = {
   TD_NODE_COUNT: {
     type: "number",
     default: "42272846",
+    // test: default: "40557057",
   },
   // trie (td) split-files to download and concat, as of Jan '22,
   // trie size is ~60MB which is split in to three ~20MBs+ files

@@ -71,12 +71,12 @@ function setupLocally(bw, timestamp, nodecount) {
 
   const tdbuf = fs.readFileSync(td);
   const rdbuf = fs.readFileSync(rd);
-  const ftbuf = fs.readFileSync(ft, "utf-8");
+  const ftstr = fs.readFileSync(ft, "utf-8");
 
   // TODO: file integrity checks
-  const ab0 = bufutil.arrayBufferOf(tdbuf);
-  const ab1 = bufutil.arrayBufferOf(rdbuf);
-  const json1 = JSON.parse(ftbuf);
+  const ab0 = bufutil.raw(tdbuf);
+  const ab1 = bufutil.raw(rdbuf);
+  const json1 = JSON.parse(ftstr);
   const json2 = { nodecount: nodecount };
 
   bw.buildBlocklistFilter(

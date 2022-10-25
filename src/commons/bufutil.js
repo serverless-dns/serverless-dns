@@ -115,6 +115,7 @@ export function arrayBufferOf(buf) {
 // stackoverflow.com/a/17064149
 export function bufferOf(arrayBuf) {
   if (emptyBuf(arrayBuf)) return null;
+  if (arrayBuf instanceof Uint8Array) return arrayBuf;
 
   return Buffer.from(new Uint8Array(arrayBuf));
 }
