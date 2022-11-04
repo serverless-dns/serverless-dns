@@ -11,7 +11,9 @@
     "clean:node": "rm -rf node_modules/ package-lock.json",
     "clean:wrangler": "rm -rf worker/ dist/",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky install"
+    "prepare": "./src/build/pre.sh && husky install",
+    "build": "npm i && npx webpack --config webpack.config.cjs",
+    "build:fly": "npm i && npx webpack --config webpack.fly.cjs"
   },
   "repository": {
     "type": "git",

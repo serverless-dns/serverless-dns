@@ -1,7 +1,8 @@
-# Based on https://github.com/denoland/deno_docker/blob/main/alpine.dockerfile
+# Based on github.com/denoland/deno_docker/blob/main/alpine.dockerfile
 
 ARG DENO_VERSION=1.20.1
 ARG BIN_IMAGE=denoland/deno:bin-${DENO_VERSION}
+
 FROM ${BIN_IMAGE} AS bin
 
 FROM frolvlad/alpine-glibc:alpine-3.13
@@ -23,6 +24,8 @@ COPY --from=bin /deno /bin/deno
 WORKDIR /deno-dir
 COPY . .
 
+# runs pre-build step which fetchs the latest basicconfig
+RUN src/build/pre.sh
 RUN ls -Fla
 
 ENTRYPOINT ["/bin/deno"]
