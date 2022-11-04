@@ -43,7 +43,8 @@
     "lint-staged": "^12.1.4",
     "prettier": "2.5.1",
     "webpack": "^5.65.0",
-    "webpack-cli": "^4.9.2"
+    "webpack-cli": "^4.9.2",
+    "wrangler": "^2.1.15"
   },
   "lint-staged": {
     "*.js": "eslint --cache --fix",
