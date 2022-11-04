@@ -5,14 +5,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as envutil from "../../commons/envutil.js";
+import * as cfg from "../../core/cfg.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {
-    this.latestTimestamp = envutil.timestamp();
+    this.latestTimestamp = cfg.timestamp();
     this.log = log.withTags("CommandControl");
     this.bw = blocklistWrapper;
     this.cmds = new Set([

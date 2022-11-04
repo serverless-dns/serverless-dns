@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as cfg from "../../core/cfg.js";
 
 const blocklistsDir = "./blocklists__";
 const tdFile = "td.txt";
@@ -19,36 +20,39 @@ export async function setup(bw) {
   if (!bw || !envutil.hasDisk()) return false;
 
   const now = Date.now();
-  const url = envutil.blocklistUrl();
-  const timestamp = envutil.timestamp();
-  const nodecount = envutil.tdNodeCount();
-  const tdparts = envutil.tdParts();
+  // timestamp is of form yyyy/epochMs
+  const timestamp = cfg.timestamp();
+  const url = envutil.blocklistUrl() + timestamp + "/";
+  const nodecount = cfg.tdNodeCount();
+  const tdparts = cfg.tdParts();
+  const tdcodec6 = cfg.tdCodec6();
+  const codec = tdcodec6 ? "u6" : "u8";
 
-  const ok = setupLocally(bw, timestamp, nodecount);
+  const ok = setupLocally(bw, timestamp, codec);
   if (ok) {
     log.i("bl setup locally tstamp/nc", timestamp, nodecount);
     return true;
   }
 
-  log.i("dowloading bl u/ts/nc/parts", url, timestamp, nodecount, tdparts);
+  log.i("dowloading bl u/u6?/nc/parts", url, tdcodec6, nodecount, tdparts);
   await bw.initBlocklistConstruction(
     /* rxid*/ "bl-download",
     now,
     url,
-    timestamp,
     nodecount,
-    tdparts
+    tdparts,
+    tdcodec6
   );
 
-  save(bw, timestamp);
+  save(bw, timestamp, codec);
 }
 
-function save(bw, timestamp) {
+function save(bw, timestamp, codec) {
   if (!bw.isBlocklistFilterSetup()) return false;
 
-  mkdirsIfNeeded(timestamp);
+  mkdirsIfNeeded(timestamp, codec);
 
-  const [tdfp, rdfp, ftfp] = getFilePaths(timestamp);
+  const [tdfp, rdfp, ftfp] = getFilePaths(timestamp, codec);
 
   const td = bw.triedata();
   const rd = bw.rankdata();
@@ -63,11 +67,11 @@ function save(bw, timestamp) {
   return true;
 }
 
-function setupLocally(bw, timestamp, nodecount) {
-  if (!hasBlocklistFiles(timestamp)) return false;
+function setupLocally(bw, timestamp, codec) {
+  if (!hasBlocklistFiles(timestamp, codec)) return false;
 
-  const [td, rd, ft] = getFilePaths(timestamp);
-  log.i("on-disk td/rd/ft", td, rd, ft);
+  const [td, rd, ft] = getFilePaths(timestamp, codec);
+  log.i("on-disk codec/td/rd/ft", codec, td, rd, ft);
 
   const tdbuf = fs.readFileSync(td);
   const rdbuf = fs.readFileSync(rd);
@@ -77,8 +81,9 @@ function setupLocally(bw, timestamp, nodecount) {
   const ab0 = bufutil.raw(tdbuf);
   const ab1 = bufutil.raw(rdbuf);
   const json1 = JSON.parse(ftstr);
-  const json2 = { nodecount: nodecount };
+  const json2 = cfg.orig();
 
+  // TODO: Fix basicconfig
   bw.buildBlocklistFilter(
     /* trie*/ ab0,
     /* rank-dir*/ ab1,
@@ -89,37 +94,44 @@ function setupLocally(bw, timestamp, nodecount) {
   return true;
 }
 
-function hasBlocklistFiles(timestamp) {
-  const [td, rd, ft] = getFilePaths(timestamp);
+function hasBlocklistFiles(timestamp, codec) {
+  const [td, rd, ft] = getFilePaths(timestamp, codec);
 
   return fs.existsSync(td) && fs.existsSync(rd) && fs.existsSync(ft);
 }
 
-function getFilePaths(t) {
-  const td = path.normalize(blocklistsDir + "/" + t + "/" + tdFile);
-  const rd = path.normalize(blocklistsDir + "/" + t + "/" + rdFile);
-  const ft = path.normalize(blocklistsDir + "/" + t + "/" + ftFile);
+function getFilePaths(t, codec) {
+  const td = blocklistsDir + "/" + t + "/" + codec + "/" + tdFile;
+  const rd = blocklistsDir + "/" + t + "/" + codec + "/" + rdFile;
+  const ft = blocklistsDir + "/" + t + "/" + codec + "/" + ftFile;
 
-  return [td, rd, ft];
+  return [path.normalize(td), path.normalize(rd), path.normalize(ft)];
 }
 
-function getDirPaths(t) {
+function getDirPaths(t, codec) {
   const bldir = path.normalize(blocklistsDir);
   const tsdir = path.normalize(blocklistsDir + "/" + t);
+  const codecdir = path.normalize(blocklistsDir + "/" + t + "/" + codec);
 
-  return [bldir, tsdir];
+  return [bldir, tsdir, codecdir];
 }
 
-function mkdirsIfNeeded(timestamp) {
-  const [dir1, dir2] = getDirPaths(timestamp);
+function mkdirsIfNeeded(timestamp, codec) {
+  const opts = { recursive: true };
+  const [dir1, dir2, dir3] = getDirPaths(timestamp, codec);
 
   if (!fs.existsSync(dir1)) {
     log.i("creating blocklist dir", dir1);
-    fs.mkdirSync(dir1);
+    fs.mkdirSync(dir1, opts);
   }
 
   if (!fs.existsSync(dir2)) {
     log.i("creating timestamp dir", dir2);
-    fs.mkdirSync(dir2);
+    fs.mkdirSync(dir2, opts);
+  }
+
+  if (!fs.existsSync(dir3)) {
+    log.i("creating codec dir", dir2);
+    fs.mkdirSync(dir2, opts);
   }
 }

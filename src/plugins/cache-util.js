@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import * as cfg from "../core/cfg.js";
 import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
@@ -125,7 +126,7 @@ export function makeHttpCacheKey(packet) {
   const id = makeId(packet);
   if (util.emptyString(id)) return null;
 
-  return new URL(_cacheurl + envutil.timestamp() + "/" + id);
+  return new URL(_cacheurl + cfg.timestamp() + "/" + id);
 }
 
 export function extractMetadata(cres) {

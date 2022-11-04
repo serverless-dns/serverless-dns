@@ -51,5 +51,6 @@
   "lint-staged": {
     "*.js": "eslint --cache --fix",
     "*.ts": "prettier --write"
-  }
+  },
+  "eslintIgnore": ["src/core/cfg.js"]
 }

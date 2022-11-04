@@ -87,21 +87,6 @@ export function blocklistUrl() {
   return envManager.get("CF_BLOCKLIST_URL");
 }
 
-export function timestamp() {
-  if (!envManager) return null;
-  return envManager.get("CF_LATEST_BLOCKLIST_TIMESTAMP");
-}
-
-export function tdNodeCount() {
-  if (!envManager) return null;
-  return envManager.get("TD_NODE_COUNT");
-}
-
-export function tdParts() {
-  if (!envManager) return null;
-  return envManager.get("TD_PARTS");
-}
-
 export function primaryDohResolver() {
   if (!envManager) return null;
 

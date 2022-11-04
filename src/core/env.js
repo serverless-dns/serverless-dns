@@ -78,13 +78,7 @@ const defaults = {
   // url to blocklist files: trie (td), rank-dir (rd), metadata: (filetag)
   CF_BLOCKLIST_URL: {
     type: "string",
-    default: "https://dist.rethinkdns.com/blocklists/",
-  },
-  // blocklist files version
-  CF_LATEST_BLOCKLIST_TIMESTAMP: {
-    type: "string",
-    default: "1662384683026",
-    // test: default: "1653479771694",
+    default: "https://cfstore.rethinkdns.com/blocklists/",
   },
   // primary doh upstream
   CF_DNS_RESOLVER_URL: {
@@ -106,18 +100,6 @@ const defaults = {
   CF_BLOCKLIST_DOWNLOAD_TIMEOUT: {
     type: "number",
     default: "5000", // 5s
-  },
-  // total nodes in trie (td)
-  TD_NODE_COUNT: {
-    type: "number",
-    default: "42272846",
-    // test: default: "40557057",
-  },
-  // trie (td) split-files to download and concat, as of Jan '22,
-  // trie size is ~60MB which is split in to three ~20MBs+ files
-  TD_PARTS: {
-    type: "number",
-    default: "2",
   },
   // ttl for dns answers, overrides ttls in dns answers
   CACHE_TTL: {
@@ -196,7 +178,6 @@ export default class EnvManager {
    */
   load() {
     this.envMap = this.defaultEnv();
-
     // verbose log:
     // console.debug("env defaults", this.envMap);
   }

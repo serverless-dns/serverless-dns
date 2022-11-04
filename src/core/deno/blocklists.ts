@@ -7,6 +7,7 @@
  */
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as cfg from "../../core/cfg.js";
 
 const blocklistsDir = "blocklists__";
 const tdFile = "td.txt";
@@ -17,36 +18,38 @@ export async function setup(bw: any) {
   if (!bw || !envutil.hasDisk()) return false;
 
   const now = Date.now();
-  const url = envutil.blocklistUrl() as string;
-  const timestamp = envutil.timestamp() as string;
-  const nodecount = envutil.tdNodeCount() as number;
-  const tdparts = envutil.tdParts() as number;
+  const timestamp = cfg.timestamp() as string;
+  const url = envutil.blocklistUrl() + timestamp + "/";
+  const nodecount = cfg.tdNodeCount() as number;
+  const tdparts = cfg.tdParts() as number;
+  const tdcodec6 = cfg.tdCodec6() as boolean;
+  const codec = tdcodec6 ? "u6" : "u8";
 
-  const ok = setupLocally(bw, timestamp, nodecount);
+  const ok = setupLocally(bw, timestamp, codec);
   if (ok) {
     console.info("bl setup locally tstamp/nc", timestamp, nodecount);
     return true;
   }
 
-  console.info("dowloading bl u/ts/nc/parts", url, timestamp);
+  console.info("dowloading bl url/codec?", url, codec);
   await bw.initBlocklistConstruction(
     /* rxid*/ "bl-download",
     now,
     url,
-    timestamp,
     nodecount,
-    tdparts
+    tdparts,
+    tdcodec6
   );
 
-  save(bw, timestamp);
+  save(bw, timestamp, codec);
 }
 
-function save(bw: any, timestamp: string) {
+function save(bw: any, timestamp: string, codec: string) {
   if (!bw.isBlocklistFilterSetup()) return false;
 
-  mkdirsIfNeeded(timestamp);
+  mkdirsIfNeeded(timestamp, codec);
 
-  const [tdfp, rdfp, ftfp] = getFilePaths(timestamp);
+  const [tdfp, rdfp, ftfp] = getFilePaths(timestamp, codec);
 
   const td = bw.triedata();
   const rd = bw.rankdata();
@@ -61,11 +64,11 @@ function save(bw: any, timestamp: string) {
   return true;
 }
 
-function setupLocally(bw: any, timestamp: string, nodecount: number) {
-  if (!hasBlocklistFiles(timestamp)) return false;
+function setupLocally(bw: any, ts: string, codec: string) {
+  if (!hasBlocklistFiles(ts, codec)) return false;
 
-  const [td, rd, ft] = getFilePaths(timestamp);
-  console.info("on-disk td/rd/ft", td, rd, ft);
+  const [td, rd, ft] = getFilePaths(ts, codec);
+  console.info("on-disk c:td/rd/ft", codec, td, rd, ft);
 
   const tdbuf = Deno.readFileSync(td);
   const rdbuf = Deno.readFileSync(rd);
@@ -82,7 +85,7 @@ function setupLocally(bw: any, timestamp: string, nodecount: number) {
   const ab0 = bufutil.concat([tdbuf]);
   const ab1 = bufutil.concat([rdbuf]);
   const json1 = JSON.parse(ftbuf);
-  const json2 = { nodecount: nodecount };
+  const json2 = cfg.orig();
 
   bw.buildBlocklistFilter(
     /* trie*/ ab0,
@@ -94,8 +97,8 @@ function setupLocally(bw: any, timestamp: string, nodecount: number) {
   return true;
 }
 
-function hasBlocklistFiles(timestamp: string) {
-  const [td, rd, ft] = getFilePaths(timestamp);
+function hasBlocklistFiles(timestamp: string, codec: string) {
+  const [td, rd, ft] = getFilePaths(timestamp, codec);
 
   try {
     const tdinfo = Deno.statSync(td);
@@ -108,42 +111,52 @@ function hasBlocklistFiles(timestamp: string) {
   return false;
 }
 
-function getFilePaths(t: string) {
+function getFilePaths(t: string, c: string) {
   const cwd = Deno.cwd();
 
-  const td = cwd + "/" + blocklistsDir + "/" + t + "/" + tdFile;
-  const rd = cwd + "/" + blocklistsDir + "/" + t + "/" + rdFile;
-  const ft = cwd + "/" + blocklistsDir + "/" + t + "/" + ftFile;
+  const td = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + tdFile;
+  const rd = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + rdFile;
+  const ft = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + ftFile;
 
   return [td, rd, ft];
 }
 
-function getDirPaths(t: string) {
+function getDirPaths(t: string, c: string) {
   const cwd = Deno.cwd();
 
   const bldir = cwd + "/" + blocklistsDir;
   const tsdir = cwd + "/" + blocklistsDir + "/" + t;
+  const codecdir = cwd + "/" + blocklistsDir + "/" + t + "/" + c;
 
-  return [bldir, tsdir];
+  return [bldir, tsdir, codecdir];
 }
 
-function mkdirsIfNeeded(timestamp: string) {
-  const [dir1, dir2] = getDirPaths(timestamp);
+function mkdirsIfNeeded(timestamp: string, codec: string) {
+  // deno.land/api@v1.27.1?s=Deno.MkdirOptions
+  const opts = { recursive: true };
+  const [dir1, dir2, dir3] = getDirPaths(timestamp, codec);
   let dinfo1 = null;
   let dinfo2 = null;
+  let dinfo3 = null;
 
   try {
     dinfo1 = Deno.statSync(dir1);
     dinfo2 = Deno.statSync(dir2);
+    dinfo3 = Deno.statSync(dir3);
   } catch (ignored) {}
 
   if (!dinfo1 || !dinfo1.isDirectory) {
     console.info("creating dir", dir1);
-    Deno.mkdirSync(dir1);
+    Deno.mkdirSync(dir1, opts);
   }
 
   if (!dinfo2 || !dinfo2.isDirectory) {
     console.info("creating dir", dir2);
-    Deno.mkdirSync(dir2);
+    Deno.mkdirSync(dir2, opts);
+  }
+
+  if (!dinfo3 || !dinfo3.isDirectory) {
+    console.info("creating dir", dir3);
+    Deno.mkdirSync(dir3, opts);
   }
 }
