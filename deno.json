@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "allowJs": true
+  },
+  "importMap": "import_map.json",
+  "lint": {
+    "files": {
+      "exclude": ["**/**"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "exclude": ["**/**"]
+    }
+  },
+  "tasks": {
+    "prepare": "./src/build/pre.sh"
+  }
+}

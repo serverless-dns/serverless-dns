@@ -64,7 +64,7 @@ jobs:
       contents: read
     steps:
       - name: 🚚 Fetch code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
 
@@ -93,6 +93,7 @@ jobs:
         if: ${{ env.DEPLOY_MODE == 'action' }}
         run: |
           echo "::notice::do not forget to set DENO_PROJECT_NAME via github secrets!"
+          deno task prepare
           deno bundle --import-map=import_map.json ${IN_FILE} ${OUT_FILE}
         shell: bash
 
