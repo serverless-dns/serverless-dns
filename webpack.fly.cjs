@@ -33,7 +33,7 @@ module.exports = {
       type: "module",
     },
     clean: true,
-    filename: "fly.js",
+    filename: "fly.mjs",
     module: true,
   },
 

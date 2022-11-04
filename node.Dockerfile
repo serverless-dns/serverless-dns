@@ -7,7 +7,7 @@ COPY . .
 RUN npm run build:fly
 # or RUN npx webpack --config webpack.fly.cjs
 # download blocklists and bake them in the img
-RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.js
+RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.mjs
 
 # stage 2
 FROM node:alpine AS runner
@@ -22,4 +22,4 @@ COPY --from=setup /node-dir/blocklists__ ./blocklists__
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)
-CMD ["node", "./fly.js"]
+CMD ["node", "./fly.mjs"]
