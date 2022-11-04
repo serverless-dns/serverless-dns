@@ -214,7 +214,7 @@ export default class EnvManager {
     // FLY_ALLOC_ID=5778f6b7-3cc2-d011-36b1-dfe057b0dc79 is set on fly-vms
     const hasFlyAllocId = this.get("FLY_ALLOC_ID") != null;
     // github.com/denoland/deploy_feedback/issues/73
-    const hasDenoDeployId = this.get("DENO_DEPLOYMENT_ID") !== undefined;
+    const hasDenoDeployId = this.get("DENO_DEPLOYMENT_ID") != null;
     const hasWorkersUa =
       globalThis.navigator != null
         ? navigator.userAgent === "Cloudflare-Workers"
