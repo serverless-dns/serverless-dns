@@ -143,7 +143,7 @@ export class BlocklistWrapper {
 
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
-      this.log.e(rxid, "initBlocklistConstruction", e.stack);
+      this.log.e(rxid, "initBlocklistConstruction", e);
       response = util.errResponse("initBlocklistConstruction", e);
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
@@ -157,15 +157,14 @@ export class BlocklistWrapper {
   async downloadAndBuildBlocklistFilter(rxid, url, tdNodecount, tdParts, u6) {
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
-    let bconfig = cfg.orig();
-    bconfig = withDefaults(bconfig);
+    const bconfig = withDefaults(cfg.orig());
 
     if (
       bconfig.useCodec6 !== u6 ||
       bconfig.nodecount !== tdNodecount ||
-      bconfig.tdParts !== tdParts
+      bconfig.tdparts !== tdParts
     ) {
-      throw new Error(bconfig, "<= cfg; mismatch =>", u6, tdNodecount, tdParts);
+      throw new Error(bconfig + "<=cfg; in=>" + u6 + " " + tdNodecount);
     }
 
     url += bconfig.useCodec6 ? "u6/" : "u8/";
