@@ -132,6 +132,6 @@ function mkdirsIfNeeded(timestamp, codec) {
 
   if (!fs.existsSync(dir3)) {
     log.i("creating codec dir", dir2);
-    fs.mkdirSync(dir2, opts);
+    fs.mkdirSync(dir3, opts);
   }
 }
