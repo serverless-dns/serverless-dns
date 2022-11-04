@@ -8,7 +8,7 @@ workers_dev = true
 compatibility_date = "2022-08-04"
 
 [build]
-command = "npm install && npx webpack"
+command = "npm run build"
 
 [[rules]]
 type = "ESModule"
@@ -19,15 +19,8 @@ RUNTIME = "worker"
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
-WORKER_TIMEOUT = 10000
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 5000
-CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_DNS_RESOLVER_URL_2 = "https://dns.google/dns-query"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1662384683026"
-CACHE_TTL = 1800
-TD_NODE_COUNT = 42272846
-TD_PARTS = 2
+CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
+
 
 ##################
 #------PROD------#
@@ -51,15 +44,7 @@ RUNTIME = "worker"
 LOG_LEVEL = "info"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
-WORKER_TIMEOUT = 10000
-CF_BLOCKLIST_DOWNLOAD_TIMEOUT = 5000
-CF_BLOCKLIST_URL = "https://cf.rethinkdns.com/blocklists/"
-CF_DNS_RESOLVER_URL = "https://cloudflare-dns.com/dns-query"
-CF_DNS_RESOLVER_URL_2 = "https://dns.google/dns-query"
-CF_LATEST_BLOCKLIST_TIMESTAMP = "1662384683026"
-CACHE_TTL = 1800
-TD_NODE_COUNT = 42272846
-TD_PARTS = 2
+CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
 
 ##################
 #-----SECRETS----#
