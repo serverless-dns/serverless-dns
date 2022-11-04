@@ -7,7 +7,7 @@ COPY . .
 RUN npm run build:fly
 # or RUN npx webpack --config webpack.fly.cjs
 # download blocklists and bake them in the img
-RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.cjs
+RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.js
 
 # stage 2
 FROM node:alpine AS runner
