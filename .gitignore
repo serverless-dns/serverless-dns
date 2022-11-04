@@ -4,8 +4,9 @@ node_modules/
 worker/
 test/data/cache/
 blocklists__/
-
+src/basicconfig.json
 package-lock.json
+.clinic/
 
 # IDE
 # .vscode
