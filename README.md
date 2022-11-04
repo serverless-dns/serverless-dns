@@ -8,7 +8,7 @@ RethinkDNS runs `serverless-dns` in production at these endpoints:
 
 | Cloud platform     | Server locations | Protocol    | Domain                    | Usage                                   |
 |--------------------|------------------|-------------|---------------------------|-----------------------------------------|
-| ⛅ Cloudflare Workers | 200+ ([ping](https://check-host.net/check-ping?host=https://basic.rethinkdns.com))        | DoH         | `basic.rethinkdns.com`    | [configure](https://rethinkdns.com/configure?p=doh)  |
+| ⛅ Cloudflare Workers | 200+ ([ping](https://check-host.net/check-ping?host=https://sky.rethinkdns.com))        | DoH         | `sky.rethinkdns.com`    | [configure](https://rethinkdns.com/configure?p=doh)  |
 | 🦕 Deno Deploy        | 30+ ([ping](https://check-host.net/check-ping?host=https://deno.dev))                     | DoH         | _private beta_            |                                         |
 | 🪂 Fly.io             | 30+ ([ping](https://check-host.net/check-ping?host=https://max.rethinkdns.com))           | DoH and DoT | `max.rethinkdns.com`      | [configure](https://rethinkdns.com/configure?p=dot)  |
 
@@ -57,7 +57,7 @@ Node:
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 nvm install --lts
 
-# get js dependencies
+# download dependencies
 npm i
 
 # (optional) update dependencies
@@ -84,7 +84,7 @@ Wrangler:
 ```bash
 # install Cloudflare Workers (cli) aka Wrangler
 # https://developers.cloudflare.com/workers/cli-wrangler/install-update
-npm i @cloudflare/wrangler -g
+npm i wrangler --save-dev
 
 # run serverless-dns on Cloudflare Workers (cli)
 # Make sure to setup Wrangler first:
@@ -111,7 +111,7 @@ For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), inst
 #### Request flow
 
 1. The request/response flow: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
-2. The `plugin.js` flow: `userOperation.js` -> `cacheResponse.js` -> `cc.js` -> `dnsResolver.js`
+2. The `plugin.js` flow: `user-op.js` -> `cache-resolver.js` -> `cc.js` -> `resolver.js`
 
 ----
 
@@ -121,14 +121,14 @@ Deno Deploy (cloud) and Deno (the runtime) do not expose the same API surface (f
 supports HTTP/S server-listeners; whereas, Deno suports raw TCP/UDP/TLS in addition to plain HTTP and HTTP/S).
 
 Except on Node, `serverless-dns` uses DoH upstreams defined by env vars, `CF_DNS_RESOLVER_URL` / `CF_DNS_RESOLVER_URL_2`.
-On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f628460/src/commons/dnsutil.js#L28)).
+On Node, the default DNS upstream is `1.1.1.2` ([ref](https://github.com/serverless-dns/serverless-dns/blob/15f628460/src/commons/dnsutil.js#L28)) or the recursive DNS resolver at `fdaa::3` when running on Fly.io.
 
-The entrypoint for Node and Deno are [`src/server-node.js`](src/server-node.js), [`src/server-deno.ts`](src/server-deno.ts) respectively,
+The entrypoints for Node and Deno are [`src/server-node.js`](src/server-node.js), [`src/server-deno.ts`](src/server-deno.ts) respectively,
 and both listen for TCP-over-TLS, HTTP/S connections; whereas, the entrypoint for Cloudflare Workers, which only listens over HTTP (cli) or
 over HTTP/S (prod), is [`src/server-workers.js`](src/server-workers.js).
 
-For prod setups on Deno and local (non-prod) setups on Node, the `key` (private) and `cert` (public chain)
-files, by default, are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
+Local (non-prod) setups on Node, `key` (private) and `cert` (public chain) files, by default, are read from
+paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH`.
 
 Whilst for prod setup on Node (on Fly.io), either `TLS_OFFLOAD` must be set to `true` or `key` and `cert` _must_ be
 _base64_ encoded in env var `TLS_CERTKEY` ([ref](https://github.com/serverless-dns/serverless-dns/blob/f57c579/src/core/node/config.js#L61-L92)), like so:
@@ -140,43 +140,56 @@ TLS_OFFLOAD="true"
 TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
 ```
 
+For Deno, `key` and `cert` files are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH` ([ref](https://github.com/serverless-dns/serverless-dns/blob/270d1a3c/src/server-deno.ts#L32-L35)).
+
 _Process_ bringup is different for each of these runtimes: For Node, [`src/core/node/config.js`](src/core/node/config.js) governs the _bringup_;
-while for Deno, it is [`src/core/deno/config.ts`](src/core/deno/config.ts) and for Workers it is [`src/core/workers/config.js`](src/core/workers/config.js).
+while for Deno, it is [`src/core/deno/config.ts`](src/core/deno/config.ts), and for Workers it is [`src/core/workers/config.js`](src/core/workers/config.js).
 [`src/system.js`](src/system.js) pub-sub co-ordinates the _bringup_ phase among various modules.
 
-On Node and Deno, in-process DNS caching, backed by [`@serverless-dns/lfu-cache`](https://github.com/serverless-dns/lfu-cache)
-is used; on Cloudflare Workers, both, [Cache Web API](https://developers.cloudflare.com/workers/runtime-apis/cache) and
-in-process caches are used. To disable caching altogether on all three platfroms, set env var, `PROFILE_DNS_RESOLVES=true`.
+On Node and Deno, in-process DNS caching is backed by [`@serverless-dns/lfu-cache`](https://github.com/serverless-dns/lfu-cache); Cloudflare Workers is backed by both [Cache Web API](https://developers.cloudflare.com/workers/runtime-apis/cache) and
+in-process lfu caches. To disable caching altogether on all three platfroms, set env var, `PROFILE_DNS_RESOLVES=true`.
 
 #### Cloud
 
-Cloudflare Workers and Deno Deploy are ephemeral, as in, the process that serves client request is not long-lived,
-and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) (processes). Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
+Cloudflare Workers and Deno Deploy are ephemeral, as in, the "process" that serves client requests is not long-lived,
+and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) ("processes"). Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
 like traditional "serverfull" environments.
-
-Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
-[Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
 
 For Deno Deploy, the code-base is bundled up in a single javascript file with `deno bundle` and then handed off
 to Deno.com.
+
+Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
+[Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
 
 For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml) (used by `dev` and `live` deployment-types),
 while deploy directives are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets
 up `serverless-dns` on Fly.io's infrastructure.
 
+```
+# build and deploy for cloudflare workers.dev
+npm run build
+# usually, env-name is prod
+npx wrangler publish [-e <env-name>]
+
+# build and deploy to fly.io
+npm run build:fly
+flyctl deploy --dockerfile node.Dockerfile --config <fly.toml> [-a <app-name>] [--image-label <some-uniq-label>]
+```
+
 For deploys offloading TLS termination to Fly.io (`B1` deployment-type), the runtime directives are instead defined in
-[`fly.tls.toml`](fly.tls.toml), which sets up HTTP2 Cleartext and HTTP/1.1 on port 443, and DNS over TCP on port 853.
+[`fly.tls.toml`](fly.tls.toml), which sets up HTTP2 Cleartext and HTTP/1.1 on port `443`, and DNS over TCP on port `853`.
 
 Ref: _[github/workflows](.github/workflows)_.
 
 ### Blocklists
 
 190+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
-to speed up string search ([`lookup`](src/plugins/rethinkdns/trie.js#L758)) at the expense of "succintness". The blocklists are versioned
-with unix timestamp (env var: `CF_LATEST_BLOCKLIST_TIMESTAMP`), and generated once every week, but we'd like to generate 'em daily / hourly,
-if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Lightsail Object Store (env var: `CF_BLOCKLIST_URL`).
+to speed up string search ([`lookup`](https://github.com/serverless-dns/trie/blob/965007a5c/src/ftrie.js#L378-L484)) at the expense of "succintness". The blocklists are versioned
+with unix timestamp (defined in `src/basicconfig.json` downloaded by [`pre.sh`](src/build/pre.sh)), which is generated once every week, but we'd like to generate 'em daily / hourly,
+if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Cloudflare R2 (env var: `CF_BLOCKLIST_URL`).
+
 `serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
-required to setup the radix trie during runtime bringup or, [lazily](https://github.com/serverless-dns/serverless-dns/blob/02f9e5bf/src/plugins/dns-op/resolver.js#L167),
+required to setup the radix-trie during runtime bring-up or, downloads them [lazily](https://github.com/serverless-dns/serverless-dns/blob/02f9e5bf/src/plugins/dns-op/resolver.js#L167),
 when serving a DNS request.
 
-`serverless-dns` compiles around ~5M entries (as of Feb 2022) in to a succinct radix trie, from around 190+ blocklists. These are defined in [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+`serverless-dns` compiles around ~11M entries (as of Nov 2022) from around 190+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
