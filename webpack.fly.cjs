@@ -2,7 +2,7 @@ const webpack = require("webpack");
 
 module.exports = {
   entry: "./src/server-node.js",
-  target: ["node"],
+  target: ["node", "es2020"],
   mode: "production",
   // enable devtool in development
   // devtool: 'eval-cheap-module-source-map',
@@ -22,9 +22,25 @@ module.exports = {
     minimize: false,
   },
 
+  experiments: {
+    outputModule: true,
+  },
+
+  // github.com/webpack/webpack/issues/13290
   // stackoverflow.com/a/68916455
+  output: {
+    library: {
+      type: "module",
+    },
+    clean: true,
+    filename: "fly.js",
+    module: true,
+  },
+
+  /* or, cjs: stackoverflow.com/a/68916455
   output: {
     filename: "fly.cjs",
     clean: true, // empty dist before output
   },
+  */
 };
