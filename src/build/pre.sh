@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 
 burl="https://cfstore.rethinkdns.com/blocklists"
 dir="bc"
@@ -8,7 +8,8 @@ f="basicconfig.json"
 out="./src/${f}"
 
 # timestamp: 1667519318.799 stackoverflow.com/a/69400542
-now=`date --utc +"%s.%3N"`
+# nowms =`date --utc +"%s.%3N"`
+now=`date --utc +"%s"`
 
 # date from timestamp: stackoverflow.com/a/16311821
 day=`date -d @$now "+%d"`
