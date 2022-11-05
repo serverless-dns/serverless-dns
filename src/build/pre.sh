@@ -20,14 +20,45 @@ yyyy=`date -d @$now "+%Y"`
 # month
 mm=`date -d @$now "+%m"`
 
-# file/symlink exists? stackoverflow.com/a/44679975
-if [ -f "${out}" ] || [ -L "${out}" ]; then
-    echo "pre.sh: no op"
-else
-    echo "$yyyy $mm $wk $day $now"
+# stackoverflow.com/a/1445507
+max=4
+# 0..4 (5 loops)
+for i in `seq 0 $max`
+do
+    echo "pre.sh: $i try $yyyy/$mm-$wk at $now"
 
-    wget -q "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
+    # TODO: check if the timestamp within the json file is more recent
+    # file/symlink exists? stackoverflow.com/a/44679975
+    if [ -f "${out}" ] || [ -L "${out}" ]; then
+        echo "pre.sh: no op"
+        exit 0
+    else
+        wget -q "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
+        wcode=$?
 
-    # always exit 0
-    echo "pre.sh ok? $?"
-fi
+        if [ $wcode -eq 0 ]; then
+            echo "pre.sh: $i ok $wcode"
+            exit 0
+        else
+            # wget creates blank files on errs
+            rm ${out}
+            echo "pre.sh: $i not ok $wcode"
+        fi
+    fi
+
+    # see if the prev wk was latest
+    wk=`echo "$wk - 1" | bc`
+    if [ $wk -eq 0 ]; then
+        # only feb has 28 days (28/7 => 4), edge-case overcome by retries
+        wk="5"
+        # prev month
+        mm=`echo "$mm - 1" | bc`
+    fi
+    if [ $mm -eq 0 ]; then
+        mm="12"
+        # prev year
+        yyyy=`echo "$yyyy - 1" | bc`
+    fi
+done
+
+exit 1
