@@ -40,23 +40,24 @@ env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
-  NODE_VER: '17.x'
-  DENO_VER: '1.20.1'
+  NODE_VER: '19.x'
+  DENO_VER: '1.27.1'
   MODE: 'p1'
   QDOH: 'q'
 
 jobs:
   profiler1:
-    name: Fetch profiler
+    name: 🕒 Fetch profiler
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v2
+      - name: 🍌 Checkout
+        uses: actions/checkout@v3
         with:
           ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
 
-      - name: Set git tip
+      - name: ⚓️ Set git tip
         run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "JS_RUNTIME=${JSR}" >> $GITHUB_ENV
@@ -65,13 +66,13 @@ jobs:
           JSR: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
-      - name: Setup Node @v17
+      - name: 🐎 Setup Node @v17
         if: env.JS_RUNTIME == 'node'
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VER }}
 
-      - name: Cache Node deps
+      - name: 🥑 Node deps
         if: env.JS_RUNTIME == 'node'
         run: |
           # npm ci is faster, but it needs package-lock.json which isn't checked-in
@@ -79,13 +80,13 @@ jobs:
           npm run build --if-present
 
       # deno.com/blog/deploy-static-files#example-a-statically-generated-site
-      - name: Setup Deno @1.19.3
+      - name: 🦕 Setup Deno @1.19.3
         if: env.JS_RUNTIME == 'deno'
         uses: denoland/setup-deno@main
         with:
           deno-version: ${{ env.DENO_VER }}
 
-      - name: Cache Deno deps
+      - name: 🥝 Deno deps
         if: env.JS_RUNTIME == 'deno'
         run: |
           deno cache ./src/server-deno.ts --import-map ./import-map.json
@@ -93,7 +94,7 @@ jobs:
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
       # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
-      - name: Setup Q
+      - name: 🌶 Setup Q
         run: |
           # sudo and echo: stackoverflow.com/a/550808
           echo "deb [trusted=yes] https://repo.natesales.net/apt /" | sudo tee /etc/apt/sources.list.d/natesales.list > /dev/null
@@ -102,7 +103,7 @@ jobs:
 
       # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
       # timeout exit-code: stackoverflow.com/a/60996259
-      - name: Run profiler
+      - name: 🎱 Run profiler
         if: success()
         run: |
           timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" "$MODE" || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )

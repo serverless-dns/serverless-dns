@@ -60,8 +60,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
 
-      - name: Tag?
+      - name: 🎱 Tag?
         # docs.github.com/en/actions/learn-github-actions/contexts#github-context
         if: github.ref_type == 'tag' ||  github.event.inputs.environment == 'prod'
         run: |
@@ -87,6 +88,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GIT_COMMIT_ID: ${{ env.GIT_REF }}
 
-      - name: Notice
+      - name: 🎤 Notice
         run: |
           echo "::notice::Deployed to ${WORKERS_ENV} / ${GIT_REF} @ ${COMMIT_SHA}"
