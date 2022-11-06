@@ -95,20 +95,24 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
     return noblock;
   }
 
-  const dnUint = new Uint16Array(dnBlInfo[dn]);
-
-  if (util.emptyArray(dnUint)) return noblock;
-
   // treat every blocklist as a wildcard blocklist
   if (blockSubdomains) {
-    return applyWildcardBlocklists(dnUint, version, dnBlInfo, dn);
+    return applyWildcardBlocklists(
+      userBlInfo.userBlocklistFlagUint,
+      version,
+      dnBlInfo,
+      dn
+    );
   }
 
+  const dnUint = new Uint16Array(dnBlInfo[dn]);
+  // if the domain isn't in block-info, we're done
+  if (util.emptyArray(dnUint)) return noblock;
+  // else, determine if user selected blocklist intersect with the domain's
   const r = applyBlocklists(userBlInfo.userBlocklistFlagUint, dnUint, version);
 
   // if response is blocked, we're done
   if (r.isBlocked) return r;
-
   // if user-blockstamp doesn't contain any wildcard blocklists, we're done
   if (util.emptyArray(userBlInfo.userServiceListUint)) return r;
 
@@ -156,7 +160,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
 
   // iterate through all subdomains one by one, for ex: a.b.c.ex.com:
   // 1st: a.b.c.ex.com; 2nd: b.c.ex.com; 3rd: c.ex.com; 4th: ex.com; 5th: .com
-  while (dnSplit.shift() != null) {
+  do {
     const subdomain = dnSplit.join(".");
     const subdomainUint = dnBlInfo[subdomain];
 
@@ -169,7 +173,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
     if (!util.emptyObj(response) && response.isBlocked) {
       return response;
     }
-  }
+  } while (dnSplit.shift() !== null);
 
   return rdnsNoBlockResponse();
 }
