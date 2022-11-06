@@ -218,6 +218,12 @@ export function disableBlocklists() {
   return envManager.get("DISABLE_BLOCKLISTS") || false;
 }
 
+export function blockSubdomains() {
+  if (!envManager) return true;
+
+  return envManager.get("BLOCK_SUBDOMAINS") || true;
+}
+
 export function gwip4() {
   return envManager.get("GW_IP4") || "";
 }

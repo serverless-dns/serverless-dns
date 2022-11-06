@@ -9,6 +9,7 @@ import { rbase32 } from "../commons/b32.js";
 import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
+import * as envutil from "../commons/envutil.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -18,10 +19,6 @@ const _b32delim = "-";
 const _wildcardUint16 = new Uint16Array([
   64544, 18431, 8191, 65535, 64640, 1, 128, 16320,
 ]);
-
-export function wildcards() {
-  return _wildcardUint16;
-}
 
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
@@ -87,6 +84,8 @@ export function rdnsBlockResponse(
 //               {string(sub/domain-name) : string(blocklist-stamp) }
 // FIXME: return block-dnspacket depending on altsvc/https/svcb or cname/a/aaaa
 export function doBlock(dn, userBlInfo, dnBlInfo) {
+  const blockSubdomains = envutil.blockSubdomains();
+  const version = userBlInfo.flagVersion;
   const noblock = rdnsNoBlockResponse();
   if (
     util.emptyString(dn) ||
@@ -100,23 +99,23 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
 
   if (util.emptyArray(dnUint)) return noblock;
 
-  const r = applyBlocklists(
-    userBlInfo.userBlocklistFlagUint,
-    dnUint,
-    userBlInfo.flagVersion
-  );
+  // treat every blocklist as a wildcard blocklist
+  if (blockSubdomains) {
+    return applyWildcardBlocklists(dnUint, version, dnBlInfo, dn);
+  }
+
+  const r = applyBlocklists(userBlInfo.userBlocklistFlagUint, dnUint, version);
 
   // if response is blocked, we're done
   if (r.isBlocked) return r;
 
-  // TODO: treat every list as a wildcard list?
   // if user-blockstamp doesn't contain any wildcard blocklists, we're done
   if (util.emptyArray(userBlInfo.userServiceListUint)) return r;
 
   // check if any subdomain is in blocklists that is also in user-blockstamp
   return applyWildcardBlocklists(
     userBlInfo.userServiceListUint,
-    userBlInfo.flagVersion,
+    version,
     dnBlInfo,
     dn
   );
@@ -157,7 +156,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
 
   // iterate through all subdomains one by one, for ex: a.b.c.ex.com:
   // 1st: a.b.c.ex.com; 2nd: b.c.ex.com; 3rd: c.ex.com; 4th: ex.com; 5th: .com
-  while (dnSplit.shift() !== undefined) {
+  while (dnSplit.shift() != null) {
     const subdomain = dnSplit.join(".");
     const subdomainUint = dnBlInfo[subdomain];
 

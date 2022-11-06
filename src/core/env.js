@@ -111,6 +111,13 @@ const defaults = {
     type: "boolean",
     default: false,
   },
+  // treat all blocklists as wildcards, this means
+  // if abc.xyz.com is in any blocklist, then
+  // <*>.abc.xyz.com will also get blocked
+  BLOCK_SUBDOMAINS: {
+    type: "boolean",
+    default: true,
+  },
   // run in profiler mode
   PROFILE_DNS_RESOLVES: {
     type: "boolean",
