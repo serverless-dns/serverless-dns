@@ -384,3 +384,23 @@ export function hasBlockstamp(blockInfo) {
     !util.emptyArray(blockInfo.userBlocklistFlagUint)
   );
 }
+
+// returns true if tstamp is of form yyyy/epochMs
+function isValidFullTimestamp(tstamp) {
+  if (typeof tstamp !== "string") return false;
+  return tstamp.indexOf("/") === 4;
+}
+
+// from: github.com/celzero/downloads/blob/main/src/timestamp.js
+export function bareTimestampFrom(tstamp) {
+  // strip out "/" if tstamp is of form yyyy/epochMs
+  if (isValidFullTimestamp(tstamp)) {
+    tstamp = tstamp.split("/")[1];
+  }
+  const t = parseInt(tstamp);
+  if (isNaN(t)) {
+    log.w("Rdns bareTstamp: NaN", tstamp);
+    return 0;
+  }
+  return t;
+}

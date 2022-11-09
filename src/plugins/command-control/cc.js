@@ -12,7 +12,7 @@ import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {
-    this.latestTimestamp = cfg.timestamp();
+    this.latestTimestamp = rdnsutil.bareTimestampFrom(cfg.timestamp());
     this.log = log.withTags("CommandControl");
     this.bw = blocklistWrapper;
     this.cmds = new Set([
