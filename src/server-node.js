@@ -188,7 +188,7 @@ function serveDoTProxyProto(clientSocket) {
   );
 
   dotSock.on("error", (e) => {
-    log.w("DoT socket error, closing client connection", e);
+    log.w("DoT socket err, close conn", e);
     close(clientSocket);
     close(dotSock);
   });
@@ -292,7 +292,7 @@ function getDnRE(socket) {
 
   const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
   const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
-  log.d(rgDnRE, wcDnRE);
+  log.i("SNIs: ", rgDnRE, wcDnRE);
   return [rgDnRE, wcDnRE];
 }
 
@@ -329,7 +329,7 @@ function getMetadata(sni) {
 function serveTLS(socket) {
   const sni = socket.servername;
   if (!sni) {
-    log.d("No SNI, closing client connection");
+    log.d("No SNI, close conn");
     close(socket);
     return;
   }
@@ -342,7 +342,7 @@ function serveTLS(socket) {
   const isOurWcDn = OUR_WC_DN_RE.test(sni);
 
   if (!isOurWcDn && !isOurRgDn) {
-    log.w("Not our DNS name, closing client connection");
+    log.w("unexpected SNI, close conn", sni);
     close(socket);
     return;
   }
