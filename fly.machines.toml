@@ -25,8 +25,8 @@ internal_port = 8080
 protocol = "tcp"
 
   [services.concurrency]
-  hard_limit = 175
-  soft_limit = 150
+  hard_limit = 575
+  soft_limit = 500
   type = "connections"
 
   [[services.ports]]
@@ -47,8 +47,8 @@ internal_port = 10000
 protocol = "tcp"
 
   [services.concurrency]
-  hard_limit = 175
-  soft_limit = 150
+  hard_limit = 575
+  soft_limit = 500
   type = "connections"
 
   [[services.ports]]
