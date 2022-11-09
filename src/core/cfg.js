@@ -17,14 +17,15 @@ export function tdNodeCount() {
     return basicconfig.nodecount;
 }
   
-  export function tdParts() {
-    return basicconfig.tdparts;
-  }
+export function tdParts() {
+  return basicconfig.tdparts;
+}
 
-  export function tdCodec6() {
-    return basicconfig.useCodec6;
-  }
+export function tdCodec6() {
+  return basicconfig.useCodec6;
+}
   
 export function orig() {
   return basicconfig;
 }
+
