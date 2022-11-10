@@ -150,6 +150,32 @@ export default class IOState {
     }
   }
 
+  dnsNxDomainResponse() {
+    this.initDecodedDnsPacketIfNeeded();
+    this.stopProcessing = true;
+    this.isDnsBlock = true;
+
+    try {
+      this.assignNxDomainResponse();
+      const b = dnsutil.encode(this.decodedDnsPacket);
+      this.httpResponse = new Response(b, {
+        headers: this.headers(b),
+      });
+    } catch (e) {
+      this.log.e("nxdomain", JSON.stringify(this.decodedDnsPacket), e.stack);
+      this.isException = true;
+      this.exceptionStack = e.stack;
+      this.exceptionFrom = "IOState:dnsNxDomainResponse";
+      this.httpResponse = new Response(null, {
+        headers: util.concatHeaders(
+          this.headers(),
+          this.additionalHeader(JSON.stringify(this.exceptionStack))
+        ),
+        status: 503,
+      });
+    }
+  }
+
   headers(b = null) {
     const xNileFlags = this.isDnsBlock ? { "x-nile-flags": this.flag } : null;
     const xNileFlagsOk = !xNileFlags ? { "x-nile-flags-dn": this.flag } : null;
@@ -202,6 +228,40 @@ export default class IOState {
     return done;
   }
 
+  // builds nxdomain response only for undelegated domains
+  // like .internal / .local .lan
+  assignNxDomainResponse() {
+    if (util.emptyObj(this.decodedDnsPacket.questions)) {
+      this.log.e("decoded dns-packet missing question");
+      return false;
+    }
+
+    this.decodedDnsPacket.type = "response";
+    this.decodedDnsPacket.rcode = "NXDOMAIN";
+    // TODO: what is flag(387) 0b_0_000_0000_1100_00011?
+    this.decodedDnsPacket.flags = 387;
+    this.decodedDnsPacket.flag_qr = true;
+    this.decodedDnsPacket.answers = [];
+    this.decodedDnsPacket.authorities = [
+      {
+        name: ".",
+        type: "SOA",
+        ttl: 86400,
+        class: "IN",
+        flush: false,
+        data: {
+          mname: "a.root-servers.net",
+          rname: "nstld.verisign-grs.com",
+          serial: 2022111001,
+          refresh: 1800,
+          retry: 900,
+          expire: 604800,
+          minimum: 86400,
+        },
+      },
+    ];
+  }
+
   initFlagsAndAnswers(ttlsec = 300) {
     if (util.emptyObj(this.decodedDnsPacket.questions)) {
       this.log.e("decoded dns-packet missing question");
@@ -209,7 +269,7 @@ export default class IOState {
     }
     this.decodedDnsPacket.type = "response";
     this.decodedDnsPacket.rcode = "NOERROR";
-    // TODO: what is flag(384) 0b_0000_0000_1100_0000?
+    // TODO: what is flag(384) 0b0_0000_0000_1100_0000?
     this.decodedDnsPacket.flags = 384;
     this.decodedDnsPacket.flag_qr = true;
     this.decodedDnsPacket.answers = [];

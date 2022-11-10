@@ -11,6 +11,7 @@ import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
+import IOState from "./io-state.js";
 
 export default class RethinkPlugin {
   /**
@@ -46,6 +47,14 @@ export default class RethinkPlugin {
       services.userOp,
       ["rxid", "request", "isDnsMsg"],
       this.userOpCallback,
+      false
+    );
+
+    this.registerPlugin(
+      "prefilter",
+      services.prefilter,
+      ["rxid", "requestDecodedDnsPacket"],
+      this.prefilterCallBack,
       false
     );
 
@@ -173,6 +182,27 @@ export default class RethinkPlugin {
     }
   }
 
+  /**
+   * @param {Response} response
+   * @param {IOState} io
+   */
+  prefilterCallBack(response, io) {
+    const rxid = this.parameter.get("rxid");
+    const r = response.data;
+    const deny = r.isBlocked;
+    const err = response.isException;
+    this.log.d(rxid, "prefilter deny?", deny, "err?", err);
+
+    if (err) {
+      this.log.w(rxid, "prefilter: error", r);
+      this.loadException(rxid, response, io);
+    } else if (deny) {
+      io.dnsNxDomainResponse(r.flag);
+    } else {
+      this.log.d(rxid, "prefilter no-op");
+    }
+  }
+
   dnsCacheCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
     const r = response.data;
@@ -232,6 +262,10 @@ export default class RethinkPlugin {
     io.dnsExceptionResponse(response);
   }
 
+  /**
+   * @param {IOState} io
+   * @returns
+   */
   async initIoState(io) {
     this.io = io;
 

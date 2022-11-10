@@ -30,7 +30,7 @@ function determineCacheExpiry(packet) {
   let ttl = someVeryHighTtl;
 
   // TODO: nxdomain ttls are in the authority section
-  // FIXME: OPT answers do not have a ttl field
+  // TODO: OPT answers need not set a ttl field
   // set min(ttl) among all answers, but at least minTtlSec
   for (const a of packet.answers) ttl = Math.min(a.ttl || minTtlSec, ttl);
 
@@ -91,10 +91,8 @@ function makeId(packet) {
   // multiple questions are kind of an undefined behaviour
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;
-
-  const name = dnsutil.normalizeName(packet.questions[0].name);
-  const type = packet.questions[0].type;
-  return name + ":" + type;
+  const q = packet.questions[0];
+  return dnsutil.normalizeName(q.name) + ":" + q.type;
 }
 
 export function makeLocalCacheValue(b, metadata) {

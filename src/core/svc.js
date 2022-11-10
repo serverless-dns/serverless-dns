@@ -10,6 +10,7 @@ import { BlocklistWrapper } from "../plugins/rethinkdns/main.js";
 import { CommandControl } from "../plugins/command-control/cc.js";
 import { UserOp } from "../plugins/users/user-op.js";
 import {
+  DNSPrefilter,
   DNSCacheResponder,
   DNSResolver,
   DnsCache,
@@ -39,6 +40,10 @@ export const services = {
    * @type {?UserOp} userOp
    */
   userOp: null,
+  /**
+   * @type {?DNSPrefilter} prefilter
+   */
+  prefilter: null,
   /**
    * @type {?CommandControl} commandControl
    */
@@ -70,6 +75,7 @@ async function systemReady() {
 
   services.blocklistWrapper = bw;
   services.userOp = new UserOp();
+  services.prefilter = new DNSPrefilter();
   services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
   services.commandControl = new CommandControl(bw);
   services.dnsResolver = new DNSResolver(bw, cache);
