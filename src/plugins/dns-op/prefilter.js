@@ -160,7 +160,7 @@ const undelegated = new Set([
   "zghjccbob3n0",
 ]);
 
-export default class DNSPrefilter {
+export class DNSPrefilter {
   constructor() {
     this.log = log.withTags("DnsPrefilter");
   }
