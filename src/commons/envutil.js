@@ -224,6 +224,11 @@ export function blockSubdomains() {
   return envManager.get("BLOCK_SUBDOMAINS") || true;
 }
 
+// recurisve resolver on Fly
+export function recursive() {
+  return onFly();
+}
+
 export function gwip4() {
   return envManager.get("GW_IP4") || "";
 }

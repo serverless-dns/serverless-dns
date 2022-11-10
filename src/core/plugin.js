@@ -50,13 +50,15 @@ export default class RethinkPlugin {
       false
     );
 
-    this.registerPlugin(
-      "prefilter",
-      services.prefilter,
-      ["rxid", "requestDecodedDnsPacket"],
-      this.prefilterCallBack,
-      false
-    );
+    // filter out undelegated domains if running recurisve resolver
+    envutil.recursive() &&
+      this.registerPlugin(
+        "prefilter",
+        services.prefilter,
+        ["rxid", "requestDecodedDnsPacket"],
+        this.prefilterCallBack,
+        false
+      );
 
     this.registerPlugin(
       "cacheOnlyResolver",

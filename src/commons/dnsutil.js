@@ -28,7 +28,7 @@ const _maxRequestTimeout = 30000; // 30s
 
 export function dnsaddr() {
   // flydns is always ipv6 (fdaa::53)
-  if (envutil.onFly()) return _dnsFly6;
+  if (envutil.recursive()) return _dnsFly6;
   return _dnsCloudflareSec4;
 }
 
