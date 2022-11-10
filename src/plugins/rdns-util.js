@@ -161,6 +161,8 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
   // iterate through all subdomains one by one, for ex: a.b.c.ex.com:
   // 1st: a.b.c.ex.com; 2nd: b.c.ex.com; 3rd: c.ex.com; 4th: ex.com; 5th: .com
   do {
+    if (util.emptyArray(dnSplit)) break;
+
     const subdomain = dnSplit.join(".");
     const subdomainUint = dnBlInfo[subdomain];
 
@@ -173,7 +175,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
     if (!util.emptyObj(response) && response.isBlocked) {
       return response;
     }
-  } while (dnSplit.shift() !== null);
+  } while (dnSplit.shift() != null);
 
   return rdnsNoBlockResponse();
 }
