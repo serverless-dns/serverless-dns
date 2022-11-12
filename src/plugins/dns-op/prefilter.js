@@ -189,7 +189,8 @@ export class DNSPrefilter {
   }
 
   async filterOut(param) {
-    const block = rdnsutil.rdnsBlockResponse();
+    // set a dummy flag, "prefilter"
+    const block = rdnsutil.rdnsBlockResponse("prefilter");
     const allow = rdnsutil.rdnsNoBlockResponse();
     const dnsPacket = param.requestDecodedDnsPacket;
     const domains = dnsutil.extractDomains(dnsPacket);
