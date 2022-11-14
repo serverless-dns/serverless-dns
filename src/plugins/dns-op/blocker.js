@@ -43,6 +43,11 @@ export class DnsBlocker {
     const dnsPacket = res.dnsPacket;
     const stamps = res.stamps;
 
+    if (dnsutil.isAnswerQuad0(dnsPacket)) {
+      this.log.d(rxid, "ans: already blocked");
+      return res;
+    }
+
     // dnsPacket is null when cache only has metadata
     if (!stamps || !dnsutil.hasAnswers(dnsPacket)) {
       this.log.d(rxid, "ans: no stamp / dns-packet");

@@ -170,6 +170,17 @@ export function isAnswerHttps(ans) {
   );
 }
 
+export function isAnswerQuad0(packet) {
+  if (hasAnswers(packet)) {
+    for (const a of packet.answers) {
+      if (a.data === "0.0.0.0" || a.data === "::") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function extractDomains(dnsPacket) {
   if (!hasSingleQuestion(dnsPacket)) return [];
 
