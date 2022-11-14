@@ -226,13 +226,13 @@ async function fileFetch(url, typ) {
   let res = { ok: false };
   try {
     log.i("downloading", url, typ);
-    // Note: cacheEverything is probably needed as Cloudflare does not
+    // Note: cacheEverything is needed as Cloudflare does not
     // cache .txt and .json blobs, even when a cacheTtl is specified.
-    // ref: developers.cloudflare.com/cache/about/default-cache-behavior/
+    // ref: developers.cloudflare.com/cache/about/default-cache-behavior
     // cacheEverything overrides that behaviour and forces Cloudflare to
-    // cache the blob regardless of the extension. Right now, CacheRules
+    // cache the blob regardless of the extension. In addition, CacheRules
     // are also enabled on all 3 origins viz cf / dist / cfstore
-    // docs: developers.cloudflare.com/cache/about/cache-rules/
+    // docs: developers.cloudflare.com/cache/about/cache-rules
     res = await fetch(url, {
       cf: {
         cacheTtl: /* 30d */ 2592000,
