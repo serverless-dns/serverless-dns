@@ -1,7 +1,5 @@
 name = "serverless-dns"
-route = ""
 main = "./dist/worker.js"
-account_id = ""
 workers_dev = true
 # use node_compat or custom build
 # node_compat = true
