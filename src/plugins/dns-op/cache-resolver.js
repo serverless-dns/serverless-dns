@@ -16,7 +16,9 @@ export class DNSCacheResponder {
   constructor(blocklistWrapper, cache) {
     this.blocker = new DnsBlocker();
     this.log = log.withTags("DnsCacheResponder");
+    /** @type {import("./cache.js").DnsCache} */
     this.cache = cache;
+    /** @type {import("../rethinkdns/main.js").BlocklistWrapper} */
     this.bw = blocklistWrapper;
   }
 
