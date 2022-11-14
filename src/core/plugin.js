@@ -86,6 +86,7 @@ export default class RethinkPlugin {
         // resolver-url overriden by user-op
         "userDnsResolverUrl",
         "userBlocklistInfo",
+        "userBlockstamp",
         "domainBlockstamp",
         "requestDecodedDnsPacket",
         "requestBodyBuffer",
@@ -160,8 +161,9 @@ export default class RethinkPlugin {
   }
 
   /**
-   * Adds "userBlocklistInfo" and "dnsResolverUrl" to RethinkPlugin params
-   * @param {*} response - Contains `data` which is `userBlocklistInfo`
+   * Adds "userBlocklistInfo", "userBlocklistInfo",  and "dnsResolverUrl"
+   * to RethinkPlugin params.
+   * @param {*} response - Contains data: userBlocklistInfo / userBlockstamp
    * @param {*} io
    */
   async userOpCallback(response, io) {
@@ -176,8 +178,11 @@ export default class RethinkPlugin {
       // r.userBlocklistInfo and r.dnsResolverUrl may be "null"
       const bi = r.userBlocklistInfo;
       const rr = r.dnsResolverUrl;
-      this.log.d(rxid, "set user:blockInfo/resolver", bi, rr);
+      // may be empty string; usually of form "v:base64" or "v-base32"
+      const bs = r.userBlocklistFlag;
+      this.log.d(rxid, "set user:blockInfo/resolver/stamp", bi, rr, bs);
       this.registerParameter("userBlocklistInfo", bi);
+      this.registerParameter("userBlockstamp", bs);
       this.registerParameter("userDnsResolverUrl", rr);
     } else {
       this.log.i(rxid, "user-op is a no-op, possibly a command-control req");
@@ -232,8 +237,8 @@ export default class RethinkPlugin {
   /**
    * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
    * resolver) to RethinkPlugin params
-   * @param {*} response
-   * @param {*} io
+   * @param {Response} response
+   * @param {IOState} io
    */
   dnsResolverCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
@@ -259,6 +264,12 @@ export default class RethinkPlugin {
     }
   }
 
+  /**
+   *
+   * @param {String} rxid
+   * @param {Response} response
+   * @param {IOState} io
+   */
   loadException(rxid, response, io) {
     this.log.e(rxid, "exception", JSON.stringify(response));
     io.dnsExceptionResponse(response);

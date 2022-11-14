@@ -18,10 +18,10 @@ export class UserOp {
     this.log = log.withTags("UserOp");
   }
 
-  /*
+  /**
    * @param {*} param
-   * @param {*} param.request
-   * @param {*} param.isDnsMsg
+   * @param {Request} param.request
+   * @param {Boolean} param.isDnsMsg
    * @returns
    */
   async RethinkModule(param) {
@@ -59,6 +59,7 @@ export class UserOp {
       }
 
       response.data.userBlocklistInfo = r;
+      response.data.userBlocklistFlag = blocklistFlag;
       // sets user-preferred doh upstream
       response.data.dnsResolverUrl = null;
     } catch (e) {
