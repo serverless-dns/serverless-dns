@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { TrieCache } from "./trie-cache.js";
 import { createTrie } from "@serverless-dns/trie/ftrie.js";
 import { BlocklistFilter } from "./filter.js";
 import { withDefaults } from "./trie-config.js";
@@ -110,7 +109,7 @@ export class BlocklistWrapper {
   }
 
   makeTrie(tdbuf, rdbuf, bconfig) {
-    return createTrie(tdbuf, rdbuf, bconfig, new TrieCache());
+    return createTrie(tdbuf, rdbuf, bconfig);
   }
 
   async initBlocklistConstruction(
