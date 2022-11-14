@@ -45,7 +45,9 @@ let listeners = [];
 })();
 
 async function systemDown() {
-  log.i(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
+  // system-down even may arrive even before the process has had the chance
+  // to start, in which case globals like env and log may not be available
+  console.info(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
 
   const srvs = listeners;
   listeners = [];
@@ -53,7 +55,7 @@ async function systemDown() {
   srvs.forEach((s) => {
     if (!s) return;
     const saddr = s.address();
-    log.i("stopping...", saddr);
+    console.info("stopping...", saddr);
     // TODO: drain all sockets stackoverflow.com/a/14636625
     s.close(() => down(saddr));
   });
@@ -70,7 +72,7 @@ async function systemDown() {
   // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
   util.timeout(/* 2s*/ 2 * 1000, () => {
-    log.i("game over");
+    console.info("game over");
     // exit success aka 0; ref: community.fly.io/t/4547/6
     process.exit(0);
   });
@@ -151,7 +153,7 @@ function systemUp() {
 }
 
 function down(addr) {
-  log.i(`closed: [${addr.address}]:${addr.port}`);
+  console.info(`closed: [${addr.address}]:${addr.port}`);
 }
 
 function up(server, addr) {
