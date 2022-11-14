@@ -82,6 +82,11 @@ export function downloadTimeout(missing = 0) {
   return envManager.get("CF_BLOCKLIST_DOWNLOAD_TIMEOUT") || missing;
 }
 
+export function bgDownloadBlocklistWrapper() {
+  if (!envManager) return false;
+  return onCloudflare();
+}
+
 export function blocklistUrl() {
   if (!envManager) return null;
   return envManager.get("CF_BLOCKLIST_URL");
@@ -97,6 +102,11 @@ export function secondaryDohResolver() {
   if (!envManager) return null;
 
   return envManager.get("CF_DNS_RESOLVER_URL_2");
+}
+
+export function maxDohUrl() {
+  if (!envManager) return null;
+  return envManager.get("MAX_DNS_RESOLVER_URL");
 }
 
 export function dohResolvers() {

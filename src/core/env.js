@@ -90,6 +90,12 @@ const defaults = {
     type: "string",
     default: "https://dns.google/dns-query",
   },
+  // upstream recursive rethinkdns resolver running on Fly.io
+  MAX_DNS_RESOLVER_URL: {
+    type: "string",
+    // must always end with a trailing slash
+    default: "https://max.rethinkdns.com/",
+  },
   // max doh request processing timeout some requests may have to wait
   // for blocklists to download before being responded to.
   WORKER_TIMEOUT: {
