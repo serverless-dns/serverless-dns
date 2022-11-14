@@ -31,7 +31,9 @@ export default class DNSResolver {
     this.forceDoh = envutil.forceDoh();
     this.avoidFetch = envutil.avoidFetch();
     // only valid on workers
-    this.bgBwInit = envutil.bgDownloadBlocklistWrapper();
+    // bg-bw-init disabled since it results in higher io-wait, not lower
+    // p99 gb-sec (0.04 => 0.06); p99.9 gb-sec (0.09 => 0.14)
+    this.bgBwInit = false && envutil.bgDownloadBlocklistWrapper();
     this.maxDoh = envutil.maxDohUrl();
 
     if (this.profileResolve) {
