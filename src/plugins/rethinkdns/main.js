@@ -23,6 +23,7 @@ export class BlocklistWrapper {
     this.exceptionFrom = "";
     this.exceptionStack = "";
     this.noop = envutil.disableBlocklists();
+    this.nowait = envutil.bgDownloadBlocklistWrapper();
 
     this.log = log.withTags("BlocklistWrapper");
 
@@ -50,6 +51,11 @@ export class BlocklistWrapper {
         const parts = cfg.tdParts();
         const u6 = cfg.tdCodec6();
         return this.initBlocklistConstruction(rxid, now, url, nc, parts, u6);
+      } else if (this.nowait) {
+        // blocklist-construction is in progress, but we don't have to
+        // wait for it to finish. So, return an empty response.
+        this.log.i(rxid, "nowait, but blocklist construction ongoing");
+        return util.emptyResponse();
       } else {
         // someone's constructing... wait till finished
         return this.waitUntilDone();
