@@ -4,9 +4,9 @@ burl="https://cfstore.rethinkdns.com/blocklists"
 dir="bc"
 codec="u6"
 f="basicconfig.json"
+cwd=`pwd`
 # exec this script from npm or project root
-out="./src/${f}"
-
+out="./src/${codec}-${f}"
 # timestamp: 1667519318.799 stackoverflow.com/a/69400542
 # nowms =`date --utc +"%s.%3N"`
 now=`date --utc +"%s"`
@@ -25,7 +25,7 @@ max=4
 # 0..4 (5 loops)
 for i in `seq 0 $max`
 do
-    echo "pre.sh: $i try $yyyy/$mm-$wk at $now"
+    echo "pre.sh: $i try $yyyy/$mm-$wk at $now from $cwd"
 
     # TODO: check if the timestamp within the json file is more recent
     # file/symlink exists? stackoverflow.com/a/44679975
