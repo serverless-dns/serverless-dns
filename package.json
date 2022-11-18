@@ -24,6 +24,9 @@
     "url": "https://github.com/serverless-dns/serverless-dns/issues"
   },
   "homepage": "https://github.com/serverless-dns/serverless-dns#readme",
+  "engines": {
+    "node": ">=16.7.0"
+  },
   "dependencies": {
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.2",
     "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.1",
