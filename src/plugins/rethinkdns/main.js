@@ -83,7 +83,7 @@ export class BlocklistWrapper {
     // between 700ms to 1.2s for trie. But: We don't want all incoming
     // reqs to wait until the trie becomes available. 400ms is 1/3rd of
     // 1.2s and 2x 250ms; both of these values have cost implications:
-    // 250ms (0.28GB-sec or 218ms wall time) in unbound-worker per req
+    // 250ms (0.028GB-sec or 218ms wall time) in unbound-worker per req
     // and equals cost of one bundled-worker req.
     let totalWaitms = 0;
     const waitms = 25;
