@@ -1,5 +1,5 @@
 FROM node:alpine as setup
-# todo: is git required?
+# git is required if any of the npm packages are git[hub] packages
 RUN apk --no-cache add git
 WORKDIR /node-dir
 COPY . .
