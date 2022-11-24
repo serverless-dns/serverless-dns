@@ -279,16 +279,21 @@ export function getB64Flag(uint16Arr, flagVersion) {
 export function blockstampFromUrl(u) {
   const emptystamp = "";
   const url = new URL(u);
+  // is the incoming request to the legacy free.bravedns.com endpoint?
+  const isFreeBraveDns = url.hostname.indexOf("free.bravedns") >= 0;
   let s = emptystamp;
 
   const paths = url.pathname.split("/");
 
-  if (paths.length <= 1) {
+  if (!isFreeBraveDns && paths.length <= 1) {
     return s;
   }
 
-  // skip to next if path has `/dns-query` or `/gateway`
-  if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
+  if (isFreeBraveDns) {
+    // oisd, 1hosts:mini, cpbl:light, stevenblack, anudeep, yhosts, tiuxo
+    s = "1:YAYBACABEHAgAA==";
+  } else if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
+    // skip to next if path has `/dns-query` or `/gateway`
     s = paths[2] || emptystamp;
   } else {
     s = paths[1] || emptystamp;
