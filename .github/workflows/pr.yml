@@ -62,12 +62,12 @@ jobs:
           git commit --no-verify -am "Automatic lint & fmt"
 
       - name: 🚢 Push to origin
-        if: steps.lint-changes.outputs.changes == 'true' && ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
+        if: ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
         run: |
           git push origin HEAD:${{ env.PR_HEAD_REF }}
 
       - name: 🚢 Push to fork
-        if: steps.lint-changes.outputs.changes == 'true' && ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
+        if: ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
         run: |
           git remote add fork ${{ env.PR_HEAD_REPO }}
           git push fork HEAD:${{ env.PR_HEAD_REF }}
