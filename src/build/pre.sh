@@ -33,7 +33,7 @@ do
         echo "pre.sh: no op"
         exit 0
     else
-        wget -q "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
+        wget "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
         wcode=$?
 
         if [ $wcode -eq 0 ]; then
