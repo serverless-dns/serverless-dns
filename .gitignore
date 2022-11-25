@@ -7,7 +7,10 @@ blocklists__/
 src/basicconfig.json
 package-lock.json
 .clinic/
-
+**basicconfig.json
+*.log
+*.swp
+*.bak
 # IDE
 # .vscode
 
