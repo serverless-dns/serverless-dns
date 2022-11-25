@@ -29,11 +29,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           # default ref = ${{ github.ref }} = pr_merge_ref (a merge commit)
-          # Get PR's head commit
+          # So, we checkout to PR's head commit instead
           ref: ${{ env.PR_HEAD_SHA }}
           fetch-depth: 0
 
-      - name: Install deps and git fetch
+      - name: 🥑 Install deps and git fetch
         run: |
           npm install
           git fetch --all
@@ -43,28 +43,29 @@ jobs:
             ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
           npx eslint $DIFF --cache --fix
 
-      - name: 👀 Looking for changes
+      - name: 👀 Look for lint changes
         id: lint-changes
         run: |
-          echo ::set-output name=changes::$( \
+          echo changes=$( \
             if git diff-index --quiet HEAD --; \
             then echo "false"; \
             else echo "true"; \
-            fi)
+            fi) \
+            >> $GITHUB_OUTPUT
 
-      - name: 🚢 Pushing to PR branch
+      - name: 🏗 Commit lint changes
         if: steps.lint-changes.outputs.changes == 'true'
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
           git commit --no-verify -am "Automatic lint & fmt"
 
-      - name: Pushing to origin
+      - name: 🚢 Push to origin
         if: steps.lint-changes.outputs.changes == 'true' && ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
         run: |
           git push origin HEAD:${{ env.PR_HEAD_REF }}
 
-      - name: Pushing to fork
+      - name: 🚢 Push to fork
         if: steps.lint-changes.outputs.changes == 'true' && ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
         run: |
           git remote add fork ${{ env.PR_HEAD_REPO }}
