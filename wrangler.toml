@@ -4,6 +4,7 @@ workers_dev = true
 # use node_compat or custom build
 # node_compat = true
 compatibility_date = "2022-08-04"
+send_metrics = false
 
 [build]
 command = "npm run build"
