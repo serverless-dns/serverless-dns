@@ -1,9 +1,25 @@
 name: PR
 
 on:
-  pull_request:
+  # "I am a workflow on the main branch's HEAD, target (base) of a PR"
+  pull_request_target:
     branches:
       - "main"
+
+env:
+  # Base branch for the PR
+  BASE_REF: ${{ github.base_ref }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  BASE_REPO: ${{ github.event.pull_request.base.repo.clone_url }}
+
+  # Branch of PR (maybe of a fork repo)
+  PR_HEAD_REF: ${{ github.head_ref }}
+  PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
+
+  # Full ref of base branch like `refs/heads/master`, gh_sha is same as base_sha
+  GH_REF: "${{ github.ref }}"
+  GH_SHA: ${{ github.sha }}
 
 jobs:
   lint-fmt:
@@ -13,30 +29,70 @@ jobs:
       - name: 🚚 Get latest code
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 50
+          # Checkout base (target) repo
+          ref: ${{ env.GH_REF }}
 
-      - name: 🔧 Run eslint
+      - name: 🥑 Install deps
         run: |
           npm install
-          git fetch --all
+
+      - name: 🍌 Fetch PR's head
+        run: |
+          git fetch origin ${{ env.PR_HEAD_SHA }}
+
+      # Abort if node modules are checked in
+      - name: 🚨 Check for unsafe changes
+        run: |
           DIFF=$(git diff --name-only --diff-filter=ACMRT \
-            origin/${{ github.base_ref }}...origin/${{ github.head_ref }})
+            ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
+
+          echo "::notice::DIFF(files): $DIFF"
+
+          if echo $DIFF | grep "node_modules"; then
+            echo "::error::Unsafe change 'node_modules' found"
+            exit 1
+          fi
+
+      - name: 🍌 Checkout PR_HEAD
+        run: |
+          git checkout ${{ env.PR_HEAD_SHA }}
+
+      - name: 🔧 Run eslint on changed files only
+        run: |
+          DIFF=$(git diff --name-only --diff-filter=ACMRT \
+            ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
+
           npx eslint $DIFF --cache --fix
 
-      - name: 👀 Looking for changes
+      - name: 👀 Look for lint changes
         id: lint-changes
         run: |
-          echo ::set-output name=changes::$( \
+          echo changes=$( \
             if git diff-index --quiet HEAD --; \
             then echo "false"; \
             else echo "true"; \
-            fi)
+            fi) \
+            >> $GITHUB_OUTPUT
 
-      - name: 🚢 Pushing to PR branch
+      - name: 🏗 Commit lint changes
         if: steps.lint-changes.outputs.changes == 'true'
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
           git commit --no-verify -am "Automatic lint & fmt"
-          git push
+
+      - name: 🚢 Push to origin?
+        if: ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
+        run: |
+          git push origin HEAD:${{ env.PR_HEAD_REF }}
+
+      # `GITHUB_TOKEN` owned by `github-actions[bot]` has write access to
+      # origin in this `PR-target` workflow but not the write access to fork
+      # repo.
+      # A "personal access token" of repository maintainer may be required
+      # for pushing to forks.
+      - name: 🚢 Push to fork?
+        if: ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
+        run: |
+          git remote add fork ${{ env.PR_HEAD_REPO }}
+          git push fork HEAD:${{ env.PR_HEAD_REF }}
