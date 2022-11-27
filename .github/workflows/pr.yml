@@ -81,7 +81,7 @@ jobs:
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
           git commit --no-verify -am "Automatic lint & fmt"
 
-      - name: 🚢 Push to origin
+      - name: 🚢 Push to origin?
         if: ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
         run: |
           git push origin HEAD:${{ env.PR_HEAD_REF }}
@@ -89,9 +89,9 @@ jobs:
       # `GITHUB_TOKEN` owned by `github-actions[bot]` has write access to
       # origin in this `PR-target` workflow but not the write access to fork
       # repo.
-      # A "personal access token" of repository maintainer may ne required
-      # for pushing to fork.
-      - name: 🚢 Push to fork
+      # A "personal access token" of repository maintainer may be required
+      # for pushing to forks.
+      - name: 🚢 Push to fork?
         if: ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
         run: |
           git remote add fork ${{ env.PR_HEAD_REPO }}
