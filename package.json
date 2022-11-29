@@ -30,7 +30,7 @@
   "dependencies": {
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.2",
     "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.1",
-    "@serverless-dns/trie": "github:serverless-dns/trie#v0.0.10",
+    "@serverless-dns/trie": "github:serverless-dns/trie#v0.0.11",
     "dotenv": "^10.0.0",
     "httpx-server": "^1.4.4",
     "node-polyfill-webpack-plugin": "^2.0.1",
