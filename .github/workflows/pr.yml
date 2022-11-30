@@ -57,12 +57,14 @@ jobs:
         run: |
           git checkout ${{ env.PR_HEAD_SHA }}
 
-      - name: 🔧 Run eslint on changed files only
+      - name: 🔧 Run eslint on changed JS files only
         run: |
           DIFF=$(git diff --name-only --diff-filter=ACMRT \
             ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
 
-          npx eslint $DIFF --cache --fix
+          DIFF_JS=$(echo $DIFF | grep -E "\.(m|c)?js$")
+
+          npx eslint $DIFF_JS --cache --fix
 
       - name: 👀 Look for lint changes
         id: lint-changes
