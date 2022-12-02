@@ -84,7 +84,9 @@ export class BlocklistWrapper {
     // reqs to wait until the trie becomes available. 400ms is 1/3rd of
     // 1.2s and 2x 250ms; both of these values have cost implications:
     // 250ms (0.028GB-sec or 218ms wall time) in unbound-worker per req
-    // and equals cost of one bundled-worker req.
+    // equals cost of one bundled-worker req.
+    // ~7800ms is 1GB-sec; 10s (overall download timeout) is 1.3GB-sec.
+    // and 5s is 0.065GB-sec (which is the request timeout).
     let totalWaitms = 0;
     const waitms = 25;
     const response = util.emptyResponse();
