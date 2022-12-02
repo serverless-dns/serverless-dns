@@ -9,6 +9,7 @@ import * as cfg from "../../core/cfg.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
+import { BlocklistFilter } from "../rethinkdns/filter.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {
@@ -124,7 +125,7 @@ export class CommandControl {
 
       if (command === "listtob64") {
         // convert blocklists (tags) to blockstamp (b64)
-        response.data.httpResponse = listToB64(queryString, blf);
+        response.data.httpResponse = listToB64(queryString);
       } else if (command === "b64tolist") {
         // convert blockstamp (b64) to blocklists (tags)
         response.data.httpResponse = b64ToList(queryString, blf);
@@ -183,6 +184,12 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
   return Response.redirect(u + q, 302);
 }
 
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @param {number} latestTimestamp
+ * @returns {Response}
+ */
 function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   const domainName = queryString.get("dn") || "";
   const r = {
@@ -223,6 +230,11 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {Response}
+ */
 function domainNameToUint(queryString, blocklistFilter) {
   const domainName = queryString.get("dn") || "";
   const r = {
@@ -242,7 +254,11 @@ function domainNameToUint(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
-function listToB64(queryString, blocklistFilter) {
+/**
+ * @param {string} queryString
+ * @returns {Response}
+ */
+function listToB64(queryString) {
   const list = queryString.get("list") || [];
   const flagVersion = queryString.get("flagversion") || "0";
   const tags = list.split(",");
@@ -258,6 +274,11 @@ function listToB64(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {Response}
+ */
 function b64ToList(queryString, blocklistFilter) {
   const b64 = queryString.get("b64") || "";
   const r = {
@@ -295,6 +316,10 @@ function b64ToList(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {Object} obj
+ * @returns {Response}
+ */
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), { headers: util.jsonHeaders() });
 }
