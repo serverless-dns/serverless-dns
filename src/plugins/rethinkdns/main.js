@@ -165,6 +165,7 @@ export class BlocklistWrapper {
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
     const bconfig = withDefaults(cfg.orig());
+    const ft = cfg.filetag();
 
     if (
       bconfig.useCodec6 !== u6 ||
@@ -177,22 +178,14 @@ export class BlocklistWrapper {
     url += bconfig.useCodec6 ? "u6/" : "u8/";
 
     this.log.d(rxid, url, tdNodecount, tdParts);
-    // filetag is fetched as application/octet-stream and so,
-    // the response api complains it is unsafe to .json() it:
-    // "Called .text() on an HTTP body which does not appear to be
-    // text. The body's Content-Type is 'application/octet-stream'.
-    // The result will probably be corrupted. Consider checking the
-    // Content-Type header before interpreting entities as text."
-    const buf0 = fileFetch(url + "filetag.json", "json");
-    const buf2 = fileFetch(url + "rd.txt", "buffer");
+    const buf0 = fileFetch(url + "rd.txt", "buffer");
     const buf1 = makeTd(url, bconfig.tdparts);
 
-    const downloads = await Promise.all([buf0, buf1, buf2]);
+    const downloads = await Promise.all([buf0, buf1]);
 
     this.log.i(rxid, "d:trie w/ config", bconfig);
 
-    const ft = downloads[0];
-    const rd = downloads[2];
+    const rd = downloads[0];
     const td = downloads[1];
 
     const ftrie = this.makeTrie(td, rd, bconfig);
@@ -216,11 +209,6 @@ export class BlocklistWrapper {
     const rdir = ftrie.directory;
     const d = rdir.directory;
     return bufutil.raw(d.bytes);
-  }
-
-  filetag() {
-    const blf = this.blocklistFilter;
-    return blf.filetag;
   }
 }
 

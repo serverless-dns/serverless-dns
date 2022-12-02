@@ -8,6 +8,7 @@ src/basicconfig.json
 package-lock.json
 .clinic/
 **basicconfig.json
+**filetag.json
 *.log
 *.swp
 *.bak
