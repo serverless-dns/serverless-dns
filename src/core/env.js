@@ -105,7 +105,7 @@ const defaults = {
   // max blocklist files download timeout
   CF_BLOCKLIST_DOWNLOAD_TIMEOUT: {
     type: "number",
-    default: "5000", // 5s
+    default: "7500", // 7.5s
   },
   // ttl for dns answers, overrides ttls in dns answers
   CACHE_TTL: {
