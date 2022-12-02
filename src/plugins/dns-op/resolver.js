@@ -33,6 +33,12 @@ export default class DNSResolver {
     // only valid on workers
     // bg-bw-init results in higher io-wait, not lower
     // p99 gb-sec (0.04 => 0.06); p99.9 gb-sec (0.09 => 0.14)
+    // also: from commit 35a557efe69e (14 Nov 2022) to 6b9a2e9f (25 Nov 2022)
+    // the cpu time has gone up for p50 ms (2.2 => 2.7); p75 (3.9 => 6.6);
+    // p99 (21.2 => 31.5); p99.9 (60 => 72.2); p50 gb-sec (.002 => .003)
+    // p75 (.004 => .007); p99 (.026 => .039); p99.9 (.069 => .126)
+    // it turned out that the trie-cache wasn't being used at all due to
+    // a missing version bump (npm update fixed it).
     this.bgBwInit = envutil.bgDownloadBlocklistWrapper();
     this.maxDoh = envutil.maxDohUrl();
 
