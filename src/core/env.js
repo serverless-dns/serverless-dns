@@ -129,6 +129,20 @@ const defaults = {
     type: "boolean",
     default: false,
   },
+  // serve dns only if a hash(access_key) is present in the
+  // request uri. must be a hex string, see: simple-auth.js
+  ACCESS_KEY: {
+    type: "string",
+    // testing; for msg/key: 1143112321321 and hostname: localhost
+    // For ex, DoH = 1:-J8AEH8Dv73_8______-___z6f9eagBA:1123213213
+    // DoT = 1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-1123213213
+    // calc access key, 'v' as: echo -n "1123213213|domain.tld" | sha256sum
+    // v: 6501611c59f36e4653d5b6f3e8be3bd6411996612a6315d59980388feb2ed594
+    // nb, 'v' must be hex but can be of any length upto 64 chars
+    // keep 'v' shorter (12 to 24) if using it with DoT
+    // 'v' can be sort of public (better if private / secret)
+    default: "", // no auth when empty
+  },
   // avoid using the (slow) fetch polyfill if on nodejs
   NODE_AVOID_FETCH: {
     type: "boolean",

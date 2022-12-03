@@ -8,6 +8,7 @@
 import { UserCache } from "./user-cache.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
+import * as token from "./auth-token.js";
 
 // TODO: determine an approp cache-size
 const cacheSize = 10000;
@@ -19,15 +20,20 @@ export class UserOp {
   }
 
   /**
-   * @param {*} param
-   * @param {Request} param.request
-   * @param {Boolean} param.isDnsMsg
+   * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} param
    * @returns
    */
   async RethinkModule(param) {
+    const ok = await token.auth(param.rxid, param.request.url);
+    if (!ok) {
+      return util.errResponse("UserOp:Auth", "auth failed");
+    }
     return this.loadUser(param);
   }
 
+  /**
+   * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} param
+   */
   loadUser(param) {
     let response = util.emptyResponse();
 

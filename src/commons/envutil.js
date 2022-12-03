@@ -194,6 +194,12 @@ export function profileDnsResolves() {
   return envManager.get("PROFILE_DNS_RESOLVES") || false;
 }
 
+export function accessKey() {
+  if (!envManager) return "";
+
+  return envManager.get("ACCESS_KEY") || "";
+}
+
 export function forceDoh() {
   if (!envManager) return true;
 
