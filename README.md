@@ -113,6 +113,21 @@ For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), inst
 1. The request/response flow: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
 2. The `plugin.js` flow: `user-op.js` -> `cache-resolver.js` -> `cc.js` -> `resolver.js`
 
+#### Authentication
+
+serverless-dns supports authentication with an alpha-numeric bearer token for both DoH and DoT.
+
+1. For a token, `msg-key` (secret), assign the output of `hex(sha256(msg-key|domain.tld))` to
+`ACCESS_KEY` env var.
+2. Then, for DoH requests, place the `msg-key` at the end of the blockstamp, like so:
+`1:-J8AEH8Dv73_8______-___z6f9eagBA:<msg-key>` (here, `1` is the version, `-J8AEH8Dv73_8______-___z6f9eagBA`
+is the blockstamp, `<msg-key>` is the auth secret, and `:` is a delimiter).
+3. Or, for DoT requests, place the `msg-key` at the end of the SNI containing the blockstamp:
+`1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-<msg-key>` (here `1` is the version, `7cpqaed7ao73377t777777767777h2p7lzvaaqa`
+is the blockstamp, `<msg-key>` is the auth secret, and `-` is a delimeter).
+
+If the intention is to use auth with DoT too, make sure to keep `msg-key` shorter (8 to 24 chars).
+
 ----
 
 #### A note about runtimes

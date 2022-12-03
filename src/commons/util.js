@@ -306,6 +306,14 @@ export function mapOf(obj) {
   return new Map(Object.entries(obj));
 }
 
+export function isAlphaNumeric(str) {
+  return /^[a-z0-9]+$/i.test(str);
+}
+
+export function isDNSName(str) {
+  return /^[a-z0-9\.-]+$/i.test(str);
+}
+
 export function emptyString(str) {
   // treat false-y values as empty
   if (!str) return true;

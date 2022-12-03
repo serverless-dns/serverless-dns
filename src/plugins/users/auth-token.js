@@ -52,7 +52,14 @@ export async function gen(msg, domain) {
     throw new Error("args empty");
   }
 
-  const u8 = encoder.encode(msg + "|" + domain);
+  // reject if msg is not alphanumeric
+  if (!util.isAlphaNumeric(msg) || !util.isDNSName(domain)) {
+    throw new Error("args must be alphanumeric");
+  }
+
+  const m = msg.toLowerCase();
+  const d = domain.toLowerCase();
+  const u8 = encoder.encode(m + "|" + d);
   const b = await crypto.subtle.digest("SHA-256", encoder.encode(u8));
 
   // conv to base16, pad 0 for single digits, 01, 02, 03, ... 0f
