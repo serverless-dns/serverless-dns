@@ -30,7 +30,7 @@ export class BlocklistWrapper {
     if (this.noop) this.log.w("disabled?", this.noop);
   }
 
-  async init(rxid) {
+  async init(rxid, forceget = false) {
     if (this.isBlocklistFilterSetup() || this.disabled()) {
       const blres = util.emptyResponse();
       blres.data.blocklistFilter = this.blocklistFilter;
@@ -51,7 +51,7 @@ export class BlocklistWrapper {
         const parts = cfg.tdParts();
         const u6 = cfg.tdCodec6();
         return this.initBlocklistConstruction(rxid, now, url, nc, parts, u6);
-      } else if (this.nowait) {
+      } else if (this.nowait && !forceget) {
         // blocklist-construction is in progress, but we don't have to
         // wait for it to finish. So, return an empty response.
         this.log.i(rxid, "nowait, but blocklist construction ongoing");
