@@ -196,7 +196,10 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
 
 async function generateAccessKey(queryString, hostname) {
   const msg = queryString.get("key");
-  const dom = hostname.split(".").slice(-2).join(".");
+  let dom = queryString.get("dom");
+  if (util.emptyString(dom)) {
+    dom = hostname.split(".").slice(-2).join(".");
+  }
   const acc = await token.gen(msg, dom);
   return jsonResponse({ accesskey: acc, context: dom });
 }
