@@ -1,6 +1,6 @@
 FROM node:19 as setup
 # git is required if any of the npm packages are git[hub] packages
-RUN apk --no-cache add git
+RUN apt update && apt install git -yq --no-install-suggests --no-install-recommends
 WORKDIR /node-dir
 COPY . .
 # get deps, build, bundle
