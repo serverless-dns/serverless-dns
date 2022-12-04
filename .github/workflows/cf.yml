@@ -74,6 +74,7 @@ jobs:
           WENV: 'prod'
           COMMIT_SHA: ${{ github.sha }}
 
+        # npm (and node16) are installed by wrangler-action in a pre-job setup
       - name: 🏗 Get dependencies
         run: npm i
 

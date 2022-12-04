@@ -1,4 +1,4 @@
-FROM node:alpine as setup
+FROM node:19 as setup
 # git is required if any of the npm packages are git[hub] packages
 RUN apk --no-cache add git
 WORKDIR /node-dir
@@ -10,7 +10,7 @@ RUN npm run build:fly
 RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.mjs
 
 # stage 2
-FROM node:alpine AS runner
+FROM node:19 AS runner
 
 # env vals persist even at run-time: archive.is/QpXp2
 # and overrides fly.toml env values
