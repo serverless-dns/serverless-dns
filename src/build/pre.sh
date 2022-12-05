@@ -42,14 +42,14 @@ do
         echo "=x== pre.sh: no op"
         exit 0
     else
-        wget "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
+        wget -q "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
         wcode=$?
 
         if [ $wcode -eq 0 ]; then
             # baretimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | grep -o -E '[0-9]+' | tail -n1)
             fulltimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | tr -dc '0-9/')
             echo "==x= pre.sh: $i ok $wcode; filetag? ${fulltimestamp}"
-            wget "${burl}/${fulltimestamp}/${codec}/${f2}" -O "${out2}"
+            wget -q "${burl}/${fulltimestamp}/${codec}/${f2}" -O "${out2}"
             wcode2=$?
             if [ $wcode2 -eq 0 ]; then
               echo "===x pre.sh: $i filetag ok $wcode2"
