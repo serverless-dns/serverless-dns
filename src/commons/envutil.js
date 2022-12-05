@@ -20,6 +20,14 @@ export function machinesTimeoutMillis() {
   return envManager.get("MACHINES_TIMEOUT_SEC") * 1000;
 }
 
+// only valid on Fly Machines
+export function httpCheck() {
+  if (!envManager) return false;
+  if (!onFly()) return false;
+
+  return envManager.get("MACHINES_TIMEOUT_SEC") > 0;
+}
+
 export function onDenoDeploy() {
   if (!envManager) return false;
 
@@ -186,6 +194,10 @@ export function dotProxyProtoBackendPort() {
 
 export function dotCleartextBackendPort() {
   return isCleartext() ? 10555 : /* random*/ 0;
+}
+
+export function httpCheckPort() {
+  return 8888;
 }
 
 export function profileDnsResolves() {

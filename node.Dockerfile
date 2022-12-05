@@ -1,6 +1,6 @@
 FROM node:alpine as setup
 # git is required if any of the npm packages are git[hub] packages
-apk add --no-cache git wget
+RUN apk add --no-cache git wget
 WORKDIR /node-dir
 COPY . .
 # get deps, build, bundle

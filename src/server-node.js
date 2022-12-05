@@ -34,6 +34,7 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
 let log = null;
 let noreqs = -1;
 let listeners = [];
+let nofchecks = 0;
 
 ((main) => {
   // listen for "go" and start the server
@@ -149,6 +150,15 @@ function systemUp() {
     // may contain null elements
     listeners = [dot1, dot2, doh];
   }
+
+  if (envutil.httpCheck()) {
+    const portcheck = envutil.httpCheckPort();
+    const hcheck = h2c
+      .createServer(serve200)
+      .listen(portcheck, () => up("http-check", hcheck.address()));
+    listeners.push(hcheck);
+  }
+
   machinesHeartbeat();
 }
 
@@ -527,6 +537,13 @@ async function resolveQuery(rxid, q, host, flag) {
   }
 }
 
+async function serve200(req, res) {
+  log.d("-------------> Http-check req", req.method, req.url);
+  nofchecks += 1;
+  res.writeHead(200);
+  res.end();
+}
+
 /**
  * Services a DNS over HTTPS connection
  * @param {Http2ServerRequest} req
@@ -618,7 +635,7 @@ function machinesHeartbeat() {
   // increment no of requests
   noreqs += 1;
   if (noreqs % 100 === 0) {
-    log.i(noreqs, "requests so far in", uptime() / 1000, "secs");
+    log.i(noreqs, "requests in", uptime() / 1000, "secs; chk:", nofchecks);
   }
   // nothing to do, if not on fly
   if (!envutil.onFly()) return;
