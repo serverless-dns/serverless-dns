@@ -13,12 +13,15 @@ cwd=`pwd`
 # exec this script from npm or project root
 out="./src/${codec}-${f}"
 out2="./src/${codec}-${f2}"
+
 # timestamp: 1667519318.799 stackoverflow.com/a/69400542
 # nowms =`date --utc +"%s.%3N"`
 now=`date --utc +"%s"`
 
 # date from timestamp: stackoverflow.com/a/16311821
 day=`date -d @$now "+%d"`
+# ex: conv 08 => 8 stackoverflow.com/a/12821845
+day=${day#0}
 # week; ceil: stackoverflow.com/a/12536521
 wkdef=$(((day + 7 -1) / 7))
 # year
