@@ -30,6 +30,7 @@ const _LOG_LEVELS = new Set(["error", "warn", "info", "timer", "debug"]);
 function _setConsoleLevel(level) {
   switch (level) {
     case "error":
+    case "logpush":
       globalThis.console.warn = stub();
     case "warn":
       globalThis.console.info = stub();
@@ -65,6 +66,7 @@ export default class Log {
    * }} - options
    */
   constructor({ level = "debug", levelize = false, withTimestamps = false }) {
+    level = level.toLowerCase();
     if (!_LOG_LEVELS.has(level)) level = "debug";
     if (levelize && !console.level) _setConsoleLevel(level);
 
@@ -148,6 +150,7 @@ export default class Log {
    * @param {LogLevels} level
    */
   setLevel(level) {
+    level = level.toLowerCase();
     if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
 
     this._resetLevel();
@@ -172,6 +175,7 @@ export default class Log {
         this.w = console.warn;
         this.warn = console.warn;
       case "error":
+      case "logpush":
         this.e = console.error;
         this.error = console.error;
     }
