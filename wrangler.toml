@@ -16,7 +16,7 @@ globs = ["**/*.js"]
 
 [vars]
 RUNTIME = "worker"
-LOG_LEVEL = "debug"
+LOG_LEVEL = "logpush"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
 CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
@@ -42,7 +42,7 @@ routes = [
 # workers/platform/environment-variables#environment-variables-via-wrangler
 [env.prod.vars]
 RUNTIME = "worker"
-LOG_LEVEL = "info"
+LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
 CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
