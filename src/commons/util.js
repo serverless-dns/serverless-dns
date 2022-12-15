@@ -339,6 +339,11 @@ export function strstr(str, start = 0, end = str.length) {
   return str.slice(start, end);
 }
 
+export function emptySet(s) {
+  if (s instanceof Set) return s.size <= 0;
+  return true;
+}
+
 export function emptyString(str) {
   // treat false-y values as empty
   if (!str) return true;

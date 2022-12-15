@@ -167,7 +167,7 @@ export class LogPusher {
   noop(param) {
     if (!param.isDnsMsg) return true;
     if (util.emptyString(param.lid)) return true;
-    if (util.emptyArray(this.sources)) return true;
+    if (util.emptySet(this.sources)) return true;
 
     const u = new URL(param.request.url);
     for (const s of this.sources) {
