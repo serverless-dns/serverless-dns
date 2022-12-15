@@ -11,13 +11,13 @@ import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../../plugins/rdns-util.js";
 
 const encoder = new TextEncoder();
+const mem = new Map();
 
 /**
  * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} param
  */
 export async function auth(rxid, url) {
   const accesskey = envutil.accessKey();
-  const u = new URL(url);
 
   // empty access key, allow all
   if (util.emptyString(accesskey)) {
@@ -30,7 +30,7 @@ export async function auth(rxid, url) {
     return false;
   }
   // get domain.tld from a hostname like s1.s2.domain.tld
-  const dom = u.hostname.split(".").slice(-2).join(".");
+  const dom = util.tld(url);
   const hex = await gen(msg, dom);
 
   log.d(rxid, msg, dom, "<= msg/h :auth: hex/k =>", hex, accesskey);
@@ -59,7 +59,11 @@ export async function gen(msg, domain) {
 
   const m = msg.toLowerCase();
   const d = domain.toLowerCase();
-  const u8 = encoder.encode(m + "|" + d);
+  const cat = m + "|" + d;
+  // return memoized ans
+  if (mem.has(cat)) return mem.get(cat);
+
+  const u8 = encoder.encode(cat);
   const b = await crypto.subtle.digest("SHA-256", encoder.encode(u8));
 
   // conv to base16, pad 0 for single digits, 01, 02, 03, ... 0f
@@ -67,5 +71,6 @@ export async function gen(msg, domain) {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
+  mem.set(cat, hex);
   return hex;
 }

@@ -429,6 +429,12 @@ export function isGatewayQuery(p) {
   return p === "gateway";
 }
 
+export function tld(urlstr) {
+  if (emptyString(urlstr)) return "";
+  const u = new URL(urlstr);
+  return u.hostname.split(".").slice(-2).join(".");
+}
+
 export function mkFetchEvent(r, ...fns) {
   if (emptyObj(r)) throw new Error("missing request");
   for (const f of fns) {
