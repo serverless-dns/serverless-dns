@@ -257,6 +257,15 @@ export function recursive() {
   return onFly();
 }
 
+// returns a set of subdomains on which logpush is enabled
+export function logpushSources() {
+  if (!envManager) return null;
+  if (!onCloudflare()) return null;
+
+  const csv = envManager.get("LOGPUSH_SRC");
+  return csv || null;
+}
+
 export function gwip4() {
   return envManager.get("GW_IP4") || "";
 }
