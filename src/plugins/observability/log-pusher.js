@@ -171,7 +171,7 @@ export class LogPusher {
 
     const u = new URL(param.request.url);
     for (const s of this.sources) {
-      if (u.hostname.indexOf(s) > 0) return false;
+      if (u.hostname.indexOf(s) >= 0) return false;
     }
     return true;
   }
