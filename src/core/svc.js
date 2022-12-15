@@ -28,33 +28,19 @@ let latestHeartbeat = 0;
 let latestWaitMs = 0;
 
 export const services = {
-  /**
-   * @type {Boolean} ready
-   */
+  /** @type {Boolean} ready */
   ready: false,
-  /**
-   * @type {?BlocklistWrapper} blocklistWrapper
-   */
+  /** @type {?BlocklistWrapper} blocklistWrapper */
   blocklistWrapper: null,
-  /**
-   * @type {?UserOp} userOp
-   */
+  /** @type {?UserOp} userOp */
   userOp: null,
-  /**
-   * @type {?DNSPrefilter} prefilter
-   */
+  /** @type {?DNSPrefilter} prefilter */
   prefilter: null,
-  /**
-   * @type {?CommandControl} commandControl
-   */
+  /** @type {?CommandControl} commandControl */
   commandControl: null,
-  /**
-   * @type {?DNSCacheResponder} dnsCacheHandler
-   */
+  /** @type {?DNSCacheResponder} dnsCacheHandler */
   dnsCacheHandler: null,
-  /**
-   * @type {?DNSResolver} dnsResolver
-   */
+  /** @type {?DNSResolver} dnsResolver */
   dnsResolver: null,
 };
 
