@@ -12,11 +12,11 @@
 import { uid, stub } from "../commons/util.js";
 
 /**
- * @typedef {'error'|'warn'|'info'|'timer'|'debug'} LogLevels
+ * @typedef {'error'|'logpush'|'warn'|'info'|'timer'|'debug'} LogLevels
  */
 
-// high "error" (4); low "debug" (0)
-const _LOG_LEVELS = new Set(["error", "warn", "info", "timer", "debug"]);
+// high "error" (4); low "debug" (0);
+const LEVELS = new Set(["error", "logpush", "warn", "info", "timer", "debug"]);
 
 /**
  * Configure console level.
@@ -67,7 +67,9 @@ export default class Log {
    */
   constructor({ level = "debug", levelize = false, withTimestamps = false }) {
     level = level.toLowerCase();
-    if (!_LOG_LEVELS.has(level)) level = "debug";
+    if (!LEVELS.has(level)) level = "debug";
+    // if logpush, then levlelize to stub out all but error and logpush logs
+    if (level === "logpush") levelize = true;
     if (levelize && !console.level) _setConsoleLevel(level);
 
     this.l = console.log;
@@ -151,7 +153,7 @@ export default class Log {
    */
   setLevel(level) {
     level = level.toLowerCase();
-    if (!_LOG_LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
+    if (!LEVELS.has(level)) throw new Error(`Unknown log level: ${level}`);
 
     this._resetLevel();
 
@@ -179,7 +181,7 @@ export default class Log {
         this.e = console.error;
         this.error = console.error;
     }
-
+    console.log("Log level set: ", level);
     this.level = level;
   }
 }
