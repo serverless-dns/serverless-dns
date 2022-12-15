@@ -15,6 +15,7 @@ import {
   DNSResolver,
   DnsCache,
 } from "../plugins/dns-op/dns-op.js";
+import { LogPusher } from "../plugins/observability/log-pusher.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as system from "../system.js";
 import * as util from "../commons/util.js";
@@ -42,6 +43,8 @@ export const services = {
   dnsCacheHandler: null,
   /** @type {?DNSResolver} dnsResolver */
   dnsResolver: null,
+  /** @type {?LogPusher} logPusher */
+  logPusher: null,
 };
 
 ((main) => {
@@ -65,6 +68,7 @@ async function systemReady() {
   services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
   services.commandControl = new CommandControl(bw);
   services.dnsResolver = new DNSResolver(bw, cache);
+  services.logPusher = new LogPusher();
 
   services.ready = true;
 
