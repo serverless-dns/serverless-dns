@@ -143,7 +143,7 @@ function systemUp() {
 
     // DNS over HTTPS
     const doh = http2
-      // serverHTTPS must eventually invoke machines-heartbeat
+      // serveHTTPS must eventually invoke machines-heartbeat
       .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
       .listen(portdoh, () => up("DoH", doh.address()));
 
@@ -517,6 +517,8 @@ async function resolveQuery(rxid, q, host, flag) {
   // where-as DNS-over-TCP msgs could be upto 64KB in size.
   const freq = new Request(`https://${host}/${flag}`, {
     method: "POST",
+    // TODO: populate req ip in x-nile-client-ip header
+    // TODO: add host header
     headers: util.concatHeaders(
       util.dnsHeaders(),
       util.contentLengthHeader(q),
@@ -592,6 +594,7 @@ async function handleHTTPRequest(b, req, res) {
       // Note: In VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
+      // TODO: populate req ip in x-nile-client-ip header
       headers: util.concatHeaders(
         util.rxidHeader(rxid),
         nodeutil.copyNonPseudoHeaders(req.headers)
