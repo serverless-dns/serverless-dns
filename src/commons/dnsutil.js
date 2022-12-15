@@ -370,9 +370,19 @@ export function dohStatusCode(b) {
 }
 
 export function getQueryName(questions) {
+  if (util.emptyArray(questions)) return false;
+
   const qn = normalizeName(questions[0].name);
 
   return util.emptyString(qn) ? false : qn;
+}
+
+export function getQueryType(packet) {
+  if (!hasSingleQuestion(packet)) return false;
+
+  const qt = packet.questions[0].type;
+
+  return util.emptyString(qt) ? false : qt;
 }
 
 export function normalizeName(n) {
