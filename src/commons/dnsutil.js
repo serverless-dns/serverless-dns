@@ -150,16 +150,76 @@ export function isAnswerBlockable(packet) {
   return isCname(packet) || isHttps(packet);
 }
 
-export function isCname(packet) {
-  return hasAnswers(packet) && isAnswerCname(packet.answers[0]);
+export function isAnswerDS(ans) {
+  return !util.emptyObj(ans) && ans.type === "DS";
+}
+
+export function isAnswerRRSIG(ans) {
+  return !util.emptyObj(ans) && ans.type === "RRSIG";
+}
+
+export function isAnswerDNSKEY(ans) {
+  return !util.emptyObj(ans) && ans.type === "DNSKEY";
+}
+
+export function isAnswerRP(ans) {
+  return !util.emptyObj(ans) && ans.type === "RP";
+}
+
+export function isAnswerTXT(ans) {
+  return !util.emptyObj(ans) && ans.type === "TXT";
+}
+
+export function isAnswerNS(ans) {
+  return !util.emptyObj(ans) && ans.type === "NS";
+}
+
+export function isAnswerOPT(ans) {
+  return !util.emptyObj(ans) && ans.type === "OPT";
+}
+
+export function isAnswerMX(ans) {
+  return !util.emptyObj(ans) && ans.type === "MX";
+}
+
+export function isAnswerCAA(ans) {
+  return !util.emptyObj(ans) && ans.type === "CAA";
+}
+
+export function isAnswerSRV(ans) {
+  return !util.emptyObj(ans) && ans.type === "SRV";
+}
+
+export function isAnswerHINFO(ans) {
+  return !util.emptyObj(ans) && ans.type === "HINFO";
+}
+
+export function isAnswerSOA(ans) {
+  return !util.emptyObj(ans) && ans.type === "SOA";
+}
+
+export function isAnswerOPTION(ans) {
+  return !util.emptyObj(ans) && ans.type === "OPTION";
+}
+
+export function isAnswerA(ans) {
+  return !util.emptyObj(ans) && ans.type === "A";
+}
+
+export function isAnswerAAAA(ans) {
+  return !util.emptyObj(ans) && ans.type === "AAAA";
+}
+
+export function isCname(anspacket) {
+  return hasAnswers(anspacket) && isAnswerCname(anspacket.answers[0]);
 }
 
 export function isAnswerCname(ans) {
   return !util.emptyObj(ans) && ans.type === "CNAME";
 }
 
-export function isHttps(packet) {
-  return hasAnswers(packet) && isAnswerHttps(packet.answers[0]);
+export function isHttps(anspacket) {
+  return hasAnswers(anspacket) && isAnswerHttps(anspacket.answers[0]);
 }
 
 export function isAnswerHttps(ans) {
@@ -216,6 +276,90 @@ export function extractDomains(dnsPacket) {
   }
 
   return [...names];
+}
+
+export function getAnswerTarget(packet) {
+  // 40 chars is around enough to accomodate ipv6 addresses
+  const maxdatalen = 40;
+  if (!hasAnswers(packet)) {
+    return packet.rcode;
+  }
+  let str = "";
+  for (const a of packet.answers) {
+    if (
+      isAnswerA(a) ||
+      isAnswerAAAA(a) ||
+      isAnswerOPTION(a) ||
+      isAnswerNS(a) ||
+      isAnswerTXT(a)
+    ) {
+      // ns: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L249
+      // txt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L370
+      // opt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L773
+      str = a.data || "";
+      break;
+    } else if (isAnswerSOA(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L284
+      str = a.data.mname;
+      break;
+    } else if (isAnswerHINFO(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L450
+      str = a.data.os;
+      break;
+    } else if (isAnswerSRV(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L521
+      str = a.data.target;
+      break;
+    } else if (isAnswerCAA(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L574
+      str = a.data.value;
+      break;
+    } else if (isAnswerMX(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L618
+      str = a.data.exchange;
+      break;
+    } else if (isAnswerRP(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1027
+      str = a.data.mbox;
+      break;
+    } else if (isAnswerHttps(a)) {
+      // https/svcb answers may have a A / AAAA records
+      // github.com/serverless-dns/dns-parser/blob/b7d73b3d/index.js#L1381
+      const t = a.data.targetName;
+      const kv = a.data.svcParams;
+      if (t === ".") {
+        if (util.emptyObj(kv)) continue;
+        // if svcb/https is self-referential, then extract ip hints
+        if (!util.emptyArray(kv.ipv4hint)) str = kv.ipv4hint[0];
+        else if (!util.emptyArray(kv.ipv6hint)) str = kv.ipv6hint[0];
+        else str = "";
+        break;
+      } else {
+        str = t;
+        continue;
+      }
+    } else if (isAnswerDNSKEY(a)) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L914
+      str = bufutil.bytesToBase64Url(a.data.key);
+      break;
+    } else if (isAnswerDS(a)) {
+      // ds: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1279
+      str = bufutil.bytesToBase64Url(a.data.digest);
+      break;
+    } else if (isAnswerRRSIG(a)) {
+      // rrsig: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L984
+      str = bufutil.bytesToBase64Url(a.data.signature);
+      break;
+    } else if (isAnswerCname(a)) {
+      str = a.data;
+      continue;
+    } else {
+      // unhanlded types:
+      // null, ptr, cname, ds, nsec, nsec3, nsec3param, tlsa, sshfp, spf, dname
+      break;
+    }
+  }
+  return util.strstr(str, 0, maxdatalen);
 }
 
 export function dohStatusCode(b) {
