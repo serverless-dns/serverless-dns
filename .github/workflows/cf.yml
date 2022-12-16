@@ -16,6 +16,7 @@ on:
         options:
         - dev
         - prod
+        - one
       commit:
         description: 'git tip commit to deploy'
         default: 'main'

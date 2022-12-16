@@ -166,7 +166,7 @@ const defaults = new Map(
     // cloudflare logpush: developers.cloudflare.com/workers/platform/logpush
     LOGPUSH_SRC: {
       type: "csv",
-      default: "sky,basic,one,local,localhost",
+      default: "pro,one,log,local,localhost",
     },
     // Return 'Gateway IPs' for ALL eligible reqs (ref util.js:isGatewayRequest)
     GW_IP4: {

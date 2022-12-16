@@ -1,6 +1,7 @@
 name = "serverless-dns"
 main = "./dist/worker.js"
 workers_dev = true
+# logpush job is setup to capture from envs ending: log, pro, or one
 logpush = true
 # use node_compat or custom build
 # node_compat = true
@@ -16,7 +17,7 @@ globs = ["**/*.js"]
 
 [vars]
 RUNTIME = "worker"
-LOG_LEVEL = "logpush"
+LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
 CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
@@ -41,6 +42,22 @@ routes = [
 # vars are not inherited
 # workers/platform/environment-variables#environment-variables-via-wrangler
 [env.prod.vars]
+RUNTIME = "worker"
+LOG_LEVEL = "info"
+WORKER_ENV = "production"
+CLOUD_PLATFORM = "cloudflare"
+CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
+
+##################
+#------ONE-------#
+##################
+[env.one]
+name = "dns-one"
+routes = [
+  "one.rethinkdns.com/*",
+  "one.bravedns.com/*",
+]
+[env.pro.vars]
 RUNTIME = "worker"
 LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
