@@ -340,6 +340,7 @@ export function strstr(str, start = 0, end = str.length) {
 }
 
 export function emptySet(s) {
+  if (!s) return true;
   if (s instanceof Set) return s.size <= 0;
   return true;
 }
