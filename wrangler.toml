@@ -57,7 +57,7 @@ routes = [
   "one.rethinkdns.com/*",
   "one.bravedns.com/*",
 ]
-[env.pro.vars]
+[env.one.vars]
 RUNTIME = "worker"
 # just the error and request logs
 LOG_LEVEL = "logpush"

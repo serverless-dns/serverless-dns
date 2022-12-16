@@ -71,7 +71,7 @@ jobs:
           echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
         shell: bash
         env:
-          WENV: $ {{ github.event.inputs.environment }}
+          WENV: ${{ github.event.inputs.environment }}
           COMMIT_SHA: ${{ github.sha }}
 
       - name: 🎱 Tag?
