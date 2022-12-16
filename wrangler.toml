@@ -59,6 +59,7 @@ routes = [
 ]
 [env.pro.vars]
 RUNTIME = "worker"
+# just the error and request logs
 LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"

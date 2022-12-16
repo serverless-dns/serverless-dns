@@ -64,6 +64,7 @@ export async function gen(msg, domain) {
   if (mem.has(cat)) return mem.get(cat);
 
   const u8 = encoder.encode(cat);
+  // could use hmac but sha256 is good enough for token auth?
   const b = await crypto.subtle.digest("SHA-256", encoder.encode(u8));
 
   // conv to base16, pad 0 for single digits, 01, 02, 03, ... 0f

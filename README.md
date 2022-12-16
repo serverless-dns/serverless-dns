@@ -116,17 +116,52 @@ For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), inst
 #### Authentication
 
 serverless-dns supports authentication with an alpha-numeric bearer token for both DoH and DoT.
+For a token, `msg-key` (secret), assign the output of `hex(sha256(msg-key|domain.tld))` to `ACCESS_KEY` env var.
 
-1. For a token, `msg-key` (secret), assign the output of `hex(sha256(msg-key|domain.tld))` to
-`ACCESS_KEY` env var.
-2. Then, for DoH requests, place the `msg-key` at the end of the blockstamp, like so:
+1. DoH: place the `msg-key` at the end of the blockstamp, like so:
 `1:-J8AEH8Dv73_8______-___z6f9eagBA:<msg-key>` (here, `1` is the version, `-J8AEH8Dv73_8______-___z6f9eagBA`
-is the blockstamp, `<msg-key>` is the auth secret, and `:` is a delimiter).
-3. Or, for DoT requests, place the `msg-key` at the end of the SNI containing the blockstamp:
+is the blockstamp, `<msg-key>` is the auth secret, and `:` is the delimiter).
+2. DoT: place the `msg-key` at the end of the SNI (domain-name) containing the blockstamp:
 `1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-<msg-key>` (here `1` is the version, `7cpqaed7ao73377t777777767777h2p7lzvaaqa`
-is the blockstamp, `<msg-key>` is the auth secret, and `-` is a delimeter).
+is the blockstamp, `<msg-key>` is the auth secret, and `-` is the delimeter).
 
-If the intention is to use auth with DoT too, make sure to keep `msg-key` shorter (8 to 24 chars).
+If the intention is to use auth with DoT too, keep `msg-key` shorter (8 to 24 chars), since subdomains may only be 63 chars long in total.
+
+#### Logs
+
+serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
+
+0. Setup a *Logpush* job:
+    ```bash
+    CF_ACCOUNT_ID=<hex-cloudflare-account-id>
+    CF_API_KEY=<api-key-with-logs-edit-permission-at-account-level>
+    R2_BUCKET=<r2-bucket-name>
+    R2_ACCESS_KEY=<r2-access-key-for-the-bucket>
+    R2_SECRET_KEY=<r2-secret-key-with-read-write-permissions>
+    # in "filter", replace <SCRIPT_NAME> to match name of the Worker
+    # for more options, ref: developers.cloudflare.com/logs/get-started/api-configuration
+    # Logpush API with cURL: developers.cloudflare.com/logs/tutorials/examples/example-logpush-curl
+    # Available Logpull fields: developers.cloudflare.com/logs/reference/log-fields/account/workers_trace_events
+    curl -s -X POST 'https://api.cloudflare.com/client/v4/accounts/CF_ACCOUNT_ID/logpush/jobs' \
+        -H "Authorization: Bearer ${CF_API_KEY}" \
+        -H 'Content-Type: application/json' \
+        -d '{
+            "name": "dns-logpush",
+            "logpull_options": "fields=EventTimestampMs,Outcome,Logs,ScriptName&timestamps=rfc3339",
+            "destination_conf": "r2://R2_BUCKET/{DATE}?access-key-id=R2_ACCESS_KEY&secret-access-key=R2_SECRET_KEY&account-id=CF_ACCOUNT_ID",
+            "dataset": "workers_trace_events",
+            "filter": "{\"where\":{\"and\":[{\"key\":\"ScriptName\",\"operator\":\"contains\",\"value\":\"<SCRIPT_NAME>\"},{\"key\":\"Outcome\",\"operator\":\"eq\",\"value\":\"ok\"}]}}",
+            "enabled": true,
+            "frequency": "low"
+        }'
+    ```
+1. Set `wrangler.toml` property `logpush = true`, which enables *Logpush*.
+2. Set env var `LOGPUSH_SRC = "csv,of,subdomains"`, which makes [`log-pusher.js`](./src/plugins/observability/log-pusher.js) emit *request* logs only if Workers `hostname` contains one of the subdomains.
+3. (Optional) env var `LOG_LEVEL = "logpush"`, which raises the log-level such that only *request* and error logs are emitted.
+
+Logs published to R2 can be retrieved either using [R2 Workers](https://developers.cloudflare.com/r2/data-access/workers-api/workers-api-usage), the [R2 API](https://developers.cloudflare.com/r2/data-access/s3-api/api), or the [Logpush API](https://developers.cloudflare.com/logs/r2-log-retrieval).
+
+Log capture isn't yet implemented for Fly and Deno Deploy.
 
 ----
 
