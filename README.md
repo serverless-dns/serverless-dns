@@ -119,10 +119,10 @@ serverless-dns supports authentication with an alpha-numeric bearer token for bo
 For a token, `msg-key` (secret), assign the output of `hex(sha256(msg-key|domain.tld))` to `ACCESS_KEY` env var.
 
 1. DoH: place the `msg-key` at the end of the blockstamp, like so:
-`1:-J8AEH8Dv73_8______-___z6f9eagBA:<msg-key>` (here, `1` is the version, `-J8AEH8Dv73_8______-___z6f9eagBA`
+`1:1:4AIggAABEGAgAA:<msg-key>` (here, `1` is the version, `1:4AIggAABEGAgAA`
 is the blockstamp, `<msg-key>` is the auth secret, and `:` is the delimiter).
 2. DoT: place the `msg-key` at the end of the SNI (domain-name) containing the blockstamp:
-`1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-<msg-key>` (here `1` is the version, `7cpqaed7ao73377t777777767777h2p7lzvaaqa`
+`1-4abcbaaaaeigaiaa-<msg-key>` (here `1` is the version, `4abcbaaaaeigaiaa`
 is the blockstamp, `<msg-key>` is the auth secret, and `-` is the delimeter).
 
 If the intention is to use auth with DoT too, keep `msg-key` shorter (8 to 24 chars), since subdomains may only be 63 chars long in total.
@@ -138,19 +138,21 @@ serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
     R2_BUCKET=<r2-bucket-name>
     R2_ACCESS_KEY=<r2-access-key-for-the-bucket>
     R2_SECRET_KEY=<r2-secret-key-with-read-write-permissions>
-    # in "filter", replace <SCRIPT_NAME> to match name of the Worker
+    # optional, setup a filter such that only logs form this worker ends up being pushed; but if you
+    # do not need a filter on Worker name (script-name), edit the "filter" field below accordingly.
+    SCRIPT_NAME=<name-of-the-worker-as-in-wrangler-toml>
     # for more options, ref: developers.cloudflare.com/logs/get-started/api-configuration
     # Logpush API with cURL: developers.cloudflare.com/logs/tutorials/examples/example-logpush-curl
     # Available Logpull fields: developers.cloudflare.com/logs/reference/log-fields/account/workers_trace_events
-    curl -s -X POST 'https://api.cloudflare.com/client/v4/accounts/CF_ACCOUNT_ID/logpush/jobs' \
+    curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/logpush/jobs" \
         -H "Authorization: Bearer ${CF_API_KEY}" \
         -H 'Content-Type: application/json' \
         -d '{
             "name": "dns-logpush",
             "logpull_options": "fields=EventTimestampMs,Outcome,Logs,ScriptName&timestamps=rfc3339",
-            "destination_conf": "r2://R2_BUCKET/{DATE}?access-key-id=R2_ACCESS_KEY&secret-access-key=R2_SECRET_KEY&account-id=CF_ACCOUNT_ID",
+            "destination_conf": "r2://R2_BUCKET/{DATE}?access-key-id='"${R2_ACCESS_KEY}"'&secret-access-key='"${R2_SECRET_KEY}"'&account-id='"{$CF_ACCOUNT_ID}"',
             "dataset": "workers_trace_events",
-            "filter": "{\"where\":{\"and\":[{\"key\":\"ScriptName\",\"operator\":\"contains\",\"value\":\"<SCRIPT_NAME>\"},{\"key\":\"Outcome\",\"operator\":\"eq\",\"value\":\"ok\"}]}}",
+            "filter": "{\"where\":{\"and\":[{\"key\":\"ScriptName\",\"operator\":\"contains\",\"value\":\"'"${SCRIPT_NAME}"'\"},{\"key\":\"Outcome\",\"operator\":\"eq\",\"value\":\"ok\"}]}}",
             "enabled": true,
             "frequency": "low"
         }'
@@ -215,7 +217,7 @@ For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](
 while deploy directives are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets
 up `serverless-dns` on Fly.io's infrastructure.
 
-```
+```bash
 # build and deploy for cloudflare workers.dev
 npm run build
 # usually, env-name is prod
