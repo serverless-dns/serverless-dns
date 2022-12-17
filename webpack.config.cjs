@@ -32,7 +32,7 @@ module.exports = {
 
   optimization: {
     usedExports: true,
-    minimize: true,
+    minimize: false,
   },
 
   experiments: {
