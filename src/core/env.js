@@ -210,13 +210,13 @@ function caststr(x, typ) {
  */
 function _determineRuntime() {
   if (typeof Deno !== "undefined") {
-    return Deno.env.get("RUNTIME") || "deno";
+    return "deno";
   }
 
-  if (globalThis.wenv) return wenv.RUNTIME || "worker";
+  if (globalThis.wenv) return "worker";
 
   if (typeof process !== "undefined") {
-    // process also exists in Workers, where wenv is defined
+    // process also exists in Workers (miniflare), where wenv is defined
     if (process.env) return process.env.RUNTIME || "node";
   }
 

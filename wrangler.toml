@@ -16,7 +16,6 @@ type = "ESModule"
 globs = ["**/*.js"]
 
 [vars]
-RUNTIME = "worker"
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
@@ -42,7 +41,6 @@ routes = [
 # vars are not inherited
 # workers/platform/environment-variables#environment-variables-via-wrangler
 [env.prod.vars]
-RUNTIME = "worker"
 LOG_LEVEL = "info"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
@@ -58,7 +56,6 @@ routes = [
   "one.bravedns.com/*",
 ]
 [env.one.vars]
-RUNTIME = "worker"
 # just the error and request logs
 LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
