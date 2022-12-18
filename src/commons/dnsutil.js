@@ -280,7 +280,7 @@ export function extractDomains(dnsPacket) {
 
 export function getAnswerTarget(packet) {
   // 40 chars is around enough to accomodate ipv6 addresses
-  const maxdatalen = 40;
+  const maxdatalen = 50;
   if (!hasAnswers(packet)) {
     return packet.rcode;
   }
