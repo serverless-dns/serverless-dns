@@ -36,21 +36,10 @@ async function prep() {
   const profiling = process.env.PROFILE_DNS_RESOLVES === "true";
 
   let devutils = null;
-  let dotenv = null;
 
   // dev utilities
   if (!isProd) {
     devutils = await import("./util-dev.js");
-    // TODO: remove .env
-    dotenv = await import("dotenv");
-  }
-
-  /** Environment Variables */
-  // Load env variables from .env file to process.env (if file exists)
-  // NOTE: this won't overwrite existing
-  if (dotenv) {
-    dotenv.config();
-    console.log("loading local .env");
   }
 
   globalThis.envManager = new EnvManager();
