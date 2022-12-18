@@ -13,8 +13,6 @@ import * as envutil from "../../commons/envutil.js";
 const emptystring = "";
 // csv separator length
 const commalen = 1;
-// key length, incl separator
-const keylen = 2;
 // logpush limits a single log msg to upto 150 chars
 const charlimit = 150;
 
@@ -32,7 +30,7 @@ const charlimit = 150;
  * to turn this off, except for filter on "outcome". We, however, log all errors
  * along with relevant DNS request logs, if requested (per user) and if enabled
  * (on the Cloudflare dashboard). And so, request logs are identified by the
- * presence of "k:<logkey>,0:<uid>" csv in the log output.
+ * presence of "k:<logkey>" csv in the log output.
  *
  * Refs:
  * developers.cloudflare.com/workers/platform/logpush
@@ -100,30 +98,23 @@ export class LogPusher {
 
     const all = [version, ip, region, host, up, qname, qtype, ans, f];
 
-    // ex: x:w35fgyqzd1
-    const uniq = this.getuid(rxid);
     // max number of chars in a log entry
-    const n = this.getlimit(lk.length, uniq.length);
+    const n = this.getlimit(lk.length);
     const lines = this.mklogs(all, n);
 
-    // log-id, uniq-id, index, log-entry
-    for (let i = 0; i < lines.length; i++) {
-      const uk = this.key(i, uniq);
+    // log-id, log-entry
+    for (const l of lines) {
       // k:avc,0:cd9i01d9mw,v:1,q:rethinkdns.com,t:AAAA,a:2606:4700::81d4:fa9a
-      this.log([lk, uk, lines[i]].join(","));
+      this.log(lk + "," + l);
     }
   }
 
-  getlimit(lklen, uniqlen) {
-    return charlimit - (lklen + commalen) - (uniqlen + keylen + commalen);
+  getlimit(lklen) {
+    return charlimit - (lklen + commalen);
   }
 
   getversion() {
     return "1";
-  }
-
-  getuid(rxid) {
-    return util.uidFromXidOrRxid(rxid) || emptystring;
   }
 
   getip(req) {
