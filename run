@@ -93,7 +93,6 @@ if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
            --allow-net \
            --allow-read \
            --allow-write \
-           --import-map=import_map.json \
            src/server-deno.ts";
 elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "note: wrangler v1.16+ required";
