@@ -442,20 +442,20 @@ export function isGetRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
 
-export function fromPath(strurl, prefix) {
+export function fromPath(strurl, re) {
   const empty = "";
   if (emptyString(strurl)) return empty;
-  if (emptyString(prefix)) return empty;
+  if (!(re instanceof RegExp)) {
+    throw new Error(`invalid arg: ${re} must be RegExp`);
+  }
 
-  // if prefix "1:" => /^1:/
-  const re = new RegExp(`^${prefix}`);
   const u = new URL(strurl);
   // ex: x.tld/1:a/b/l:c/ => ["", "1:a", "b", "l:c", ""]
   const p = u.pathname.split("/");
   for (const x of p) {
-    // returns ["1:"] if the x starts with prefix "1:", else null
+    // returns ["1:"] if the x matches the regex
     const m = x.match(re);
-    if (m && m.length > 0) {
+    if (m != null && m.length > 0) {
       // return the string after the prefix
       return strstr(x, m[0].length);
     }
