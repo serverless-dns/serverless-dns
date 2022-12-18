@@ -260,10 +260,11 @@ export function recursive() {
 // returns a set of subdomains on which logpush is enabled
 export function logpushSources() {
   if (!envManager) return null;
-  if (!onCloudflare()) return null;
 
-  const csv = envManager.get("LOGPUSH_SRC");
-  return csv || null;
+  const csv = envManager.get("LOGPUSH_SRC") || null;
+  if (onCloudflare() || onLocal()) return csv;
+
+  return null;
 }
 
 export function gwip4() {
