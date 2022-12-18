@@ -65,19 +65,19 @@ export function hasHttpCache() {
 export function isWorkers() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "worker";
+  return envManager.r() === "worker";
 }
 
 export function isNode() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "node";
+  return envManager.r() === "node";
 }
 
 export function isDeno() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "deno";
+  return envManager.r() === "deno";
 }
 
 export function workersTimeout(missing = 0) {

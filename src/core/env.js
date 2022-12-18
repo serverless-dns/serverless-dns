@@ -25,11 +25,6 @@
  */
 const defaults = new Map(
   Object.entries({
-    // one of deno, nodejs, or cloudflare workers
-    RUNTIME: {
-      type: "string",
-      default: _determineRuntime(),
-    },
     // the env stage (production or development) workers is running in
     // development is always "local" (a laptop /a server, for example)
     WORKER_ENV: {
@@ -302,6 +297,11 @@ export default class EnvManager {
     env.set("CLOUD_PLATFORM", this.mostLikelyCloudPlatform());
 
     return env;
+  }
+
+  // one of deno, nodejs, or cloudflare workers
+  r() {
+    return this.runtime;
   }
 
   /**
