@@ -30,6 +30,7 @@ export default class DNSResolver {
     // only valid on nodejs
     this.forceDoh = envutil.forceDoh();
     this.avoidFetch = envutil.avoidFetch();
+
     // only valid on workers
     // bg-bw-init results in higher io-wait, not lower
     // p99 gb-sec (0.04 => 0.06); p99.9 gb-sec (0.09 => 0.14)
@@ -179,7 +180,7 @@ export default class DNSResolver {
       fromMax = true;
       this.log.d(rxid, "bg-bw-init; upstream to max", alt);
       dispatcher(this.bw.init(rxid));
-      promisedTasks = await Promise.all([
+      promisedTasks = await Promise.allSettled([
         Promise.resolve(), // placeholder promise that never rejects
         this.resolveDnsUpstream(
           rxid,
@@ -200,7 +201,7 @@ export default class DNSResolver {
       // arrayWrapper = async () => { return [fulfiller()]; }
       // result1 = await arrayWrapper() :: outputs "Array[Promise{}]"
       // result2 = await result1[0] :: outputs "123"
-      promisedTasks = await Promise.all([
+      promisedTasks = await Promise.allSettled([
         this.bw.init(rxid),
         this.resolveDnsUpstream(
           rxid,
@@ -212,13 +213,20 @@ export default class DNSResolver {
       ]);
     }
 
+    for (const task of promisedTasks) {
+      if (task.status === "rejected") {
+        throw new Error("task rejected", task.reason);
+      } // else: task.status === "fulfilled"
+    }
+
     if (this.profileResolve) {
       resolveEnd = Date.now();
       this.measurements.push(resolveEnd - resolveStart);
       this.logMeasurementsPeriodically();
     }
 
-    const res = promisedTasks[1];
+    // developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled#return_value
+    const res = promisedTasks[1].value;
 
     if (fromMax) {
       // blf would be eventually be init'd in the background
