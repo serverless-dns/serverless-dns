@@ -14,6 +14,10 @@ import * as envutil from "../commons/envutil.js";
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
 const _b32delim = "-";
+// begins with l, followed by b64delim or b32delim
+export const logPrefix = new RegExp(`^l${_b64delim}|^l${_b32delim}`);
+// begins with a digit, followed by b64delim or b32delim
+export const stampPrefix = new RegExp(`^\\d+${_b64delim}|^\\d+${_b32delim}`);
 
 // TODO: wildcard list should be fetched from S3/KV
 const _wildcardUint16 = new Uint16Array([
@@ -22,6 +26,14 @@ const _wildcardUint16 = new Uint16Array([
 
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
+}
+
+export function isStampQuery(p) {
+  return stampPrefix.test(p);
+}
+
+export function isLogQuery(p) {
+  return logPrefix.test(p);
 }
 
 export function dnsResponse(packet = null, raw = null, stamps = null) {
@@ -318,11 +330,15 @@ export function extractStamps(u) {
   if (isFreeBraveDns) {
     // oisd, 1hosts:mini, cpbl:light, stevenblack, anudeep, yhosts, tiuxo
     s = "1:YAYBACABEHAgAA==";
-  } else if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
-    // skip to next if path has `/dns-query` or `/gateway`
-    s = paths[2] || emptystr;
-  } else {
-    s = paths[1] || emptystr;
+  }
+
+  for (const p of paths) {
+    if (p.length === 0) continue;
+    // skip to next if path has `/dns-query` or `/gateway` or '/l:'
+    if (isStampQuery(p)) {
+      s = p;
+      break;
+    }
   }
 
   // get blockstamp with access-key from paths[1|2]
@@ -359,6 +375,7 @@ export function splitBlockstamp(s) {
   let out = ["", "", "", ""];
 
   if (util.emptyString(s)) return out;
+  if (!isStampQuery(s)) return out;
 
   if (isB32Stamp(s)) {
     out = [_b32delim, ...s.split(_b32delim)];

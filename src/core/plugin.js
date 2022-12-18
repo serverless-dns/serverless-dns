@@ -10,6 +10,7 @@ import { services } from "./svc.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import * as rdnsutil from "../plugins/rdns-util.js";
 import * as util from "../commons/util.js";
 import IOState from "./io-state.js";
 
@@ -379,8 +380,7 @@ function generateParam(parameter, list) {
 
 // TODO: fetch lid from config store
 function extractLid(url) {
-  const prefix = "l:";
-  return util.fromPath(url, prefix);
+  return util.fromPath(url, rdnsutil.logPrefix);
 }
 
 async function extractDnsQuestion(request) {

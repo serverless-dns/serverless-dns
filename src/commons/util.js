@@ -447,13 +447,17 @@ export function fromPath(strurl, prefix) {
   if (emptyString(strurl)) return empty;
   if (emptyString(prefix)) return empty;
 
+  // if prefix "1:" => /^1:/
+  const re = new RegExp(`^${prefix}`);
   const u = new URL(strurl);
   // ex: x.tld/1:a/b/l:c/ => ["", "1:a", "b", "l:c", ""]
   const p = u.pathname.split("/");
   for (const x of p) {
-    if (x.startsWith(prefix)) {
-      // return the string after the prefix l:
-      return strstr(x, prefix.length);
+    // returns ["1:"] if the x starts with prefix "1:", else null
+    const m = x.match(re);
+    if (m && m.length > 0) {
+      // return the string after the prefix
+      return strstr(x, m[0].length);
     }
   }
   return empty;
