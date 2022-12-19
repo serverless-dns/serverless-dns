@@ -52,7 +52,7 @@
     "wrangler": "^2.1.15"
   },
   "lint-staged": {
-    "*.js": "eslint --cache --fix",
+    "*.?(m|c)js": "eslint --cache --fix",
     "*.ts": "prettier --write"
   },
   "eslintIgnore": ["src/core/cfg.js"]
