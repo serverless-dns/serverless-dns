@@ -17,7 +17,18 @@ module.exports = {
     sourceType: "module",
   },
 
-  ignorePatterns: ["node_modules/", "dist/", "worker/", "test/data/cache/"],
+  ignorePatterns: [
+    "node_modules/",
+    "dist/",
+    "worker/",
+    "test/data/cache/",
+
+    // Ignore all files, except JS files
+    "**/*.*",
+    "!**/*.js",
+    "!**/*.mjs",
+    "!**/*.cjs",
+  ],
 
   plugins: ["prettier"],
   rules: {
