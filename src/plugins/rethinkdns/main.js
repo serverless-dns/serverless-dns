@@ -30,7 +30,7 @@ export class BlocklistWrapper {
     if (this.noop) this.log.w("disabled?", this.noop);
   }
 
-  async init(rxid) {
+  async init(rxid, forceget = false) {
     if (this.isBlocklistFilterSetup() || this.disabled()) {
       const blres = util.emptyResponse();
       blres.data.blocklistFilter = this.blocklistFilter;
@@ -51,7 +51,7 @@ export class BlocklistWrapper {
         const parts = cfg.tdParts();
         const u6 = cfg.tdCodec6();
         return this.initBlocklistConstruction(rxid, now, url, nc, parts, u6);
-      } else if (this.nowait) {
+      } else if (this.nowait && !forceget) {
         // blocklist-construction is in progress, but we don't have to
         // wait for it to finish. So, return an empty response.
         this.log.i(rxid, "nowait, but blocklist construction ongoing");
@@ -84,7 +84,9 @@ export class BlocklistWrapper {
     // reqs to wait until the trie becomes available. 400ms is 1/3rd of
     // 1.2s and 2x 250ms; both of these values have cost implications:
     // 250ms (0.028GB-sec or 218ms wall time) in unbound-worker per req
-    // and equals cost of one bundled-worker req.
+    // equals cost of one bundled-worker req.
+    // ~7800ms is 1GB-sec; 10s (overall download timeout) is 1.3GB-sec.
+    // and 5s is 0.065GB-sec (which is the request timeout).
     let totalWaitms = 0;
     const waitms = 25;
     const response = util.emptyResponse();
@@ -163,6 +165,7 @@ export class BlocklistWrapper {
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
 
     const bconfig = withDefaults(cfg.orig());
+    const ft = cfg.filetag();
 
     if (
       bconfig.useCodec6 !== u6 ||
@@ -175,22 +178,14 @@ export class BlocklistWrapper {
     url += bconfig.useCodec6 ? "u6/" : "u8/";
 
     this.log.d(rxid, url, tdNodecount, tdParts);
-    // filetag is fetched as application/octet-stream and so,
-    // the response api complains it is unsafe to .json() it:
-    // "Called .text() on an HTTP body which does not appear to be
-    // text. The body's Content-Type is 'application/octet-stream'.
-    // The result will probably be corrupted. Consider checking the
-    // Content-Type header before interpreting entities as text."
-    const buf0 = fileFetch(url + "filetag.json", "json");
-    const buf2 = fileFetch(url + "rd.txt", "buffer");
+    const buf0 = fileFetch(url + "rd.txt", "buffer");
     const buf1 = makeTd(url, bconfig.tdparts);
 
-    const downloads = await Promise.all([buf0, buf1, buf2]);
+    const downloads = await Promise.all([buf0, buf1]);
 
     this.log.i(rxid, "d:trie w/ config", bconfig);
 
-    const ft = downloads[0];
-    const rd = downloads[2];
+    const rd = downloads[0];
     const td = downloads[1];
 
     const ftrie = this.makeTrie(td, rd, bconfig);
@@ -214,11 +209,6 @@ export class BlocklistWrapper {
     const rdir = ftrie.directory;
     const d = rdir.directory;
     return bufutil.raw(d.bytes);
-  }
-
-  filetag() {
-    const blf = this.blocklistFilter;
-    return blf.filetag;
   }
 }
 

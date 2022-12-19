@@ -8,11 +8,11 @@
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as cfg from "../../core/cfg.js";
+import { BlocklistWrapper } from "../../plugins/rethinkdns/main.js";
 
 const blocklistsDir = "blocklists__";
 const tdFile = "td.txt";
 const rdFile = "rd.txt";
-const ftFile = "filetag.json";
 
 export async function setup(bw: any) {
   if (!bw || !envutil.hasDisk()) return false;
@@ -44,20 +44,18 @@ export async function setup(bw: any) {
   save(bw, timestamp, codec);
 }
 
-function save(bw: any, timestamp: string, codec: string) {
+function save(bw: BlocklistWrapper, timestamp: string, codec: string) {
   if (!bw.isBlocklistFilterSetup()) return false;
 
   mkdirsIfNeeded(timestamp, codec);
 
-  const [tdfp, rdfp, ftfp] = getFilePaths(timestamp, codec);
+  const [tdfp, rdfp] = getFilePaths(timestamp, codec);
 
   const td = bw.triedata();
   const rd = bw.rankdata();
-  const ft = bw.filetag();
   // Deno only writes uint8arrays to disk, never raw arraybuffers
   Deno.writeFileSync(tdfp, new Uint8Array(td));
   Deno.writeFileSync(rdfp, new Uint8Array(rd));
-  Deno.writeTextFileSync(ftfp, JSON.stringify(ft));
 
   console.info("blocklists written to disk");
 
@@ -67,14 +65,13 @@ function save(bw: any, timestamp: string, codec: string) {
 function setupLocally(bw: any, ts: string, codec: string) {
   if (!hasBlocklistFiles(ts, codec)) return false;
 
-  const [td, rd, ft] = getFilePaths(ts, codec);
-  console.info("on-disk c:td/rd/ft", codec, td, rd, ft);
+  const [td, rd] = getFilePaths(ts, codec);
+  console.info("on-disk c:td/rd", codec, td, rd);
 
   const tdbuf = Deno.readFileSync(td);
   const rdbuf = Deno.readFileSync(rd);
-  const ftbuf = Deno.readTextFileSync(ft);
 
-  if (tdbuf.byteLength <= 0 || rdbuf.byteLength <= 0 || ftbuf.length <= 0) {
+  if (tdbuf.byteLength <= 0 || rdbuf.byteLength <= 0) {
     return false;
   }
 
@@ -84,7 +81,7 @@ function setupLocally(bw: any, ts: string, codec: string) {
   // type required is uint16array for the trie
   const ab0 = bufutil.concat([tdbuf]);
   const ab1 = bufutil.concat([rdbuf]);
-  const json1 = JSON.parse(ftbuf);
+  const json1 = cfg.filetag();
   const json2 = cfg.orig();
 
   bw.buildBlocklistFilter(
@@ -103,9 +100,8 @@ function hasBlocklistFiles(timestamp: string, codec: string) {
   try {
     const tdinfo = Deno.statSync(td);
     const rdinfo = Deno.statSync(rd);
-    const ftinfo = Deno.statSync(ft);
 
-    return tdinfo.isFile && rdinfo.isFile && ftinfo.isFile;
+    return tdinfo.isFile && rdinfo.isFile;
   } catch (ignored) {}
 
   return false;
@@ -116,9 +112,8 @@ function getFilePaths(t: string, c: string) {
 
   const td = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + tdFile;
   const rd = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + rdFile;
-  const ft = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + ftFile;
 
-  return [td, rd, ft];
+  return [td, rd];
 }
 
 function getDirPaths(t: string, c: string) {

@@ -14,6 +14,10 @@ import * as envutil from "../commons/envutil.js";
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
 const _b32delim = "-";
+// begins with l, followed by b64delim or b32delim
+export const logPrefix = new RegExp(`^l${_b64delim}|^l${_b32delim}`);
+// begins with a digit, followed by b64delim or b32delim
+export const stampPrefix = new RegExp(`^\\d+${_b64delim}|^\\d+${_b32delim}`);
 
 // TODO: wildcard list should be fetched from S3/KV
 const _wildcardUint16 = new Uint16Array([
@@ -22,6 +26,14 @@ const _wildcardUint16 = new Uint16Array([
 
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
+}
+
+export function isStampQuery(p) {
+  return stampPrefix.test(p);
+}
+
+export function isLogQuery(p) {
+  return logPrefix.test(p);
 }
 
 export function dnsResponse(packet = null, raw = null, stamps = null) {
@@ -271,43 +283,72 @@ export function getB64Flag(uint16Arr, flagVersion) {
 }
 
 /**
+ * Get msg key from `Request` URL
+ * @param {string} u
+ * @returns {string} k
+ */
+export function msgkeyFromUrl(u) {
+  const ans = extractStamps(u);
+  // accesskey is at index 3
+  return ans[3];
+}
+
+/**
  * Get the blocklist flag from `Request` URL
- * DNS over TLS flag from SNI should be rewritten to `url`'s pathname
- * @param {String} url - Request URL string
- * @returns
+ * DNS over TLS flag from SNI is yanked into `url`'s pathname
+ * @param {string} u
+ * @returns {string}
  */
 export function blockstampFromUrl(u) {
-  const emptystamp = "";
+  const ans = extractStamps(u);
+  // version is at index 1, blockstamp is at index 2
+  return ans[1] + ans[0] + ans[2];
+}
+
+/**
+ * @param {string} u - Request URL string
+ * @returns {Array<string>} s - stamps
+ */
+export function extractStamps(u) {
+  const emptystr = "";
+  // delim, version, blockstamp (flag), accesskey
+  const emptystamp = [emptystr, emptystr, emptystr, emptystr];
+
   const url = new URL(u);
   // is the incoming request to the legacy free.bravedns.com endpoint?
   const isFreeBraveDns = url.hostname.indexOf("free.bravedns") >= 0;
-  let s = emptystamp;
 
   const paths = url.pathname.split("/");
 
   if (!isFreeBraveDns && paths.length <= 1) {
-    return s;
+    return emptystamp;
   }
 
+  let s = emptystr;
+  // note: the legacy free.bravedns endpoint need not support
+  // gateway queries or auth
   if (isFreeBraveDns) {
     // oisd, 1hosts:mini, cpbl:light, stevenblack, anudeep, yhosts, tiuxo
     s = "1:YAYBACABEHAgAA==";
-  } else if (util.isDnsQuery(paths[1]) || util.isGatewayQuery(paths[1])) {
-    // skip to next if path has `/dns-query` or `/gateway`
-    s = paths[2] || emptystamp;
-  } else {
-    s = paths[1] || emptystamp;
   }
 
-  // check if paths[1|2] is a valid stamp
+  for (const p of paths) {
+    if (p.length === 0) continue;
+    // skip to next if path has `/dns-query` or `/gateway` or '/l:'
+    if (isStampQuery(p)) {
+      s = p;
+      break;
+    }
+  }
+
+  // get blockstamp with access-key from paths[1|2]
   try {
-    isB32Stamp(s);
+    return splitBlockstamp(s);
   } catch (e) {
     log.d("Rdns:blockstampFromUrl", e);
-    s = emptystamp;
   }
 
-  return s;
+  return emptystamp;
 }
 
 export function base64ToUintV0(b64Flag) {
@@ -327,6 +368,22 @@ export function base32ToUintV1(flag) {
   // TODO: check for empty flag
   const b32 = decodeURI(flag);
   return bufutil.decodeFromBinaryArray(rbase32(b32));
+}
+
+export function splitBlockstamp(s) {
+  // delim, version, blockstamp, accesskey
+  let out = ["", "", "", ""];
+
+  if (util.emptyString(s)) return out;
+  if (!isStampQuery(s)) return out;
+
+  if (isB32Stamp(s)) {
+    out = [_b32delim, ...s.split(_b32delim)];
+  } else {
+    out = [_b64delim, ...s.split(_b64delim)];
+  }
+
+  return out;
 }
 
 export function isB32Stamp(s) {

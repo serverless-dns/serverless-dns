@@ -1,9 +1,13 @@
 name = "serverless-dns"
 main = "./dist/worker.js"
 workers_dev = true
+# logpush job is setup to capture from envs ending: log, pro, or one
+logpush = false
 # use node_compat or custom build
 # node_compat = true
-compatibility_date = "2022-08-04"
+compatibility_date = "2022-11-30"
+send_metrics = false
+minify = false
 
 [build]
 command = "npm run build"
@@ -13,7 +17,6 @@ type = "ESModule"
 globs = ["**/*.js"]
 
 [vars]
-RUNTIME = "worker"
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
@@ -29,6 +32,7 @@ CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
 # developers.cloudflare.com/workers/platform/environments
 [env.prod]
 name = "basic-unbound"
+minify = true
 routes = [
   "sky.rethinkdns.com/*",
   "sky.bravedns.com/*",
@@ -39,8 +43,25 @@ routes = [
 # vars are not inherited
 # workers/platform/environment-variables#environment-variables-via-wrangler
 [env.prod.vars]
-RUNTIME = "worker"
 LOG_LEVEL = "info"
+WORKER_ENV = "production"
+CLOUD_PLATFORM = "cloudflare"
+CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
+
+##################
+#------ONE-------#
+##################
+[env.one]
+name = "dns-one"
+logpush = true
+minify = true
+routes = [
+  "one.rethinkdns.com/*",
+  "one.bravedns.com/*",
+]
+[env.one.vars]
+# just the error and request logs
+LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
 CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"

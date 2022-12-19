@@ -71,3 +71,15 @@ protocol = "tcp"
   interval = "10s"
   restart_limit = 3
   timeout = "2s"
+
+# community.fly.io/t/5490/3
+[checks]
+  [checks.up]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/check"
+    port = 8888
+    timeout = "10s"
+    type = "http"
+

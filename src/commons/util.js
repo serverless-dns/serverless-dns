@@ -208,7 +208,21 @@ export function uid() {
 export function xid() {
   const hi = vmid();
   const lo = uid();
+  // ex: "m3c52dyhqz.ww8ja208it"
   return hi + lo;
+}
+
+export function uidFromXidOrRxid(id) {
+  if (emptyString(id)) return "";
+
+  const uidStartChar = id.lastIndexOf(".");
+  const rxidEndChar = id.lastIndexOf("]");
+  const p = uidStartChar;
+  const q = rxidEndChar < 0 ? id.length : rxidEndChar;
+
+  if (p < 0 || p >= id.length - 1 || q <= p) return "";
+
+  return id.slice(p + 1, q);
 }
 
 // on Workers, random number can only be generated in a "network-context"
@@ -306,6 +320,31 @@ export function mapOf(obj) {
   return new Map(Object.entries(obj));
 }
 
+export function isAlphaNumeric(str) {
+  return /^[a-z0-9]+$/i.test(str);
+}
+
+export function isDNSName(str) {
+  return /^[a-z0-9\.-]+$/i.test(str);
+}
+
+export function strstr(str, start = 0, end = str.length) {
+  if (emptyString(str)) return str;
+
+  start = start < 0 ? 0 : start;
+  start = start > str.length ? str.length : start;
+  end = end < start ? start : end;
+  end = end > str.length ? str.length : end;
+
+  return str.slice(start, end);
+}
+
+export function emptySet(s) {
+  if (!s) return true;
+  if (s instanceof Set) return s.size <= 0;
+  return true;
+}
+
 export function emptyString(str) {
   // treat false-y values as empty
   if (!str) return true;
@@ -320,6 +359,7 @@ export function emptyArray(a) {
   if (!a) return true;
   // obj v arr: stackoverflow.com/a/2462810
   if (typeof a !== "object") return false;
+  if (!a.hasOwnProperty("length")) return false;
   // len(a) === 0 is empty
   return a.length <= 0;
 }
@@ -402,6 +442,27 @@ export function isGetRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "GET";
 }
 
+export function fromPath(strurl, prefix) {
+  const empty = "";
+  if (emptyString(strurl)) return empty;
+  if (emptyString(prefix)) return empty;
+
+  // if prefix "1:" => /^1:/
+  const re = new RegExp(`^${prefix}`);
+  const u = new URL(strurl);
+  // ex: x.tld/1:a/b/l:c/ => ["", "1:a", "b", "l:c", ""]
+  const p = u.pathname.split("/");
+  for (const x of p) {
+    // returns ["1:"] if the x starts with prefix "1:", else null
+    const m = x.match(re);
+    if (m && m.length > 0) {
+      // return the string after the prefix
+      return strstr(x, m[0].length);
+    }
+  }
+  return empty;
+}
+
 export function isGatewayRequest(req) {
   if (!req || emptyString(req.url)) return false;
 
@@ -419,6 +480,12 @@ export function isDnsQuery(p) {
 
 export function isGatewayQuery(p) {
   return p === "gateway";
+}
+
+export function tld(urlstr) {
+  if (emptyString(urlstr)) return "";
+  const u = new URL(urlstr);
+  return u.hostname.split(".").slice(-2).join(".");
 }
 
 export function mkFetchEvent(r, ...fns) {
@@ -441,6 +508,12 @@ export function mkFetchEvent(r, ...fns) {
 
 export function stub(...args) {
   return (...args) => {
+    /* no-op */
+  };
+}
+
+export function stubAsync(...args) {
+  return async (...args) => {
     /* no-op */
   };
 }

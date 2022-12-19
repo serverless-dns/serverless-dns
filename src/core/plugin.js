@@ -10,6 +10,7 @@ import { services } from "./svc.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import * as rdnsutil from "../plugins/rdns-util.js";
 import * as util from "../commons/util.js";
 import IOState from "./io-state.js";
 
@@ -27,11 +28,15 @@ export default class RethinkPlugin {
     const rxid = util.rxidFromHeader(event.request.headers) || util.xid();
     this.registerParameter("rxid", "[rx." + rxid + "]");
 
+    // log-id specific to this request, if missing, no logs will be emitted
+    this.registerParameter("lid", extractLid(event.request.url));
+
     // works on fly.io and cloudflare
     this.registerParameter("region", getRegion(event.request) || "");
 
     // caution: event isn't an event on nodejs, but event.request is a request
     this.registerParameter("request", event.request);
+
     // TODO: a more generic way for plugins to queue events on all platforms
     // dispatcher fn when called, fails with 'illegal invocation' if not
     // bound explicitly to 'event' (since it then executes in the context
@@ -94,25 +99,50 @@ export default class RethinkPlugin {
       this.dnsResolverCallBack,
       false
     );
+
+    this.registerPlugin(
+      "logpush",
+      services.logPusher,
+      [
+        "rxid",
+        "lid",
+        "isDnsMsg",
+        "request",
+        // resolver-url overriden by user-op, may be null
+        "userDnsResolverUrl",
+        // may be missing if req isn't a dns query
+        "requestDecodedDnsPacket",
+        // may be missing in case of exceptions or blocked answers
+        "responseDecodedDnsPacket",
+        // may be missing in case the dns query isn't blocked
+        "blockflag",
+        // only valid on platforms, fly and cloudflare
+        "region",
+      ],
+      util.stubAsync,
+      true // always exec this plugin
+    );
   }
 
   registerParameter(k, v) {
     this.parameter.set(k, v);
   }
 
-  registerPlugin(
-    pluginName,
-    module,
-    parameter,
-    callBack,
-    continueOnStopProcess
-  ) {
+  /**
+   *
+   * @param {string} name
+   * @param {any} mod
+   * @param {Array<string>} params
+   * @param {function?} callbackfn
+   * @param {boolean} alwaysexec
+   */
+  registerPlugin(name, mod, params, callbackfn, alwaysexec) {
     this.plugin.push({
-      name: pluginName,
-      module: module,
-      param: parameter,
-      callBack: callBack,
-      continueOnStopProcess: continueOnStopProcess,
+      name: name,
+      module: mod,
+      param: params,
+      callBack: callbackfn,
+      continueOnStopProcess: alwaysexec,
     });
   }
 
@@ -222,11 +252,13 @@ export default class RethinkPlugin {
     if (response.isException) {
       this.loadException(rxid, response, io);
     } else if (deny) {
+      this.registerParameter("blockflag", r.flag);
       // TODO: create block packets/buffers in dnsBlocker.js
       io.dnsBlockResponse(r.flag);
     } else if (isAns) {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
+      this.registerParameter("blockflag", r.flag);
       io.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     } else {
       this.registerParameter("domainBlockstamp", r.stamps);
@@ -253,6 +285,7 @@ export default class RethinkPlugin {
 
     if (deny) {
       // TODO: create block packets/buffers in dnsBlocker.js?
+      this.registerParameter("blockflag", r.flag);
       io.dnsBlockResponse(r.flag);
     } else if (response.isException || !isAns) {
       // if not blocked, but then, no-ans or is-exception, then:
@@ -260,6 +293,7 @@ export default class RethinkPlugin {
     } else {
       this.registerParameter("responseBodyBuffer", r.dnsBuffer);
       this.registerParameter("responseDecodedDnsPacket", r.dnsPacket);
+      this.registerParameter("blockflag", r.flag);
       io.dnsResponse(r.dnsBuffer, r.dnsPacket, r.flag);
     }
   }
@@ -342,6 +376,11 @@ function generateParam(parameter, list) {
     out[key] = parameter.get(key) || null;
   }
   return out;
+}
+
+// TODO: fetch lid from config store
+function extractLid(url) {
+  return util.fromPath(url, rdnsutil.logPrefix);
 }
 
 async function extractDnsQuestion(request) {

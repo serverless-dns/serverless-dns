@@ -9,11 +9,15 @@ import * as cfg from "../../core/cfg.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
+import * as token from "../users/auth-token.js";
+import { BlocklistFilter } from "../rethinkdns/filter.js";
+import { BlocklistWrapper } from "../rethinkdns/main.js";
 
 export class CommandControl {
   constructor(blocklistWrapper) {
     this.latestTimestamp = rdnsutil.bareTimestampFrom(cfg.timestamp());
     this.log = log.withTags("CommandControl");
+    /** @type {BlocklistWrapper} */
     this.bw = blocklistWrapper;
     this.cmds = new Set([
       "configure",
@@ -23,6 +27,7 @@ export class CommandControl {
       "dntouint",
       "listtob64",
       "b64tolist",
+      "genaccesskey",
     ]);
   }
 
@@ -116,7 +121,7 @@ export class CommandControl {
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
       // blocklistFilter may not to have been setup, so set it up
-      await this.bw.init(rxid);
+      await this.bw.init(rxid, /* force-wait */ true);
       const blf = this.bw.getBlocklistFilter();
       const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
 
@@ -124,7 +129,7 @@ export class CommandControl {
 
       if (command === "listtob64") {
         // convert blocklists (tags) to blockstamp (b64)
-        response.data.httpResponse = listToB64(queryString, blf);
+        response.data.httpResponse = listToB64(queryString);
       } else if (command === "b64tolist") {
         // convert blockstamp (b64) to blocklists (tags)
         response.data.httpResponse = b64ToList(queryString, blf);
@@ -141,6 +146,12 @@ export class CommandControl {
       } else if (command === "search") {
         // redirect to the search page with blockstamp (b64) preloaded
         response.data.httpResponse = searchRedirect(b64UserFlag);
+      } else if (command === "genaccesskey") {
+        // generate a token
+        response.data.httpResponse = generateAccessKey(
+          queryString,
+          reqUrl.hostname
+        );
       } else if (command === "config" || command === "configure" || !isDnsCmd) {
         // redirect to configure page
         response.data.httpResponse = configRedirect(
@@ -183,6 +194,22 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
   return Response.redirect(u + q, 302);
 }
 
+async function generateAccessKey(queryString, hostname) {
+  const msg = queryString.get("key");
+  let dom = queryString.get("dom");
+  if (util.emptyString(dom)) {
+    dom = hostname.split(".").slice(-2).join(".");
+  }
+  const acc = await token.gen(msg, dom);
+  return jsonResponse({ accesskey: acc, context: dom });
+}
+
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @param {number} latestTimestamp
+ * @returns {Response}
+ */
 function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   const domainName = queryString.get("dn") || "";
   const r = {
@@ -223,6 +250,11 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {Response}
+ */
 function domainNameToUint(queryString, blocklistFilter) {
   const domainName = queryString.get("dn") || "";
   const r = {
@@ -242,7 +274,11 @@ function domainNameToUint(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
-function listToB64(queryString, blocklistFilter) {
+/**
+ * @param {string} queryString
+ * @returns {Response}
+ */
+function listToB64(queryString) {
   const list = queryString.get("list") || [];
   const flagVersion = queryString.get("flagversion") || "0";
   const tags = list.split(",");
@@ -258,6 +294,11 @@ function listToB64(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {string} queryString
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {Response}
+ */
 function b64ToList(queryString, blocklistFilter) {
   const b64 = queryString.get("b64") || "";
   const r = {
@@ -295,6 +336,10 @@ function b64ToList(queryString, blocklistFilter) {
   return jsonResponse(r);
 }
 
+/**
+ * @param {Object} obj
+ * @returns {Response}
+ */
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), { headers: util.jsonHeaders() });
 }

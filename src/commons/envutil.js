@@ -20,6 +20,14 @@ export function machinesTimeoutMillis() {
   return envManager.get("MACHINES_TIMEOUT_SEC") * 1000;
 }
 
+// only valid on Fly Machines
+export function httpCheck() {
+  if (!envManager) return false;
+  if (!onFly()) return false;
+
+  return envManager.get("MACHINES_TIMEOUT_SEC") > 0;
+}
+
 export function onDenoDeploy() {
   if (!envManager) return false;
 
@@ -57,19 +65,19 @@ export function hasHttpCache() {
 export function isWorkers() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "worker";
+  return envManager.r() === "worker";
 }
 
 export function isNode() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "node";
+  return envManager.r() === "node";
 }
 
 export function isDeno() {
   if (!envManager) return false;
 
-  return envManager.get("RUNTIME") === "deno";
+  return envManager.r() === "deno";
 }
 
 export function workersTimeout(missing = 0) {
@@ -188,10 +196,20 @@ export function dotCleartextBackendPort() {
   return isCleartext() ? 10555 : /* random*/ 0;
 }
 
+export function httpCheckPort() {
+  return 8888;
+}
+
 export function profileDnsResolves() {
   if (!envManager) return false;
 
   return envManager.get("PROFILE_DNS_RESOLVES") || false;
+}
+
+export function accessKey() {
+  if (!envManager) return "";
+
+  return envManager.get("ACCESS_KEY") || "";
 }
 
 export function forceDoh() {
@@ -237,6 +255,15 @@ export function blockSubdomains() {
 // recurisve resolver on Fly
 export function recursive() {
   return onFly();
+}
+
+// returns a set of subdomains on which logpush is enabled
+export function logpushSources() {
+  if (!envManager) return null;
+  if (!onCloudflare()) return null;
+
+  const csv = envManager.get("LOGPUSH_SRC");
+  return csv || null;
 }
 
 export function gwip4() {
