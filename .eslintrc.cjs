@@ -23,11 +23,11 @@ module.exports = {
     "worker/",
     "test/data/cache/",
 
-    // Ignore all files, except JS files
-    "**/*.*",
-    "!**/*.js",
-    "!**/*.mjs",
-    "!**/*.cjs",
+    // Ignore all files, except JS files (which may be in a directory)
+    "*",
+    "!*/",
+    "!*.js",
+    "!*.[mc]js",
   ],
 
   plugins: ["prettier"],
