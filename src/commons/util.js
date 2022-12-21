@@ -330,10 +330,10 @@ export function isDNSName(str) {
 
 export function strstr(str, start = 0, end = str.length) {
   if (emptyString(str)) return str;
+  if (start >= str.length) return "";
+  if (end <= start) return "";
 
   start = start < 0 ? 0 : start;
-  start = start > str.length ? str.length : start;
-  end = end < start ? start : end;
   end = end > str.length ? str.length : end;
 
   return str.slice(start, end);
