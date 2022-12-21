@@ -22,6 +22,8 @@ function prep(arg) {
   if (!arg) throw new Error("are we on workers?");
   if (!arg.env) throw new Error("workers cannot be setup with empty env");
 
+  // okay to attach env to global, as env across requests remains the same
+  // developers.cloudflare.com/workers/runtime-apis/fetch-event/#parameters
   globalThis.wenv = arg.env;
 
   if (!globalThis.envManager) {
@@ -44,7 +46,7 @@ function prep(arg) {
   // which has the network-context, that is necessary for svc.js
   // to setup blocklist-filter, which otherwise fails when invoked
   // from global-scope (such as the "main" function in this file).
-  system.pub("ready");
+  system.pub("ready", { env: arg.env });
 }
 
 function up() {
