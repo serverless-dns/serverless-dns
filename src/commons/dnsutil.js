@@ -252,15 +252,22 @@ export function isAnswerHttps(ans) {
   );
 }
 
-export function isAnswerQuad0(packet) {
-  if (!isQueryBlockable(packet)) return false;
-  if (!hasAnswers(packet)) return false;
-  for (const a of packet.answers) {
-    if (a.data === "0.0.0.0" || a.data === "::") {
+export function isIPGrounded(ip) {
+  return ip === "0.0.0.0" || ip === "::";
+}
+
+export function isAnswerBlocked(ans) {
+  for (const a of ans) {
+    if (isIPGrounded(a.data)) {
       return true;
     }
   }
   return false;
+}
+export function isAnswerQuad0(packet) {
+  if (!isQueryBlockable(packet)) return false;
+  if (!hasAnswers(packet)) return false;
+  return isAnswerBlocked(ans);
 }
 
 export function extractDomains(dnsPacket) {
