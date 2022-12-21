@@ -11,6 +11,8 @@ import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 
 const emptystring = "";
+// current logpush version
+const ver = "1";
 // csv separator length
 const commalen = 1;
 // logpush limits a single log msg to upto 150 chars
@@ -113,7 +115,7 @@ export class LogPusher {
   }
 
   getversion() {
-    return "1";
+    return ver;
   }
 
   getip(req) {
