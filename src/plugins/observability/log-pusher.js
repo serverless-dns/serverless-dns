@@ -177,7 +177,7 @@ export class LogPusher {
 
   key(k, v) {
     if (util.emptyString(v)) {
-      return emptystring;
+      return `${k}${logsep}`;
     }
     return `${k}${logsep}${v}`;
   }
