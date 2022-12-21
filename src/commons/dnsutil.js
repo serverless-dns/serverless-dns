@@ -264,10 +264,11 @@ export function isAnswerBlocked(ans) {
   }
   return false;
 }
+
 export function isAnswerQuad0(packet) {
   if (!isQueryBlockable(packet)) return false;
   if (!hasAnswers(packet)) return false;
-  return isAnswerBlocked(ans);
+  return isAnswerBlocked(packet.answers);
 }
 
 export function extractDomains(dnsPacket) {
