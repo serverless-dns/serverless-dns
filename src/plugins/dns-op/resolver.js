@@ -215,7 +215,7 @@ export default class DNSResolver {
 
     for (const task of promisedTasks) {
       if (task.status === "rejected") {
-        throw new Error("task rejected", task.reason);
+        throw new Error(`task rejected ${task.reason}`);
       } // else: task.status === "fulfilled"
     }
 
