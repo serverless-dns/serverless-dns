@@ -10,6 +10,7 @@ import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import * as trie from "@serverless-dns/trie/stamp.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -467,4 +468,15 @@ export function bareTimestampFrom(tstamp) {
     return 0;
   }
   return t;
+}
+
+export function blocklists(strflag) {
+  const { userBlocklistFlagUint, flagVersion } = unstamp(strflag);
+  const blocklists = [];
+  if (flagVersion === "1") {
+    return trie.flagsToTags(userBlocklistFlagUint);
+  } else {
+    throw new Error("unknown blocklist version: " + flagVersion);
+  }
+  return blocklists;
 }
