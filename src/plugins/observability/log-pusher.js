@@ -156,15 +156,20 @@ export class LogPusher {
 
   // no-op when not a dns-msg or missing log-id or host is not a log-source
   noop(param) {
-    if (!param.isDnsMsg) return true;
-    if (util.emptyString(param.lid)) return true;
-    if (util.emptySet(this.sources)) return true;
+    const y = true;
+    const n = false;
+    if (!param.isDnsMsg) return y;
+    if (util.emptyString(param.lid)) return y;
+
+    // if empty, allow all hosts / sources
+    if (util.emptySet(this.sources)) return n;
 
     const u = new URL(param.request.url);
     for (const s of this.sources) {
-      if (u.hostname.indexOf(s) >= 0) return false;
+      if (u.hostname.indexOf(s) >= 0) return n;
     }
-    return true;
+
+    return y;
   }
 
   key(k, v) {

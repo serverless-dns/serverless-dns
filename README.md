@@ -158,8 +158,8 @@ serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
         }'
     ```
 1. Set `wrangler.toml` property `logpush = true`, which enables *Logpush*.
-2. Set env var `LOGPUSH_SRC = "csv,of,subdomains"`, which makes [`log-pusher.js`](./src/plugins/observability/log-pusher.js) emit *request* logs only if Workers `hostname` contains one of the subdomains.
-3. (Optional) env var `LOG_LEVEL = "logpush"`, which raises the log-level such that only *request* and error logs are emitted.
+2. (Optional) env var `LOG_LEVEL = "logpush"`, which raises the log-level such that only *request* and error logs are emitted.
+3. (Optional) Set env var `LOGPUSH_SRC = "csv,of,subdomains"`, which makes [`log-pusher.js`](./src/plugins/observability/log-pusher.js) emit *request* logs only if Workers `hostname` contains one of the subdomains.
 
 Logs published to R2 can be retrieved either using [R2 Workers](https://developers.cloudflare.com/r2/data-access/workers-api/workers-api-usage), the [R2 API](https://developers.cloudflare.com/r2/data-access/s3-api/api), or the [Logpush API](https://developers.cloudflare.com/logs/r2-log-retrieval).
 

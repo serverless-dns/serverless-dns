@@ -161,7 +161,9 @@ const defaults = new Map(
     // cloudflare logpush: developers.cloudflare.com/workers/platform/logpush
     LOGPUSH_SRC: {
       type: "csv",
-      default: "pro,one,log,local,localhost",
+      // ex: pro,one,log,local,localhost
+      // empty string means allow all hosts / sources
+      default: "",
     },
     // Return 'Gateway IPs' for ALL eligible reqs (ref util.js:isGatewayRequest)
     GW_IP4: {
@@ -194,6 +196,7 @@ function caststr(x, typ) {
   } else if (typ === "csv" && x instanceof Set) {
     return x;
   } else if (typ === "csv" && typeof x === "string") {
+    if (!x) return new Set();
     return new Set(x.split(",").map((x) => x.trim()));
   } else {
     throw new Error(`unsupported type: ${typ}`);
