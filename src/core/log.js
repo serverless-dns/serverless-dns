@@ -47,7 +47,7 @@ function _setConsoleLevel(level) {
       level = null;
   }
   if (level) {
-    console.log("Console level set: ", level);
+    // console.log("Console level set: ", level);
     globalThis.console.level = level;
   }
   return level;
@@ -181,7 +181,7 @@ export default class Log {
         this.e = console.error;
         this.error = console.error;
     }
-    console.log("Log level set: ", level);
+    console.debug("Log level set: ", level);
     this.level = level;
   }
 }
