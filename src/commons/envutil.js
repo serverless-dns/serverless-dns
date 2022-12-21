@@ -278,3 +278,19 @@ export function gwip6() {
 export function region() {
   return envManager.get("FLY_REGION") || "";
 }
+
+export function metrics() {
+  const nobinding = [null, null];
+
+  if (!envManager) return nobinding;
+
+  // match the binding names as in wrangler.toml
+  if (onCloudflare()) {
+    return [
+      envManager.get("METRICS") || null,
+      envManager.get("BL_METRICS") || null,
+    ];
+  }
+
+  return nobinding;
+}
