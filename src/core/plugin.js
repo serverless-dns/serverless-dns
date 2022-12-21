@@ -16,7 +16,8 @@ import IOState from "./io-state.js";
 
 export default class RethinkPlugin {
   /**
-   * @param {{request: Request}} event
+   *
+   * @param {{request: Request, waitUntil: Function, respondWith: Function}} event
    */
   constructor(event) {
     if (!services.ready) throw new Error("services not ready");
