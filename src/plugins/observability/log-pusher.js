@@ -84,8 +84,6 @@ export class LogPusher {
     const region = this.key("r", reg);
     // ex: i:1.2.3.4
     const ip = this.key("i", this.getip(req));
-    // ex: h:example.com
-    const host = this.key("h", this.gethost(req));
     // ex: u:dns.google
     const up = this.key("u", this.getupstream(upstream));
     // ex: q:block.this.website
@@ -96,13 +94,11 @@ export class LogPusher {
     const ans = this.key("a", this.getans(a));
     // ex: f:1:2AOAERQAkAQKAggAAEA
     const f = this.key("f", flag);
-
-    const all = [version, ip, region, host, up, qname, qtype, ans, f];
+    const all = [version, ip, region, up, qname, qtype, ans, f];
 
     // max number of chars in a log entry
     const n = this.getlimit(lk.length);
     const lines = this.mklogs(all, n);
-
     // log-id, log-entry
     for (const l of lines) {
       // k:avc,0:cd9i01d9mw,v:1,q:rethinkdns.com,t:AAAA,a:2606:4700::81d4:fa9a
@@ -124,10 +120,6 @@ export class LogPusher {
       req.headers.get("cf-connecting-ip") ||
       emptystring
     );
-  }
-
-  gethost(req) {
-    req.headers.get("host") || emptystring;
   }
 
   getupstream(upstream) {
