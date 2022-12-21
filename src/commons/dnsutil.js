@@ -132,18 +132,40 @@ export function encode(obj) {
   return bufutil.arrayBufferOf(b);
 }
 
+export function isQtypeA(qt) {
+  return qt === "A";
+}
+
+export function isQtypeAAAA(qt) {
+  return qt === "AAAA";
+}
+
+export function isQtypeCname(qt) {
+  return qt === "CNAME";
+}
+
+export function isQtypeHttps(qt) {
+  return qt === "HTTPS" || qt === "SVCB";
+}
+
+export function queryTypeMayResultInIP(t) {
+  return isQtypeA(t) || isQtypeAAAA(t) || isQtypeCname(t) || isQtypeHttps(t);
+}
+
+export function queryMayResultInIP(q) {
+  if (util.emptyObj(q)) return false;
+  if (util.emptyString(q.type)) return false;
+
+  return queryTypeMayResultInIP(q.type.toUpperCase());
+}
+
 // TODO: All DNS Qs are blockable but only these may eventually
 // result in a IP address answer, so we only block these. For now.
 // FIXME: Missing ALT-SVC checks
 export function isQueryBlockable(packet) {
-  return (
-    hasSingleQuestion(packet) &&
-    (packet.questions[0].type === "A" ||
-      packet.questions[0].type === "AAAA" ||
-      packet.questions[0].type === "CNAME" ||
-      packet.questions[0].type === "HTTPS" ||
-      packet.questions[0].type === "SVCB")
-  );
+  if (!hasSingleQuestion(packet)) return false;
+  const q = packet.questions[0];
+  return queryMayResultInIP(q);
 }
 
 export function isAnswerBlockable(packet) {
