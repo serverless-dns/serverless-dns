@@ -283,6 +283,9 @@ export class LogPusher {
     if (util.emptyString(d)) return emptystring;
     const parts = d.split(".");
     if (parts.length < 2) return emptystring;
+    // this simple logic is good enough for now
+    // todo: fails for domains like "gov.uk", "co.in" etc
+    // see: publicsuffix.org/list/public_suffix_list.dat
     return parts.slice(-2).join(".");
   }
 
