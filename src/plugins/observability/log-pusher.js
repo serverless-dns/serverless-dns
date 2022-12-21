@@ -67,8 +67,7 @@ export class LogPusher {
       const flag = param.blockflag || emptystring;
       this.logpush(rxid, lid, reg, request, upstream, query, ans, flag);
     } catch (e) {
-      response = util.errResponse("dnsResolver", e);
-      this.log.e(param.rxid, "main", e.stack);
+      response = util.errResponse("logpusher", e);
     }
 
     return response;
