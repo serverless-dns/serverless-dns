@@ -100,7 +100,7 @@ export class LogPusher {
     const qname = this.key("q", this.getqname(q));
     // ex: t:A
     const qtype = this.key("t", this.getqtype(q));
-    // ex: a:0.0.0.0
+    // ex: a:0.0.0.0 or a:NXDOMAIN or a:<base64> or a:ip1|ip2|cname
     const ans = this.key("a", this.getans(a));
     // ex: f:1:2AOAERQAkAQKAggAAEA
     const f = this.key("f", flag);
@@ -154,7 +154,7 @@ export class LogPusher {
 
   getans(a) {
     if (!a) return emptystring;
-    return dnsutil.getAnswerTarget(a) || emptystring;
+    return dnsutil.getInterestingAnswerData(a, maxansdatalen, ansdelim);
   }
 
   // no-op when not a dns-msg or missing log-id or host is not a log-source

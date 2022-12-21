@@ -307,14 +307,15 @@ export function extractDomains(dnsPacket) {
   return [...names];
 }
 
-export function getAnswerTarget(packet) {
-  // 40 chars is around enough to accomodate ipv6 addresses
-  const maxdatalen = 50;
+export function getInterestingAnswerData(packet, maxlen = 80, delim = "|") {
   if (!hasAnswers(packet)) {
-    return packet.rcode;
+    return !util.emptyObj(packet) ? packet.rcode || "WTF" : "WTF";
   }
+
   let str = "";
   for (const a of packet.answers) {
+    if (str.length > maxlen) break;
+
     if (
       isAnswerA(a) ||
       isAnswerAAAA(a) ||
@@ -325,31 +326,27 @@ export function getAnswerTarget(packet) {
       // ns: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L249
       // txt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L370
       // opt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L773
-      str = a.data || "";
-      break;
+      const dat = a.data || "";
+      if (!util.emptyString(dat)) str = dat + delim;
     } else if (isAnswerSOA(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L284
-      str = a.data.mname;
-      break;
+      str += a.data.mname + delim;
     } else if (isAnswerHINFO(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L450
-      str = a.data.os;
+      str += a.data.os + delim;
       break;
     } else if (isAnswerSRV(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L521
-      str = a.data.target;
-      break;
+      str += a.data.target + delim;
     } else if (isAnswerCAA(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L574
-      str = a.data.value;
-      break;
+      str += a.data.value + delim;
     } else if (isAnswerMX(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L618
-      str = a.data.exchange;
-      break;
+      str += a.data.exchange + delim;
     } else if (isAnswerRP(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1027
-      str = a.data.mbox;
+      str += a.data.mbox + delim;
       break;
     } else if (isAnswerHttps(a)) {
       // https/svcb answers may have a A / AAAA records
@@ -359,36 +356,35 @@ export function getAnswerTarget(packet) {
       if (t === ".") {
         if (util.emptyObj(kv)) continue;
         // if svcb/https is self-referential, then extract ip hints
-        if (!util.emptyArray(kv.ipv4hint)) str = kv.ipv4hint[0];
-        else if (!util.emptyArray(kv.ipv6hint)) str = kv.ipv6hint[0];
-        else str = "";
-        break;
+        if (!util.emptyArray(kv.ipv4hint)) str += kv.ipv4hint[0] + delim;
+        if (!util.emptyArray(kv.ipv6hint)) str += kv.ipv6hint[0] + delim;
       } else {
-        str = t;
-        continue;
+        str += t + delim;
       }
     } else if (isAnswerDNSKEY(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L914
-      str = bufutil.bytesToBase64Url(a.data.key);
+      str += bufutil.bytesToBase64Url(a.data.key) + delim;
       break;
     } else if (isAnswerDS(a)) {
       // ds: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1279
-      str = bufutil.bytesToBase64Url(a.data.digest);
+      str += bufutil.bytesToBase64Url(a.data.digest) + delim;
       break;
     } else if (isAnswerRRSIG(a)) {
       // rrsig: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L984
-      str = bufutil.bytesToBase64Url(a.data.signature);
+      str += bufutil.bytesToBase64Url(a.data.signature) + delim;
       break;
     } else if (isAnswerCname(a)) {
-      str = a.data;
-      continue;
+      str += a.data + delim;
     } else {
       // unhanlded types:
-      // null, ptr, cname, ds, nsec, nsec3, nsec3param, tlsa, sshfp, spf, dname
+      // null, ptr, ds, nsec, nsec3, nsec3param, tlsa, sshfp, spf, dname
       break;
     }
   }
-  return util.strstr(str, 0, maxdatalen);
+
+  const trunc = util.strstr(str, 0, maxlen);
+  const idx = trunc.lastIndexOf(delim);
+  return idx >= 0 ? util.strstr(trunc, 0, idx) : trunc;
 }
 
 export function dohStatusCode(b) {
