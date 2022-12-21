@@ -17,6 +17,16 @@ const ver = "1";
 const commalen = 1;
 // logpush limits a single log msg to upto 150 chars
 const charlimit = 150;
+// max number of datapoints per metric write
+const maxdatapoints = 20;
+// max answer data length (in chars)
+const maxansdatalen = 80;
+// delimiter for answer data
+const ansdelim = "|";
+// kv separator for log data
+const logsep = ":";
+// delimiter for log data
+const logdelim = ",";
 
 /**
  * There's no way to enable Logpush on just one Worker env or choose different
@@ -169,26 +179,37 @@ export class LogPusher {
     if (util.emptyString(v)) {
       return emptystring;
     }
-    return `${k}:${v}`;
+    return `${k}${logsep}${v}`;
+  }
+
+  valOf(kv) {
+    const kidx = kv.indexOf(logsep);
+    if (kidx < 0) return emptystring;
+    return util.strstr(kv, kidx + 1);
   }
 
   mklogs(all, limit = charlimit) {
     const lines = [];
-    let line = "";
+    let csv = "";
     for (let item of all) {
       if (util.emptyString(item)) continue;
+      // if item is too long, truncate it
       item = item.slice(0, limit);
-      if (line.length + item.length > limit) {
+      // if item too long, plonk it in the next line
+      if (csv.length + item.length > limit) {
         // remove trailing comma
-        const t = line.slice(0, -1);
+        const t = csv.slice(0, -1);
+        // commit csv line
         lines.push(t);
-        line = "";
+        // reset for next line
+        csv = "";
       }
-      line = line + item + ",";
+      // add item to line as csv
+      csv = csv + item + ",";
     }
-    if (!util.emptyString(line)) {
+    if (!util.emptyString(csv)) {
       // remove trailing comma
-      const t = line.slice(0, -1);
+      const t = csv.slice(0, -1);
       lines.push(t);
     }
     return lines;
