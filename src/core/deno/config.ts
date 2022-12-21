@@ -1,4 +1,3 @@
-import { config as dotEnvConfig } from "dotenv";
 import * as system from "../../system.js";
 import * as blocklists from "./blocklists.ts";
 import { services } from "../svc.js";
@@ -25,14 +24,6 @@ declare global {
 async function prep() {
   // if this file execs... assume we're on deno.
   if (!Deno) throw new Error("failed loading deno-specific config");
-
-  // Load env variables from .env file to Deno.env (if file exists)
-  try {
-    dotEnvConfig({ export: true });
-  } catch (e) {
-    // throws without --allow-read flag
-    console.warn(".env missing => ", e.name, e.message);
-  }
 
   const isProd = Deno.env.get("DENO_ENV") === "production";
   const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
