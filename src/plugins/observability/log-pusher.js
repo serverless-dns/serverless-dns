@@ -10,6 +10,7 @@ import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../rdns-util.js";
+import { GeoIP } from "./geoip.js";
 
 const emptyarr = [];
 const emptystring = "";
@@ -54,6 +55,8 @@ const logdelim = ",";
  */
 export class LogPusher {
   constructor() {
+    /** @type {GeoIP} */
+    this.geoip = new GeoIP();
     this.corelog = log.withTags("LogPusher");
     this.sources = envutil.logpushSources();
 
@@ -64,6 +67,22 @@ export class LogPusher {
     this.remotelog = this.stubremotelog ? util.stub : console.log;
 
     this.corelog.d("stub met? rlog?", this.stubmetrics, this.stubremotelog);
+  }
+
+  async init(g4, g6) {
+    return this.geoip.init(g4, g6);
+  }
+
+  initDone() {
+    return this.geoip.initDone();
+  }
+
+  geo4() {
+    return this.geoip.geo4;
+  }
+
+  geo6() {
+    return this.geoip.geo6;
   }
 
   async RethinkModule(param) {
@@ -173,6 +192,15 @@ export class LogPusher {
     return dnsutil.getInterestingAnswerData(a, maxansdatalen, ansdelim);
   }
 
+  getipfromans(delimitedans) {
+    if (util.emptyString(delimitedans)) return emptystring;
+    const v = this.valOf(delimitedans);
+    for (const a of v.split(ansdelim)) {
+      if (util.maybeIP(a)) return a;
+    }
+    return emptystring;
+  }
+
   metricsservice() {
     let m1 = null;
     let m2 = null;
@@ -183,6 +211,12 @@ export class LogPusher {
       [m1, m2] = envutil.metrics();
     }
     return [m1, m2];
+  }
+
+  async getcountry(ipstr) {
+    if (util.emptyString(ipstr)) return emptystring;
+    await this.init();
+    return this.geoip.country(ipstr);
   }
 
   // no-op when not a dns-msg or missing log-id or host is not a log-source
@@ -256,9 +290,10 @@ export class LogPusher {
     const isblocked = this.isansblocked(qtype, ans, f);
     const blists = this.getblocklists(f);
     const dom = this.getdomain(qname);
+    const ansip = this.getipfromans(ans);
+    const countrycode = await this.getcountry(ansip);
     // todo: device-id, should it be concatenated with log-key?
     // todo: faang dominance (sigma?)
-    // todo: geo-ip
 
     // metric blobs in m1 should never change order; add new blobs at the end
     metrics1.push(this.strmet(ip)); // ip hits
@@ -267,6 +302,7 @@ export class LogPusher {
     metrics1.push(this.strmet(qtype)); // query type count
     metrics1.push(this.strmet(dom)); // domain count
     metrics1.push(this.strmet(ansip)); // ip count
+    metrics1.push(this.strmet(countrycode)); // geo ip count
 
     // metric numbers in m1 should never change order; add new numbers at the end
     metrics1.push(this.nummet(1.0)); // req count
