@@ -95,7 +95,7 @@ function setupLocally(bw: any, ts: string, codec: string) {
 }
 
 function hasBlocklistFiles(timestamp: string, codec: string) {
-  const [td, rd, ft] = getFilePaths(timestamp, codec);
+  const [td, rd] = getFilePaths(timestamp, codec);
 
   try {
     const tdinfo = Deno.statSync(td);
