@@ -233,8 +233,6 @@ export class LogPusher {
     const metrics2 = [];
     const [version, ip, region, up, qname, qtype, ans, f] = all;
 
-    const reqcount = this.key("n", "req");
-    const blockedcount = this.key("n", "blocked");
     // ans is a multi-value str delimited by pipe
     const isblocked = this.isansblocked(qtype, ans, f);
     const blists = this.getblocklists(f);
@@ -244,38 +242,46 @@ export class LogPusher {
     // todo: geo-ip
 
     // metric blobs in m1 should never change order; add new blobs at the end
-    metrics1.push(this.met(reqcount, 1.0));
-    metrics1.push(this.met(blockedcount, isblocked ? 1.0 : 0.0));
-    metrics1.push(this.met(ip, 1.0)); // ip hits
-    metrics1.push(this.met(qname, 1.0)); // query count
-    metrics1.push(this.met(region, 1.0)); // total requests
-    metrics1.push(this.met(qtype, 1.0)); // query type count
-    metrics1.push(this.met(dom, 1.0)); // domain count
+    metrics1.push(this.strmet(ip)); // ip hits
+    metrics1.push(this.strmet(qname)); // query count
+    metrics1.push(this.strmet(region)); // total requests
+    metrics1.push(this.strmet(qtype)); // query type count
+    metrics1.push(this.strmet(dom)); // domain count
+    metrics1.push(this.strmet(ansip)); // ip count
+
+    // metric numbers in m1 should never change order; add new numbers at the end
+    metrics1.push(this.nummet(1.0)); // req count
+    metrics1.push(this.nummet(isblocked ? 1.0 : 0.0)); // blocked count
 
     if (isblocked) {
       // metric blobs in m2 can have variable order
       for (const b of blists) {
         if (metrics2.length > maxdatapoints) break;
         const kb = this.key("l", b);
-        metrics2.push(this.met(kb, 1.0));
+        metrics2.push(this.strmet(kb)); // blocklist
       }
+      metrics2.push(this.nummet(blists.length)); // blocklists count
     }
 
     this.corelog.d(`rec: ${lk} ${metrics1.length} ${metrics2.length}`);
+    const blobs1 = metrics1.filter((m) => m.blob != null);
+    const blobs2 = metrics2.filter((m) => m.blob != null);
+    const doubles1 = metrics1.filter((m) => m.double != null);
+    const doubles2 = metrics2.filter((m) => m.double != null);
     // developers.cloudflare.com/analytics/analytics-engine/get-started
     // indexes are limited to 32 bytes, blobs are limited to 5120 bytes
     // there can be a maximum of 1 index and 20 blobs, per data point
     // per cf discord, needn't await / waitUntil as writeDataPoint is
     // a non-blocking call that returns void (like console.log)
     m1.writeDataPoint({
-      blobs: metrics1.map((m) => m.blob),
-      doubles: metrics1.map((m) => m.double),
+      blobs: blobs1.map((m) => m.blob),
+      doubles: doubles1.map((m) => m.double),
       indexes: [lk],
     });
     if (metrics2.length > 0) {
       m2.writeDataPoint({
-        blobs: metrics2.map((m) => m.blob),
-        doubles: metrics2.map((m) => m.double),
+        blobs: blobs2.map((m) => m.blob),
+        doubles: doubles2.map((m) => m.double),
         indexes: [lk],
       });
     }
@@ -319,10 +325,16 @@ export class LogPusher {
     return false;
   }
 
-  met(k, v = 0) {
-    if (util.emptyString(k)) return {};
+  strmet(k = "none") {
     return {
       blob: k,
+      double: null,
+    };
+  }
+
+  nummet(v = 0) {
+    return {
+      blob: null,
       double: v,
     };
   }
