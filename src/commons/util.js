@@ -482,6 +482,28 @@ export function isGatewayQuery(p) {
   return p === "gateway";
 }
 
+function isNumeric4(str) {
+  return /^[0-9.]+$/.test(str);
+}
+
+function isHex6(str) {
+  // ipv4-in-ipv6 addrs may have . in them
+  return /^[a-f0-9:.]+$/i.test(str);
+}
+
+function maybeIP6(str) {
+  return !emptyString(str) && str.split(":").length > 3 && isHex6(str);
+}
+
+function maybeIP4(str) {
+  return !emptyString(str) && str.split(".").length === 4 && isNumeric4(str);
+}
+
+// poorman's ip validation, don't rely for serious stuff
+export function maybeIP(str) {
+  return maybeIP4(str) || maybeIP6(str);
+}
+
 export function tld(urlstr) {
   if (emptyString(urlstr)) return "";
   const u = new URL(urlstr);
