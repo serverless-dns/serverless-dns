@@ -120,6 +120,11 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
+    // courtesy db-ip.com/db/download/ip-to-country-lite
+    GEOIP_URL: {
+      type: "string",
+      default: "https://cfstore.rethinkdns.com/geoip/2022/1667349639157/",
+    },
     // treat all blocklists as wildcards, this means
     // if abc.xyz.com is in any blocklist, then
     // <*>.abc.xyz.com will also get blocked

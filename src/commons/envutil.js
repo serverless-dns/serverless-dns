@@ -129,6 +129,11 @@ export function dohResolvers() {
   return [primaryDohResolver()];
 }
 
+export function geoipUrl() {
+  if (!envManager) return null;
+  return envManager.get("GEOIP_URL");
+}
+
 export function tlsCrtPath() {
   if (!envManager) return "";
   return envManager.get("TLS_CRT_PATH") || "";
