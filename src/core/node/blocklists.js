@@ -43,7 +43,7 @@ export async function setup(bw) {
     tdcodec6
   );
 
-  save(bw, timestamp, codec);
+  return save(bw, timestamp, codec);
 }
 
 function save(bw, timestamp, codec) {
