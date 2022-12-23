@@ -54,9 +54,16 @@ const logdelim = ",";
  */
 export class LogPusher {
   constructor() {
-    this.remotelog = console.log;
     this.corelog = log.withTags("LogPusher");
     this.sources = envutil.logpushSources();
+
+    // debug settings
+    this.stubmetrics = false;
+    this.stubremotelog = false;
+
+    this.remotelog = this.stubremotelog ? util.stub : console.log;
+
+    this.corelog.d("stub met? rlog?", this.stubmetrics, this.stubremotelog);
   }
 
   async RethinkModule(param) {
@@ -166,6 +173,18 @@ export class LogPusher {
     return dnsutil.getInterestingAnswerData(a, maxansdatalen, ansdelim);
   }
 
+  metricsservice() {
+    let m1 = null;
+    let m2 = null;
+    if (this.stubmetrics) {
+      m1 = { writeDataPoint: util.stub };
+      m2 = { writeDataPoint: util.stub };
+    } else {
+      [m1, m2] = envutil.metrics();
+    }
+    return [m1, m2];
+  }
+
   // no-op when not a dns-msg or missing log-id or host is not a log-source
   noop(param) {
     const y = true;
@@ -225,8 +244,8 @@ export class LogPusher {
   }
 
   // all => [version, ip, region, host, up, qname, qtype, ans, f]
-  rec(lk, all) {
-    const [m1, m2] = envutil.metrics();
+  async rec(lk, all) {
+    const [m1, m2] = this.metricsservice();
     if (m1 == null || m2 == null) return;
 
     const metrics1 = [];
