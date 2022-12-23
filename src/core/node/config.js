@@ -16,6 +16,7 @@ import process from "node:process";
 import { fetch, Headers, Request, Response } from "undici";
 import * as util from "./util.js";
 import * as blocklists from "./blocklists.js";
+import * as dbip from "./dbip.js";
 import Log from "../log.js";
 import * as system from "../../system.js";
 import { services, stopAfter } from "../svc.js";
@@ -142,6 +143,16 @@ async function up() {
     await blocklists.setup(bw);
   } else {
     log.w("Config", "blocklists unavailable / disabled");
+  }
+  const lp = services.logPusher;
+  if (lp != null) {
+    try {
+      await dbip.setup(lp);
+    } catch (ex) {
+      log.e("Config", "dbip setup failed", ex);
+    }
+  } else {
+    log.w("Config", "logpusher unavailable");
   }
 
   // signal all system are-a go

@@ -1,5 +1,6 @@
 import * as system from "../../system.js";
 import * as blocklists from "./blocklists.ts";
+import * as dbip from "./dbip.ts";
 import { services } from "../svc.js";
 import Log from "../log.js";
 import EnvManager from "../env.js";
@@ -52,6 +53,16 @@ async function up() {
     await blocklists.setup(bw);
   } else {
     console.warn("Config", "blocklists unavailable / disabled");
+  }
+  const lp = services.logPusher;
+  if (lp != null) {
+    try {
+      await dbip.setup(lp);
+    } catch (ex) {
+      console.error("Config", "dbip setup failed", ex);
+    }
+  } else {
+    console.warn("Config", "logpusher unavailable");
   }
 
   // signal all system are-a go
