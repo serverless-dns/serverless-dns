@@ -108,6 +108,7 @@ export default class RethinkPlugin {
         "rxid",
         "lid",
         "isDnsMsg",
+        "dispatcher",
         "request",
         // resolver-url overriden by user-op, may be null
         "userDnsResolverUrl",

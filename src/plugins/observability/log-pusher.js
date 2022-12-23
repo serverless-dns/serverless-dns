@@ -68,6 +68,7 @@ export class LogPusher {
 
     try {
       const request = param.request;
+      const bg = param.dispatcher;
       const rxid = param.rxid;
       const lid = param.lid;
       const reg = param.region;
@@ -80,7 +81,8 @@ export class LogPusher {
       // may be missing in case qname is not in any blocklist
       // note: blockflag is set regardless of whether the query is blocked
       const flag = param.blockflag || emptystring;
-      this.logpush(rxid, lid, reg, request, upstream, query, ans, flag);
+
+      this.logpush(rxid, bg, lid, reg, request, upstream, query, ans, flag);
     } catch (e) {
       response = util.errResponse("logpusher", e);
     }
@@ -88,7 +90,7 @@ export class LogPusher {
     return response;
   }
 
-  logpush(rxid, lid, reg, req, upstream, q, a, flag) {
+  logpush(rxid, bg, lid, reg, req, upstream, q, a, flag) {
     // ex: k:1c34wels9yeq2
     const lk = this.key("k", lid);
     // ex: v:1
@@ -118,8 +120,9 @@ export class LogPusher {
       this.remotelog(lk + logdelim + l);
     }
 
+    bg(this.rec(lk, all));
+
     this.corelog.d(`remotelog lines: ${lk} ${lines.length}`);
-    this.rec(lk, all);
   }
 
   getlimit(lklen) {
