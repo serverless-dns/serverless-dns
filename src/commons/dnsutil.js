@@ -313,22 +313,28 @@ export function getInterestingAnswerData(packet, maxlen = 80, delim = "|") {
     return !util.emptyObj(packet) ? packet.rcode || "WTF" : "WTF";
   }
 
+  // set to true if at least one ip has been captured from ans
+  let atleastoneip = false;
   let str = "";
   for (const a of packet.answers) {
-    if (str.length > maxlen) break;
+    // gather twice the maxlen to capture as much as possible:
+    // ips are usually prepend to the front, and going 2 times
+    // over maxlen (chosen arbitrarily) maximises chances of
+    // capturing IPs in A / AAAA records appearing later in ans
+    if (atleastoneip && str.length > maxlen) break;
+    if (!atleastoneip && str.length > maxlen * 2) break;
 
-    if (
-      isAnswerA(a) ||
-      isAnswerAAAA(a) ||
-      isAnswerOPTION(a) ||
-      isAnswerNS(a) ||
-      isAnswerTXT(a)
-    ) {
+    if (isAnswerA(a) || isAnswerAAAA(a)) {
+      const dat = a.data || "";
+      // prepend A / AAAA data
+      if (!util.emptyString(dat)) str = dat + delim + str;
+      atleastoneip = true;
+    } else if (isAnswerOPTION(a) || isAnswerNS(a) || isAnswerTXT(a)) {
       // ns: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L249
       // txt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L370
       // opt: github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L773
       const dat = a.data || "";
-      if (!util.emptyString(dat)) str = dat + delim;
+      if (!util.emptyString(dat)) str += dat + delim;
     } else if (isAnswerSOA(a)) {
       // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L284
       str += a.data.mname + delim;
@@ -356,9 +362,21 @@ export function getInterestingAnswerData(packet, maxlen = 80, delim = "|") {
       const kv = a.data.svcParams;
       if (t === ".") {
         if (util.emptyObj(kv)) continue;
-        // if svcb/https is self-referential, then extract ip hints
-        if (!util.emptyArray(kv.ipv4hint)) str += kv.ipv4hint[0] + delim;
-        if (!util.emptyArray(kv.ipv6hint)) str += kv.ipv6hint[0] + delim;
+        // if svcb/https is self-referential, then prepend ip hints, if any
+        if (
+          !util.emptyArray(kv.ipv4hint) &&
+          !util.emptyString(kv.ipv4hint[0])
+        ) {
+          str = kv.ipv4hint[0] + delim + str;
+          atleastoneip = true;
+        }
+        if (
+          !util.emptyArray(kv.ipv6hint) &&
+          !util.emptyString(kv.ipv6hint[0])
+        ) {
+          str = kv.ipv6hint[0] + delim + str;
+          atleastoneip = true;
+        }
       } else {
         str += t + delim;
       }
