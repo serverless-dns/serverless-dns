@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { DnsBlocker } from "./blocker.js";
+import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as cacheutil from "../cache-util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
@@ -85,12 +86,12 @@ export default class DNSResolver {
    */
   async RethinkModule(param) {
     await this.lazyInit();
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
 
     try {
       response.data = await this.resolveDns(param);
     } catch (e) {
-      response = util.errResponse("dnsResolver", e);
+      response = pres.errResponse("dnsResolver", e);
       this.log.e(param.rxid, "main", e.stack);
     }
 
@@ -279,7 +280,7 @@ export default class DNSResolver {
       ? rdnsutil.blockstampFromBlocklistFilter(dnsPacket, blf)
       : stamps;
 
-    return rdnsutil.dnsResponse(dnsPacket, raw, stamps);
+    return pres.dnsResponse(dnsPacket, raw, stamps);
   }
 
   primeCache(rxid, r, dispatcher) {

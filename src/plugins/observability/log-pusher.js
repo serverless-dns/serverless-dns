@@ -9,6 +9,7 @@
 import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import { GeoIP } from "./geoip.js";
 
@@ -86,7 +87,7 @@ export class LogPusher {
   }
 
   async RethinkModule(param) {
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
 
     if (this.noop(param)) {
       return response;
@@ -110,7 +111,7 @@ export class LogPusher {
 
       this.logpush(rxid, bg, lid, reg, request, upstream, query, ans, flag);
     } catch (e) {
-      response = util.errResponse("logpusher", e);
+      response = pres.errResponse("logpusher", e);
     }
 
     return response;

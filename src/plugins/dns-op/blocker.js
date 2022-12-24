@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 
@@ -36,7 +37,7 @@ export class DnsBlocker {
     const domains = dnsutil.extractDomains(dnsPacket);
     const bres = this.block(domains, blockInfo, stamps);
 
-    return rdnsutil.copyOnlyBlockProperties(req, bres);
+    return pres.copyOnlyBlockProperties(req, bres);
   }
 
   blockAnswer(rxid, res, blockInfo) {
@@ -67,11 +68,11 @@ export class DnsBlocker {
     const domains = dnsutil.extractDomains(dnsPacket);
     const bres = this.block(domains, blockInfo, stamps);
 
-    return rdnsutil.copyOnlyBlockProperties(res, bres);
+    return pres.copyOnlyBlockProperties(res, bres);
   }
 
   block(names, blockInfo, blockstamps) {
-    let r = rdnsutil.rdnsNoBlockResponse();
+    let r = pres.rdnsNoBlockResponse();
     for (const n of names) {
       r = rdnsutil.doBlock(n, blockInfo, blockstamps);
       if (r.isBlocked) break;

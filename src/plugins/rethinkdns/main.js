@@ -9,6 +9,7 @@
 import { createTrie } from "@serverless-dns/trie/ftrie.js";
 import { BlocklistFilter } from "./filter.js";
 import { withDefaults } from "./trie-config.js";
+import * as pres from "../plugin-response.js";
 import * as cfg from "../../core/cfg.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
@@ -32,7 +33,7 @@ export class BlocklistWrapper {
 
   async init(rxid, forceget = false) {
     if (this.isBlocklistFilterSetup() || this.disabled()) {
-      const blres = util.emptyResponse();
+      const blres = pres.emptyResponse();
       blres.data.blocklistFilter = this.blocklistFilter;
       return blres;
     }
@@ -55,14 +56,14 @@ export class BlocklistWrapper {
         // blocklist-construction is in progress, but we don't have to
         // wait for it to finish. So, return an empty response.
         this.log.i(rxid, "nowait, but blocklist construction ongoing");
-        return util.emptyResponse();
+        return pres.emptyResponse();
       } else {
         // someone's constructing... wait till finished
         return this.waitUntilDone();
       }
     } catch (e) {
       this.log.e(rxid, "main", e.stack);
-      return util.errResponse("blocklistWrapper", e);
+      return pres.errResponse("blocklistWrapper", e);
     }
   }
 
@@ -89,7 +90,7 @@ export class BlocklistWrapper {
     // and 5s is 0.065GB-sec (which is the request timeout).
     let totalWaitms = 0;
     const waitms = 25;
-    const response = util.emptyResponse();
+    const response = pres.emptyResponse();
     while (totalWaitms < envutil.downloadTimeout()) {
       if (this.isBlocklistFilterSetup()) {
         response.data.blocklistFilter = this.blocklistFilter;
@@ -131,7 +132,7 @@ export class BlocklistWrapper {
     this.isBlocklistUnderConstruction = true;
     this.startTime = when;
 
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
     try {
       await this.downloadAndBuildBlocklistFilter(
         rxid,
@@ -151,7 +152,7 @@ export class BlocklistWrapper {
       response.data.blocklistFilter = this.blocklistFilter;
     } catch (e) {
       this.log.e(rxid, "initBlocklistConstruction", e);
-      response = util.errResponse("initBlocklistConstruction", e);
+      response = pres.errResponse("initBlocklistConstruction", e);
       this.exceptionFrom = response.exceptionFrom;
       this.exceptionStack = response.exceptionStack;
     }

@@ -9,6 +9,7 @@
 import { DnsBlocker } from "./blocker.js";
 import * as cacheutil from "../cache-util.js";
 import * as rdnsutil from "../rdns-util.js";
+import * as pres from "../plugin-response.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
 
@@ -30,7 +31,7 @@ export class DNSCacheResponder {
    * @returns
    */
   async RethinkModule(param) {
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
     if (!param.isDnsMsg) {
       this.log.d(param.rxid, "not a dns-msg, nowt to resolve");
       return response;
@@ -44,14 +45,14 @@ export class DNSCacheResponder {
       );
     } catch (e) {
       this.log.e(param.rxid, "main", e.stack);
-      response = util.errResponse("DnsCacheHandler", e);
+      response = pres.errResponse("DnsCacheHandler", e);
     }
 
     return response;
   }
 
   async resolveFromCache(rxid, packet, blockInfo) {
-    const noAnswer = rdnsutil.rdnsNoBlockResponse();
+    const noAnswer = pres.rdnsNoBlockResponse();
     // if blocklist-filter is setup, then there's no need to query http-cache
     // (it introduces 5ms to 10ms latency). Because, the sole purpose of the
     // cache is to help avoid blocklist-filter downloads which cost 200ms
@@ -81,7 +82,7 @@ export class DNSCacheResponder {
     // whereas it should be [v6.example.com, example.com
     // v6.test.example.org, test.example.org, example.org]
     const stamps = rdnsutil.blockstampFromCache(cr);
-    const res = rdnsutil.dnsResponse(cr.dnsPacket, cr.dnsBuffer, stamps);
+    const res = pres.dnsResponse(cr.dnsPacket, cr.dnsBuffer, stamps);
 
     this.makeCacheResponse(rxid, /* out*/ res, blockInfo);
 
@@ -100,7 +101,7 @@ export class DNSCacheResponder {
 
     const reencoded = dnsutil.encode(res.dnsPacket);
 
-    return rdnsutil.dnsResponse(res.dnsPacket, reencoded, res.stamps);
+    return pres.dnsResponse(res.dnsPacket, reencoded, res.stamps);
   }
 
   makeCacheResponse(rxid, r, blockInfo) {

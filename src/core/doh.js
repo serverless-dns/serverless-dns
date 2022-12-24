@@ -7,6 +7,7 @@
  */
 
 import RethinkPlugin from "./plugin.js";
+import * as pres from "../plugins/plugin-response.js";
 import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import IOState from "./io-state.js";
@@ -45,6 +46,6 @@ function optionsRequest(request) {
 }
 
 function errorResponse(io, err = null) {
-  const eres = util.errResponse("doh.js", err);
+  const eres = pres.errResponse("doh.js", err);
   io.dnsExceptionResponse(eres);
 }

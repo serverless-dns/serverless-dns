@@ -13,6 +13,7 @@ import * as envutil from "../commons/envutil.js";
 import * as rdnsutil from "../plugins/rdns-util.js";
 import * as util from "../commons/util.js";
 import IOState from "./io-state.js";
+import { RResp } from "../plugins/plugin-response.js";
 
 export default class RethinkPlugin {
   /**
@@ -177,9 +178,8 @@ export default class RethinkPlugin {
   }
 
   /**
-   * params
-   * @param {*} response
-   * @param {*} io
+   * @param {RResp} response
+   * @param {IOState} io
    */
   async commandControlCallBack(response, io) {
     const rxid = this.parameter.get("rxid");
@@ -194,9 +194,9 @@ export default class RethinkPlugin {
 
   /**
    * Adds "userBlocklistInfo", "userBlocklistInfo",  and "dnsResolverUrl"
-   * to RethinkPlugin params.
-   * @param {*} response - Contains data: userBlocklistInfo / userBlockstamp
-   * @param {*} io
+   * to RethinkPlugin ctx.
+   * @param {RResp} response - Contains data: userBlocklistInfo / userBlockstamp
+   * @param {IOState} io
    */
   async userOpCallback(response, io) {
     const rxid = this.parameter.get("rxid");
@@ -222,7 +222,7 @@ export default class RethinkPlugin {
   }
 
   /**
-   * @param {Response} response
+   * @param {RResp} response
    * @param {IOState} io
    */
   prefilterCallBack(response, io) {
@@ -242,8 +242,12 @@ export default class RethinkPlugin {
     }
   }
 
-  dnsCacheCallBack(response, io) {
-    const rxid = this.parameter.get("rxid");
+  /**
+   * @param {RResp} response
+   * @param {IOState} io
+   */
+  dnsCacheCallback(response, io) {
+    const rxid = this.ctx.get("rxid");
     const r = response.data;
     const deny = r.isBlocked;
     const isAns = dnsutil.isAnswer(r.dnsPacket);
@@ -270,8 +274,8 @@ export default class RethinkPlugin {
 
   /**
    * Adds "responseBodyBuffer" (arrayBuffer of dns response from upstream
-   * resolver) to RethinkPlugin params
-   * @param {Response} response
+   * resolver) to RethinkPlugin ctx
+   * @param {RResp} response
    * @param {IOState} io
    */
   dnsResolverCallBack(response, io) {
@@ -303,7 +307,7 @@ export default class RethinkPlugin {
   /**
    *
    * @param {String} rxid
-   * @param {Response} response
+   * @param {RResp} response
    * @param {IOState} io
    */
   loadException(rxid, response, io) {

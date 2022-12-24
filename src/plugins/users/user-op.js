@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import { UserCache } from "./user-cache.js";
+import * as pres from "../plugin-response.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as token from "./auth-token.js";
@@ -24,18 +25,22 @@ export class UserOp {
    * @returns
    */
   async RethinkModule(param) {
-    const ok = await token.auth(param.rxid, param.request.url);
-    if (!ok) {
-      return util.errResponse("UserOp:Auth", "auth failed");
+    try {
+      const ok = await token.auth(param.rxid, param.request.url);
+      if (!ok) {
+        return pres.errResponse("UserOp:Auth", new Error("auth failed"));
+      }
+      return this.loadUser(param);
+    } catch (ex) {
+      return pres.errResponse("UserOp", ex);
     }
-    return this.loadUser(param);
   }
 
   /**
    * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} param
    */
   loadUser(param) {
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
 
     if (!param.isDnsMsg) {
       this.log.w(param.rxid, "not a dns-msg, ignore");
@@ -70,7 +75,7 @@ export class UserOp {
       response.data.dnsResolverUrl = null;
     } catch (e) {
       this.log.e(param.rxid, "loadUser", e);
-      response = util.errResponse("UserOp:loadUser", e);
+      response = pres.errResponse("UserOp:loadUser", e);
     }
 
     return response;

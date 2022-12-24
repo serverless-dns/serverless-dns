@@ -8,6 +8,7 @@
 import * as rdnsutil from "../rdns-util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
+import * as pres from "../plugin-response.js";
 
 // eslint-disable-next-line max-len
 // from: github.com/DNSCrypt/dnscrypt-proxy/blob/10ded3d9f/dnscrypt-proxy/plugin_block_undelegated.go
@@ -176,12 +177,12 @@ export class DNSPrefilter {
    * @returns
    */
   async RethinkModule(param) {
-    let r = util.emptyResponse();
+    let r = pres.emptyResponse();
 
     try {
       r.data = await this.filterOut(param);
     } catch (e) {
-      r = util.errResponse("dnsPrefilter", e);
+      r = pres.errResponse("dnsPrefilter", e);
       this.log.e(param.rxid, "main", e);
     }
 
@@ -190,8 +191,8 @@ export class DNSPrefilter {
 
   async filterOut(param) {
     // set a dummy flag, "prefilter"
-    const block = rdnsutil.rdnsBlockResponse("prefilter");
-    const allow = rdnsutil.rdnsNoBlockResponse();
+    const block = pres.rdnsBlockResponse("prefilter");
+    const allow = pres.rdnsNoBlockResponse();
     const dnsPacket = param.requestDecodedDnsPacket;
     const domains = dnsutil.extractDomains(dnsPacket);
 

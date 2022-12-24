@@ -8,6 +8,7 @@
 import * as cfg from "../../core/cfg.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
+import * as pres from "../plugin-response.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as token from "../users/auth-token.js";
 import { BlocklistFilter } from "../rethinkdns/filter.js";
@@ -49,7 +50,7 @@ export class CommandControl {
     }
 
     // no-op
-    return util.emptyResponse();
+    return pres.emptyResponse();
   }
 
   isAnyCmd(s) {
@@ -95,7 +96,7 @@ export class CommandControl {
   }
 
   async commandOperation(rxid, url, isDnsCmd) {
-    let response = util.emptyResponse();
+    let response = pres.emptyResponse();
 
     try {
       const reqUrl = new URL(url);
@@ -166,7 +167,7 @@ export class CommandControl {
       }
     } catch (e) {
       this.log.e(rxid, "err cc:op", e.stack);
-      response = util.errResponse("cc:op", e);
+      response = pres.errResponse("cc:op", e);
       // TODO: set response status to 5xx
       response.data.httpResponse = jsonResponse(e.stack);
     }

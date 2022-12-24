@@ -10,6 +10,7 @@ import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import * as pres from "./plugin-response.js";
 import * as trie from "@serverless-dns/trie/stamp.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
@@ -37,59 +38,6 @@ export function isLogQuery(p) {
   return logPrefix.test(p);
 }
 
-export function dnsResponse(packet = null, raw = null, stamps = null) {
-  if (util.emptyObj(packet) || bufutil.emptyBuf(raw)) {
-    throw new Error("empty packet for dns-res");
-  }
-  return {
-    isBlocked: false,
-    flag: "",
-    dnsPacket: packet,
-    dnsBuffer: raw,
-    stamps: stamps || {},
-  };
-}
-
-export function copyOnlyBlockProperties(to, from) {
-  to.isBlocked = from.isBlocked;
-  to.flag = from.flag;
-
-  return to;
-}
-
-export function rdnsNoBlockResponse(
-  flag = "",
-  packet = null,
-  raw = null,
-  stamps = null
-) {
-  return {
-    isBlocked: false,
-    flag: flag || "",
-    dnsPacket: packet,
-    dnsBuffer: raw,
-    stamps: stamps || {},
-  };
-}
-
-export function rdnsBlockResponse(
-  flag,
-  packet = null,
-  raw = null,
-  stamps = null
-) {
-  if (util.emptyString(flag)) {
-    throw new Error("no flag set for block-res");
-  }
-  return {
-    isBlocked: true,
-    flag: flag,
-    dnsPacket: packet,
-    dnsBuffer: raw,
-    stamps: stamps || {},
-  };
-}
-
 // dn         -> domain name, ex: you.and.i.example.com
 // userBlInfo -> user-selected blocklist-stamp
 //               {userBlocklistFlagUint, userServiceListUint}
@@ -99,7 +47,7 @@ export function rdnsBlockResponse(
 export function doBlock(dn, userBlInfo, dnBlInfo) {
   const blockSubdomains = envutil.blockSubdomains();
   const version = userBlInfo.flagVersion;
-  const noblock = rdnsNoBlockResponse();
+  const noblock = pres.rdnsNoBlockResponse();
   if (
     util.emptyString(dn) ||
     util.emptyObj(dnBlInfo) ||
@@ -190,7 +138,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
     }
   } while (dnSplit.shift() != null);
 
-  return rdnsNoBlockResponse();
+  return pres.rdnsNoBlockResponse();
 }
 
 function applyBlocklists(uint1, uint2, flagVersion) {
@@ -199,10 +147,10 @@ function applyBlocklists(uint1, uint2, flagVersion) {
 
   if (blockedUint) {
     // incoming user-blockstamp intersects with domain-blockstamp
-    return rdnsBlockResponse(getB64Flag(blockedUint, flagVersion));
+    return pres.rdnsBlockResponse(getB64Flag(blockedUint, flagVersion));
   } else {
     // domain-blockstamp exists but no intersection with user-blockstamp
-    return rdnsNoBlockResponse(getB64Flag(uint2, flagVersion));
+    return pres.rdnsNoBlockResponse(getB64Flag(uint2, flagVersion));
   }
 }
 
