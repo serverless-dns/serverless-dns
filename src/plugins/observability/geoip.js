@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
@@ -32,6 +33,9 @@ const waitms = 50;
 // max wait time in ms, before giving up on geoip initialization
 const maxwaitms = 5000;
 
+// geoip cache size
+const size = 20000;
+
 export class GeoIP {
   constructor() {
     this.geo4 = null;
@@ -39,6 +43,7 @@ export class GeoIP {
     this.initializing = false;
     this.decoder = new TextDecoder();
     this.repo = envutil.geoipUrl();
+    this.cache = new LfuCache("GeoIP", size);
     this.log = log.withTags("GeoIP");
   }
 
@@ -89,6 +94,11 @@ export class GeoIP {
     if (!this.initDone()) return ccunknown;
     if (util.emptyString(ipstr)) return ccunknown;
 
+    const cached = this.cache.get(ipstr);
+    if (!util.emptyObj(cached)) {
+      return cached;
+    }
+
     const ip = this.iptou8(ipstr);
     const recsize = ip.length + ccsize;
     const g = ip.length === 4 ? this.geo4 : this.geo6;
@@ -111,6 +121,8 @@ export class GeoIP {
     const pos = low * recsize + ip.length;
     const raw = g.subarray(pos, pos + ccsize);
     const cc = this.decoder.decode(raw);
+
+    this.cache.put(ipstr, cc);
 
     if (debug) this.log.d(low, high, "<l/h | pos>", pos, raw, "cc", cc);
 
