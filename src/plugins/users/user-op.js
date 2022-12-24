@@ -11,7 +11,7 @@ import * as rdnsutil from "../rdns-util.js";
 import * as token from "./auth-token.js";
 
 // TODO: determine an approp cache-size
-const cacheSize = 10000;
+const cacheSize = 20000;
 
 export class UserOp {
   constructor() {
