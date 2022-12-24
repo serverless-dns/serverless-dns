@@ -297,25 +297,6 @@ export function isDnsMsg(req) {
   );
 }
 
-export function emptyResponse() {
-  return {
-    isException: false,
-    exceptionStack: "",
-    exceptionFrom: "",
-    data: {},
-  };
-}
-
-export function errResponse(id, err) {
-  const st = emptyObj(err) || !err.stack ? "no-stacktrace" : err.stack;
-  return {
-    isException: true,
-    exceptionStack: st,
-    exceptionFrom: id,
-    data: {},
-  };
-}
-
 export function mapOf(obj) {
   return new Map(Object.entries(obj));
 }
@@ -507,6 +488,8 @@ export function maybeIP(str) {
 export function tld(urlstr) {
   if (emptyString(urlstr)) return "";
   const u = new URL(urlstr);
+  // todo: fails for domains like "gov.uk", "co.in" etc
+  // see: publicsuffix.org/list/public_suffix_list.dat
   return u.hostname.split(".").slice(-2).join(".");
 }
 
