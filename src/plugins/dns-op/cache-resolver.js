@@ -24,27 +24,24 @@ export class DNSCacheResponder {
   }
 
   /**
-   * @param {*} param
-   * @param {*} param.userBlocklistInfo
-   * @param {*} param.requestDecodedDnsPacket
-   * @param {*} param.isDnsMsg
-   * @returns
+   * @param {{userBlocklistInfo: any, requestDecodedDnsPacket: any, isDnsMsg: boolean}} ctx
+   * @returns {Promise<pres.RResp>}
    */
-  async RethinkModule(param) {
+  async exec(ctx) {
     let response = pres.emptyResponse();
-    if (!param.isDnsMsg) {
-      this.log.d(param.rxid, "not a dns-msg, nowt to resolve");
+    if (!ctx.isDnsMsg) {
+      this.log.d(ctx.rxid, "not a dns-msg, nowt to resolve");
       return response;
     }
 
     try {
       response.data = await this.resolveFromCache(
-        param.rxid,
-        param.requestDecodedDnsPacket,
-        param.userBlocklistInfo
+        ctx.rxid,
+        ctx.requestDecodedDnsPacket,
+        ctx.userBlocklistInfo
       );
     } catch (e) {
-      this.log.e(param.rxid, "main", e.stack);
+      this.log.e(ctx.rxid, "main", e.stack);
       response = pres.errResponse("DnsCacheHandler", e);
     }
 

@@ -171,29 +171,26 @@ export class DNSPrefilter {
   }
 
   /**
-   * @param {Object} param
-   * @param {String} param.rxid
-   * @param {Object} param.requestDecodedDnsPacket
-   * @returns
+   * @param {{rxid: string, requestDecodedDnsPacket: any}} ctx
+   * @returns {Promise<pres.RResp>}
    */
-  async RethinkModule(param) {
+  async exec(ctx) {
     let r = pres.emptyResponse();
 
     try {
-      r.data = await this.filterOut(param);
+      r.data = await this.filterOut(ctx.requestDecodedDnsPacket);
     } catch (e) {
       r = pres.errResponse("dnsPrefilter", e);
-      this.log.e(param.rxid, "main", e);
+      this.log.e(ctx.rxid, "main", e);
     }
 
     return r;
   }
 
-  async filterOut(param) {
+  async filterOut(dnsPacket) {
     // set a dummy flag, "prefilter"
     const block = pres.rdnsBlockResponse("prefilter");
     const allow = pres.rdnsNoBlockResponse();
-    const dnsPacket = param.requestDecodedDnsPacket;
     const domains = dnsutil.extractDomains(dnsPacket);
 
     // domains is a Set

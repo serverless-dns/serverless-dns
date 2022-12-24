@@ -33,19 +33,16 @@ export class CommandControl {
   }
 
   /**
-   * @param {Object} param
-   * @param {Request} param.request
-   * @param {String | Number} param.latestTimestamp
-   * @param {Boolean} param.isDnsMsg
-   * @returns
+   * @param {{rxid: string, request: Request, latestTimestamp: string|number, isDnsMsg: boolean}} ctx
+   * @returns {Promise<pres.RResp>}
    */
-  async RethinkModule(param) {
+  async exec(ctx) {
     // process only GET requests, ignore all others
-    if (util.isGetRequest(param.request)) {
+    if (util.isGetRequest(ctx.request)) {
       return await this.commandOperation(
-        param.rxid,
-        param.request.url,
-        param.isDnsMsg
+        ctx.rxid,
+        ctx.request.url,
+        ctx.isDnsMsg
       );
     }
 

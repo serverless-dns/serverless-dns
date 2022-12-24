@@ -86,28 +86,32 @@ export class LogPusher {
     return this.geoip.geo6;
   }
 
-  async RethinkModule(param) {
+  /**
+   * @param {any} ctx
+   * @returns {Promise<pres.RResp>}
+   */
+  async exec(ctx) {
     let response = pres.emptyResponse();
 
-    if (this.noop(param)) {
+    if (this.noop(ctx)) {
       return response;
     }
 
     try {
-      const request = param.request;
-      const bg = param.dispatcher;
-      const rxid = param.rxid;
-      const lid = param.lid;
-      const reg = param.region;
+      const request = ctx.request;
+      const bg = ctx.dispatcher;
+      const rxid = ctx.rxid;
+      const lid = ctx.lid;
+      const reg = ctx.region;
       // may be null if user hasn't set a custom upstream
-      const upstream = param.userDnsResolverUrl || emptystring;
+      const upstream = ctx.userDnsResolverUrl || emptystring;
       // may not exist if not a dns query
-      const query = param.requestDecodedDnsPacket || null;
+      const query = ctx.requestDecodedDnsPacket || null;
       // may be missing in case of exceptions or blocked answers
-      const ans = param.responseDecodedDnsPacket || null;
+      const ans = ctx.responseDecodedDnsPacket || null;
       // may be missing in case qname is not in any blocklist
       // note: blockflag is set regardless of whether the query is blocked
-      const flag = param.blockflag || emptystring;
+      const flag = ctx.blockflag || emptystring;
 
       this.logpush(rxid, bg, lid, reg, request, upstream, query, ans, flag);
     } catch (e) {
@@ -221,16 +225,16 @@ export class LogPusher {
   }
 
   // no-op when not a dns-msg or missing log-id or host is not a log-source
-  noop(param) {
+  noop(ctx) {
     const y = true;
     const n = false;
-    if (!param.isDnsMsg) return y;
-    if (util.emptyString(param.lid)) return y;
+    if (!ctx.isDnsMsg) return y;
+    if (util.emptyString(ctx.lid)) return y;
 
     // if empty, allow all hosts / sources
     if (util.emptySet(this.sources)) return n;
 
-    const u = new URL(param.request.url);
+    const u = new URL(ctx.request.url);
     for (const s of this.sources) {
       if (u.hostname.indexOf(s) >= 0) return n;
     }

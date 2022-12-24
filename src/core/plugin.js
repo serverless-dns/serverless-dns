@@ -156,7 +156,7 @@ export default class RethinkPlugin {
 
       this.log.lapTime(t, rxid, p.name, "send-io");
 
-      const res = await p.module.RethinkModule(makectx(this.ctx, p.pctx));
+      const res = await p.module.exec(makectx(this.ctx, p.pctx));
 
       this.log.lapTime(t, rxid, p.name, "got-res");
 
@@ -406,7 +406,7 @@ class RPlugin {
   constructor(name, mod, pctx, cb, alwaysexec, bail) {
     /** @type {String} */
     this.name = name;
-    /** @type {Object} */
+    /** @type {{exec: function(Object): Promise<RResp>} */
     this.module = mod;
     /** @type {String[]} */
     this.pctx = pctx;
