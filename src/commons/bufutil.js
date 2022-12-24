@@ -10,6 +10,12 @@ import * as util from "./util.js";
 
 const ZERO = new Uint8Array(0);
 
+export function hex(ab) {
+  return Array.prototype.map
+    .call(new Uint8Array(ab), (b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function bytesToBase64Url(b) {
   return btoa(String.fromCharCode(...new Uint8Array(b)))
     .replace(/\//g, "_")
