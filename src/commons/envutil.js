@@ -211,10 +211,10 @@ export function profileDnsResolves() {
   return envManager.get("PROFILE_DNS_RESOLVES") || false;
 }
 
-export function accessKey() {
+export function accessKeys() {
   if (!envManager) return "";
 
-  return envManager.get("ACCESS_KEY") || "";
+  return envManager.get("ACCESS_KEYS") || null;
 }
 
 export function forceDoh() {

@@ -138,19 +138,22 @@ const defaults = new Map(
       default: false,
     },
     // serve dns only when given a msgsecret sent in the request uri,
-    // hash('msgsecret|domain.tld') equals ACCESS_KEY
-    // Must be a hex string; see: simple-auth.js
-    ACCESS_KEY: {
-      type: "string",
+    // domain.tld|hash('msgsecret|domain.tld') equals ACCESS_KEY
+    // multiple keys separated by a comma make up ACCESS_KEYS
+    // Must be a hex string; see: auth-token.js
+    ACCESS_KEYS: {
+      type: "csv",
       // for msg/key: 1123213213 and hostname: localhost
-      // v = 6501611c59f36e4653d5b6f3e8be3bd6411996612a6315d59980388feb2ed594
+      // v = localhost|77bd7ed4709cb09bb7d67545218e27cf39346f7b6c36f366d0631d5ee4739a3c
       // For ex, DoH = 1:-J8AEH8Dv73_8______-___z6f9eagBA:1123213213
       // DoT = 1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-1123213213
-      // calc access key, v = hex(sha256("1123213213|domain.tld"))
+      // calc access-key, v = domain.tld|hex(hmac-sha256(key, msg))
+      // where msg = "sdns-public-auth-info"; key="1123213213|localhost"
       // nb, ACCESS_KEY, v, must be hex and upto 64 chars in length
       // while, 'msgsecret' must be a valid DNS name (alphanum + hyphen)
       // ACCESS_KEY, v, could be shorter (12 to 24 to 32 to 64 chars)
       // ACCESS_KEY, v, can be public (better if private / secret)
+      // default: "localhost|6ba91f9b98e,rethinkdns.localhost|6ba91f9b98e",
       default: "", // no auth when empty
     },
     // avoid using the (slow) fetch polyfill if on nodejs

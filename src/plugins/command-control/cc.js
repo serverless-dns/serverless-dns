@@ -200,8 +200,8 @@ async function generateAccessKey(queryString, hostname) {
   if (util.emptyString(dom)) {
     dom = hostname.split(".").slice(-2).join(".");
   }
-  const acc = await token.gen(msg, dom);
-  return jsonResponse({ accesskey: acc, context: dom });
+  const [_, hexcat] = await token.gen(msg, dom);
+  return jsonResponse({ accesskey: hexcat, context: dom });
 }
 
 /**
