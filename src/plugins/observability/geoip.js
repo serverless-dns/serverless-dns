@@ -79,12 +79,13 @@ export class GeoIP {
     this.initializing = true;
     if (g4 == null || g6 == null) {
       [g4, g6] = await this.download();
+      const sz4 = this.geo4 && this.geo4.byteLength;
+      const sz6 = this.geo4 && this.geo6.byteLength;
       this.log.d("downloading geoip dbs done", sz4, sz6);
     }
     this.geo4 = bufutil.normalize8(g4);
     this.geo6 = bufutil.normalize8(g6);
-    const sz4 = this.geo4 && this.geo4.byteLength;
-    const sz6 = this.geo4 && this.geo6.byteLength;
+
     this.initializing = false;
 
     return this.initDone();
