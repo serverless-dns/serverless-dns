@@ -251,16 +251,22 @@ function serveDoTProxyProto(clientSocket) {
   });
 }
 
-function makeScratchBuffer() {
-  const qlenBuf = bufutil.createBuffer(dnsutil.dnsHeaderSize);
-  const qlenBufOffset = bufutil.recycleBuffer(qlenBuf);
+class ScratchBuffer {
+  constructor() {
+    /** @type {Buffer} */
+    this.qlenBuf = bufutil.createBuffer(dnsutil.dnsHeaderSize);
+    /** @type {Number} */
+    this.qlenBufOffset = bufutil.recycleBuffer(qlenBuf);
+    this.qBuf = null;
+    this.qBufOffset = 0;
+  }
 
-  return {
-    qlenBuf: qlenBuf,
-    qlenBufOffset: qlenBufOffset,
-    qBuf: null,
-    qBufOffset: 0,
-  };
+  allocOnce(sz) {
+    if (this.qBuf === null) {
+      this.qBuf = bufutil.createBuffer(sz);
+      this.qBufOffset = bufutil.recycleBuffer(this.qBuf);
+    }
+  }
 }
 
 /**
@@ -363,7 +369,7 @@ function serveTLS(socket) {
   log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}`);
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
-  const sb = makeScratchBuffer();
+  const sb = new ScratchBuffer();
 
   log.d("----> DoT request", host, flag);
   socket.on("data", (data) => {
@@ -387,7 +393,7 @@ function serveTCP(socket) {
   // doesn't yet support v2, but only v1. ClientHello would contain
   // the SNI which we could then use here.
   const [flag, host] = ["", "ignored.example.com"];
-  const sb = makeScratchBuffer();
+  const sb = new ScratchBuffer();
 
   machinesHeartbeat();
   log.d("----> DoT Cleartext request", host, flag);
@@ -408,7 +414,7 @@ function serveTCP(socket) {
  * Handle DNS over TCP/TLS data stream.
  * @param {TLSSocket} socket
  * @param {Buffer} chunk - A TCP data segment
- * @param {Object} sb - Scratch buffer
+ * @param {ScratchBuffer} sb - Scratch buffer
  * @param {String} host - Hostname
  * @param {String} flag - Blocklist Flag
  */
@@ -443,10 +449,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   // chunk out dns-query starting rem-th byte
   const data = chunk.slice(rem);
 
-  if (sb.qBuf === null) {
-    sb.qBuf = bufutil.createBuffer(qlen);
-    sb.qBufOffset = bufutil.recycleBuffer(sb.qBuf);
-  }
+  sb.allocOnce(qlen);
 
   sb.qBuf.fill(data, sb.qBufOffset);
   sb.qBufOffset += size;
@@ -507,6 +510,7 @@ async function handleTCPQuery(q, socket, host, flag) {
 }
 
 /**
+ * @param {String} rxid
  * @param {Buffer} q
  * @param {String} host
  * @param {String} flag
