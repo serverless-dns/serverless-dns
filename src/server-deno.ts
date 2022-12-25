@@ -10,7 +10,8 @@
 // other modules.
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
-import { serve, serveTls } from "https://deno.land/std@0.123.0/http/server.ts";
+import { stopAfter, uptime } from "./core/svc.js";
+import { serve, serveTls } from "https://deno.land/std@0.168.0/http/server.ts";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
@@ -18,17 +19,62 @@ import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
 
 let log: any = null;
+let listeners: Array<any> = [];
 
 ((main) => {
   system.sub("go", systemUp);
+  system.sub("stop", systemDown);
   // ask prepare phase to commence
   system.pub("prepare");
 })();
 
+function systemDown() {
+  // system-down even may arrive even before the process has had the chance
+  // to start, in which case globals like env and log may not be available
+  console.info("rcv stop signal; uptime", uptime() / 1000, "secs");
+
+  const srvs = listeners;
+  listeners = [];
+
+  srvs.forEach((s) => {
+    if (!s) return;
+    console.info("stopping...");
+    // Deno.lisenters are closed, while Deno.Servers are aborted
+    if (typeof s.close === "function") s.close();
+    else if (typeof s.abort === "function") s.abort();
+    else console.warn("unknown server type", s);
+  });
+
+  util.timeout(/* 2s*/ 2 * 1000, () => {
+    console.info("game over");
+    // exit success aka 0; ref: community.fly.io/t/4547/6
+    Deno.exit(0);
+  });
+}
+
 function systemUp() {
+  log = util.logger("Deno");
+  if (!log) throw new Error("logger unavailable on system up");
+
+  const downloadmode = envutil.blocklistDownloadOnly() as boolean;
+  const profilermode = envutil.profileDnsResolves() as boolean;
+  if (downloadmode) {
+    log.i("in download mode, not running the dns resolver");
+    return;
+  } else if (profilermode) {
+    const durationms = 60 * 1000;
+    log.w("in profiler mode, run for", durationms, "and exit");
+    stopAfter(durationms);
+  }
+
+  const abortctl = new AbortController();
   const onDenoDeploy = envutil.onDenoDeploy() as boolean;
   const dohConnOpts = { port: envutil.dohBackendPort() };
   const dotConnOpts = { port: envutil.dotBackendPort() };
+  const sigOpts = {
+    signal: abortctl.signal,
+    onListen: null,
+  };
   const tlsOpts = {
     certFile: envutil.tlsCrtPath() as string,
     keyFile: envutil.tlsKeyPath() as string,
@@ -38,25 +84,25 @@ function systemUp() {
     alpnProtocols: ["h2", "http/1.1"],
   };
 
-  log = util.logger("Deno");
-  if (!log) throw new Error("logger unavailable on system up");
-
   startDoh();
-
   startDotIfPossible();
 
+  // deno.land/manual@v1.29.1/runtime/http_server_apis
   async function startDoh() {
     if (terminateTls()) {
+      // deno.land/std@0.168.0/http/server.ts?s=serveTls
       serveTls(serveDoh, {
         ...dohConnOpts,
         ...tlsOpts,
         ...httpOpts,
+        ...sigOpts,
       });
     } else {
-      serve(serveDoh, { ...dohConnOpts });
+      // deno.land/std@0.168.0/http/server.ts?s=serve
+      serve(serveDoh, { ...dohConnOpts, ...sigOpts });
     }
 
-    up("DoH", dohConnOpts);
+    up("DoH", abortctl, dohConnOpts);
   }
 
   async function startDotIfPossible() {
@@ -69,7 +115,7 @@ function systemUp() {
       ? Deno.listenTls({ ...dotConnOpts, ...tlsOpts })
       : Deno.listen({ ...dotConnOpts });
 
-    up("DoT (no blocklists)", dotConnOpts);
+    up("DoT (no blocklists)", dot, dotConnOpts);
 
     // deno.land/manual@v1.11.3/runtime/http_server_apis#handling-connections
     for await (const conn of dot) {
@@ -80,8 +126,10 @@ function systemUp() {
     }
   }
 
-  function up(p: string, opts: any) {
+  function up(p: string, s: any, opts: any) {
     log.i("up", p, opts, "tls?", terminateTls());
+    // 's' may be a Deno.Listener or std:http/Server
+    listeners.push(s);
   }
 
   function terminateTls() {

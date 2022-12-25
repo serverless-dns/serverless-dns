@@ -106,7 +106,9 @@ jobs:
       - name: 🎱 Run profiler
         if: success()
         run: |
-          timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" "$MODE" || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
+          # for now, use runtime-specific timeouts (currently 60s for node and deno) for profiling
+          # timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" "$MODE" || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
+          ./run "JS_RUNTIME" "$MODE"
         shell: bash
         env:
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}

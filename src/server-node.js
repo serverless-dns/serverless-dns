@@ -83,12 +83,17 @@ function systemUp() {
   log = util.logger("NodeJs");
   if (!log) throw new Error("logger unavailable on system up");
 
-  const onlydownload = envutil.blocklistDownloadOnly();
+  const downloadmode = envutil.blocklistDownloadOnly();
+  const profilermode = envutil.profileDnsResolves();
   const tlsoffload = envutil.isCleartext();
 
-  if (onlydownload) {
+  if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
     return;
+  } else if (profilermode) {
+    const durationms = 60 * 1000;
+    log.w("in profiler mode, run for", durationms, "and exit");
+    stopAfter(durationms);
   }
 
   if (tlsoffload) {
