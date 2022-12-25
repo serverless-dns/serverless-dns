@@ -257,6 +257,7 @@ export function microtaskBox(fns, arg) {
 }
 
 // TODO: safeBox for async fns with r.push(await f())?
+// stackoverflow.com/questions/38508420
 export function safeBox(fns, arg) {
   if (typeof fns === "function") {
     fns = [fns];
