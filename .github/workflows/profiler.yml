@@ -89,7 +89,7 @@ jobs:
       - name: 🥝 Deno deps
         if: env.JS_RUNTIME == 'deno'
         run: |
-          deno cache ./src/server-deno.ts --import-map ./import-map.json
+          deno cache ./src/server-deno.ts
 
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
@@ -111,4 +111,3 @@ jobs:
         env:
           MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
           MODE: ${{ github.event.inputs.mode || env.MODE }}
-
