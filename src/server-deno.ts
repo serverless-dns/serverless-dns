@@ -135,6 +135,7 @@ function systemUp() {
   function terminateTls() {
     if (onDenoDeploy) return false;
     if (util.emptyString(tlsOpts.keyFile)) return false;
+    if (envutil.isCleartext()) return false;
     if (util.emptyString(tlsOpts.certFile)) return false;
     return true;
   }
