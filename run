@@ -1,13 +1,15 @@
 #!/bin/sh
 
-set -eu
+set -meu
 
 # this script is for development/test runs only
 # defaults: stackoverflow.com/a/16753536
+jobfile="${1:-/tmp/sdns-profiler-job-pids}"
 runtime="${1:-node}";
 profiler="${2:-$1}";
 waitsec="${3:-0}";
 qdoh="${QDOH:-invalid}";
+proc0=""
 
 echo "run $runtime";
 
@@ -30,8 +32,14 @@ banner() {
 }
 
 cleanup() {
-    kill $(jobs -p)
+  # stackoverflow.com/a/51576504
+  jobs -p > jobfile
+  j=$(cat jobfile)
+  kill -9 $j
+  rm jobfile
+  # jobs -p | xargs -r kill -9
 }
+# davidpashley.com/articles/writing-robust-shell-scripts
 trap cleanup EXIT
 
 bgcmd() {
@@ -97,7 +105,7 @@ if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
 elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "note: wrangler v1.16+ required";
   echo "using `which wrangler`";
-  start="wrangler dev --verbose";
+  start="npx wrangler dev --local";
 else
   echo "note: nodejs v16+ required";
   echo "using `which node`";
@@ -115,6 +123,7 @@ if [ $profiler = "cpu" ]; then
   echo "profiler (cpu): press ctrl+c to open cpu flame graphs in a browser";
   profilerbanner;
   npx clinic flame -- $start
+  proc0=$!
 elif [ $profiler = "mem" ]; then
   if [ $runtime != "node" ] && [ $runtime != "n" ]; then
     echo "profiler (mem): only on node"
@@ -125,6 +134,7 @@ elif [ $profiler = "mem" ]; then
   echo "profiler (mem): press ctrl+c to open memory flame graphs in a browser"
   profilerbanner;
   npx clinic heapprofiler -- $start
+  proc0=$!
 elif [ $profiler = "fn" ]; then
   if [ $runtime != "node" ] && [ $runtime != "n" ]; then
     echo "profiler (fn): only on node"
@@ -135,6 +145,7 @@ elif [ $profiler = "fn" ]; then
   echo "profiler (fn): press ctrl+c to open func bubble graphs in a browser"
   profilerbanner;
   npx clinic bubbleprof -- $start
+  proc0=$!
 elif [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
   if [ $qdoh = "invalid" ]; then
     echo "Specify env QDOH path"
@@ -149,8 +160,9 @@ elif [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
     NODE_AVOID_FETCH=false \
     LOG_LEVEL=warn \
     $start &
+  proc0=$!
   sleep 1
-  reqs "$waitsec"
+  reqs "$waitsec" &
 elif [ $profiler = "profile2" ] || [ $profiler = "p2" ]; then
   if [ ${qdoh} = "invalid" ]; then
     echo "Specify env QDOH path"
@@ -165,8 +177,9 @@ elif [ $profiler = "profile2" ] || [ $profiler = "p2" ]; then
     NODE_AVOID_FETCH=true \
     LOG_LEVEL=warn \
     $start &
+  proc0=$!
   sleep 1
-  reqs "$waitsec"
+  reqs "$waitsec" &
 elif [ $profiler = "profile3" ] || [ $profiler = "p3" ]; then
   if [ ${qdoh} = "invalid" ]; then
     echo "Specify env QDOH path"
@@ -184,12 +197,16 @@ elif [ $profiler = "profile3" ] || [ $profiler = "p3" ]; then
     NODE_DOH_ONLY=false \
     LOG_LEVEL=warn \
     $start &
+  proc0=$!
   sleep 1
-  reqs "$waitsec"
+  reqs "$waitsec" &
 else
   banner;
   bgcmd "$start"
+  proc0=$!
 fi
 
-wait
-
+# list all bg jobs
+jobs -l
+# wait for the main job to finish
+wait $proc0
