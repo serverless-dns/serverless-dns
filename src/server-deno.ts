@@ -73,7 +73,7 @@ function systemUp() {
   const dotConnOpts = { port: envutil.dotBackendPort() };
   const sigOpts = {
     signal: abortctl.signal,
-    onListen: null,
+    onListen: undefined,
   };
   const tlsOpts = {
     certFile: envutil.tlsCrtPath() as string,
