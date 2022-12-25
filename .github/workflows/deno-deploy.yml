@@ -85,10 +85,10 @@ jobs:
           git reset
           git merge origin/${BUILD_BRANCH} || :
 
-      - name: 🦕 Install Deno @1.27
+      - name: 🦕 Install Deno @1.29
         uses: denoland/setup-deno@main
         with:
-          deno-version: 1.27.1
+          deno-version: 1.29.1
 
       - name: 📦 Bundle up
         if: ${{ env.DEPLOY_MODE == 'action' }}
