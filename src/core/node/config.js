@@ -28,8 +28,6 @@ import * as swap from "../linux/swap.js";
   system.when("steady").then(up);
 })();
 
-process.on("SIGINT", (sig) => stopAfter());
-
 async function prep() {
   // if this file execs... assume we're on nodejs.
   const isProd = process.env.NODE_ENV === "production";
@@ -154,6 +152,8 @@ async function up() {
   } else {
     log.w("Config", "logpusher unavailable");
   }
+
+  process.on("SIGINT", (sig) => stopAfter());
 
   // signal all system are-a go
   system.pub("go");
