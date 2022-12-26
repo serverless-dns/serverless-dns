@@ -199,7 +199,7 @@ async function generateAccessKey(queryString, hostname) {
     dom = hostname.split(".").slice(-2).join(".");
   }
   const [_, hexcat] = await token.gen(msg, dom);
-  return jsonResponse({ accesskey: hexcat, context: dom });
+  return jsonResponse({ accesskey: hexcat, context: token.info });
 }
 
 /**

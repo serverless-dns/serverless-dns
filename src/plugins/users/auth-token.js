@@ -12,9 +12,9 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../../plugins/rdns-util.js";
 
+export const info = "sdns-public-auth-info";
 const akdelim = "|";
 const msgkeydelim = "|";
-const info = "sdns-public-auth-info";
 const encoder = new TextEncoder();
 const mem = new LfuCache("AuthTokens", 100);
 
