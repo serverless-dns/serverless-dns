@@ -168,7 +168,7 @@ function systemUp() {
 }
 
 function down(addr) {
-  console.info(`closed: [${addr.address}]:${addr.port}`);
+  console.warn(`closed: [${addr.address}]:${addr.port}`);
 }
 
 function up(server, addr) {
