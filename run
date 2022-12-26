@@ -36,11 +36,11 @@ cleanup() {
   jobs -p > jobfile
   j=$(cat jobfile)
   kill -9 $j
+  # does not work... jobs -p | xargs -r kill -9
   rm jobfile
-  # jobs -p | xargs -r kill -9
 }
 # davidpashley.com/articles/writing-robust-shell-scripts
-trap cleanup EXIT
+trap cleanup INT TERM EXIT
 
 bgcmd() {
   $1 &
