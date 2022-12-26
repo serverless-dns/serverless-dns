@@ -3,7 +3,7 @@ name: 🎯 Profiler
 on:
   push:
     branches:
-      - main
+      - profile
     paths:
       - 'src/**'
 
