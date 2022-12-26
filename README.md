@@ -113,10 +113,9 @@ For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), inst
 1. The request/response flow: client <-> `src/server-[node|workers|deno]` <-> [`doh.js`](src/core/doh.js) <-> [`plugin.js`](src/core/plugin.js)
 2. The `plugin.js` flow: `user-op.js` -> `cache-resolver.js` -> `cc.js` -> `resolver.js`
 
-#### Authentication
+#### Auth
 
-serverless-dns supports authentication with an alpha-numeric bearer token for both DoH and DoT.
-For a token, `msg-key` (secret), assign the output of `hex(sha256(msg-key|domain.tld))` to `ACCESS_KEY` env var.
+serverless-dns supports authentication with an *alpha-numeric* bearer token for both DoH and DoT. For a token, `msg-key` (secret), append the output of `hex(hmac-sha256(msg-key|domain.tld), msg)` to `ACCESS_KEYS` env var in csv format. Note: `msg` is currently fixed to `sdns-public-auth-info`.
 
 1. DoH: place the `msg-key` at the end of the blockstamp, like so:
 `1:1:4AIggAABEGAgAA:<msg-key>` (here, `1` is the version, `1:4AIggAABEGAgAA`
@@ -126,6 +125,15 @@ is the blockstamp, `<msg-key>` is the auth secret, and `:` is the delimiter).
 is the blockstamp, `<msg-key>` is the auth secret, and `-` is the delimeter).
 
 If the intention is to use auth with DoT too, keep `msg-key` shorter (8 to 24 chars), since subdomains may only be 63 chars long in total.
+
+You can generate the access keys for your fork from `max.rethinkdns.com`, like so:
+```bash
+msgkey="ShortAlphanumericSecret"
+domain="my.serverless-dns.domain.tld"
+curl 'https://max.rethinkdns.com/genaccesskey?key='"$msgkey"'&dom='"$domain"
+# output
+# {"accesskey":"my.serverless-dns.domain.tld|bf8b7ea2a2b9b014eb6f084e4943b152eb798a7049bbb2cd4f95988352e87ae9","context":"sdns-public-auth-info"}
+```
 
 #### Logs
 
@@ -150,7 +158,7 @@ serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
         -d '{
             "name": "dns-logpush",
             "logpull_options": "fields=EventTimestampMs,Outcome,Logs,ScriptName&timestamps=rfc3339",
-            "destination_conf": "r2://R2_BUCKET/{DATE}?access-key-id='"${R2_ACCESS_KEY}"'&secret-access-key='"${R2_SECRET_KEY}"'&account-id='"{$CF_ACCOUNT_ID}"',
+            "destination_conf": "r2://'"$R2_BUCKET"'/{DATE}?access-key-id='"${R2_ACCESS_KEY}"'&secret-access-key='"${R2_SECRET_KEY}"'&account-id='"{$CF_ACCOUNT_ID}"',
             "dataset": "workers_trace_events",
             "filter": "{\"where\":{\"and\":[{\"key\":\"ScriptName\",\"operator\":\"contains\",\"value\":\"'"${SCRIPT_NAME}"'\"},{\"key\":\"Outcome\",\"operator\":\"eq\",\"value\":\"ok\"}]}}",
             "enabled": true,
