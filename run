@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -meu
+set -eu
 
 # this script is for development/test runs only
 # defaults: stackoverflow.com/a/16753536
@@ -210,3 +210,4 @@ fi
 jobs -l
 # wait for the main job to finish
 wait $proc0
+
