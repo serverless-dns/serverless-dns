@@ -35,7 +35,7 @@ cleanup() {
   # stackoverflow.com/a/51576504
   jobs -p > jobfile
   j=$(cat jobfile)
-  kill -9 $j
+  kill -9 $j 2>/dev/null
   # does not work... jobs -p | xargs -r kill -9
   rm jobfile
 }
@@ -210,4 +210,3 @@ fi
 jobs -l
 # wait for the main job to finish
 wait $proc0
-
