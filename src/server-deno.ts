@@ -11,7 +11,7 @@
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
 import { stopAfter, uptime } from "./core/svc.js";
-import { serve, serveTls } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve, serveTls } from "https://deno.land/std@0.170.0/http/server.ts";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
@@ -90,7 +90,7 @@ function systemUp() {
   // deno.land/manual@v1.29.1/runtime/http_server_apis
   async function startDoh() {
     if (terminateTls()) {
-      // deno.land/std@0.168.0/http/server.ts?s=serveTls
+      // deno.land/std@0.170.0/http/server.ts?s=serveTls
       serveTls(serveDoh, {
         ...dohConnOpts,
         ...tlsOpts,
@@ -98,7 +98,7 @@ function systemUp() {
         ...sigOpts,
       });
     } else {
-      // deno.land/std@0.168.0/http/server.ts?s=serve
+      // deno.land/std@0.170.0/http/server.ts?s=serve
       serve(serveDoh, { ...dohConnOpts, ...sigOpts });
     }
 
