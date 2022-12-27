@@ -90,7 +90,7 @@ function systemUp() {
   // deno.land/manual@v1.29.1/runtime/http_server_apis
   async function startDoh() {
     if (terminateTls()) {
-      // deno.land/std@0.168.0/http/server.ts?s=serveTls
+      // deno.land/std@0.170.0/http/server.ts?s=serveTls
       serveTls(serveDoh, {
         ...dohConnOpts,
         ...tlsOpts,
@@ -98,7 +98,7 @@ function systemUp() {
         ...sigOpts,
       });
     } else {
-      // deno.land/std@0.168.0/http/server.ts?s=serve
+      // deno.land/std@0.170.0/http/server.ts?s=serve
       serve(serveDoh, { ...dohConnOpts, ...sigOpts });
     }
 
