@@ -5,6 +5,6 @@
     "@serverless-dns/trie": "https://github.com/serverless-dns/trie/raw/v0.0.12/src/trie.js",
     "@serverless-dns/trie/stamp.js": "https://github.com/serverless-dns/trie/raw/v0.0.12/src/stamp.js",
     "@serverless-dns/trie/ftrie.js": "https://github.com/serverless-dns/trie/raw/v0.0.12/src/ftrie.js",
-    "buffer": "https://deno.land/std@0.110.0/node/buffer.ts"
+    "buffer": "https://deno.land/std@0.170.0/node/buffer.ts"
   }
 }
