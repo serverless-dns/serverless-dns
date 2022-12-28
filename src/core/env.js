@@ -78,6 +78,16 @@ const defaults = new Map(
       type: "string",
       default: "debug",
     },
+    // set via secret, cloudflare account-id
+    CF_ACCOUNT_ID: {
+      type: "string",
+      default: "",
+    },
+    // set via secret, api-token with permissions for analytics and logpush
+    CF_API_TOKEN: {
+      type: "string",
+      default: "",
+    },
     // url to blocklist files: trie (td), rank-dir (rd), metadata: (filetag)
     CF_BLOCKLIST_URL: {
       type: "string",
@@ -153,7 +163,7 @@ const defaults = new Map(
       // while, 'msgsecret' must be a valid DNS name (alphanum + hyphen)
       // ACCESS_KEY, v, could be shorter (12 to 24 to 32 to 64 chars)
       // ACCESS_KEY, v, can be public (better if private / secret)
-      // default: "localhost|6ba91f9b98e,rethinkdns.localhost|6ba91f9b98e",
+      // default: "localhost|1e84b3c687,rethinkdns.localhost|c9de656fd9",
       default: "", // no auth when empty
     },
     // avoid using the (slow) fetch polyfill if on nodejs

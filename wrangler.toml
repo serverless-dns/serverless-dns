@@ -86,3 +86,5 @@ CF_BLOCKLIST_URL = "https://cfstore.rethinkdns.com/blocklists/"
 # [secrets]
 # GW_IP4 = ""
 # GW_IP6 = ""
+# CF_ACCOUNT_ID = ""
+# CF_API_TOKEN = ""

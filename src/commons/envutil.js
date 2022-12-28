@@ -112,6 +112,18 @@ export function secondaryDohResolver() {
   return envManager.get("CF_DNS_RESOLVER_URL_2");
 }
 
+export function cfAccountId() {
+  if (!envManager) return "";
+  // a secret
+  return envManager.get("CF_ACCOUNT_ID") || "";
+}
+
+export function cfApiToken() {
+  if (!envManager) return "";
+  // a secret
+  return envManager.get("CF_API_TOKEN") || "";
+}
+
 export function maxDohUrl() {
   if (!envManager) return null;
   return envManager.get("MAX_DNS_RESOLVER_URL");
