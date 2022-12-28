@@ -13,54 +13,97 @@ import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../../plugins/rdns-util.js";
 
 export const info = "sdns-public-auth-info";
+
+export class Outcome {
+  constructor(s) {
+    this.status = s;
+    // no auth or auth passed
+    this.ok = s >= 0;
+    // no auth or auth failed
+    this.no = s <= 0;
+    // auth passed
+    this.yes = s === 1;
+  }
+
+  // no auth
+  static none() {
+    return new Outcome(0);
+  }
+  // auth passed
+  static pass() {
+    return new Outcome(1);
+  }
+  // auth failed
+  static fail() {
+    return new Outcome(-1);
+  }
+  // auth failed, missing msg-key
+  static miss() {
+    return new Outcome(-2);
+  }
+  // auth failed, internal error
+  static err() {
+    return new Outcome(-3);
+  }
+}
+
 const akdelim = "|";
 const msgkeydelim = "|";
 const encoder = new TextEncoder();
 const mem = new LfuCache("AuthTokens", 100);
 
 /**
- * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} param
+ * @param {string} rxid
+ * @param {string} url
+ * @returns {Promise<Outcome>}
  */
 export async function auth(rxid, url) {
   const accesskeys = envutil.accessKeys();
 
   // empty access key, allow all
   if (util.emptySet(accesskeys)) {
-    return true;
+    return Outcome.none();
   }
   const msg = rdnsutil.msgkeyFromUrl(url);
   // if missing msg-key in url, deny
   if (util.emptyString(msg)) {
     log.w(rxid, "auth: stop! missing access-key in", url);
-    return false;
+    return Outcome.miss();
   }
-  // get domain.tld from a hostname like s1.s2.domain.tld
-  const dom = util.tld(url);
-  const [hex, hexcat] = await gen(msg, dom);
-
-  log.d(rxid, msg, dom, "<= msg/h :auth: hex/k =>", hexcat, accesskeys);
 
   let ok = false;
   let a6 = "";
-  // allow if access-key (upto its full len) matches calculated hex
-  for (const accesskey of accesskeys) {
-    ok = hexcat.startsWith(accesskey);
-    if (ok) break;
-    const [d, h] = accesskey.split(akdelim);
-    a6 += d + akdelim + h.slice(0, 6) + " ";
-  }
+  // eval [s2.domain.tld, domain.tld] from a hostname
+  // like s0.s1.s2.domain.tld
+  for (const dom of util.domains(url)) {
+    if (util.emptyString(dom)) continue;
 
-  if (!ok) {
+    const [hex, hexcat] = await gen(msg, dom);
+
+    log.d(rxid, msg, dom, "<= msg/h :auth: hex/k =>", hexcat, accesskeys);
+
+    // allow if access-key (upto its full len) matches calculated hex
+    for (const accesskey of accesskeys) {
+      ok = hexcat.startsWith(accesskey);
+      if (ok) {
+        return Outcome.pass();
+      } else {
+        const [d, h] = accesskey.split(akdelim);
+        a6 += d + akdelim + h.slice(0, 6) + " ";
+      }
+    }
+
     const h6 = dom + akdelim + hex.slice(0, 6);
-    log.w(rxid, "auth: stop! key mismatch want:", a6, "have:", h6);
+    log.w(rxid, "auth: key mismatch want:", a6, "have:", h6);
   }
 
-  return ok;
+  log.w(rxid, "auth: stop! no matches");
+  return Outcome.fail();
 }
 
 export async function gen(msg, domain) {
   if (util.emptyString(msg) || util.emptyString(domain)) {
-    throw new Error("args empty");
+    throw new Error(`args empty [${msg} / ${domain}]`);
   }
 
   // reject if msg is not alphanumeric

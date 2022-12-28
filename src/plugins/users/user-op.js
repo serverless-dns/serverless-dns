@@ -25,15 +25,21 @@ export class UserOp {
    * @returns {Promise<pres.RResp>}
    */
   async exec(ctx) {
+    let res = pres.emptyResponse();
+
     try {
-      const ok = await token.auth(ctx.rxid, ctx.request.url);
-      if (!ok) {
-        return pres.errResponse("UserOp:Auth", new Error("auth failed"));
+      const out = await token.auth(ctx.rxid, ctx.request.url);
+      if (!out.ok) {
+        res = pres.errResponse("UserOp:Auth", new Error("auth failed"));
+      } else {
+        res = this.loadUser(ctx);
       }
-      return this.loadUser(ctx);
+      res.data.userAuth = out;
     } catch (ex) {
-      return pres.errResponse("UserOp", ex);
+      res = pres.errResponse("UserOp", ex);
     }
+
+    return res;
   }
 
   /**

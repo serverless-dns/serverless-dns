@@ -199,12 +199,15 @@ export default class RethinkPlugin {
       this.log.w(rxid, "unexpected err userOp", r);
       this.loadException(rxid, response, io);
     } else if (!util.emptyObj(r)) {
+      // will only be null in case of errors
+      const a = r.userAuth;
       // r.userBlocklistInfo and r.dnsResolverUrl may be "null"
       const bi = r.userBlocklistInfo;
       const rr = r.dnsResolverUrl;
       // may be empty string; usually of form "v:base64" or "v-base32"
       const bs = r.userBlocklistFlag;
-      this.log.d(rxid, "set user:blockInfo/resolver/stamp", bi, rr, bs);
+      this.log.d(rxid, "set user:auth/blockInfo/resolver/stamp", a, bi, rr, bs);
+      this.addCtx("userAuth", a);
       this.addCtx("userBlocklistInfo", bi);
       this.addCtx("userBlockstamp", bs);
       this.addCtx("userDnsResolverUrl", rr);
