@@ -55,41 +55,20 @@ export class CommandControl {
   }
 
   userCommands(url) {
-    const emptyCmd = ["", ""];
     // r.x/a/b/c/ => ["", "a", "b", "c", ""]
     // abc.r.x/a => ["", "a"]
-    const p = url.pathname.split("/");
+    const p = url.pathname.split("/").filter((s) => !util.emptyString(s));
 
-    if (!p || p.length <= 1) return emptyCmd;
+    if (!p || p.length <= 0) return [];
 
-    const last = p[p.length - 1];
-    const first = p[1]; // may equal last
-
-    return [first, last];
+    return p;
   }
 
   userFlag(url, isDnsCmd = false) {
-    const emptyFlag = "";
-    const p = url.pathname.split("/"); // ex: max.rethinkdns.com/cmd/XYZ
-    const d = url.host.split("."); // ex: XYZ.max.rethinkdns.com
-
-    // if cmd is at p[1], blockstamp (userFlag) must be at p[2]
-    if (this.isAnyCmd(p[1])) {
-      return p.length >= 3 ? p[2] : emptyFlag;
-    }
-
-    // Redirect to the configure webpage when _no commands_ are set.
-    // This happens when user clicks, say XYZ.max.rethinkdns.com or
-    // max.rethinkdns.com/XYZ and it opens in a browser.
-
     // When incoming request is a dns-msg, all cmds are no-op
     if (isDnsCmd) return emptyFlag;
 
-    // has path, possibly doh
-    if (p[1]) return p[1]; // ex: max.rethinkdns.com/XYZ
-
-    // no path, possibly dot
-    return d.length > 1 ? d[0] : emptyFlag; // ex: XYZ.max.rethinkdns.com
+    return rdnsutil.blockstampFromUrl(url);
   }
 
   async commandOperation(rxid, url, isDnsCmd) {
@@ -109,12 +88,18 @@ export class CommandControl {
         response.data.stopProcessing = true;
       }
 
-      const [cmd1, cmd2] = this.userCommands(reqUrl, isDnsCmd);
-      const b64UserFlag = this.userFlag(reqUrl, isDnsCmd);
+      const cmds = this.userCommands(reqUrl, isDnsCmd);
+      const b64UserFlag = this.userFlag(url, isDnsCmd);
       // if userflag is same as cmd1, then cmd2 must be the actual cmd
       // consider urls: r.tld/cmd/flag & r.tld/flag/cmd
       // by default, treat cmd1 (at path[1]) as cmd, regardless
-      const command = this.isAnyCmd(cmd2) ? cmd2 : cmd1;
+      let command = cmds[0];
+      for (const c of cmds) {
+        if (this.isAnyCmd(c)) {
+          command = c;
+          break;
+        }
+      }
 
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
@@ -183,6 +168,9 @@ function searchRedirect(b64userflag) {
   return Response.redirect(u + q, 302);
 }
 
+// Redirect to the configure webpage when _no commands_ are set.
+// This happens when user clicks, say XYZ.max.rethinkdns.com or
+// max.rethinkdns.com/XYZ and it opens in a browser.
 function configRedirect(userFlag, origin, timestamp, highlight) {
   const u = "https://rethinkdns.com/configure";
   let q = "?tstamp=" + timestamp;
