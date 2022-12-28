@@ -129,13 +129,13 @@ If the intention is to use auth with DoT too, keep `msg-key` shorter (8 to 24 ch
 You can generate the access keys for your fork from `max.rethinkdns.com`, like so:
 ```bash
 msgkey="ShortAlphanumericSecret"
-domain="my.serverless-dns.domain.tld"
+domain="my-serverless-dns-domain.tld"
 curl 'https://max.rethinkdns.com/genaccesskey?key='"$msgkey"'&dom='"$domain"
 # output
-# {"accesskey":"my.serverless-dns.domain.tld|bf8b7ea2a2b9b014eb6f084e4943b152eb798a7049bbb2cd4f95988352e87ae9","context":"sdns-public-auth-info"}
+# {"accesskey":["my-serverless-dns-domain.tld|deadbeefd3adb33fa2bb33fd3eadf084beef3b152beefdead49bbb2b33fdead83d3adbeefdeadb33f"],"context":"sdns-public-auth-info"}
 ```
 
-#### Logs
+#### Logs and Analytics
 
 serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
 
@@ -171,7 +171,9 @@ serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
 
 Logs published to R2 can be retrieved either using [R2 Workers](https://developers.cloudflare.com/r2/data-access/workers-api/workers-api-usage), the [R2 API](https://developers.cloudflare.com/r2/data-access/s3-api/api), or the [Logpush API](https://developers.cloudflare.com/logs/r2-log-retrieval).
 
-Log capture isn't yet implemented for Fly and Deno Deploy.
+Workers Analytics, if enabled, is pushed against a log-key, `lid`, which if unspecified is set to hostname of the serverless deployment with periods, `.`, replaced with underscores, `_`. Auth must be setup when querying for Analytics via the API which returns a json; ex: `https://max.rethinkdns.com/1:<optional-stamp>:<msg-key>/analytics?t=<time-interval-in-mins>&f=<field-name>`. Possible `fields` are `ip` (client ip), `qname` (dns query name), `region` (resolver region), `qtype` (dns query type), `dom` (top-level domains), `ansip` (dns answer ips), and `cc` (ans ip country codes).
+
+Log capture and analytics isn't yet implemented for Fly and Deno Deploy.
 
 ----
 
