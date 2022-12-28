@@ -388,6 +388,14 @@ export function respond400() {
   });
 }
 
+export function respond401() {
+  return new Response(null, {
+    status: 401,
+    statusText: "Authorization Required",
+    headers: dohHeaders(),
+  });
+}
+
 export function respond405() {
   return new Response(null, {
     status: 405,
