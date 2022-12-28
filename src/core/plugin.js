@@ -379,7 +379,8 @@ function makectx(context, ctxkeys) {
 
 // TODO: fetch lid from config store
 function extractLid(url) {
-  return util.fromPath(url, rdnsutil.logPrefix);
+  // if lid is not present in url, then return hostname delimited by "_"
+  return util.fromPath(url, rdnsutil.logPrefix) || util.tld(url, 0, "_");
 }
 
 async function extractDnsQuestion(request) {
