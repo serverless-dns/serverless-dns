@@ -250,8 +250,14 @@ export function msgkeyFromUrl(u) {
  */
 export function blockstampFromUrl(u) {
   const ans = extractStamps(u);
-  // version is at index 1, blockstamp is at index 2
-  return ans[1] + ans[0] + ans[2];
+  const delim = ans[0];
+  const ver = ans[1];
+  const blockstamp = ans[2];
+
+  // delim at index 0, version at index 1, blockstamp at index 2
+  if (util.emptyString(ver) || util.emptyString(blockstamp)) return "";
+
+  return ver + delim + blockstamp;
 }
 
 /**
