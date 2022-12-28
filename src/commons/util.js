@@ -503,6 +503,16 @@ export function tld(urlstr, upto = 2, d = ".") {
   return u.hostname.split(".").slice(-upto).join(d);
 }
 
+export function bounds(n, min, max) {
+  if (min > max) {
+    max = min;
+    min = max;
+  }
+  if (n < min) return min;
+  if (n > max) return max;
+  return n;
+}
+
 export function mkFetchEvent(r, ...fns) {
   if (emptyObj(r)) throw new Error("missing request");
   for (const f of fns) {
