@@ -131,7 +131,7 @@ export class CommandControl {
         response.data.httpResponse = searchRedirect(b64UserFlag);
       } else if (command === "genaccesskey") {
         // generate a token
-        response.data.httpResponse = generateAccessKey(
+        response.data.httpResponse = await generateAccessKey(
           queryString,
           reqUrl.hostname
         );
@@ -182,12 +182,19 @@ function configRedirect(userFlag, origin, timestamp, highlight) {
 
 async function generateAccessKey(queryString, hostname) {
   const msg = queryString.get("key");
-  let dom = queryString.get("dom");
-  if (util.emptyString(dom)) {
-    dom = hostname.split(".").slice(-2).join(".");
+  const dom = queryString.get("dom");
+  if (!util.emptyString(dom)) {
+    hostname = dom;
   }
-  const [_, hexcat] = await token.gen(msg, dom);
-  return jsonResponse({ accesskey: hexcat, context: token.info });
+  const toks = [];
+  for (const d of util.domains(hostname)) {
+    if (util.emptyString(d)) continue;
+
+    const [_, hexcat] = await token.gen(msg, d);
+    toks.push(hexcat);
+  }
+
+  return jsonResponse({ accesskey: toks, context: token.info });
 }
 
 /**
