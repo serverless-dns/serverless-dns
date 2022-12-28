@@ -494,6 +494,21 @@ export function maybeIP(str) {
   return maybeIP4(str) || maybeIP6(str);
 }
 
+export function* domains(urlOrHost) {
+  if (emptyString(urlOrHost)) return "";
+
+  let hostname = urlOrHost;
+  if (urlOrHost.indexOf(":") > -1 || urlOrHost.indexOf("/") > -1) {
+    const u = new URL(urlOrHost);
+    hostname = u.hostname;
+  }
+
+  const d = hostname.split(".");
+  for (let i = 0; i < d.length; i++) {
+    yield d.slice(i).join(".");
+  }
+}
+
 export function tld(urlstr, upto = 2, d = ".") {
   if (emptyString(urlstr)) return "";
 
