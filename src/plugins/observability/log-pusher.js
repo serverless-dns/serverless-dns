@@ -300,6 +300,9 @@ export class LogPusher {
     // todo: device-id, should it be concatenated with log-key?
     // todo: faang dominance (sigma?)
 
+    const idx1 = this.idxmet(lk, "1");
+    const idx2 = this.idxmet(lk, "2");
+
     // metric blobs in m1 should never change order; add new blobs at the end
     metrics1.push(this.strmet(ip)); // ip hits
     metrics1.push(this.strmet(qname)); // query count
@@ -336,13 +339,13 @@ export class LogPusher {
     m1.writeDataPoint({
       blobs: blobs1.map((m) => m.blob),
       doubles: doubles1.map((m) => m.double),
-      indexes: [lk],
+      indexes: [idx1],
     });
     if (metrics2.length > 0) {
       m2.writeDataPoint({
         blobs: blobs2.map((m) => m.blob),
         doubles: doubles2.map((m) => m.double),
-        indexes: [lk],
+        indexes: [idx2],
       });
     }
   }
@@ -377,6 +380,10 @@ export class LogPusher {
       if (dnsutil.isIPGrounded(ansip)) return true;
     }
     return false;
+  }
+
+  idxmet(lk, n) {
+    return `${lk}${n}`;
   }
 
   strmet(k = "none") {
