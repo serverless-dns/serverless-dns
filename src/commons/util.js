@@ -494,12 +494,13 @@ export function maybeIP(str) {
   return maybeIP4(str) || maybeIP6(str);
 }
 
-export function tld(urlstr) {
+export function tld(urlstr, upto = 2, d = ".") {
   if (emptyString(urlstr)) return "";
+
   const u = new URL(urlstr);
   // todo: fails for domains like "gov.uk", "co.in" etc
   // see: publicsuffix.org/list/public_suffix_list.dat
-  return u.hostname.split(".").slice(-2).join(".");
+  return u.hostname.split(".").slice(-upto).join(d);
 }
 
 export function mkFetchEvent(r, ...fns) {
