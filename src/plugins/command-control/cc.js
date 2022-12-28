@@ -12,14 +12,17 @@ import * as pres from "../plugin-response.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as token from "../users/auth-token.js";
 import { BlocklistFilter } from "../rethinkdns/filter.js";
+import { LogPusher } from "../observability/log-pusher.js";
 import { BlocklistWrapper } from "../rethinkdns/main.js";
 
 export class CommandControl {
-  constructor(blocklistWrapper) {
+  constructor(blocklistWrapper, logPusher) {
     this.latestTimestamp = rdnsutil.bareTimestampFrom(cfg.timestamp());
     this.log = log.withTags("CommandControl");
     /** @type {BlocklistWrapper} */
     this.bw = blocklistWrapper;
+    /** @type {LogPusher} */
+    this.lp = logPusher;
     this.cmds = new Set([
       "configure",
       "config",
@@ -29,11 +32,12 @@ export class CommandControl {
       "listtob64",
       "b64tolist",
       "genaccesskey",
+      "analytics",
     ]);
   }
 
   /**
-   * @param {{rxid: string, request: Request, latestTimestamp: string|number, isDnsMsg: boolean}} ctx
+   * @param {{rxid: string, request: Request, lid: string, userAuth: token.Outcome, isDnsMsg: boolean}} ctx
    * @returns {Promise<pres.RResp>}
    */
   async exec(ctx) {
@@ -42,7 +46,9 @@ export class CommandControl {
       return await this.commandOperation(
         ctx.rxid,
         ctx.request.url,
-        ctx.isDnsMsg
+        ctx.isDnsMsg,
+        ctx.userAuth,
+        ctx.lid
       );
     }
 
@@ -71,7 +77,14 @@ export class CommandControl {
     return rdnsutil.blockstampFromUrl(url);
   }
 
-  async commandOperation(rxid, url, isDnsCmd) {
+  /**
+   * @param {string} rxid
+   * @param {Request} request
+   * @param {boolean} isDnsCmd
+   * @param {token.Outcome} auth
+   * @param {string} lid
+   */
+  async commandOperation(rxid, url, isDnsCmd, auth, lid) {
     let response = pres.emptyResponse();
 
     try {
@@ -135,6 +148,14 @@ export class CommandControl {
           queryString,
           reqUrl.hostname
         );
+      } else if (command === "analytics") {
+        // redirect to the analytics page
+        response.data.httpResponse = await analytics(
+          this.lp,
+          reqUrl,
+          auth,
+          lid
+        );
       } else if (command === "config" || command === "configure" || !isDnsCmd) {
         // redirect to configure page
         response.data.httpResponse = configRedirect(
@@ -195,6 +216,26 @@ async function generateAccessKey(queryString, hostname) {
   }
 
   return jsonResponse({ accesskey: toks, context: token.info });
+}
+
+/**
+ * @param {LogPusher} lp
+ * @param {URL} reqUrl
+ * @param {token.Outcome} auth
+ * @param {string} lid
+ */
+async function analytics(lp, reqUrl, auth, lid) {
+  if (util.emptyString(lid)) {
+    return util.respond401();
+  }
+  if (auth.no) {
+    return util.respond401();
+  }
+  const p = reqUrl.searchParams;
+  const t = p.get("t");
+  const f = p.getAll("f");
+  const r = await lp.count1(lid, t, f);
+  return jsonResponse(r);
 }
 
 /**

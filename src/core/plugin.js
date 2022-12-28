@@ -76,7 +76,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "commandControl",
       services.commandControl,
-      ["rxid", "request", "isDnsMsg"],
+      ["rxid", "userAuth", "lid", "request", "isDnsMsg"],
       this.commandControlCallback
     );
 

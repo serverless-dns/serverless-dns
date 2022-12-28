@@ -61,14 +61,15 @@ async function systemReady() {
 
   const bw = new BlocklistWrapper();
   const cache = new DnsCache(dnsutil.cacheSize());
+  const lp = new LogPusher();
 
   services.blocklistWrapper = bw;
+  services.logPusher = lp;
   services.userOp = new UserOp();
   services.prefilter = new DNSPrefilter();
   services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
-  services.commandControl = new CommandControl(bw);
   services.dnsResolver = new DNSResolver(bw, cache);
-  services.logPusher = new LogPusher();
+  services.commandControl = new CommandControl(bw, lp);
 
   services.ready = true;
 

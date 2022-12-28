@@ -32,6 +32,15 @@ const logsep = ":";
 // delimiter for log data
 const logdelim = ",";
 
+// min analytics interval minutes per query
+const minmins = 1;
+// one year in minutes
+const maxmins = 365 * 24 * 60;
+// min number of rows per query
+const minlimit = 1;
+// max number of rows per query
+const maxlimit = 100;
+
 /**
  * There's no way to enable Logpush on just one Worker env or choose different
  * log sinks depending on script-name or environment or Worker name, for now.
@@ -59,7 +68,14 @@ export class LogPusher {
     /** @type {GeoIP} */
     this.geoip = new GeoIP();
     this.corelog = log.withTags("LogPusher");
+    /** @type Set<string> */
     this.sources = envutil.logpushSources();
+    /** @type Map<String, String> */
+    this.cols1 = this.setupCols1();
+    /** @type URL | null */
+    this.meturl = this.setupMetUrl();
+    /** @type String */
+    this.apitoken = envutil.cfApiToken();
 
     // debug settings
     this.stubmetrics = false;
@@ -304,6 +320,7 @@ export class LogPusher {
     const idx2 = this.idxmet(lk, "2");
 
     // metric blobs in m1 should never change order; add new blobs at the end
+    // update this.setupCols1() when appending new blobs / doubles
     metrics1.push(this.strmet(ip)); // ip hits
     metrics1.push(this.strmet(qname)); // query count
     metrics1.push(this.strmet(region)); // total requests
@@ -398,5 +415,69 @@ export class LogPusher {
       blob: null,
       double: v,
     };
+  }
+
+  setupCols1() {
+    const cols = new Map();
+    cols.set("ip", "blob1");
+    cols.set("qname", "blob2");
+    cols.set("region", "blob3");
+    cols.set("qtype", "blob4");
+    cols.set("dom", "blob5");
+    cols.set("ansip", "blob6");
+    cols.set("cc", "blob7");
+    cols.set("req", "double1");
+    cols.set("blocked", "double2");
+    return cols;
+  }
+
+  setupMetUrl() {
+    // "https://api.cloudflare.com/client/v4/accounts/$ACC_ID/analytics_engine/sql"
+    // -H "Authorization: Bearer $API_TOKEN"
+    const accid = envutil.cfAccountId();
+
+    if (util.emptyString(accid)) return null;
+
+    return new URL(
+      `https://api.cloudflare.com/client/v4/accounts/${accid}/analytics_engine/sql`
+    );
+  }
+
+  // developers.cloudflare.com/analytics/analytics-engine/sql-reference
+  async count1(index, mins = 30, fields, limit = 10) {
+    const idx1 = this.idxmet(index, "1");
+    const f0 = fields[0];
+    const col = this.cols1.get(f0);
+    const vol = this.cols1.get("req");
+    mins = util.bounds(mins, minmins, maxmins);
+    limit = util.bounds(limit, minlimit, maxlimit);
+    const sql = `
+      SELECT
+        ${col} as ${f0},
+        SUM(_sample_interval * ${vol}) as n
+      FROM ${idx1}
+      WHERE timestamp > NOW() - INTERVAL '${mins}' MINUTE
+      GROUP BY ${f0}
+      ORDER BY n DESC
+      LIMIT ${limit}
+      `;
+    return await this.query(sql);
+  }
+
+  async query(sql) {
+    if (this.meturl == null) return null;
+    if (util.emptyString(this.apitoken)) return null;
+    if (util.emptyString(sql)) return null;
+
+    this.corelog.d(`querying: ${sql}`);
+    const res = await fetch(this.meturl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.apitoken}`,
+      },
+      body: sql,
+    });
+    return res.ok ? res.json() : null;
   }
 }
