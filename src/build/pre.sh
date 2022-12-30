@@ -13,21 +13,43 @@ cwd=`pwd`
 # exec this script from npm or project root
 out="./src/${codec}-${f}"
 out2="./src/${codec}-${f2}"
+name=`uname`
 
 # timestamp: 1667519318.799 stackoverflow.com/a/69400542
-# nowms =`date --utc +"%s.%3N"`
-now=`date --utc +"%s"`
+# nowms =`date -u +"%s.%3N"`
+if [[ $name == "Darwin" ]]
+then
+    now=`date -u +"%s"`
+else
+    now=`date --utc +"%s"`
+fi
+
 
 # date from timestamp: stackoverflow.com/a/16311821
-day=`date -d @$now "+%d"`
+if [[ $name == "Darwin" ]]
+then
+    day=`date -r $now "+%d"`
+else
+    day=`date -d @$now "+%d"`
+fi
 # ex: conv 08 => 8 stackoverflow.com/a/12821845
 day=${day#0}
 # week; ceil: stackoverflow.com/a/12536521
 wkdef=$(((day + 7 -1) / 7))
 # year
-yyyydef=`date -d @$now "+%Y"`
+if [[ $name == "Darwin" ]]
+then
+    yyyydef=`date -r $now "+%Y"`
+else
+    yyyydef=`date -d @$now "+%Y"`
+fi
 # month
-mmdef=`date -d @$now "+%m"`
+if [[ $name == "Darwin" ]]
+then
+    mmdef=`date -r $now "+%m"`
+else
+    mmdef=`date -d @$now "+%m"`
+fi
 
 # defaults: stackoverflow.com/a/28085062
 : "${wk:=$wkdef}" "${mm:=$mmdef}" "${yyyy:=$yyyydef}"
