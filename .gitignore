@@ -21,3 +21,5 @@ package-lock.json
 
 # Cache
 .eslintcache
+bin/main.wasm
+pkg/serverless-dns.tar.gz

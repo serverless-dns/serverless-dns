@@ -13,6 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "./src/build/pre.sh",
     "build": "npm i && npx webpack --config webpack.config.cjs",
+    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs && npx js-compute-runtime ./dist/fastly.js",
     "build:fly": "npm i && npx webpack --config webpack.fly.cjs"
   },
   "repository": {
@@ -37,6 +38,7 @@
     "undici": "^4.13.0"
   },
   "devDependencies": {
+    "@fastly/js-compute": "^1.0.1",
     "@types/node": "^16.11.7",
     "buffer": "^6.0.3",
     "clinic": "^11.1.0",
@@ -54,5 +56,7 @@
     "*.?(m|c)js": "eslint --cache --fix",
     "*.ts": "prettier --write"
   },
-  "eslintIgnore": ["src/core/cfg.js"]
+  "eslintIgnore": [
+    "src/core/cfg.js"
+  ]
 }
