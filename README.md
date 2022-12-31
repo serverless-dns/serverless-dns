@@ -120,6 +120,7 @@ Pull requests are also checked for code style violations and fixed automatically
 
 Configure [`env.js`](src/core/env.js) if you need to tweak the defaults.
 For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), instead.
+For Fastly Compute@Edge, setup env vars in [`fastly.toml`](fastly.toml), instead.
 
 #### Request flow
 
@@ -226,8 +227,8 @@ in-process lfu caches. To disable caching altogether on all three platfroms, set
 
 #### Cloud
 
-Cloudflare Workers and Deno Deploy are ephemeral, as in, the "process" that serves client requests is not long-lived,
-and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) ("processes"). Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
+Cloudflare Workers, and Deno Deploy are ephemeral, as in, the "process" that serves client requests is not long-lived,
+and in fact, two back-to-back requests may be served by two different [_isolates_](https://developers.cloudflare.com/workers/learning/how-workers-works) ("processes"). Fastly Compute@Edge is the also ephemeral but does not use isolates, instead Fastly creates and destroys a [wasmtime](https://wasmtime.dev/) sandbox for each request. Resolver on Fly.io, running Node, is backed by [persistent VMs](https://fly.io/blog/docker-without-docker/) and is hence longer-lived,
 like traditional "serverfull" environments.
 
 For Deno Deploy, the code-base is bundled up in a single javascript file with `deno bundle` and then handed off
@@ -235,6 +236,9 @@ to Deno.com.
 
 Cloudflare Workers build-time and runtime configurations are defined in [`wrangler.toml`](wrangler.toml).
 [Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
+
+Fastly Compute@Edge build-time and runtime configurations are defined in [`fastly.toml`](fastly.toml).
+[Webpack5 bundles the files](webpack.fastly.cjs) in an ESM module which is then uploaded to Fastly by the _Fastly CLI_.
 
 For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml) (used by `dev` and `live` deployment-types),
 while deploy directives are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets
@@ -245,6 +249,9 @@ up `serverless-dns` on Fly.io's infrastructure.
 npm run build
 # usually, env-name is prod
 npx wrangler publish [-e <env-name>]
+
+# build and deploy for Fastly Compute@Edge
+fastly compute publish
 
 # build and deploy to fly.io
 npm run build:fly
