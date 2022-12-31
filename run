@@ -106,6 +106,10 @@ elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
   echo "note: wrangler v1.16+ required";
   echo "using `which wrangler`";
   start="npx wrangler dev --local";
+elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
+  echo "note: Fastly CLI required";
+  echo "using `which fastly`";
+  start="fastly compute serve --skip-verification";
 else
   echo "note: nodejs v16+ required";
   echo "using `which node`";
