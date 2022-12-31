@@ -348,9 +348,6 @@ export default class EnvManager {
     } else if (this.runtime === "deno") {
       v = Deno.env.get(k);
     } else if (this.runtime === "fastly") {
-      if (!globalThis.fastlyEnv) {
-        globalThis.fastlyEnv = new Dictionary("env");
-      }
       v = fastlyEnv.get(k);
     } else if (this.runtime === "worker") {
       v = globalThis.wenv[k];

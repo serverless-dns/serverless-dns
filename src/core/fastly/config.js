@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 RethinkDNS and its authors.
+ * Copyright (c) 2022 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,6 +9,7 @@ import EnvManager from "../env.js";
 import * as system from "../../system.js";
 import Log from "../log.js";
 import { services } from "../svc.js";
+import { allowDynamicBackends } from "fastly:experimental";
 
 system.when("prepare").then(prep);
 system.when("steady").then(up);
@@ -16,6 +17,13 @@ system.when("steady").then(up);
 // on Fastly, setup is called for every new request,
 // since server-fastly.js fires "prepare" on every request
 function prep() {
+  allowDynamicBackends(true);
+
+  // This is used within `EnvManager`
+  if (!globalThis.fastlyEnv) {
+    globalThis.fastlyEnv = new Dictionary("env");
+  }
+
   if (!globalThis.envManager) {
     globalThis.envManager = new EnvManager();
   }

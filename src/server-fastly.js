@@ -2,7 +2,7 @@
 /// <reference types="@fastly/js-compute" />
 
 /*
- * Copyright (c) 2021 RethinkDNS and its authors.
+ * Copyright (c) 2022 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -13,10 +13,6 @@ import "./core/fastly/config.js";
 import { handleRequest } from "./core/doh.js";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
-
-import { allowDynamicBackends } from "fastly:experimental";
-
-allowDynamicBackends(true);
 
 addEventListener("fetch", (event) => {
   return serveDoh(event);
