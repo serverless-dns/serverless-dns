@@ -163,13 +163,13 @@ export default class Log {
         this.d = console.debug;
         this.debug = console.debug;
       case "timer":
-        this.lapTime = console.timeLog;
+        this.lapTime = console.timeLog || stub();
         this.startTime = function (name) {
           name += uid();
-          console.time(name);
+          if (console.time) console.time(name);
           return name;
         };
-        this.endTime = console.timeEnd;
+        this.endTime = console.timeEnd || stub();
       case "info":
         this.i = console.info;
         this.info = console.info;
