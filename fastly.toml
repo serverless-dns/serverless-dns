@@ -19,6 +19,7 @@ service_id = ""
 
       [local_server.dictionaries.env.contents]
         env = "development"
+        CLOUD_PLATFORM = "fastly"
 
 [scripts]
   build = "npm run build:fastly"
@@ -33,3 +34,5 @@ service_id = ""
 
         [setup.dictionaries.env.items.env]
           value = "production"
+        [setup.dictionaries.env.items.CLOUD_PLATFORM]
+          value = "fastly"
