@@ -15,7 +15,7 @@ import * as system from "./system.js";
 import * as util from "./commons/util.js";
 
 addEventListener("fetch", (event) => {
-  return serveDoh(event);
+  return event.respondWith(serveDoh(event));
 });
 
 async function serveDoh(event) {
