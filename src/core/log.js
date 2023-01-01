@@ -163,13 +163,13 @@ export default class Log {
         this.d = console.debug;
         this.debug = console.debug;
       case "timer":
-        this.lapTime = console.timeLog || stub();
+        this.lapTime = console.timeLog || stub(); // Stubbing required for Fastly as they do not currently support this method.
         this.startTime = function (name) {
           name += uid();
           if (console.time) console.time(name);
           return name;
         };
-        this.endTime = console.timeEnd || stub();
+        this.endTime = console.timeEnd || stub(); // Stubbing required for Fastly as they do not currently support this method.
       case "info":
         this.i = console.info;
         this.info = console.info;
