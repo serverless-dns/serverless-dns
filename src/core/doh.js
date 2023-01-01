@@ -24,7 +24,9 @@ async function proxyRequest(event) {
   try {
     const plugin = new RethinkPlugin(event);
     await plugin.initIoState(io);
-
+    if (io.httpResponse) {
+      return io.httpResponse;
+    }
     await util.timedSafeAsyncOp(
       /* op*/ async () => plugin.execute(),
       /* waitMs*/ dnsutil.requestTimeout(),
