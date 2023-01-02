@@ -1,10 +1,15 @@
-name: PR
+name: 📩 PR
 
 on:
   # "I am a workflow on the main branch's HEAD, target (base) of a PR"
   pull_request_target:
     branches:
       - "main"
+
+# Avoid concurrent runs of this workflow on an incoming PR, cancel previous
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
 
 env:
   # Base branch for the PR
@@ -36,7 +41,7 @@ jobs:
         run: |
           npm install
 
-      - name: 🍌 Fetch PR's head
+      - name: 🎣 Fetch PR's head
         run: |
           git fetch origin ${{ env.PR_HEAD_SHA }}
 
@@ -46,7 +51,7 @@ jobs:
           DIFF=$(git diff --name-only --diff-filter=ACMRT \
             ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
 
-          echo "::notice::DIFF(files): $DIFF"
+          echo "::notice::DIFF(files): ${DIFF/$'\n'/ }"
 
           if echo $DIFF | grep "node_modules"; then
             echo "::error::Unsafe change 'node_modules' found"
