@@ -167,7 +167,7 @@ export class LogPusher {
       this.remotelog(lk + logdelim + l);
     }
 
-    bg(this.rec(lk, all));
+    bg(this.rec(lid, all));
 
     this.corelog.d(`remotelog lines: ${lk} ${lines.length}`);
   }
@@ -299,7 +299,7 @@ export class LogPusher {
   }
 
   // all => [version, ip, region, host, up, qname, qtype, ans, f]
-  async rec(lk, all) {
+  async rec(lid, all) {
     const [m1, m2] = this.metricsservice();
     if (m1 == null || m2 == null) return;
 
@@ -316,8 +316,9 @@ export class LogPusher {
     // todo: device-id, should it be concatenated with log-key?
     // todo: faang dominance (sigma?)
 
-    const idx1 = this.idxmet(lk, "1");
-    const idx2 = this.idxmet(lk, "2");
+    // lk is simply "logkey" and not "k:logkey"
+    const idx1 = this.idxmet(lid, "1");
+    const idx2 = this.idxmet(lid, "2");
 
     // metric blobs in m1 should never change order; add new blobs at the end
     // update this.setupCols1() when appending new blobs / doubles
@@ -343,7 +344,6 @@ export class LogPusher {
       metrics2.push(this.nummet(blists.length)); // blocklists count
     }
 
-    this.corelog.d(`rec: ${lk} ${metrics1.length} ${metrics2.length}`);
     const blobs1 = metrics1.filter((m) => m.blob != null);
     const blobs2 = metrics2.filter((m) => m.blob != null);
     const doubles1 = metrics1.filter((m) => m.double != null);
@@ -365,6 +365,7 @@ export class LogPusher {
         indexes: [idx2],
       });
     }
+    this.corelog.d(`rec: ${lid} ${blobs1.length} ${doubles1.length}`);
   }
 
   // d is a domain name like "x.y.z.tld"
@@ -444,8 +445,16 @@ export class LogPusher {
   }
 
   // developers.cloudflare.com/analytics/analytics-engine/sql-reference
-  async count1(index, mins = 30, fields, limit = 10) {
-    const idx1 = this.idxmet(index, "1");
+  /**
+   * Return total count grouped by field
+   * @param {string} index
+   * @param {number} mins
+   * @param {string} fields
+   * @param {number} limit
+   * @returns {Promise<Response>}
+   */
+  async count1(lid, mins = 30, fields, limit = 10) {
+    const idx1 = this.idxmet(lid, "1");
     const f0 = fields[0];
     const col = this.cols1.get(f0);
     const vol = this.cols1.get("req");
