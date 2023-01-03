@@ -519,7 +519,7 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @param {Buffer} q
  * @param {String} host
  * @param {String} flag
- * @return {Promise<Uint8Array>}
+ * @return {Promise<Uint8Array?>}
  */
 async function resolveQuery(rxid, q, host, flag) {
   // Using POST, since GET requests cannot be greater than 2KB,
@@ -541,7 +541,7 @@ async function resolveQuery(rxid, q, host, flag) {
   const ans = await r.arrayBuffer();
 
   if (!bufutil.emptyBuf(ans)) {
-    return new Uint8Array(ans);
+    return bufutil.normalize8(ans);
   } else {
     log.w(rxid, host, "empty ans, send servfail; flags?", flag);
     return dnsutil.servfailQ(q);
@@ -629,7 +629,7 @@ async function handleHTTPRequest(b, req, res) {
     log.lapTime(t, "recv-ans");
 
     if (!bufutil.emptyBuf(ans)) {
-      res.end(bufutil.bufferOf(ans));
+      res.end(bufutil.normalize8(ans));
     } else {
       // expect fRes.status to be set to non 2xx above
       res.end();
