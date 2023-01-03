@@ -12,9 +12,10 @@
     "clean:wrangler": "rm -rf worker/ dist/",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "./src/build/pre.sh",
-    "build": "npm i && npx webpack --config webpack.config.cjs",
-    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs && npx js-compute-runtime ./dist/fastly.js",
-    "build:fly": "npm i && npx webpack --config webpack.fly.cjs"
+    "build": "npm i --omit=dev && npx webpack --config webpack.config.cjs",
+    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs",
+    "build:fly": "npm i --omit=dev && npx webpack --config webpack.fly.cjs",
+    "run:fastly": "npx js-compute-runtime ./dist/fastly.js"
   },
   "repository": {
     "type": "git",
@@ -49,7 +50,7 @@
     "lint-staged": "^12.1.4",
     "prettier": "2.5.1",
     "webpack": "^5.65.0",
-    "webpack-cli": "^4.9.2",
+    "webpack-cli": "^4.10.0",
     "wrangler": "^2.1.15"
   },
   "lint-staged": {
