@@ -520,8 +520,9 @@ export function tld(urlstr, upto = 2, d = ".") {
 
 export function bounds(n, min, max) {
   if (min > max) {
+    const t = max;
     max = min;
-    min = max;
+    min = t;
   }
   if (n < min) return min;
   if (n > max) return max;
