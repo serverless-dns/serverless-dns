@@ -19,6 +19,7 @@ ENV NODE_ENV production
 WORKDIR /app
 COPY --from=setup /node-dir/dist ./
 COPY --from=setup /node-dir/blocklists__ ./blocklists__
+COPY --from=setup /node-dir/dbip__ ./dbip__
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)
