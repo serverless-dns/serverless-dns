@@ -28,7 +28,7 @@ For step-by-step instructions, refer:
 | Platform       | Difficulty | Runtime                                | Doc                                                                                     |
 | ---------------| ---------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
 | ⛅ Cloudflare  | Easy       | [v8](https://v8.dev) _Isolates_        | [Hosting on Cloudflare Workers](https://docs.rethinkdns.com/dns/open-source#cloudflare) |
-| 🕐 Fastly Compute@Edge | Easy  | [Fastly JS](https://js-compute-reference-docs.edgecompute.app/)| [Hosting on Fastly Compute@Edge](https://docs.rethinkdns.com/dns/open-source#fastly) |
+| ⏱️ Fastly Compute@Edge | Easy  | [Fastly JS](https://js-compute-reference-docs.edgecompute.app/)| [Hosting on Fastly Compute@Edge](https://docs.rethinkdns.com/dns/open-source#fastly) |
 | 🦕 Deno.com    | Moderate   | [Deno](https://deno.land) _Isolates_   | [Hosting on Deno.com](https://docs.rethinkdns.com/dns/open-source#deno-deploy)          |
 | 🪂 Fly.io      | Hard       | [Node](https://nodejs.org) _MicroVM_   | [Hosting on Fly.io](https://docs.rethinkdns.com/dns/open-source#fly-io)                 |
 
