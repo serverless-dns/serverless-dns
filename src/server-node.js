@@ -635,8 +635,8 @@ async function handleHTTPRequest(b, req, res) {
       res.end();
     }
   } catch (e) {
-    res.writeHead(400); // bad request
-    res.end();
+    if (!res.headersSent) res.writeHead(400); // bad request
+    if (!res.writableEnded) res.end();
     log.w(e);
   }
 
