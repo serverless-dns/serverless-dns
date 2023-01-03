@@ -12,6 +12,10 @@ import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import IOState from "./io-state.js";
 
+/**
+ * @param {*} event
+ * @returns {Promise<Response>}
+ */
 export function handleRequest(event) {
   return proxyRequest(event);
 }

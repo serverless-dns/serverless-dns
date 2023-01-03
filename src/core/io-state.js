@@ -14,6 +14,7 @@ export default class IOState {
   constructor() {
     this.flag = "";
     this.decodedDnsPacket = this.emptyDecodedDnsPacket();
+    /** @type {Response} */
     this.httpResponse = undefined;
     this.isException = false;
     this.exceptionStack = undefined;
