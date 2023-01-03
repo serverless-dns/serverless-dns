@@ -9,6 +9,7 @@
 import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as txs from "../../commons/lf-transformer.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import { GeoIP } from "./geoip.js";
@@ -40,6 +41,8 @@ const maxmins = 365 * 24 * 60;
 const minlimit = 1;
 // max number of rows per query
 const maxlimit = 100;
+
+const processLogsAsText = false;
 
 /**
  * There's no way to enable Logpush on just one Worker env or choose different
@@ -74,6 +77,7 @@ export class LogPusher {
     this.cols1 = this.setupCols1();
     /** @type URL | null */
     this.meturl = this.setupMetUrl();
+    this.remotelogurl = this.setupLogpushUrl();
     /** @type String */
     this.apitoken = envutil.cfApiToken();
 
@@ -444,6 +448,45 @@ export class LogPusher {
     );
   }
 
+  setupLogpushUrl() {
+    // https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/logs/retrieve
+    // start=2022-06-01T16:00:00Z
+    // end=2022-06-01T16:05:00Z
+    // bucket=cloudflare-logs
+    // prefix=http_requests/example.com/{DATE}
+    const accid = envutil.cfAccountId();
+    // ex: bucket/dir1/dir2
+    const logpath = envutil.logpushPath();
+    const p = logpath.indexOf("/");
+
+    if (util.emptyString(accid)) return null;
+    if (p < 0) return null;
+
+    const date = "{DATE}";
+    const now = new Date();
+    const end = now.toISOString();
+    now.setHours(now.getHours() - 3);
+    const start = now.toISOString();
+    // ex: bucket
+    const bucket = logpath.slice(0, p);
+    // ex: dir1/dir2
+    let rest = logpath.slice(p + 1);
+    if (!util.emptyString(rest)) {
+      rest = rest.endsWith("/") ? rest : `${rest}/`;
+    }
+    const prefix = rest ? `${rest}${date}` : `${date}`;
+
+    const u = new URL(
+      `https://api.cloudflare.com/client/v4/accounts/${accid}/logs/retrieve`
+    );
+    u.searchParams.set("bucket", bucket);
+    u.searchParams.set("prefix", prefix);
+    u.searchParams.set("start", start);
+    u.searchParams.set("end", end);
+
+    return u;
+  }
+
   // developers.cloudflare.com/analytics/analytics-engine/sql-reference
   /**
    * Return total count grouped by field
@@ -486,6 +529,76 @@ export class LogPusher {
       },
       body: sql,
     });
-    return res.ok ? res.json() : null;
+  }
+
+  // developers.cloudflare.com/logs/r2-log-retrieval
+  /**
+   *
+   * @param {string} lid
+   * @param {string|Date|number} start
+   * @param {string|Date|number} end
+   * @returns {Promise<ReadableStream<String>> | Promise<ReadableStream<Uint8Array>> | Promise<null>}
+   */
+  async remotelogs(lid, start, end) {
+    const ak = envutil.logpushAccessKey();
+    const sk = envutil.logpushSecretKey();
+
+    if (this.remotelogurl == null) return null;
+    if (util.emptyString(this.apitoken)) return null;
+    if (util.emptyString(ak)) return null;
+    if (util.emptyString(sk)) return null;
+
+    // copy
+    const u = new URL(this.remotelogurl);
+    if (start && end) {
+      start = new Date(start);
+      end = new Date(end);
+      if (start.getTime() > end.getTime()) {
+        const t = start;
+        start = end;
+        end = t;
+      }
+      u.searchParams.set("start", start.toISOString());
+      u.searchParams.set("end", end.toISOString());
+    }
+
+    this.corelog.d(`remotelogs: ${u}`);
+
+    const r = await fetch(u, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${this.apitoken}`,
+        "R2-Access-Key-Id": ak,
+        "R2-Secret-Access-Key": sk,
+      },
+    });
+
+    if (r.ok) {
+      return this.filterlog(r.body, lid);
+    }
+
+    return r.body;
+  }
+
+  /**
+   *
+   * @param {ReadableStream<Uint8Array>|null} body
+   * @param {string} filterstr
+   * @returns {ReadableStream<String>|null}
+   */
+  filterlog(body, filterstr) {
+    if (body == null) return null;
+    if (processLogsAsText) {
+      return (
+        body
+          // note: DecompressionStream needs at least node 17
+          // gzip? pipeThrough(new DecompressionStream("gzip"))
+          .pipeThrough(new TextDecoderStream())
+          .pipeThrough(txs.strstream(filterstr))
+          .pipeThrough(new TextEncoderStream())
+      );
+    } else {
+      return body.pipeThrough(txs.bufstream(filterstr));
+    }
   }
 }

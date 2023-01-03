@@ -33,6 +33,7 @@ export class CommandControl {
       "b64tolist",
       "genaccesskey",
       "analytics",
+      "logs",
     ]);
   }
 
@@ -156,6 +157,9 @@ export class CommandControl {
           auth,
           lid
         );
+      } else if (command === "logs") {
+        // redirect to the logs page
+        response.data.httpResponse = await logs(this.lp, reqUrl, auth, lid);
       } else if (command === "config" || command === "configure" || !isDnsCmd) {
         // redirect to configure page
         response.data.httpResponse = configRedirect(
@@ -219,16 +223,36 @@ async function generateAccessKey(queryString, hostname) {
 }
 
 /**
+ *
  * @param {LogPusher} lp
  * @param {URL} reqUrl
  * @param {token.Outcome} auth
  * @param {string} lid
+ * @returns {Promise<Response>}
  */
-async function analytics(lp, reqUrl, auth, lid) {
-  if (util.emptyString(lid)) {
+async function logs(lp, reqUrl, auth, lid) {
+  if (util.emptyString(lid) || auth.no) {
     return util.respond401();
   }
-  if (auth.no) {
+
+  const p = reqUrl.searchParams;
+  const s = p.get("start");
+  const e = p.get("end");
+  const b = await lp.remotelogs(lid, s, e);
+  // do not await on the response body, instead stream it out
+  // blog.cloudflare.com/workers-optimization-reduces-your-bill
+  return plainResponse(b);
+}
+
+/**
+ * @param {LogPusher} lp
+ * @param {URL} reqUrl
+ * @param {token.Outcome} auth
+ * @param {string} lid
+ * @returns {Promise<Response>}
+ */
+async function analytics(lp, reqUrl, auth, lid) {
+  if (util.emptyString(lid) || auth.no) {
     return util.respond401();
   }
 
