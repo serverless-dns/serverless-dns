@@ -42,7 +42,13 @@ const minlimit = 1;
 // max number of rows per query
 const maxlimit = 100;
 
+// stream process logpush logs as text?
 const processLogsAsText = false;
+
+// note: no way to retrieve dataset names from the wa bindings
+// datasets for worker analytics
+const ONE_WA_DATASET1 = "ONE_M0";
+const ONE_WA_DATASET2 = "ONE_BL0";
 
 /**
  * There's no way to enable Logpush on just one Worker env or choose different
@@ -496,19 +502,21 @@ export class LogPusher {
    * @param {number} limit
    * @returns {Promise<Response>}
    */
-  async count1(lid, mins = 30, fields, limit = 10) {
+  async count1(lid, fields, mins = 30, dataset = ONE_WA_DATASET1, limit = 10) {
     const idx1 = this.idxmet(lid, "1");
     const f0 = fields[0];
     const col = this.cols1.get(f0);
     const vol = this.cols1.get("req");
-    mins = util.bounds(mins, minmins, maxmins);
-    limit = util.bounds(limit, minlimit, maxlimit);
+    mins = util.bounds(mins || 30, minmins, maxmins);
+    dataset = dataset || ONE_WA_DATASET1;
+    limit = util.bounds(limit || 10, minlimit, maxlimit);
     const sql = `
       SELECT
         ${col} as ${f0},
         SUM(_sample_interval * ${vol}) as n
-      FROM ${idx1}
-      WHERE timestamp > NOW() - INTERVAL '${mins}' MINUTE
+      FROM ${dataset}
+      WHERE index1 = '${idx1}'
+        AND timestamp > NOW() - INTERVAL '${mins}' MINUTE
       GROUP BY ${f0}
       ORDER BY n DESC
       LIMIT ${limit}
