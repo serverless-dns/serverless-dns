@@ -231,11 +231,14 @@ async function analytics(lp, reqUrl, auth, lid) {
   if (auth.no) {
     return util.respond401();
   }
+
   const p = reqUrl.searchParams;
   const t = p.get("t");
   const f = p.getAll("f");
   const r = await lp.count1(lid, t, f);
-  return jsonResponse(r);
+  // do not await on the response body, instead stream it out
+  // blog.cloudflare.com/workers-optimization-reduces-your-bill
+  return plainResponse(r.body);
 }
 
 /**
@@ -376,4 +379,12 @@ function b64ToList(queryString, blocklistFilter) {
  */
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), { headers: util.jsonHeaders() });
+}
+
+/**
+ * @param {ReadableStream<*>?} body
+ * @returns {Response}
+ */
+function plainResponse(body) {
+  return new Response(body, { headers: util.corsHeaders() });
 }

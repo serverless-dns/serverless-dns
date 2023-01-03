@@ -461,7 +461,7 @@ export class LogPusher {
       ORDER BY n DESC
       LIMIT ${limit}
       `;
-    return await this.query(sql);
+    return this.query(sql);
   }
 
   async query(sql) {
@@ -470,11 +470,10 @@ export class LogPusher {
     if (util.emptyString(sql)) return null;
 
     this.corelog.d(`querying: ${sql}`);
-    const res = await fetch(this.meturl, {
+    return await fetch(this.meturl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.apitoken}`,
+        Authorization: `Bearer ${this.apitoken}`,
       },
       body: sql,
     });
