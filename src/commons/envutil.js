@@ -296,6 +296,33 @@ export function logpushSources() {
   return null;
 }
 
+export function logpushPath() {
+  if (!envManager) return "";
+
+  const path = envManager.get("CF_LOGPUSH_R2_PATH") || "";
+  if (onCloudflare() || onLocal()) return path;
+
+  return "";
+}
+
+export function logpushAccessKey() {
+  if (!envManager) return "";
+
+  const accesskey = envManager.get("CF_LOGPUSH_R2_ACCESS_KEY") || "";
+  if (onCloudflare() || onLocal()) return accesskey;
+
+  return "";
+}
+
+export function logpushSecretKey() {
+  if (!envManager) return "";
+
+  const secretkey = envManager.get("CF_LOGPUSH_R2_SECRET_KEY") || "";
+  if (onCloudflare() || onLocal()) return secretkey;
+
+  return "";
+}
+
 export function gwip4() {
   return envManager.get("GW_IP4") || "";
 }
