@@ -572,6 +572,20 @@ export class LogPusher {
 
     this.corelog.d(`remotelogs: ${u}`);
 
+    /*
+     * { "EventTimestampMs": 1672678731630,
+     *   "Outcome": "ok",
+     *   "Logs": [
+     *      { "Level": "log",
+     *        "Message": [
+     *           "k:lid,v:1,i:14.1.1.2,r:BOM,u:,q:c.rome.api,t:A,a:163.1.1.2|c.api.net,f:"
+     *        ],
+     *       "TimestampMs": 1672678731630
+     *      }
+     *   ],
+     *   "ScriptName": "dns-one"
+     * }
+     */
     const r = await fetch(u, {
       method: "GET",
       headers: {
