@@ -33,3 +33,11 @@ export function orig() {
 export function filetag() {
   return u6filetag;
 }
+
+export function tdmd5() {
+  return u6cfg.tdmd5;
+}
+
+export function rdmd5() {
+  return u6cfg.rdmd5;
+}
