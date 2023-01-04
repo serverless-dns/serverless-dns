@@ -261,7 +261,7 @@ class ScratchBuffer {
     /** @type {Buffer} */
     this.qlenBuf = bufutil.createBuffer(dnsutil.dnsHeaderSize);
     /** @type {Number} */
-    this.qlenBufOffset = bufutil.recycleBuffer(qlenBuf);
+    this.qlenBufOffset = bufutil.recycleBuffer(this.qlenBuf);
     this.qBuf = null;
     this.qBufOffset = 0;
   }
