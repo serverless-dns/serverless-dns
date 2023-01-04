@@ -12,9 +12,9 @@
     "clean:wrangler": "rm -rf worker/ dist/",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "./src/build/pre.sh",
-    "build": "npm i --omit=optional && npx webpack --config webpack.config.cjs",
-    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs && npm run fastly:wasm",
-    "build:fly": "npm i --omit=optional && npx webpack --config webpack.fly.cjs",
+    "build": "npx webpack --config webpack.config.cjs",
+    "build:fastly": "npx webpack --config webpack.fastly.cjs && npm run fastly:wasm",
+    "build:fly": "npx webpack --config webpack.fly.cjs",
     "fastly:wasm": "npx js-compute-runtime ./dist/fastly.js ./dist/fastly.wasm"
   },
   "repository": {
