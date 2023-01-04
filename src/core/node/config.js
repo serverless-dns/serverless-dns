@@ -13,7 +13,6 @@
  */
 import { atob, btoa } from "buffer";
 import process from "node:process";
-import { fetch, Headers, Request, Response } from "undici";
 import * as util from "./util.js";
 import * as blocklists from "./blocklists.js";
 import * as dbip from "./dbip.js";
@@ -33,13 +32,6 @@ async function prep() {
   const isProd = process.env.NODE_ENV === "production";
   const onFly = process.env.CLOUD_PLATFORM === "fly";
   const profiling = process.env.PROFILE_DNS_RESOLVES === "true";
-
-  let devutils = null;
-
-  // dev utilities
-  if (!isProd) {
-    devutils = await import("./util-dev.js");
-  }
 
   globalThis.envManager = new EnvManager();
 
@@ -83,6 +75,7 @@ async function prep() {
     }
   } else {
     try {
+      const devutils = await import("./util-dev.js");
       const [tlsKey, tlsCrt] = devutils.getTLSfromFile(
         envManager.get("TLS_KEY_PATH"),
         envManager.get("TLS_CRT_PATH")
@@ -98,17 +91,6 @@ async function prep() {
   }
 
   envManager.set("TLS_OFFLOAD", tlsoffload);
-
-  /** Polyfills */
-  if (!globalThis.fetch) {
-    globalThis.fetch = isProd ? fetch : devutils.fetchPlus;
-    globalThis.Headers = Headers;
-    globalThis.Request = Request;
-    globalThis.Response = Response;
-    log.i("polyfill fetch web api");
-  } else {
-    log.i("no fetch polyfill required");
-  }
 
   if (!globalThis.atob || !globalThis.btoa) {
     globalThis.atob = atob;

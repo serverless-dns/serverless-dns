@@ -8,36 +8,7 @@
 
 /* For development environment use only */
 
-import fetch from "undici";
-import path from "path";
 import * as fs from "fs";
-
-/**
- * node-fetch with support for file:// urls
- * @param {RequestInfo} url
- * @param {RequestInit} [init]
- * @return {Promise<Response>}
- */
-export function fetchPlus(url, init) {
-  const request = new Request(url, init);
-
-  if (!request.url.startsWith("file://")) {
-    return fetch(url, init);
-  }
-
-  return new Promise((resolve, reject) => {
-    const filePath = path.normalize(url.substring("file://".length));
-
-    if (!fs.existsSync(filePath)) {
-      reject(new Error(`File not found: ${filePath}`));
-    } else {
-      const readStream = fs.createReadStream(filePath);
-      readStream.on("open", () => {
-        resolve(new Response(readStream));
-      });
-    }
-  });
-}
 
 /**
  * @param {String} TLS_KEY_PATH
