@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/serverless-dns/serverless-dns#readme",
   "engines": {
-    "node": ">=18.3.0"
+    "node": ">=16"
   },
   "dependencies": {
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.2",
