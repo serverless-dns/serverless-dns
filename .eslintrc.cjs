@@ -1,4 +1,5 @@
 module.exports = {
+  root: true,
   env: {
     // Which globals variables are allowed.
     es2021: true,
@@ -21,6 +22,7 @@ module.exports = {
     "node_modules/",
     "dist/",
     "worker/",
+    "pkg/",
     "test/data/cache/",
 
     // Ignore all files, except JS files (which may be in a directory)
@@ -52,7 +54,7 @@ module.exports = {
     "max-len": [
       "error",
       {
-        code: 120,
+        code: 80,
         ignoreComments: true,
         ignoreUrls: true,
         ignoreStrings: true,
