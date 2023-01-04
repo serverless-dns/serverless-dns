@@ -15,12 +15,9 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
 import * as rdnsutil from "../rdns-util.js";
-import { md5 } from "../../commons/crypto.js";
 
 // number of range fetches for trie.txt; -1 to disable
 const maxrangefetches = 2;
-// when enabled, check md5sum of the downloaded trie files
-const checkintegrity = false;
 
 export class BlocklistWrapper {
   constructor() {
@@ -194,16 +191,6 @@ export class BlocklistWrapper {
 
     const rd = downloads[0];
     const td = downloads[1];
-
-    // selectively enabled because of the perf hit ~150ms
-    if (checkintegrity) {
-      const rh = md5(rd);
-      const th = md5(td);
-      if (cfg.tdmd5() !== th || cfg.rdmd5() !== rh) {
-        throw new Error(`${th} <> ${cfg.tdmd5()} / ${rh} <> ${cfg.rdmd5()}`);
-      }
-      this.log.d(rxid, "md5; rd", rh, "td", th);
-    }
 
     const ftrie = this.makeTrie(td, rd, bconfig);
 
