@@ -149,6 +149,7 @@ async function serveDoh(req: Request) {
   } catch (e) {
     // Client may close conn abruptly before a response could be sent
     log.w("doh fail", e);
+    return util.respond405();
   }
 }
 
@@ -219,9 +220,9 @@ async function resolveQuery(q: Uint8Array) {
     body: q,
   });
 
-  const r: Response = (await handleRequest(mkFetchEvent(freq))) as Response;
+  const r = await handleRequest(mkFetchEvent(freq));
 
-  const ans: ArrayBuffer = await r.arrayBuffer();
+  const ans = await r.arrayBuffer();
 
   if (!bufutil.emptyBuf(ans)) {
     return new Uint8Array(ans);
