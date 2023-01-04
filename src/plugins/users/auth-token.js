@@ -131,6 +131,7 @@ export async function gen(msg, domain) {
   return toks;
 }
 
+// nb: stuble crypto api on node v19+
 // stackoverflow.com/a/47332317
 async function proof(key, val) {
   const hmac = "HMAC";

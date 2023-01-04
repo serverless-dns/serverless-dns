@@ -112,7 +112,7 @@ elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
   # developer.fastly.com/learning/compute/testing/#starting-the-server
   start="fastly compute serve --skip-verification --verbose --file ./dist/fastly.wasm";
 else
-  echo "note: nodejs v16+ required";
+  echo "note: nodejs v19+ required";
   echo "using `which node`";
   # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
   start="node --trace-warnings ./src/server-node.js";
