@@ -109,7 +109,8 @@ elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
 elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
   echo "note: Fastly CLI required";
   echo "using `which fastly`";
-  start="fastly compute serve --skip-verification";
+  # developer.fastly.com/learning/compute/testing/#starting-the-server
+  start="fastly compute serve --skip-verification --verbose --file ./dist/fastly.wasm";
 else
   echo "note: nodejs v16+ required";
   echo "using `which node`";

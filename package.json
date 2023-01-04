@@ -13,9 +13,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "./src/build/pre.sh",
     "build": "npm i --omit=dev && npx webpack --config webpack.config.cjs",
-    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs",
+    "build:fastly": "npm i && npx webpack --config webpack.fastly.cjs && npm run fastly:wasm",
     "build:fly": "npm i --omit=dev && npx webpack --config webpack.fly.cjs",
-    "run:fastly": "npx js-compute-runtime ./dist/fastly.js"
+    "fastly:wasm": "npx js-compute-runtime ./dist/fastly.js ./dist/fastly.wasm"
   },
   "repository": {
     "type": "git",

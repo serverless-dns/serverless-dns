@@ -86,7 +86,7 @@ curl -fsSL https://deno.land/install.sh | sh
 
 Fastly:
 ```bash
-# install Fastly CLI 
+# install the Fastly CLI
 # https://developer.fastly.com/learning/tools/cli
 
 # run serverless-dns on Fastly Compute@Edge
@@ -238,7 +238,8 @@ Cloudflare Workers build-time and runtime configurations are defined in [`wrangl
 [Webpack5 bundles the files](webpack.config.cjs) in an ESM module which is then uploaded to Cloudflare by _Wrangler_.
 
 Fastly Compute@Edge build-time and runtime configurations are defined in [`fastly.toml`](fastly.toml).
-[Webpack5 bundles the files](webpack.fastly.cjs) in an ESM module which is then uploaded to Fastly by the _Fastly CLI_.
+[Webpack5 bundles the files](webpack.fastly.cjs) in an ESM module which is then compiled to WASM by `npx js-compute-runtime`
+and subsequently packaged and published to Fastly Compute@Edge with the _Fastly CLI_.
 
 For Fly.io, which runs Node, the runtime directives are defined in [`fly.toml`](fly.toml) (used by `dev` and `live` deployment-types),
 while deploy directives are in [`node.Dockerfile`](node.Dockerfile). [`flyctl`](https://fly.io/docs/flyctl) accordingly sets
@@ -250,7 +251,8 @@ npm run build
 # usually, env-name is prod
 npx wrangler publish [-e <env-name>]
 
-# build and deploy for Fastly Compute@Edge
+# bundle, build, and deploy for fastly compute@edge
+# developer.fastly.com/reference/cli/compute/publish
 fastly compute publish
 
 # build and deploy to fly.io
@@ -274,4 +276,4 @@ if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and 
 required to setup the radix-trie during runtime bring-up or, downloads them [lazily](https://github.com/serverless-dns/serverless-dns/blob/02f9e5bf/src/plugins/dns-op/resolver.js#L167),
 when serving a DNS request.
 
-`serverless-dns` compiles around ~11M entries (as of Nov 2022) from around 190+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+`serverless-dns` compiles around ~13M entries (as of Jan 2023) from around 190+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.

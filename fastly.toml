@@ -2,7 +2,7 @@
 # https://developer.fastly.com/reference/fastly-toml/
 
 authors = [""]
-description = "Rethink Free Dns with Blocklist, one click install from github to Fastly"
+description = "Serverless DNS deploys to Fastly Compute@Edge"
 language = "javascript"
 manifest_version = 2
 name = "serverless-dns"
@@ -36,3 +36,4 @@ service_id = ""
           value = "production"
         [setup.dictionaries.env.items.CLOUD_PLATFORM]
           value = "fastly"
+
