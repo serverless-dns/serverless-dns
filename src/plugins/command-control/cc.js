@@ -260,7 +260,8 @@ async function analytics(lp, reqUrl, auth, lid) {
   const t = p.get("t");
   const f = p.getAll("f");
   const d = p.get("d");
-  const r = await lp.count1(lid, f, t, d);
+  const l = p.get("l");
+  const r = await lp.count1(lid, f, t, d, l);
   // do not await on the response body, instead stream it out
   // blog.cloudflare.com/workers-optimization-reduces-your-bill
   return plainResponse(r.body);
