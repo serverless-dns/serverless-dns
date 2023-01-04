@@ -42,6 +42,16 @@ export function isAnswer(packet) {
   return packet.type === "response";
 }
 
+export function mkQ(qid, qs) {
+  if (util.emptyArray(qs)) return null;
+
+  return dnslib.encode({
+    id: qid || 0,
+    type: "query",
+    questions: qs,
+  });
+}
+
 export function servfail(qid, qs) {
   // qid == 0 is valid; in fact qid is set to 0 by most doh clients
   if (qid == null || qid < 0 || util.emptyArray(qs)) return null;
