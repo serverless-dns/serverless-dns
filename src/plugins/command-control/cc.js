@@ -8,19 +8,23 @@
 import * as cfg from "../../core/cfg.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
+import * as dnsutil from "../../commons/dnsutil.js";
 import * as pres from "../plugin-response.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as token from "../users/auth-token.js";
 import { BlocklistFilter } from "../rethinkdns/filter.js";
 import { LogPusher } from "../observability/log-pusher.js";
 import { BlocklistWrapper } from "../rethinkdns/main.js";
+import { DNSResolver } from "../dns-op/dns-op.js";
 
 export class CommandControl {
-  constructor(blocklistWrapper, logPusher) {
+  constructor(blocklistWrapper, resolver, logPusher) {
     this.latestTimestamp = rdnsutil.bareTimestampFrom(cfg.timestamp());
     this.log = log.withTags("CommandControl");
     /** @type {BlocklistWrapper} */
     this.bw = blocklistWrapper;
+    /** @type {DNSResolver} */
+    this.resolver = resolver;
     /** @type {LogPusher} */
     this.lp = logPusher;
     this.cmds = new Set([
@@ -46,7 +50,7 @@ export class CommandControl {
     if (util.isGetRequest(ctx.request)) {
       return await this.commandOperation(
         ctx.rxid,
-        ctx.request.url,
+        ctx.request,
         ctx.isDnsMsg,
         ctx.userAuth,
         ctx.lid
@@ -80,12 +84,13 @@ export class CommandControl {
 
   /**
    * @param {string} rxid
-   * @param {Request} request
+   * @param {Request} req
    * @param {boolean} isDnsCmd
    * @param {token.Outcome} auth
    * @param {string} lid
    */
-  async commandOperation(rxid, url, isDnsCmd, auth, lid) {
+  async commandOperation(rxid, req, isDnsCmd, auth, lid) {
+    const url = req.url;
     let response = pres.emptyResponse();
 
     try {
@@ -117,7 +122,9 @@ export class CommandControl {
 
       this.log.d(rxid, url, "processing... cmd/flag", command, b64UserFlag);
 
-      // blocklistFilter may not to have been setup, so set it up
+      // resolver may not have been setup, so set it up
+      await this.resolver.lazyInit();
+      // blocklistFilter may not have been setup, so set it up
       await this.bw.init(rxid, /* force-wait */ true);
       const blf = this.bw.getBlocklistFilter();
       const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
@@ -132,14 +139,21 @@ export class CommandControl {
         response.data.httpResponse = b64ToList(queryString, blf);
       } else if (command === "dntolist") {
         // convert names to blocklists (tags)
-        response.data.httpResponse = domainNameToList(
+        response.data.httpResponse = await domainNameToList(
+          rxid,
+          this.resolver,
+          req,
           queryString,
           blf,
           this.latestTimestamp
         );
       } else if (command === "dntouint") {
         // convert names to flags
-        response.data.httpResponse = domainNameToUint(queryString, blf);
+        response.data.httpResponse = domainNameToUint(
+          this.resolver,
+          queryString,
+          blf
+        );
       } else if (command === "search") {
         // redirect to the search page with blockstamp (b64) preloaded
         response.data.httpResponse = searchRedirect(b64UserFlag);
@@ -268,12 +282,22 @@ async function analytics(lp, reqUrl, auth, lid) {
 }
 
 /**
+ * @param {string} rxid
+ * @param {DNSResolver} resolver
+ * @param {Request} req
  * @param {string} queryString
  * @param {BlocklistFilter} blocklistFilter
  * @param {number} latestTimestamp
- * @returns {Response}
+ * @returns {Promise<Response>}
  */
-function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
+async function domainNameToList(
+  rxid,
+  resolver,
+  req,
+  queryString,
+  blocklistFilter,
+  latestTimestamp
+) {
   const domainName = queryString.get("dn") || "";
   const r = {
     domainName: domainName,
@@ -281,33 +305,57 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
     list: {},
   };
 
-  const searchResult = blocklistFilter.lookup(domainName);
-  if (!searchResult) {
-    return jsonResponse(r);
-  }
+  // qid for doh is always 0
+  const qid = 0;
+  const qs = [
+    {
+      type: "A",
+      name: domainName,
+    },
+  ];
+  // only doh truly works across runtimes, workers/fastly/node/deno
+  const forcedoh = true;
+  const query = dnsutil.mkQ(qid, qs);
+  const querypacket = dnsutil.decode(query);
+  const rmax = resolver.determineDohResolvers(resolver.ofMax(), forcedoh);
+  const res = await resolver.resolveDnsUpstream(
+    rxid,
+    req,
+    rmax,
+    query,
+    querypacket
+  );
+  const ans = await res.arrayBuffer();
+  const anspacket = dnsutil.decode(ans);
+  const ansdomains = dnsutil.extractDomains(anspacket);
 
-  // ex: max.rethinkdns.com/dntolist?dn=google.com
-  // res: { "domainName": "google.com",
-  //        "version":"1655223903366",
-  //        "list": {  "google.com": {
-  //                      "NUI": {
-  //                          "value":149,
-  //                          "uname":"NUI",
-  //                          "vname":"No Google",
-  //                          "group":"privacy",
-  //                          "subg":"",
-  //                          "url":"https://raw.githubuserc...",
-  //                          "show":1,
-  //                          "entries":304
-  //                       }
-  //                    }
-  //                 },
-  //        ...
-  //      }
-  for (const entry of searchResult) {
-    const list = flagsToTags(entry[1]);
-    const listDetail = blocklistFilter.extract(list);
-    r.list[entry[0]] = listDetail;
+  for (const d of ansdomains) {
+    const searchResult = blocklistFilter.lookup(d);
+    if (!searchResult) continue;
+
+    // ex: max.rethinkdns.com/dntolist?dn=google.com
+    // res: { "domainName": "google.com",
+    //        "version":"1655223903366",
+    //        "list": {  "google.com": {
+    //                      "NUI": {
+    //                          "value":149,
+    //                          "uname":"NUI",
+    //                          "vname":"No Google",
+    //                          "group":"privacy",
+    //                          "subg":"",
+    //                          "url":"https://raw.githubuserc...",
+    //                          "show":1,
+    //                          "entries":304
+    //                       }
+    //                    }
+    //                 },
+    //        ...
+    //      }
+    for (const entry of searchResult) {
+      const list = flagsToTags(entry[1]);
+      const listDetail = blocklistFilter.extract(list);
+      r.list[entry[0]] = listDetail;
+    }
   }
 
   return jsonResponse(r);
@@ -319,6 +367,7 @@ function domainNameToList(queryString, blocklistFilter, latestTimestamp) {
  * @returns {Response}
  */
 function domainNameToUint(queryString, blocklistFilter) {
+  // TODO: resolve the query like in domainNameToList
   const domainName = queryString.get("dn") || "";
   const r = {
     domainName: domainName,

@@ -69,7 +69,7 @@ async function systemReady() {
   services.prefilter = new DNSPrefilter();
   services.dnsCacheHandler = new DNSCacheResponder(bw, cache);
   services.dnsResolver = new DNSResolver(bw, cache);
-  services.commandControl = new CommandControl(bw, lp);
+  services.commandControl = new CommandControl(bw, services.dnsResolver, lp);
 
   services.ready = true;
 
