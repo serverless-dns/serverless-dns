@@ -258,7 +258,7 @@ export function avoidFetch() {
   if (!isNode()) return false;
 
   // on node, default to avoiding fetch
-  return envManager.get("NODE_AVOID_FETCH") || true;
+  return envManager.get("NODE_AVOID_FETCH") || false;
 }
 
 export function disableDnsCache() {

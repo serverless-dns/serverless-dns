@@ -189,7 +189,7 @@ const defaults = new Map(
     // avoid using the (slow) fetch polyfill if on nodejs
     NODE_AVOID_FETCH: {
       type: "boolean",
-      default: true,
+      default: false,
     },
     // use only doh upstream on nodejs (udp/tcp is the default on nodejs)
     NODE_DOH_ONLY: {
