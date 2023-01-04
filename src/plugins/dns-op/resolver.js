@@ -332,7 +332,7 @@ export default class DNSResolver {
  * @param {Array} resolverUrls
  * @param {ArrayBuffer} query
  * @param {any} packet
- * @returns
+ * @returns {Promise<Response|Error>}
  */
 DNSResolver.prototype.resolveDnsUpstream = async function (
   rxid,
