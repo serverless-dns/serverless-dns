@@ -383,7 +383,13 @@ function makectx(context, ctxkeys) {
 // TODO: fetch lid from config store
 function extractLid(url) {
   // if lid is not present in url, then return hostname delimited by "_"
-  return util.fromPath(url, rdnsutil.logPrefix) || util.tld(url, 0, "_");
+  let lid = util.fromPath(url, rdnsutil.logPrefix);
+
+  if (util.emptyString(urllid) && envutil.logpushHostnameAsLogid()) {
+    lid = util.tld(url, 0, "_");
+  }
+
+  return lid || "";
 }
 
 async function extractDnsQuestion(request) {

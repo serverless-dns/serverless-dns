@@ -196,6 +196,11 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
+    // use hostname as log-id if log-id is not set in the request
+    LOGPUSH_HOSTNAME_AS_LOGID: {
+      type: "boolean",
+      default: false,
+    },
     // cloudflare logpush: developers.cloudflare.com/workers/platform/logpush
     LOGPUSH_SRC: {
       type: "csv",

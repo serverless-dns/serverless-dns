@@ -119,6 +119,13 @@ export class LogPusher {
   async exec(ctx) {
     let response = pres.emptyResponse();
 
+    // The cost of enabling cf logpush in prod:
+    //        |   cpu                |   gb-sec
+    // %      |   before     after   |   before     after
+    // p99.9  |   60.7       80      |   0.2        0.2
+    // p99    |   22.2       35      |   0.05       0.05
+    // p75    |   3.6        4.4     |   0.004      0.005
+    // p50    |   2.2        2.6     |   0.002      0.003
     if (this.noop(ctx)) {
       return response;
     }

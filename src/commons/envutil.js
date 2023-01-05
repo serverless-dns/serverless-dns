@@ -286,6 +286,12 @@ export function recursive() {
   return onFly();
 }
 
+export function logpushHostnameAsLogid() {
+  if (!envManager) return false;
+
+  return envManager.get("LOGPUSH_HOSTNAME_AS_LOGID") || false;
+}
+
 // returns a set of subdomains on which logpush is enabled
 export function logpushSources() {
   if (!envManager) return null;
