@@ -270,21 +270,19 @@ export function extractStamps(u) {
   const emptystamp = [emptystr, emptystr, emptystr, emptystr];
 
   const url = new URL(u);
-  // is the incoming request to the legacy free.bravedns.com endpoint?
-  const isFreeBraveDns = url.hostname.indexOf("free.bravedns") >= 0;
+  const useRecStamp = util.useRecBlockstamp(url);
 
   const paths = url.pathname.split("/");
 
-  if (!isFreeBraveDns && paths.length <= 1) {
+  if (!useRecStamp && paths.length <= 1) {
     return emptystamp;
   }
 
   let s = emptystr;
   // note: the legacy free.bravedns endpoint need not support
   // gateway queries or auth
-  if (isFreeBraveDns) {
-    // oisd, 1hosts:mini, cpbl:light, stevenblack, anudeep, yhosts, tiuxo
-    s = "1:YAYBACABEHAgAA==";
+  if (useRecStamp) {
+    s = envutil.recommendedBlockstamp();
   }
 
   for (const p of paths) {

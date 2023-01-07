@@ -453,6 +453,18 @@ export function fromPath(strurl, re) {
   return empty;
 }
 
+/**
+ * @param {URL} url
+ * @returns {Boolean}
+ */
+export function useRecBlockstamp(url) {
+  // is the incoming request to the legacy free.bravedns.com endpoint?
+  const isFreeBraveDns = url.hostname.includes("free.bravedns");
+  // does incoming request have a rec in its path?
+  const ok = url.pathname.includes("/rec");
+  return isFreeBraveDns || ok;
+}
+
 export function isGatewayRequest(req) {
   if (!req || emptyString(req.url)) return false;
 
