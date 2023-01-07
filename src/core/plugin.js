@@ -385,7 +385,7 @@ function extractLid(url) {
   // if lid is not present in url, then return hostname delimited by "_"
   let lid = util.fromPath(url, rdnsutil.logPrefix);
 
-  if (util.emptyString(urllid) && envutil.logpushHostnameAsLogid()) {
+  if (util.emptyString(lid) && envutil.logpushHostnameAsLogid()) {
     lid = util.tld(url, 0, "_");
   }
 
