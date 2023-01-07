@@ -51,11 +51,6 @@ const ONE_WA_DATASET1 = "ONE_M0";
 const ONE_WA_DATASET2 = "ONE_BL0";
 
 /**
- * There's no way to enable Logpush on just one Worker env or choose different
- * log sinks depending on script-name or environment or Worker name, for now.
- * This means, logs from serverless-dns (debug) are likely to end up in the same
- * sink as basic-unbound (prod).
- *
  * Logpush limits a single log msg to upto 150 chars, and total log msgs per
  * request to 20. Logpush does not support min batch size, or min batch time
  * (though, it supports max batch size and max batch time).
@@ -63,14 +58,21 @@ const ONE_WA_DATASET2 = "ONE_BL0";
  * By default, Logpush uploads traces of all uncaught exceptions. There's no way
  * to turn this off, except for filter on "outcome". We, however, log all errors
  * along with relevant DNS request logs, if requested (per user) and if enabled
- * (on the Cloudflare dashboard). And so, request logs are identified by the
+ * (on the Cloudflare dashboard). Request logs are identified by the
  * presence of "k:<logkey>" csv in the log output.
+ *
+ * For RethinkDNS, Logpush is enabled only on an env named "one" only.
+ *
+ * DNS query and answer analytics are pushed to Worker Analytics (wa), which
+ * supports 20 strings + 20 floats in a single API call per dataset (table).
+ * ServerlessDNS use two datasets, one for dns and one for blocklists.
  *
  * Refs:
  * developers.cloudflare.com/workers/platform/logpush
  * developers.cloudflare.com/logs/get-started/enable-destinations/r2
  * developers.cloudflare.com/api/operations/logpush-jobs-list-logpush-jobs
  * developers.cloudflare/logs/reference/log-fields/account/workers_trace_events
+ * developers.cloudflare.com/analytics/analytics-engine
  */
 export class LogPusher {
   constructor() {
