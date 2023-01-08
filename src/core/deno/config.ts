@@ -4,7 +4,7 @@ import * as dbip from "./dbip.ts";
 import { services, stopAfter } from "../svc.js";
 import Log from "../log.js";
 import EnvManager from "../env.js";
-import { signal } from "https://deno.land/std@0.170.0/signal/mod.ts";
+import { signal } from "https://deno.land/std@0.171.0/signal/mod.ts";
 
 // In global scope.
 declare global {
