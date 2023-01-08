@@ -51,7 +51,7 @@ jobs:
           DIFF=$(git diff --name-only --diff-filter=ACMRT \
             ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
 
-          echo "::notice::DIFF(files): ${DIFF/$'\n'/ }"
+          echo "::notice::DIFF(files): ${DIFF//$'\n'/ }"
 
           if echo $DIFF | grep "node_modules"; then
             echo "::error::Unsafe change 'node_modules' found"
