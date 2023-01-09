@@ -4,6 +4,12 @@
 // and github.com/LinusU/base32-decode/blob/fa61c01b/index.js
 // and github.com/LinusU/to-data-view/blob/e80ca034/index.js
 const ALPHA32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+// map chars to corresponding indices,
+// ex: A => 0, B => 1, ... Z => 25, 2 => 26, 3 => 27, ... 7 => 31
+const RALPHA32 = ALPHA32.split("").reduce((o, c, i) => {
+  o[c] = i;
+  return o;
+}, {});
 
 function toDataView(data) {
   if (
@@ -23,9 +29,9 @@ function toDataView(data) {
 
 function readChar(chr) {
   chr = chr.toUpperCase();
-  const idx = ALPHA32.indexOf(chr);
+  const idx = RALPHA32[chr];
 
-  if (idx === -1) {
+  if (idx == null) {
     throw new Error("invalid b32 character: " + chr);
   }
 
@@ -83,6 +89,5 @@ export function rbase32(input) {
       bits -= 8;
     }
   }
-
   return output;
 }
