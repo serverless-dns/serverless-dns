@@ -326,9 +326,10 @@ function getDnRE(socket) {
  */
 function getMetadata(sni) {
   // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
+  // 1-flag.somedomain.tld => ["1-flag", "somedomain", "tld"]
   const s = sni.split(".");
-  if (s.length > 3) {
-    // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"]
+  if (s.length > 2) {
+    // ["1-flag", "max", "rethinkdns", "com"] => "max.rethinkdns.com"
     const host = s.splice(1).join(".");
     // previously, "-" was replaced with "+" as doh handlers used "+" to
     // differentiate between a b32 flag and a b64 flag ("-" is a valid b64url
