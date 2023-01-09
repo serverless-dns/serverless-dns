@@ -4,6 +4,14 @@ wk="$1"
 mm="$2"
 yyyy="$3"
 
+# stackoverflow.com/a/24753942
+hasfwslash() {
+    case "$1" in
+    */*) echo yes ;;
+    *       ) echo no ;;
+    esac
+}
+
 burl="https://cfstore.rethinkdns.com/blocklists"
 dir="bc"
 codec="u6"
@@ -72,8 +80,12 @@ do
         wcode=$?
 
         if [ $wcode -eq 0 ]; then
-            # baretimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | grep -o -E '[0-9]+' | tail -n1)
-            fulltimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | tr -dc '0-9/')
+            # baretimestamp=$(cut -d"," -f9 "$out" | cut -d":" -f2 | grep -o -E '[0-9]+' | tail -n1)
+            fulltimestamp=$(cut -d"," -f9 "$out" | cut -d":" -f2 | tr -dc '0-9/')
+            if [ $(hasfwslash "$fulltimestamp") = "no" ]; then
+                echo "==x= pre.sh: $i filetag at f8"
+                fulltimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | tr -dc '0-9/')
+            fi
             echo "==x= pre.sh: $i ok $wcode; filetag? ${fulltimestamp}"
             wget -q "${burl}/${fulltimestamp}/${codec}/${f2}" -O "${out2}"
             wcode2=$?
@@ -82,6 +94,7 @@ do
               exit 0
             else
               echo "===x pre.sh: $i not ok $wcode2"
+              exit 1
               rm ${out}
               rm ${out2}
             fi
