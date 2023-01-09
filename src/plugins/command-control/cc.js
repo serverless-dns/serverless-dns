@@ -77,7 +77,7 @@ export class CommandControl {
 
   userFlag(url, isDnsCmd = false) {
     // When incoming request is a dns-msg, all cmds are no-op
-    if (isDnsCmd) return emptyFlag;
+    if (isDnsCmd) return "";
 
     return rdnsutil.blockstampFromUrl(url);
   }
