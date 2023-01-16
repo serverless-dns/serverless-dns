@@ -41,7 +41,7 @@ env:
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
   NODE_VER: '19.x'
-  DENO_VER: '1.27.1'
+  DENO_VER: '1.29.3'
   MODE: 'p1'
   QDOH: 'q'
 
@@ -52,7 +52,7 @@ jobs:
 
     steps:
       - name: 🍌 Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ env.GIT_REF }}
           fetch-depth: 0
@@ -66,9 +66,9 @@ jobs:
           JSR: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
-      - name: 🐎 Setup Node @v17
+      - name: 🐎 Setup Node @v19
         if: env.JS_RUNTIME == 'node'
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v3.6.0
         with:
           node-version: ${{ env.NODE_VER }}
 
@@ -80,7 +80,7 @@ jobs:
           npm run build --if-present
 
       # deno.com/blog/deploy-static-files#example-a-statically-generated-site
-      - name: 🦕 Setup Deno @1.19.3
+      - name: 🦕 Setup Deno @1.29.3
         if: env.JS_RUNTIME == 'deno'
         uses: denoland/setup-deno@main
         with:
