@@ -64,7 +64,7 @@ jobs:
       contents: read
     steps:
       - name: 🚚 Fetch code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3.3.0
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
           fetch-depth: 0
@@ -88,7 +88,7 @@ jobs:
       - name: 🦕 Install Deno @1.29
         uses: denoland/setup-deno@main
         with:
-          deno-version: 1.29.2
+          deno-version: 1.29.3
 
       - name: 📦 Bundle up
         if: ${{ env.DEPLOY_MODE == 'action' }}
@@ -103,7 +103,7 @@ jobs:
       - name: 🤸🏼 Deploy to deno.com
         id: dd
         if: ${{ env.DEPLOY_MODE == 'action' }}
-        uses: denoland/deployctl@v1
+        uses: denoland/deployctl@v1.4.0
         with:
           project: ${{ env.PROJECT_NAME }}
           entrypoint: ${{ env.OUT_FILE }}
