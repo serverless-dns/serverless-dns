@@ -552,6 +552,7 @@ export function mkFetchEvent(r, ...fns) {
   }
   // developer.mozilla.org/en-US/docs/Web/API/FetchEvent
   // developers.cloudflare.com/workers/runtime-apis/fetch-event
+  // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
   // a service-worker event, with properties: type and request; and methods:
   // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
   return {

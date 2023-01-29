@@ -145,7 +145,7 @@ async function serveDoh(req: Request) {
   try {
     // doc.deno.land/deno/stable/~/Deno.RequestEvent
     // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
-    return handleRequest(mkFetchEvent(req));
+    return handleRequest(util.mkFetchEvent(req));
   } catch (e) {
     // Client may close conn abruptly before a response could be sent
     log.w("doh fail", e);
@@ -220,7 +220,7 @@ async function resolveQuery(q: Uint8Array) {
     body: q,
   });
 
-  const r = await handleRequest(mkFetchEvent(freq));
+  const r = await handleRequest(util.mkFetchEvent(freq));
 
   const ans = await r.arrayBuffer();
 
@@ -229,23 +229,4 @@ async function resolveQuery(q: Uint8Array) {
   } else {
     return new Uint8Array(dnsutil.servfailQ(q));
   }
-}
-
-function mkFetchEvent(r: Request, ...fns: Function[]) {
-  if (!r) throw new Error("missing request");
-
-  // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
-  // a service-worker event, with properties: type and request; and methods:
-  // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
-  return {
-    type: "fetch",
-    request: r,
-    respondWith: fns[0] || stub("event.respondWith"),
-    waitUntil: fns[1] || stub("event.waitUntil"),
-    passThroughOnException: fns[2] || stub("event.passThroughOnException"),
-  };
-}
-
-function stub(fid: String) {
-  return (...rest: any) => log.d(fid, "stub fn, args:", ...rest);
 }
