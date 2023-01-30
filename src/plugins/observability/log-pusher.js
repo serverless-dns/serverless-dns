@@ -324,7 +324,7 @@ export class LogPusher {
 
     const metrics1 = [];
     const metrics2 = [];
-    const [version, ip, region, up, qname, qtype, ans, f] = all;
+    const [version, ip, region, qname, qtype, ans, f] = all;
 
     // ans is a multi-value str delimited by pipe
     const isblocked = this.isansblocked(qtype, ans, f);
