@@ -229,7 +229,7 @@ async function generateAccessKey(queryString, hostname) {
   for (const d of util.domains(hostname)) {
     if (util.emptyString(d)) continue;
 
-    const [_, hexcat] = await token.gen(msg, d);
+    const [, hexcat] = await token.gen(msg, d);
     toks.push(hexcat);
   }
 
