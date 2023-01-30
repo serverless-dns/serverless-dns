@@ -195,8 +195,6 @@ export class BlocklistWrapper {
     const ftrie = this.makeTrie(td, rd, bconfig);
 
     this.blocklistFilter.load(ftrie, ft);
-
-    return;
   }
 
   triedata() {
