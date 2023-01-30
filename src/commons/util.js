@@ -525,7 +525,7 @@ export function* domains(urlOrHost) {
 
 export function tld(urlstr, upto = 2, d = ".") {
   if (emptyString(urlstr)) return "";
-  // convert a domain-name of form x.y.tld to url http://x.y.tld
+  // convert a domain-name of form x.y.tld to url https://x.y.tld
   if (!urlstr.includes("://")) urlstr = "https://" + urlstr;
 
   const u = new URL(urlstr);
