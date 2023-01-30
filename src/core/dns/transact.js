@@ -117,7 +117,6 @@ export class TcpTx {
       sb.qlenBufOffset = bufutil.recycleBuffer(sb.qlenBuf);
       sb.qBuf = null;
       sb.qBufOffset = 0;
-      return;
     } else if (sb.qBufOffset > qlen) {
       this.log.w(rxid, `size mismatch: ${chunk.byteLength} <> ${qlen}`);
       this.no("size-mismatch");
