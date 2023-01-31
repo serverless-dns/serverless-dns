@@ -13,7 +13,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import IOState from "./io-state.js";
 
 /**
- * @param {*} event
+ * @param {FetchEvent} event
  * @returns {Promise<Response>}
  */
 export function handleRequest(event) {
@@ -21,7 +21,7 @@ export function handleRequest(event) {
 }
 
 /**
- * @param {*} event
+ * @param {FetchEvent} event
  * @returns {Promise<Response>}
  */
 async function proxyRequest(event) {

@@ -18,21 +18,19 @@ addEventListener("fetch", (event) => {
   return event.respondWith(serveDoh(event));
 });
 
+/**
+ * @param {FetchEvent} event
+ * @returns {Response}
+ */
 async function serveDoh(event) {
   // on Fastly, the network-context is only available in an event listener
   // and so, publish system prepare from here instead of from main which
   // runs in global-scope.
   system.pub("prepare");
 
-  const fetchEvent = util.mkFetchEvent(
-    event.request,
-    null,
-    event.waitUntil.bind(event)
-  );
-
   try {
     await system.when("go");
-    return await handleRequest(fetchEvent);
+    return await handleRequest(event);
   } catch (e) {
     console.error("server", "serveDoh err", e);
     return util.respond405();
