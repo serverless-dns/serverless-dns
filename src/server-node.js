@@ -48,7 +48,7 @@ let nofchecks = 0;
 async function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
-  console.info(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
+  console.warn(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
 
   const srvs = listeners;
   listeners = [];
@@ -56,7 +56,7 @@ async function systemDown() {
   srvs.forEach((s) => {
     if (!s) return;
     const saddr = s.address();
-    console.info("stopping...", saddr);
+    console.warn("stopping...", saddr);
     // TODO: drain all sockets stackoverflow.com/a/14636625
     s.close(() => down(saddr));
   });
@@ -73,7 +73,7 @@ async function systemDown() {
   // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
   util.timeout(/* 2s*/ 2 * 1000, () => {
-    console.info("game over");
+    console.warn("game over");
     // exit success aka 0; ref: community.fly.io/t/4547/6
     process.exit(0);
   });
