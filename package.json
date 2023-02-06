@@ -31,8 +31,8 @@
   },
   "dependencies": {
     "@serverless-dns/dns-parser": "github:serverless-dns/dns-parser#v2.1.2",
-    "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.1",
-    "@serverless-dns/trie": "github:serverless-dns/trie#v0.0.13",
+    "@serverless-dns/lfu-cache": "github:serverless-dns/lfu-cache#v3.4.2",
+    "@serverless-dns/trie": "github:serverless-dns/trie#v0.0.15",
     "httpx-server": "^1.4.4",
     "node-polyfill-webpack-plugin": "^2.0.1",
     "proxy-protocol-js": "^4.0.5"
