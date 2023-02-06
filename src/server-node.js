@@ -199,7 +199,7 @@ function trapServerEvents(...servers) {
         conntrack.set(id, socket);
 
         socket.on("error", (err) => {
-          log.e("tcp: incoming conn closed; " + err.message, err);
+          log.e("tcp: incoming conn closed; " + err.message);
           close(socket);
         });
 
@@ -234,7 +234,7 @@ function trapSecureServerEvents(...servers) {
 
         // must be handled by Http2SecureServer, github.com/nodejs/node/issues/35824
         socket.on("error", (err) => {
-          log.e("tls: incoming conn closed; " + err.message, err);
+          log.e("tls: incoming conn closed; " + err.message);
           close(socket);
         });
 
@@ -248,7 +248,7 @@ function trapSecureServerEvents(...servers) {
       });
 
       s.on("tlsClientError", (err, tlsSocket) => {
-        log.e("tls: client err; " + err.message, err);
+        log.d("tls: client err; " + err.message);
         close(tlsSocket);
       });
     });
