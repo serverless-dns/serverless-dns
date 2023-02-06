@@ -7,10 +7,10 @@
  */
 
 import net, { isIPv6 } from "net";
-import tls from "tls";
+import tls, { Server } from "tls";
 import http2 from "http2";
 import * as h2c from "httpx-server";
-import { V1ProxyProtocol } from "proxy-protocol-js";
+import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
 import { stopAfter, uptime } from "./core/svc.js";
@@ -33,8 +33,8 @@ let OUR_WC_DN_RE = null; // wildcard dns name match
 
 let log = null;
 let noreqs = -1;
-let listeners = [];
 let nofchecks = 0;
+const listeners = { connmap: [], servers: [] };
 
 ((main) => {
   // listen for "go" and start the server
@@ -50,14 +50,25 @@ async function systemDown() {
   // to start, in which case globals like env and log may not be available
   console.warn(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
 
-  const srvs = listeners;
-  listeners = [];
+  const srvs = listeners.servers;
+  const cmap = listeners.connmap;
+  listeners.servers = [];
+  listeners.connmap = [];
+
+  // drain all sockets stackoverflow.com/a/14636625
+  // TODO: handle proxy protocol sockets
+  cmap.forEach((m) => {
+    if (!m) return;
+    console.warn("closing...", m.size, "connections");
+    for (const sock of m.values()) {
+      close(sock);
+    }
+  });
 
   srvs.forEach((s) => {
     if (!s) return;
     const saddr = s.address();
     console.warn("stopping...", saddr);
-    // TODO: drain all sockets stackoverflow.com/a/14636625
     s.close(() => down(saddr));
   });
 
@@ -121,7 +132,9 @@ function systemUp() {
       .createServer(serveHTTPS)
       .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
 
-    listeners = [dotct, dohct];
+    const conns = trapServerEvents(dohct, dotct);
+    listeners.connmap = [conns];
+    listeners.servers = [dotct, dohct];
   } else {
     // terminate tls ourselves
     const tlsOpts = {
@@ -152,8 +165,11 @@ function systemUp() {
       .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
       .listen(portdoh, () => up("DoH", doh.address()));
 
+    const conns1 = trapServerEvents(dot2);
+    const conns2 = trapSecureServerEvents(dot1, doh);
+    listeners.connmap = [conns1, conns2];
     // may contain null elements
-    listeners = [dot1, dot2, doh];
+    listeners.servers = [dot1, dot2, doh];
   }
 
   if (envutil.httpCheck()) {
@@ -161,10 +177,83 @@ function systemUp() {
     const hcheck = h2c
       .createServer(serve200)
       .listen(portcheck, () => up("http-check", hcheck.address()));
-    listeners.push(hcheck);
+    listeners.connmap.push(trapServerEvents(hcheck));
+    listeners.servers.push(hcheck);
   }
 
   machinesHeartbeat();
+}
+
+/**
+ * @param  {... import("http2").Http2Server | net.Server} servers
+ * @returns {boolean}
+ */
+function trapServerEvents(...servers) {
+  const conntrack = new Map();
+  servers &&
+    servers.forEach((s) => {
+      if (!s) return;
+      s.on("connection", (socket) => {
+        // use the network five tuple instead?
+        const id = util.uid();
+        conntrack.set(id, socket);
+
+        socket.on("error", (err) => {
+          log.e("tcp: incoming conn closed; " + err.message, err);
+          close(socket);
+        });
+
+        socket.on("close", function () {
+          conntrack.delete(id);
+        });
+      });
+
+      s.on("error", (err) => {
+        log.e("tcp: server error; " + err.message, err);
+      });
+    });
+
+  return conntrack;
+}
+
+/**
+ * @param  {... import("http2").Http2SecureServer | Server} servers
+ * @returns {boolean}
+ */
+function trapSecureServerEvents(...servers) {
+  const conntrack = new Map();
+
+  servers &&
+    servers.forEach((s) => {
+      if (!s) return;
+      // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
+      s.on("secureConnection", (socket) => {
+        // use the network five tuple instead?
+        const id = util.uid();
+        conntrack.set(id, socket);
+
+        // must be handled by Http2SecureServer, github.com/nodejs/node/issues/35824
+        socket.on("error", (err) => {
+          log.e("tls: incoming conn closed; " + err.message, err);
+          close(socket);
+        });
+
+        socket.on("close", function () {
+          conntrack.delete(id);
+        });
+      });
+
+      s.on("error", (err) => {
+        log.e("tls: server error; " + err.message, err);
+      });
+
+      s.on("tlsClientError", (err, tlsSocket) => {
+        log.e("tls: client err; " + err.message, err);
+        close(tlsSocket);
+      });
+    });
+
+  return conntrack;
 }
 
 function down(addr) {
@@ -229,7 +318,7 @@ function serveDoTProxyProto(clientSocket) {
 
     try {
       // TODO: admission control
-      const proto = V1ProxyProtocol.parse(chunk.slice(0, delim));
+      const proto = V2ProxyProtocol.parse(chunk.slice(0, delim));
       log.d(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
 
       // remaining data from first tcp segment
@@ -245,15 +334,12 @@ function serveDoTProxyProto(clientSocket) {
     }
   }
 
-  clientSocket.on("data", handleProxyProto);
-  clientSocket.on("close", () => {
-    close(dotSock);
-  });
   clientSocket.on("error", (e) => {
     log.w("Client socket error, closing connection");
     close(clientSocket);
     close(dotSock);
   });
+  clientSocket.on("data", handleProxyProto);
 }
 
 class ScratchBuffer {
@@ -384,10 +470,6 @@ function serveTLS(socket) {
   socket.on("end", () => {
     socket.end();
   });
-  socket.on("error", (e) => {
-    log.w("TLS socket error, closing connection");
-    close(socket);
-  });
 }
 
 /**
@@ -409,10 +491,6 @@ function serveTCP(socket) {
   });
   socket.on("end", () => {
     socket.end();
-  });
-  socket.on("error", (e) => {
-    log.w("TCP socket error, closing connection");
-    close(socket);
   });
 }
 
