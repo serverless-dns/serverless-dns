@@ -2,7 +2,7 @@ import * as system from "../../system.js";
 import * as blocklists from "./blocklists.ts";
 import * as dbip from "./dbip.ts";
 import { services, stopAfter } from "../svc.js";
-import Log from "../log.js";
+import Log, { LogLevels } from "../log.js";
 import EnvManager from "../env.js";
 import { signal } from "https://deno.land/std@0.171.0/signal/mod.ts";
 
@@ -41,7 +41,7 @@ async function prep() {
   window.envManager = new EnvManager();
 
   window.log = new Log({
-    level: window.envManager.get("LOG_LEVEL") as string,
+    level: window.envManager.get("LOG_LEVEL") as LogLevels,
     levelize: isProd || profiling, // levelize if prod or profiling
     withTimestamps: !onDenoDeploy, // do not log ts on deno-deploy
   });
