@@ -33,9 +33,9 @@ banner() {
 }
 
 cleanup() {
-  # unix.stackexchange.com/a/146770
-  echo "sig... $proc0"
-  kill -INT $proc0
+  # alt? unix.stackexchange.com/a/146770
+  # echo "sig... $proc0"
+  # kill -INT $proc0
   # stackoverflow.com/a/51576504
   jobs -p > jobfile
   j=$(cat jobfile)

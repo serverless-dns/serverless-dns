@@ -96,6 +96,8 @@ export function stopAfter(ms = 0) {
   if (ms < 0) {
     log.w("invalid stopAfter", ms);
     return;
+  } else {
+    log.d("stopAfter", ms);
   }
   const now = Date.now();
   // 33% of the upcoming wait-time
