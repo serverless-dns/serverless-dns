@@ -57,7 +57,7 @@ export class TcpConnPool {
 
     // no evictions, and no free sockets
     if (n > 0 || out == null) {
-      log.w("take, evicted:", n, "out?", out != null);
+      log.d("take, evicted:", n, "out?", out != null);
     }
     return out;
   }
@@ -113,7 +113,7 @@ export class TcpConnPool {
       // incr n even if we are clearing (ignoring maxsweep)
       if (++n >= this.maxsweep && !clear) break;
     }
-    log.w("sweep, cleared:", sz - this.pool.size, "clear?", clear, "n:", n);
+    log.i("sweep, cleared:", sz - this.pool.size, "clear?", clear, "n:", n);
     return sz > this.pool.size; // size decreased post-sweep?
   }
 
@@ -202,7 +202,7 @@ export class UdpConnPool {
     }
     // no evictions, but no socket available
     if (n > 0 || out == null) {
-      log.w("take, evicted:", n, "out?", out != null);
+      log.d("take, evicted:", n, "out?", out != null);
     }
     return out;
   }
@@ -250,7 +250,7 @@ export class UdpConnPool {
       // incr n even if we are clearing (ignoring maxsweep)
       if (++n >= this.maxsweep && !clear) break;
     }
-    log.w("sweep, cleared:", sz - this.pool.size, "clear?", clear, "n:", n);
+    log.i("sweep, cleared:", sz - this.pool.size, "clear?", clear, "n:", n);
     return sz > this.pool.size; // size decreased post-sweep?
   }
 

@@ -36,7 +36,7 @@ let noreqs = -1;
 let nofchecks = 0;
 const listeners = { connmap: [], servers: [] };
 // see also: dns-transport.js:ioTimeout
-const ioTimeoutMs = 30000; // 30 secs
+const ioTimeoutMs = 50000; // 50 secs
 
 ((main) => {
   // listen for "go" and start the server
@@ -206,7 +206,7 @@ function trapServerEvents(...servers) {
         const id = util.uid();
         conntrack.set(id, socket);
         socket.setTimeout(ioTimeoutMs, () => {
-          log.w("tcp: incoming conn timed out; " + id);
+          log.d("tcp: incoming conn timed out; " + id);
           socket.end();
         });
 
