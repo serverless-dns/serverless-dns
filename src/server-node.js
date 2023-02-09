@@ -139,6 +139,7 @@ function systemUp() {
       .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
 
     const conns = trapServerEvents(dohct, dotct);
+    trapHttp2ServerEvents(dohct);
     listeners.connmap = [conns];
     listeners.servers = [dotct, dohct];
   } else {
@@ -173,6 +174,7 @@ function systemUp() {
 
     const conns1 = trapServerEvents(dot2);
     const conns2 = trapSecureServerEvents(dot1, doh);
+    trapHttp2ServerEvents(doh);
     listeners.connmap = [conns1, conns2];
     // may contain null elements
     listeners.servers = [dot1, dot2, doh];
@@ -282,8 +284,24 @@ function trapSecureServerEvents(...servers) {
   return conntrack;
 }
 
+/**
+ * @param  {... import("http2").Http2Server} servers
+ */
+function trapHttp2ServerEvents(...servers) {
+  servers &&
+    servers.forEach((s) => {
+      if (!s) return;
+      s.on("stream", (stream, headers) => {
+        stream.on("error", (err) => {
+          log.e("http2: stream error; " + err.message);
+          if (!stream.destroyed) util.safeBox(() => stream.destroy());
+        });
+      });
+    });
+}
+
 function down(addr) {
-  console.warn(`closed: [${addr.address}]:${addr.port}`);
+  console.warn(`W closed: [${addr.address}]:${addr.port}`);
 }
 
 function up(server, addr) {
