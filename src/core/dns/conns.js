@@ -172,7 +172,7 @@ export class UdpConnPool {
     this.sweepGapMs = Math.max(/* 10s*/ 10000, (ttl / 4) | 0); // ms
     /** @type {Map<import("dgram").Socket, Report>} */
     this.pool = new Map();
-    log.w("udp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
+    log.d("udp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
   }
 
   give(socket) {
