@@ -75,7 +75,8 @@ export class DnsCache {
 
     try {
       // data: {dnsPacket, dnsBuffer, metadata}; dnsPacket/Buffer may be null
-      this.log.d("put: data in cache", data);
+      // verbose: this.log.d("put: data in cache", data);
+      this.log.d("put: data in cache", data.metadata);
 
       // a race where the cache may infact have a fresh answer,
       // but then we override it with this question-only packet
