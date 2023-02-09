@@ -85,11 +85,13 @@ async function systemDown() {
   // fly.io init process should mop it up, regardless of what goes on in here.
   // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
-  util.timeout(/* 2s*/ 2 * 1000, () => {
-    console.warn("game over");
-    // exit success aka 0; ref: community.fly.io/t/4547/6
-    process.exit(0);
-  });
+  envutil.onFly() &&
+    envutil.machinesTimeoutMillis() > 0 &&
+    util.timeout(/* 2s*/ 2 * 1000, () => {
+      console.warn("W game over");
+      // exit success aka 0; ref: community.fly.io/t/4547/6
+      process.exit(0);
+    });
 }
 
 function systemUp() {
