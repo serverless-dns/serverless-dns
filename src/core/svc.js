@@ -78,9 +78,9 @@ async function systemReady() {
   system.pub("steady");
 }
 
-function systemStop() {
+async function systemStop() {
   log.d("svc stop, signal close resolver");
-  services.dnsResolver.close();
+  if (services.ready) await services.dnsResolver.close();
 }
 
 function stopProc() {
@@ -112,7 +112,11 @@ export function stopAfter(ms = 0) {
     return;
   }
   clearEndTimer();
-  endtimer = util.timeout(ms, stopProc);
+  if (ms <= 0) {
+    stopProc();
+  } else {
+    endtimer = util.timeout(ms, stopProc);
+  }
   log.d("h?", toohigh, "r?", recent, "waitMs", latestWaitMs, "extend ttl", ms);
   latestWaitMs = ms;
   latestHeartbeat = now;
