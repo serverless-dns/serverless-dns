@@ -308,8 +308,16 @@ function up(server, addr) {
   log.i(server, `listening on: [${addr.address}]:${addr.port}`);
 }
 
+/**
+ * RST and/or closes tcp socket.
+ * @param {net.Socket} sock
+ */
 function close(sock) {
-  util.safeBox(() => sock.destroy());
+  sock &&
+    util.safeBox(() => {
+      sock.resetAndDestroy();
+      sock.unref();
+    });
 }
 
 /**
