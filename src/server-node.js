@@ -210,6 +210,11 @@ function trapServerEvents(...servers) {
         socket.on("close", (haderr) => {
           conntrack.delete(id);
         });
+
+        socket.on("end", () => {
+          // TODO: is this needed? this is the default anyway
+          socket.end();
+        });
       });
 
       s.on("error", (err) => {
@@ -245,6 +250,11 @@ function trapSecureServerEvents(...servers) {
 
         socket.on("close", (haderr) => {
           conntrack.delete(id);
+        });
+
+        socket.on("end", () => {
+          // TODO: is this needed? this is the default anyway
+          socket.end();
         });
       });
 
@@ -474,9 +484,6 @@ function serveTLS(socket) {
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
   });
-  socket.on("end", () => {
-    socket.end();
-  });
 }
 
 /**
@@ -484,9 +491,7 @@ function serveTLS(socket) {
  * @param {Socket} socket
  */
 function serveTCP(socket) {
-  // TODO: TLS ClientHello is sent in proxy-proto v2, but fly.io
-  // doesn't yet support v2, but only v1. ClientHello would contain
-  // the SNI which we could then use here.
+  // TODO: TLS ClientHello is sent with proxy-proto v2
   const [flag, host] = ["", "ignored.example.com"];
   const sb = new ScratchBuffer();
 
@@ -495,9 +500,6 @@ function serveTCP(socket) {
 
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
-  });
-  socket.on("end", () => {
-    socket.end();
   });
 }
 
