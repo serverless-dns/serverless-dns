@@ -135,7 +135,7 @@ async function up() {
     log.w("Config", "logpusher unavailable");
   }
 
-  process.on("SIGINT", (sig) => stopAfter());
+  process.once("SIGINT", (sig) => stopAfter());
 
   // signal all system are-a go
   system.pub("go");
