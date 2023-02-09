@@ -260,14 +260,14 @@ export class UdpTx {
 
   onError(rxid, err) {
     if (this.done) return; // no-op
-    this.log.d(rxid, "udp err", err.message);
+    this.log.e(rxid, "udp err", err.message);
     this.no(err.message);
   }
 
   onClose(rxid, err) {
     if (this.done) return; // no-op
     this.log.d(rxid, "udp close");
-    return err ? this.no(err.message) : this.no("close");
+    return err ? this.no("error") : this.no("close");
   }
 
   promisedRead(timeout = 0) {
