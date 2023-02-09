@@ -35,6 +35,8 @@ let log = null;
 let noreqs = -1;
 let nofchecks = 0;
 const listeners = { connmap: [], servers: [] };
+// see also: dns-transport.js:ioTimeout
+const ioTimeoutMs = 30000; // 30 secs
 
 ((main) => {
   // listen for "go" and start the server
@@ -197,10 +199,14 @@ function trapServerEvents(...servers) {
   servers &&
     servers.forEach((s) => {
       if (!s) return;
-      s.on("connection", (socket) => {
+      s.on("connection", (/** @type {net.Socket} */ socket) => {
         // use the network five tuple instead?
         const id = util.uid();
         conntrack.set(id, socket);
+        socket.setTimeout(ioTimeoutMs, () => {
+          log.w("tcp: incoming conn timed out; " + id);
+          socket.end();
+        });
 
         socket.on("error", (err) => {
           log.e("tcp: incoming conn closed with err; " + err.message);
@@ -241,6 +247,10 @@ function trapSecureServerEvents(...servers) {
         // use the network five tuple instead?
         const id = util.uid();
         conntrack.set(id, socket);
+        socket.setTimeout(ioTimeoutMs, () => {
+          log.w("tls: incoming conn timed out; " + id);
+          socket.end();
+        });
 
         // must be handled by Http2SecureServer, github.com/nodejs/node/issues/35824
         socket.on("error", (err) => {
