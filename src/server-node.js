@@ -321,6 +321,30 @@ function close(sock) {
 }
 
 /**
+ * @param {Http2ServerResponse} res
+ */
+function resClose(res) {
+  if (res && !res.destroy) util.safeBox(() => res.destroy());
+}
+
+/**
+ * @param {Http2ServerResponse} res
+ * @returns {Boolean}
+ */
+function resOkay(res) {
+  // determine if res is not destroyed, finished, and is writable
+  return res.writable;
+}
+
+/**
+ * @param {net.Socket} sock
+ * @returns {Boolean}
+ */
+function tcpOkay(sock) {
+  return sock.writable;
+}
+
+/**
  * Creates a duplex pipe between `a` and `b` sockets.
  * @param {Socket} a
  * @param {Socket} b
@@ -605,7 +629,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
  */
 async function handleTCPQuery(q, socket, host, flag) {
   let ok = true;
-  if (socket.destroyed) return;
+  if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return;
 
   const rxid = util.xid();
   const t = log.startTime("handle-tcp-query-" + rxid);
@@ -619,7 +643,7 @@ async function handleTCPQuery(q, socket, host, flag) {
       const chunk = new Uint8Array([...rlBuf, ...r]);
 
       // writing to a destroyed socket crashes nodejs
-      if (!socket.destroyed) {
+      if (tcpOkay(socket)) {
         socket.write(chunk);
       } else {
         ok = false;
@@ -742,6 +766,10 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "upstream-end");
 
+    if (!resOkay(res)) {
+      throw new Error("res not writable");
+    }
+
     res.writeHead(fRes.status, util.copyHeaders(fRes));
 
     log.lapTime(t, "send-head");
@@ -752,15 +780,19 @@ async function handleHTTPRequest(b, req, res) {
 
     log.lapTime(t, "recv-ans");
 
-    if (!bufutil.emptyBuf(ans)) {
+    if (!resOkay(res)) {
+      throw new Error("res not writable");
+    } else if (!bufutil.emptyBuf(ans)) {
       res.end(bufutil.normalize8(ans));
     } else {
       // expect fRes.status to be set to non 2xx above
       res.end();
     }
   } catch (e) {
-    if (!res.headersSent) res.writeHead(400); // bad request
-    if (!res.writableEnded) res.end();
+    const ok = resOkay(res);
+    if (ok && !res.headersSent) res.writeHead(400); // bad request
+    if (ok && !res.writableEnded) res.end();
+    if (!ok) resClose(res);
     log.w(e);
   }
 
