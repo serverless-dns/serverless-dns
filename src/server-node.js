@@ -48,29 +48,31 @@ const listeners = { connmap: [], servers: [] };
 async function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
-  console.warn(noreqs, "rcv stop signal; uptime", uptime() / 1000, "secs");
+  console.warn(noreqs, "W rcv stop signal; uptime", uptime() / 1000, "secs");
 
   const srvs = listeners.servers;
   const cmap = listeners.connmap;
   listeners.servers = [];
   listeners.connmap = [];
 
+  console.warn("W after reqs:", noreqs, "closing", cmap.length, "servers");
   // drain all sockets stackoverflow.com/a/14636625
   // TODO: handle proxy protocol sockets
-  cmap.forEach((m) => {
-    if (!m) return;
-    console.warn("closing...", m.size, "connections");
+  for (const m of cmap) {
+    if (!m) continue;
+    console.warn("W closing...", m.size, "connections");
     for (const sock of m.values()) {
       close(sock);
     }
-  });
+  }
 
-  srvs.forEach((s) => {
-    if (!s) return;
+  for (const s of srvs) {
+    if (!s) continue;
     const saddr = s.address();
-    console.warn("stopping...", saddr);
+    console.warn("W stopping...", saddr);
     s.close(() => down(saddr));
-  });
+    s.unref();
+  }
 
   // in some cases, node stops listening but the process doesn't exit because
   // of other unreleased resources (see: svc.js#systemStop). ideally, fly.io
