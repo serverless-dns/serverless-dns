@@ -203,17 +203,18 @@ function trapServerEvents(...servers) {
         conntrack.set(id, socket);
 
         socket.on("error", (err) => {
-          log.e("tcp: incoming conn closed; " + err.message);
+          log.e("tcp: incoming conn closed with err; " + err.message);
           close(socket);
         });
 
-        socket.on("close", function () {
+        socket.on("close", (haderr) => {
           conntrack.delete(id);
         });
       });
 
       s.on("error", (err) => {
-        log.e("tcp: server error; " + err.message, err);
+        log.e("tcp: stop! server error; " + err.message, err);
+        stopAfter(0);
       });
     });
 
@@ -242,13 +243,14 @@ function trapSecureServerEvents(...servers) {
           close(socket);
         });
 
-        socket.on("close", function () {
+        socket.on("close", (haderr) => {
           conntrack.delete(id);
         });
       });
 
       s.on("error", (err) => {
-        log.e("tls: server error; " + err.message, err);
+        log.e("tls: stop! server error; " + err.message, err);
+        stopAfter(0);
       });
 
       s.on("tlsClientError", (err, tlsSocket) => {
@@ -280,6 +282,7 @@ function close(sock) {
  */
 function proxySockets(a, b) {
   if (a.destroyed || b.destroyed) return false;
+  // handle errors? stackoverflow.com/a/61091744
   a.pipe(b);
   b.pipe(a);
   return true;
