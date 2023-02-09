@@ -60,7 +60,7 @@ export default class Log {
    * Default='debug', so as default instance (`new Log()`) is a pure alias.
    * If console level has been set, log level cannot be lower than it.
    * @param {{
-   * level: string,
+   * level: LogLevels,
    * levelize: boolean,
    * withTimestamps: boolean
    * }} - options
