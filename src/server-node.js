@@ -224,7 +224,7 @@ function trapServerEvents(...servers) {
       if (!s) return;
       s.on("connection", (/** @type {net.Socket} */ socket) => {
         // use the network five tuple instead?
-        const id = util.uid();
+        const id = util.uid("sct");
         conntrack.set(id, socket);
         socket.setTimeout(ioTimeoutMs, () => {
           log.d("tcp: incoming conn timed out; " + id);
@@ -232,7 +232,7 @@ function trapServerEvents(...servers) {
         });
 
         socket.on("error", (err) => {
-          log.e("tcp: incoming conn closed with err; " + err.message);
+          log.d("tcp: incoming conn closed with err; " + err.message);
           close(socket);
         });
 
@@ -268,16 +268,16 @@ function trapSecureServerEvents(...servers) {
       // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
       s.on("secureConnection", (socket) => {
         // use the network five tuple instead?
-        const id = util.uid();
+        const id = util.uid("stls");
         conntrack.set(id, socket);
         socket.setTimeout(ioTimeoutMs, () => {
-          log.w("tls: incoming conn timed out; " + id);
+          log.d("tls: incoming conn timed out; " + id);
           socket.end();
         });
 
         // must be handled by Http2SecureServer, github.com/nodejs/node/issues/35824
         socket.on("error", (err) => {
-          log.e("tls: incoming conn closed; " + err.message);
+          log.e("tls: incoming conn", id, "closed;", err.message);
           close(socket);
         });
 
