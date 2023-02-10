@@ -789,24 +789,29 @@ async function serveHTTPS(req, res) {
 
   const t = log.startTime("recv-https");
 
-  for await (const chunk of req) {
-    buffers.push(chunk);
-  }
-  const b = bufutil.concatBuf(buffers);
-  const bLen = b.byteLength;
+  // if using for await loop, then it must be wrapped in a
+  // try-catch block: stackoverflow.com/questions/69169226
+  // if not, errors from reading req escapes unhandled.
+  // for example: req is being read from, but the underlying
+  // socket has been the closed (resulting in err_premature_close)
+  req.on("data", (chunk) => buffers.push(chunk));
 
-  log.endTime(t);
+  req.on("end", () => {
+    const b = bufutil.concatBuf(buffers);
+    const bLen = b.byteLength;
 
-  if (util.isPostRequest(req) && !dnsutil.validResponseSize(b)) {
-    res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
-    res.end();
-    log.w(`HTTP req body length out of bounds: ${bLen}`);
-    return;
-  }
+    log.endTime(t);
 
-  machinesHeartbeat();
-  log.d("----> DoH request", req.method, bLen, req.url);
-  handleHTTPRequest(b, req, res);
+    if (util.isPostRequest(req) && !dnsutil.validResponseSize(b)) {
+      res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
+      res.end();
+      log.w(`HTTP req body length out of bounds: ${bLen}`);
+    } else {
+      machinesHeartbeat();
+      log.d("----> DoH request", req.method, bLen, req.url);
+      handleHTTPRequest(b, req, res);
+    }
+  });
 }
 
 /**
