@@ -12,6 +12,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 import * as pres from "./plugin-response.js";
 import * as trie from "@serverless-dns/trie/stamp.js";
+import { BlocklistFilter } from "./rethinkdns/filter.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -124,6 +125,11 @@ export function blockstampFromCache(cr) {
   return m.stamps;
 }
 
+/**
+ * @param {*} dnsPacket
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {any|boolean}
+ */
 export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
   if (util.emptyObj(dnsPacket)) return false;
   if (!isBlocklistFilterSetup(blocklistFilter)) return false;
