@@ -20,6 +20,7 @@ import * as envutil from "./commons/envutil.js";
 import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
 import "./core/node/config.js";
+import { finished } from "stream";
 import { LfuCache } from "@serverless-dns/lfu-cache";
 
 /**
@@ -763,6 +764,8 @@ async function serve200(req, res) {
  */
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
+  trapRequestResponseEvents(req, res);
+
   const buffers = [];
 
   const t = log.startTime("recv-https");
@@ -820,7 +823,7 @@ async function handleHTTPRequest(b, req, res) {
     log.lapTime(t, "upstream-end");
 
     if (!resOkay(res)) {
-      throw new Error("res not writable");
+      throw new Error("res not writable 1");
     }
 
     res.writeHead(fRes.status, util.copyHeaders(fRes));
@@ -834,7 +837,7 @@ async function handleHTTPRequest(b, req, res) {
     log.lapTime(t, "recv-ans");
 
     if (!resOkay(res)) {
-      throw new Error("res not writable");
+      throw new Error("res not writable 2");
     } else if (!bufutil.emptyBuf(ans)) {
       res.end(bufutil.normalize8(ans));
     } else {
@@ -853,6 +856,21 @@ async function handleHTTPRequest(b, req, res) {
 }
 
 function machinesHeartbeat() {
+  /**
+   * @param {Http2ServerRequest} req
+   * @param {Http2ServerResponse} res
+   */
+  function trapRequestResponseEvents(rxid, req, res) {
+    // duplex streams end/finish difference: stackoverflow.com/a/34310963
+
+    finished(res, (e) => {
+      if (e) log.w(rxid, "h2: res fin w error", e);
+    });
+    finished(req, (e) => {
+      if (e) log.w(rxid, "h2: req fin w error", e);
+    });
+  }
+
   // increment no of requests
   noreqs += 1;
   if (noreqs % 100 === 0) {
