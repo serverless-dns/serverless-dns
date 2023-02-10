@@ -15,6 +15,9 @@ worker/
 dist/
 test/
 log/
+bin/
+blocklists__/
+dbip__/
 
 *.md
 LICENSE
