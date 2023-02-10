@@ -165,7 +165,7 @@ export default class Log {
       case "timer":
         this.lapTime = console.timeLog || stub(); // Stubbing required for Fastly as they do not currently support this method.
         this.startTime = function (name) {
-          name += uid();
+          name = uid(name);
           if (console.time) console.time(name);
           return name;
         };
