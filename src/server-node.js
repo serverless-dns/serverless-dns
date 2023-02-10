@@ -783,7 +783,7 @@ async function serve200(req, res) {
  */
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
-  trapRequestResponseEvents(req, res);
+  // trapRequestResponseEvents(req, res);
 
   const buffers = [];
 
