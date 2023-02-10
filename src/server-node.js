@@ -691,32 +691,50 @@ async function handleTCPQuery(q, socket, host, flag) {
   try {
     const r = await resolveQuery(rxid, q, host, flag);
     if (bufutil.emptyBuf(r)) {
-      log.w("empty ans from resolve");
+      log.w(rxid, "empty ans from resolve");
       ok = false;
     } else {
       const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
-      const chunk = new Uint8Array([...rlBuf, ...r]);
-
-      // writing to a destroyed socket crashes nodejs
-      if (tcpOkay(socket)) {
-        socket.write(chunk);
-      } else {
-        ok = false;
-        log.w("send fail, tcp socket destroyed");
-      }
+      const data = new Uint8Array([...rlBuf, ...r]);
+      measuredWrite(rxid, socket, data);
     }
   } catch (e) {
     ok = false;
-    log.w("send fail, err", e);
+    log.w(rxid, "send fail, err", e);
   }
   log.endTime(t);
 
   // close socket when !ok
-  if (!ok && !socket.destroyed) {
+  if (!ok) {
     close(socket);
   } // else: expect pipelined queries on the same socket
 }
 
+/**
+ * @param {string} rxid
+ * @param {net.Socket} socket
+ * @param {Uint8Array} data
+ */
+function measuredWrite(rxid, socket, data) {
+  let ok = tcpOkay(socket);
+  // writing to a destroyed socket crashes nodejs
+  if (!ok) {
+    log.w(rxid, "tcp: send fail, socket not writable", bufutil.len(data));
+    close(socket);
+    return;
+  }
+  // nodejs.org/en/docs/guides/backpressuring-in-streams
+  // stackoverflow.com/a/18933853
+  // when socket.write is backpressured, it returns false.
+  // wait for the "drain" event before read/write more data.
+  ok = socket.write(data);
+  if (!ok) {
+    socket.pause();
+    socket.once("drain", () => {
+      socket.resume();
+    });
+  }
+}
 /**
  * @param {String} rxid
  * @param {Buffer} q
