@@ -783,7 +783,7 @@ async function serve200(req, res) {
  */
 async function serveHTTPS(req, res) {
   const ua = req.headers["user-agent"];
-  // trapRequestResponseEvents(req, res);
+  trapRequestResponseEvents(req, res);
 
   const buffers = [];
 
@@ -878,14 +878,14 @@ async function handleHTTPRequest(b, req, res) {
  * @param {Http2ServerRequest} req
  * @param {Http2ServerResponse} res
  */
-function trapRequestResponseEvents(rxid, req, res) {
+function trapRequestResponseEvents(req, res) {
   // duplex streams end/finish difference: stackoverflow.com/a/34310963
   const c1 = finished(res, (e) => {
-    if (e) log.w(rxid, "h2: res fin w error", e);
+    if (e) log.w("h2: res fin w error", e);
     c1();
   });
   const c2 = finished(req, (e) => {
-    if (e) log.w(rxid, "h2: req fin w error", e);
+    if (e) log.w("h2: req fin w error", e);
     c2();
   });
 }
