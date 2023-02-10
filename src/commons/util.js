@@ -135,6 +135,7 @@ export function timedOp(op, ms, cleanup = () => {}) {
         clearTimeout(tid);
 
         if (ex) {
+          cleanup(out);
           reject(ex);
         } else {
           resolve(out);
