@@ -20,6 +20,7 @@ import * as envutil from "./commons/envutil.js";
 import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
 import "./core/node/config.js";
+import { LfuCache } from "@serverless-dns/lfu-cache";
 
 /**
  * @typedef {import("net").Socket} Socket
@@ -53,6 +54,7 @@ const h2Opts = {
   allowHTTP1: true,
 };
 
+const tlsSessions = new LfuCache("tlsSessions", 10000);
 ((main) => {
   // listen for "go" and start the server
   system.sub("go", systemUp);
@@ -288,18 +290,45 @@ function trapSecureServerEvents(...servers) {
         });
       });
 
+      const rottm = setInterval(() => rotateTkt(s), 86400000); // 24 hours
+
+      s.on("newSession", (id, data, next) => {
+        const hid = bufutil.hex(id);
+        tlsSessions.put(hid, data);
+        log.d("tls: new session; " + hid);
+        next();
+      });
+
+      s.on("resumeSession", (id, next) => {
+        const hid = bufutil.hex(id);
+        const data = tlsSessions.get(hid) || null;
+        if (data) log.d("tls: resume session; " + hid);
+        next(/* err*/ null, data);
+      });
+
       s.on("error", (err) => {
         log.e("tls: stop! server error; " + err.message, err);
         stopAfter(0);
       });
 
       s.on("tlsClientError", (err, tlsSocket) => {
-        log.d("tls: client err; " + err.message);
+        s.on("close", () => clearInterval(rottm));
+
+        log.e("tls: client err; " + err.message);
         close(tlsSocket);
       });
     });
 
   return conntrack;
+}
+
+/**
+ * @param {tls.Server} s
+ * @returns {void}
+ */
+function rotateTkt(s) {
+  if (!s || !s.listening) return;
+  s.setTicketKeys(util.tkt48());
 }
 
 /**
@@ -553,7 +582,13 @@ function serveTLS(socket) {
   }
 
   machinesHeartbeat();
-  log.d(`(${socket.getProtocol()}), tls reused? ${socket.isSessionReused()}`);
+  if (false) {
+    const tkt = bufutil.hex(socket.getTLSTicket());
+    const sess = bufutil.hex(socket.getSession());
+    const proto = socket.getProtocol();
+    const reused = socket.isSessionReused();
+    log.d(`(${proto}), reused? ${sess}; ticket: ${tkt}; sess: ${sess}`);
+  }
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = new ScratchBuffer();
