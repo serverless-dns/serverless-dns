@@ -18,6 +18,15 @@ export function hex(b) {
     .join("");
 }
 
+/**
+ * @param { Buffer | Uint8Array | ArrayBuffer | null } b
+ * @returns {number}
+ */
+export function len(b) {
+  if (emptyBuf(b)) return 0;
+  return b.byteLength;
+}
+
 export function bytesToBase64Url(b) {
   return btoa(String.fromCharCode(...new Uint8Array(b)))
     .replace(/\//g, "_")
