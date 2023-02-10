@@ -312,9 +312,9 @@ function trapSecureServerEvents(...servers) {
         stopAfter(0);
       });
 
-      s.on("tlsClientError", (err, tlsSocket) => {
-        s.on("close", () => clearInterval(rottm));
+      s.on("close", () => clearInterval(rottm));
 
+      s.on("tlsClientError", (err, tlsSocket) => {
         log.e("tls: client err; " + err.message);
         close(tlsSocket);
       });
@@ -589,7 +589,7 @@ function serveTLS(socket) {
     const sess = bufutil.hex(socket.getSession());
     const proto = socket.getProtocol();
     const reused = socket.isSessionReused();
-    log.d(`(${proto}), reused? ${sess}; ticket: ${tkt}; sess: ${sess}`);
+    log.d(`(${proto}), reused? ${reused}; ticket: ${tkt}; sess: ${sess}`);
   }
 
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
@@ -620,7 +620,7 @@ function serveTCP(socket) {
 
 /**
  * Handle DNS over TCP/TLS data stream.
- * @param {TLSSocket} socket
+ * @param {Socket} socket
  * @param {Buffer} chunk - A TCP data segment
  * @param {ScratchBuffer} sb - Scratch buffer
  * @param {String} host - Hostname
@@ -874,22 +874,23 @@ async function handleHTTPRequest(b, req, res) {
   log.endTime(t);
 }
 
+/**
+ * @param {Http2ServerRequest} req
+ * @param {Http2ServerResponse} res
+ */
+function trapRequestResponseEvents(rxid, req, res) {
+  // duplex streams end/finish difference: stackoverflow.com/a/34310963
+  const c1 = finished(res, (e) => {
+    if (e) log.w(rxid, "h2: res fin w error", e);
+    c1();
+  });
+  const c2 = finished(req, (e) => {
+    if (e) log.w(rxid, "h2: req fin w error", e);
+    c2();
+  });
+}
+
 function machinesHeartbeat() {
-  /**
-   * @param {Http2ServerRequest} req
-   * @param {Http2ServerResponse} res
-   */
-  function trapRequestResponseEvents(rxid, req, res) {
-    // duplex streams end/finish difference: stackoverflow.com/a/34310963
-
-    finished(res, (e) => {
-      if (e) log.w(rxid, "h2: res fin w error", e);
-    });
-    finished(req, (e) => {
-      if (e) log.w(rxid, "h2: req fin w error", e);
-    });
-  }
-
   // increment no of requests
   noreqs += 1;
   if (noreqs % 100 === 0) {
