@@ -46,7 +46,7 @@ const serverOpts = {
 };
 // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
 const tlsOpts = {
-  handshakeTimeout: Math.max((ioTimeoutMs / 3) | 0, 10000), // ms
+  handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 7000), // ms
   // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
   sessionTimeout: 60 * 60 * 12, // 12 hrs
 };
@@ -314,7 +314,7 @@ function trapSecureServerEvents(...servers) {
 
       s.on("close", () => clearInterval(rottm));
 
-      s.on("tlsClientError", (err, tlsSocket) => {
+      s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
         log.e("tls: client err; " + err.message);
         close(tlsSocket);
       });
@@ -358,7 +358,7 @@ function up(server, addr) {
 
 /**
  * RST and/or closes tcp socket.
- * @param {net.Socket} sock
+ * @param {net.Socket | tls.TLSSocket} sock
  */
 function close(sock) {
   sock &&
@@ -782,8 +782,8 @@ async function serve200(req, res) {
  * @param {Http2ServerResponse} res
  */
 async function serveHTTPS(req, res) {
-  const ua = req.headers["user-agent"];
   trapRequestResponseEvents(req, res);
+  const ua = req.headers["user-agent"];
 
   const buffers = [];
 
@@ -880,13 +880,11 @@ async function handleHTTPRequest(b, req, res) {
  */
 function trapRequestResponseEvents(req, res) {
   // duplex streams end/finish difference: stackoverflow.com/a/34310963
-  const c1 = finished(res, (e) => {
-    if (e) log.w("h2: res fin w error", e);
-    c1();
+  finished(res, (e) => {
+    if (e) log.w("h2: res fin w error", res, e);
   });
-  const c2 = finished(req, (e) => {
-    if (e) log.w("h2: req fin w error", e);
-    c2();
+  finished(req, (e) => {
+    if (e) log.w("h2: req fin w error", req, e);
   });
 }
 
