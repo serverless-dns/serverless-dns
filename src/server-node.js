@@ -37,6 +37,21 @@ let nofchecks = 0;
 const listeners = { connmap: [], servers: [] };
 // see also: dns-transport.js:ioTimeout
 const ioTimeoutMs = 50000; // 50 secs
+// nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
+const serverOpts = {
+  keepAlive: true,
+  noDelay: true,
+};
+// nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
+const tlsOpts = {
+  handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 5000), // ms
+  // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
+  sessionTimeout: 60 * 60 * 12, // 12 hrs
+};
+// nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
+const h2Opts = {
+  allowHTTP1: true,
+};
 
 ((main) => {
   // listen for "go" and start the server
@@ -122,7 +137,7 @@ function systemUp() {
     // DNS over TLS Cleartext
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
-      .createServer(serveTCP)
+      .createServer(serverOpts, serveTCP)
       .listen(portdot, () => up("DoT Cleartext", dotct.address()));
 
     // DNS over HTTPS Cleartext
@@ -135,7 +150,7 @@ function systemUp() {
     // Impl: stackoverflow.com/a/42019773
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
-      .createServer(serveHTTPS)
+      .createServer(serverOpts, serveHTTPS)
       .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
 
     const conns = trapServerEvents(dohct, dotct);
@@ -144,9 +159,12 @@ function systemUp() {
     listeners.servers = [dotct, dohct];
   } else {
     // terminate tls ourselves
-    const tlsOpts = {
+    const secOpts = {
       key: envutil.tlsKey(),
       cert: envutil.tlsCrt(),
+      ticketKeys: util.tkt48(),
+      ...tlsOpts,
+      ...serverOpts,
     };
     const portdot1 = envutil.dotBackendPort();
     const portdot2 = envutil.dotProxyProtoBackendPort();
@@ -155,7 +173,7 @@ function systemUp() {
     // DNS over TLS
     const dot1 = tls
       // serveTLS must eventually invoke machines-heartbeat
-      .createServer(tlsOpts, serveTLS)
+      .createServer(secOpts, serveTLS)
       .listen(portdot1, () => up("DoT", dot1.address()));
 
     // DNS over TLS w ProxyProto
@@ -163,13 +181,13 @@ function systemUp() {
       envutil.isDotOverProxyProto() &&
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
-        .createServer(serveDoTProxyProto)
+        .createServer(serverOpts, serveDoTProxyProto)
         .listen(portdot2, () => up("DoT ProxyProto", dot2.address()));
 
     // DNS over HTTPS
     const doh = http2
       // serveHTTPS must eventually invoke machines-heartbeat
-      .createSecureServer({ ...tlsOpts, allowHTTP1: true }, serveHTTPS)
+      .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
       .listen(portdoh, () => up("DoH", doh.address()));
 
     const conns1 = trapServerEvents(dot2);
