@@ -28,6 +28,7 @@ async function proxyRequest(event) {
   if (optionsRequest(event.request)) return util.respond204();
 
   const io = new IOState();
+  const ua = event.request.headers.get("User-Agent");
 
   try {
     const plugin = new RethinkPlugin(event);
@@ -35,9 +36,7 @@ async function proxyRequest(event) {
 
     // if an early response has been set by plugin.initIoState, return it
     if (io.httpResponse) {
-      const ua = event.request.headers.get("User-Agent");
-      if (util.fromBrowser(ua)) io.setCorsHeadersIfNeeded();
-      return io.httpResponse;
+      return withCors(io, ua);
     }
 
     await util.timedSafeAsyncOp(
@@ -50,10 +49,7 @@ async function proxyRequest(event) {
     errorResponse(io, err);
   }
 
-  const ua = event.request.headers.get("User-Agent");
-  if (util.fromBrowser(ua)) io.setCorsHeadersIfNeeded();
-
-  return io.httpResponse;
+  return withCors(io, ua);
 }
 
 function optionsRequest(request) {
@@ -63,4 +59,9 @@ function optionsRequest(request) {
 function errorResponse(io, err = null) {
   const eres = pres.errResponse("doh.js", err);
   io.dnsExceptionResponse(eres);
+}
+
+function withCors(io, ua) {
+  if (util.fromBrowser(ua)) io.setCorsHeadersIfNeeded();
+  return io.httpResponse;
 }
