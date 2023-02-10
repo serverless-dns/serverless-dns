@@ -137,13 +137,13 @@ export class TcpConnPool {
 
   evict(sock) {
     try {
-      if (sock) util.safeBox(() => sock.destroy());
+      if (sock) util.safeBox(() => sock.destroySoon());
     } catch (ignore) {}
     this.pool.delete(sock);
   }
 
   mkreport() {
-    return new Report("tcp" + util.uid());
+    return new Report(util.uid("tcp"));
   }
 }
 
@@ -272,6 +272,6 @@ export class UdpConnPool {
   }
 
   mkreport() {
-    return new Report("udp" + util.uid());
+    return new Report(util.uid("udp"));
   }
 }
