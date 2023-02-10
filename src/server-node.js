@@ -46,7 +46,7 @@ const serverOpts = {
 };
 // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
 const tlsOpts = {
-  handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 5000), // ms
+  handshakeTimeout: Math.max((ioTimeoutMs / 3) | 0, 10000), // ms
   // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
   sessionTimeout: 60 * 60 * 12, // 12 hrs
 };
