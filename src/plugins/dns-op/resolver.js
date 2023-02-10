@@ -272,7 +272,7 @@ export default class DNSResolver {
 
     if (!res.ok) {
       const txt = res.text && (await res.text());
-      this.log.d(rxid, "!OK", res, txt);
+      this.log.d(rxid, "!OK", res.status, txt);
       throw new Error(txt + " http err: " + res);
     }
 
