@@ -200,9 +200,9 @@ export function rolldice(sides = 6) {
 }
 
 // stackoverflow.com/a/8084248
-export function uid() {
+export function uid(prefix = "") {
   // ex: ".ww8ja208it"
-  return (Math.random() + 1).toString(36).slice(1);
+  return prefix + (Math.random() + 1).toString(36).slice(1);
 }
 
 export function xid() {
