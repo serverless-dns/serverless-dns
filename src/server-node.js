@@ -363,7 +363,8 @@ function up(server, addr) {
 function close(sock) {
   sock &&
     util.safeBox(() => {
-      sock.resetAndDestroy();
+      if (sock.connecting) sock.resetAndDestroy();
+      else sock.destroySoon();
       sock.unref();
     });
 }
