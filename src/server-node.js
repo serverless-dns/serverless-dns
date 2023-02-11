@@ -313,7 +313,8 @@ function trapSecureServerEvents(...servers) {
       s.on("close", () => clearInterval(rottm));
 
       s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
-        log.e("tls: client err; " + err.message);
+        // todo: metrics
+        log.d("tls: client err; " + err.message);
         close(tlsSocket);
       });
     });
