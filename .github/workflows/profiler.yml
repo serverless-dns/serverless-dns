@@ -41,7 +41,7 @@ env:
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
   NODE_VER: '19.x'
-  DENO_VER: '1.30.0'
+  DENO_VER: '1.30.3'
   MODE: 'p1'
   QDOH: 'q'
 
