@@ -80,7 +80,7 @@ jobs:
           npm run build --if-present
 
       # deno.com/blog/deploy-static-files#example-a-statically-generated-site
-      - name: 🦕 Setup Deno @1.30.0
+      - name: 🦕 Setup Deno @1.30.3
         if: env.JS_RUNTIME == 'deno'
         uses: denoland/setup-deno@main
         with:
