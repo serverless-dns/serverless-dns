@@ -869,10 +869,18 @@ async function handleHTTPRequest(b, req, res) {
 function trapRequestResponseEvents(req, res) {
   // duplex streams end/finish difference: stackoverflow.com/a/34310963
   finished(res, (e) => {
-    if (e) log.w("h2: res fin w error", res, e);
+    if (e) {
+      const reqstr = nodeutil.req2str(req);
+      const resstr = nodeutil.res2str(res);
+      log.w("h2: res fin w error", reqstr, resstr, e);
+    }
   });
   finished(req, (e) => {
-    if (e) log.w("h2: req fin w error", req, e);
+    if (e) {
+      const reqstr = nodeutil.req2str(req);
+      const resstr = nodeutil.res2str(res);
+      log.w("h2: req fin w error", reqstr, resstr, e);
+    }
   });
 }
 
