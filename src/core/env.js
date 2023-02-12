@@ -150,12 +150,6 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
-    // recommended blocklist to use
-    RECOMMENDED_BLOCKSTAMP: {
-      type: "string",
-      // oisd, 1hosts:mini, cpbl:light, anudeep, yhosts, tiuxo, adguard
-      default: "1:YAYBACABEDAgAA==",
-    },
     // courtesy db-ip.com/db/download/ip-to-country-lite
     GEOIP_URL: {
       type: "string",

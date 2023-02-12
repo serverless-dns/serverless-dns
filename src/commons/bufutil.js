@@ -10,10 +10,21 @@ import * as util from "./util.js";
 
 const ZERO = new Uint8Array(0);
 
-export function hex(ab) {
+export function hex(b) {
+  if (emptyBuf(b)) return "";
+  const ab = normalize8(b);
   return Array.prototype.map
     .call(new Uint8Array(ab), (b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/**
+ * @param { Buffer | Uint8Array | ArrayBuffer | null } b
+ * @returns {number}
+ */
+export function len(b) {
+  if (emptyBuf(b)) return 0;
+  return b.byteLength;
 }
 
 export function bytesToBase64Url(b) {

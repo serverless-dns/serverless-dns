@@ -32,15 +32,22 @@ async function prep() {
   const isProd = process.env.NODE_ENV === "production";
   const onFly = process.env.CLOUD_PLATFORM === "fly";
   const profiling = process.env.PROFILE_DNS_RESOLVES === "true";
+  const debugFly = onFly && process.env.FLY_APP_NAME.includes("-dev");
 
   globalThis.envManager = new EnvManager();
 
   /** Logger */
-  globalThis.log = new Log({
-    level: envManager.get("LOG_LEVEL"),
-    levelize: isProd || profiling, // levelize if prod or profiling
-    withTimestamps: true, // always log timestamps on node
-  });
+  globalThis.log = debugFly
+    ? new Log({
+        level: "debug",
+        levelize: profiling, // levelize only if profiling
+        withTimestamps: true, // always log timestamps on node
+      })
+    : new Log({
+        level: envManager.get("LOG_LEVEL"),
+        levelize: isProd || profiling, // levelize if prod or profiling
+        withTimestamps: true, // always log timestamps on node
+      });
 
   // ---- log and envManager available only after this line ---- \\
 

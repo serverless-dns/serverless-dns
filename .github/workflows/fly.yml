@@ -36,12 +36,32 @@ on:
         - prod
         - mach
         - b1
+      deployment-strat:
+        description: "Deploy strategy"
+        required: true
+        default: 'rolling'
+        type: choice
+        options:
+        - rolling
+        - immediate
+        - bluegreen
+        - canary
+      builder:
+        description: "App builder type"
+        required: true
+        default: 'remote-only'
+        type: choice
+        options:
+        - remote-only
+        - local-only
 
 env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-  # one of immediate, rolling, bluegreen, canary
-  FLY_DEPLOY_STRAT: "rolling"
+  # one of immediate, rolling (default), bluegreen, canary
+  FLY_DEPLOY_STRAT: ${{ github.event.inputs.deployment-strat }}
+  # local-only, remote-only (default)
+  FLY_BUILDER_TYPE: ${{ github.event.inputs.builder }}
   # default fly app to deploy to (typically, dev)
   FLY_APP: ${{ secrets.FLY_APP_NAME }}
   FLY_PROD_APP: ${{ secrets.FLY_APP_NAME_LIVE }}
@@ -62,10 +82,12 @@ jobs:
           ref: ${{ env.GIT_REF }}
           fetch-depth: 0
 
-      - name: 🏗 Git rev-parse
+      - name: 🏗 Setup env vars
         run: |
           echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
           echo "FLY_TOML=${FLY_CFG}" >> $GITHUB_ENV
+          echo "FLY_DEPLOY_STRAT=${FLY_DEPLOY_STRAT:-rolling}" >> $GITHUB_ENV
+          echo "FLY_BUILDER_TYPE=${FLY_BUILDER_TYPE:-remote-only}" >> $GITHUB_ENV
         shell: bash
 
       - name: 🔐👨‍🚒 B1 via dispatch?
@@ -105,7 +127,6 @@ jobs:
         run: |
           echo "FLY_APP=${FLY_MACHINES_APP}" >> $GITHUB_ENV
           echo "FLY_TOML=${FLY_MACHINES_CFG}" >> $GITHUB_ENV
-          echo "FLY_DEPLOY_STRAT=immediate" >> $GITHUB_ENV
           echo "::notice::Deploying MACH / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
@@ -119,6 +140,7 @@ jobs:
 
       - name: 🚢 Ship
         run: "flyctl deploy
+            --${{ env.FLY_BUILDER_TYPE }}
             --image-label ${{ env.GIT_HEAD }}
             --config ${{ env.FLY_TOML }}
             --strategy ${{ env.FLY_DEPLOY_STRAT }}

@@ -6,15 +6,17 @@ test/data/cache/
 blocklists__/
 dbip__/
 src/basicconfig.json
-package-lock.json
+
+# lock files
+/package-lock.json
+/deno.lock
+
 .clinic/
 **basicconfig.json
 **filetag.json
 *.log
 *.swp
 *.bak
-# IDE
-# .vscode
 
 # Local enviroment variables
 .env

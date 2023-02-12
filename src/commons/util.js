@@ -135,6 +135,7 @@ export function timedOp(op, ms, cleanup = () => {}) {
         clearTimeout(tid);
 
         if (ex) {
+          cleanup(out);
           reject(ex);
         } else {
           resolve(out);
@@ -200,9 +201,9 @@ export function rolldice(sides = 6) {
 }
 
 // stackoverflow.com/a/8084248
-export function uid() {
+export function uid(prefix = "") {
   // ex: ".ww8ja208it"
-  return (Math.random() + 1).toString(36).slice(1);
+  return prefix + (Math.random() + 1).toString(36).slice(1);
 }
 
 export function xid() {
@@ -418,6 +419,12 @@ export function respond503() {
   });
 }
 
+export function tkt48() {
+  const t = new Uint8Array(48);
+  crypto.getRandomValues(t);
+  return t;
+}
+
 export function logger(...tags) {
   if (!log) return null;
 
@@ -451,20 +458,6 @@ export function fromPath(strurl, re) {
     }
   }
   return empty;
-}
-
-/**
- * @param {URL} url
- * @returns {Boolean}
- */
-export function useRecBlockstamp(url) {
-  // is the incoming request to the legacy free.bravedns.com endpoint?
-  const isFreeBraveDns = url.hostname.includes("free.bravedns");
-  // does incoming request have a rec in its path? (DoH)
-  const inpath = url.pathname.includes("/rec");
-  // does incoming request have a rec in its hostname? (DoT)
-  const inhost = url.hostname.includes("rec.");
-  return isFreeBraveDns || inpath || inhost;
 }
 
 export function isGatewayRequest(req) {
@@ -552,6 +545,7 @@ export function mkFetchEvent(r, ...fns) {
   }
   // developer.mozilla.org/en-US/docs/Web/API/FetchEvent
   // developers.cloudflare.com/workers/runtime-apis/fetch-event
+  // deno.land/manual/runtime/http_server_apis#http-requests-and-responses
   // a service-worker event, with properties: type and request; and methods:
   // respondWith(Response), waitUntil(Promise), passThroughOnException(void)
   return {

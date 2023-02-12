@@ -60,7 +60,7 @@ export default class Log {
    * Default='debug', so as default instance (`new Log()`) is a pure alias.
    * If console level has been set, log level cannot be lower than it.
    * @param {{
-   * level: string,
+   * level: LogLevels,
    * levelize: boolean,
    * withTimestamps: boolean
    * }} - options
@@ -165,7 +165,7 @@ export default class Log {
       case "timer":
         this.lapTime = console.timeLog || stub(); // Stubbing required for Fastly as they do not currently support this method.
         this.startTime = function (name) {
-          name += uid();
+          name = uid(name);
           if (console.time) console.time(name);
           return name;
         };

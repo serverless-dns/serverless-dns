@@ -9,6 +9,7 @@ runtime="${1:-node}";
 profiler="${2:-$1}";
 waitsec="${3:-0}";
 qdoh="${QDOH:-invalid}";
+prestart=""
 proc0=""
 
 echo "run $runtime";
@@ -32,10 +33,14 @@ banner() {
 }
 
 cleanup() {
+  # alt? unix.stackexchange.com/a/146770
+  # echo "sig... $proc0"
+  # kill -INT $proc0
   # stackoverflow.com/a/51576504
   jobs -p > jobfile
   j=$(cat jobfile)
-  kill -9 $j 2>/dev/null
+  echo "kill... $j"
+  kill -INT $j
   # does not work... jobs -p | xargs -r kill -9
   rm jobfile
 }
@@ -111,12 +116,23 @@ elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
   echo "using `which fastly`";
   # developer.fastly.com/learning/compute/testing/#starting-the-server
   start="fastly compute serve --skip-verification --verbose --file ./dist/fastly.wasm";
+elif [ $runtime = "fly" ] || [ $runtime = "ff" ]; then
+  prestart="npm run build:fly"
+  start="node --trace-warnings ./dist/fly.mjs"
 else
   echo "note: nodejs v19+ required";
   echo "using `which node`";
   # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
   start="node --trace-warnings ./src/server-node.js";
 fi
+
+# prestart ceremony, if any
+if [ ! -z "$prestart" ]; then
+  $prestart
+fi
+
+# prevent stdin from early close on signals?
+# unix.stackexchange.com/a/672061
 
 if [ $profiler = "cpu" ]; then
   if [ $runtime != "node" ] && [ $runtime != "n" ]; then

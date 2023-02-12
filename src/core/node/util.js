@@ -6,6 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { Http2ServerRequest, Http2ServerResponse } from "http2";
+
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and
  * certificate files seprated by a newline (\n) and described by `KEY=` and
@@ -76,4 +78,30 @@ export function transformPseudoHeaders(headers) {
   }
 
   return out;
+}
+
+/**
+ * @param {Http2ServerRequest} req
+ * @return {String}
+ */
+export function req2str(req) {
+  if (!req) return "request[null]";
+  return (
+    `request[${req.method}] ${req.headers["content-type"]} ` +
+    `${req.url} from ${req.headers["user-agent"]}` +
+    `${req.headers["content-length"]}/${req.readableLength} `
+  );
+}
+
+/**
+ * @param {Http2ServerResponse} res
+ * @returns {String}
+ */
+export function res2str(res) {
+  if (!res) return "response[null]";
+  return (
+    `response[${res.statusCode}] ${res.getHeader("content-type")} ` +
+    `headers-sent? ${res.headersSent} write-done? ${res.writableEnded}` +
+    `${res.getHeader("content-length")}/${res.writableLength}`
+  );
 }

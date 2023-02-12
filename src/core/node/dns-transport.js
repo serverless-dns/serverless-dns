@@ -11,6 +11,10 @@ import * as util from "../../commons/util.js";
 import { TcpConnPool, UdpConnPool } from "../dns/conns.js";
 import { TcpTx, UdpTx } from "../dns/transact.js";
 
+export function makeTransport(host, port, opts = {}) {
+  return new Transport(host, port, opts);
+}
+
 // Transport upstreams plain-old DNS queries over both UDPv4 and TCPv4.
 // Host and port constructor parameters are IPv4 addresses of the upstream.
 // TCP and UDP connections are pooled for reuse, but DNS queries are not
@@ -25,27 +29,19 @@ export class Transport {
     this.connectTimeout = opts.connectTimeout || 3000; // 3s
     this.ioTimeout = opts.ioTimeout || 10000; // 10s
     this.ipproto = net.isIP(host); // 4, 6, or 0
-    const poolSize = opts.poolSize || 500; // conns
-    const poolTtl = opts.poolTtl || 60000; // 1m
-    this.tcpconns = new TcpConnPool(poolSize, poolTtl);
-    this.udpconns = new UdpConnPool(poolSize, poolTtl);
+    const sz = opts.poolSize || 500; // conns
+    const ttl = opts.poolTtl || 60000; // 1m
+    this.tcpconns = new TcpConnPool(sz, ttl);
+    this.udpconns = new UdpConnPool(sz, ttl);
 
     this.log = log.withTags("DnsTransport");
-    this.log.i(
-      this.ipproto,
-      "transport",
-      host,
-      port,
-      "pool",
-      poolSize,
-      poolTtl
-    );
+    this.log.i(this.ipproto, "W transport", host, port, "pool", sz, ttl);
   }
 
   async teardown() {
     const r1 = this.tcpconns.sweep(true);
     const r2 = this.udpconns.sweep(true);
-    this.log.i("transport teardown tcp | udp done?", r1, "|", r2);
+    this.log.i("transport teardown (tcp | udp) done?", r1, "|", r2);
   }
 
   async udpquery(rxid, q) {
@@ -130,11 +126,24 @@ export class Transport {
     }
   }
 
+  /**
+   * @param {import("net").Socket} sock
+   */
   closeTcp(sock) {
-    if (sock && !sock.destroyed) util.safeBox(() => sock.destroy());
+    // the socket is not expected to have any error-listeners
+    // so we add one to avoid unhandled errors
+    sock.on("error", util.stub);
+    if (sock && !sock.destroyed) util.safeBox(() => sock.destroySoon());
   }
 
+  /**
+   * @param {import("dgram").Socket} sock
+   */
   closeUdp(sock) {
+    // the socket is expected to not have any error-listeners
+    // so we add one just in case to avoid unhandled errors
+    sock.on("error", util.stub);
+    if (sock) util.safeBox(() => sock.disconnect());
     if (sock) util.safeBox(() => sock.close());
   }
 }

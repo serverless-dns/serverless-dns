@@ -275,12 +275,6 @@ export function disableBlocklists() {
   return envManager.get("DISABLE_BLOCKLISTS") || false;
 }
 
-export function recommendedBlockstamp() {
-  if (!envManager) return "";
-
-  return envManager.get("RECOMMENDED_BLOCKSTAMP") || "";
-}
-
 export function blockSubdomains() {
   if (!envManager) return true;
 

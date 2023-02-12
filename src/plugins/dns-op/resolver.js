@@ -57,20 +57,26 @@ export default class DNSResolver {
   async lazyInit() {
     if (!envutil.hasDynamicImports()) return;
 
-    if (envutil.isNode() && !this.http2) {
+    const isnode = envutil.isNode();
+    const plainOldDnsIp = dnsutil.dnsaddr();
+    if (isnode && !this.http2) {
       this.http2 = await import("http2");
-      this.log.i("created custom http2 client");
+      this.log.i("imported custom http2 client");
     }
-    if (envutil.isNode() && !this.nodeutil) {
+    if (isnode && !this.nodeutil) {
       this.nodeutil = await import("../../core/node/util.js");
       this.log.i("imported node-util");
     }
-    if (envutil.isNode() && !this.transport) {
-      const plainOldDnsIp = dnsutil.dnsaddr();
-      this.transport = new (
-        await import("../../core/node/dns-transport.js")
-      ).Transport(plainOldDnsIp, 53);
-      this.log.i("created udp/tcp dns transport", plainOldDnsIp);
+    if (isnode && !this.transport) {
+      // awaiting on dns-transport takes a tad longer that more than 1 event
+      // awaiting lazyInit() trigger this part of the code and end up
+      // initializing multiple transports. This reproduces easily when 100+
+      // requests arrive at once.
+      const dnst = await import("../../core/node/dns-transport.js");
+      if (this.transport == null) {
+        this.transport = dnst.makeTransport(plainOldDnsIp, 53);
+        this.log.i("imported udp/tcp dns transport", plainOldDnsIp);
+      }
     }
   }
 
@@ -266,7 +272,7 @@ export default class DNSResolver {
 
     if (!res.ok) {
       const txt = res.text && (await res.text());
-      this.log.d(rxid, "!OK", res, txt);
+      this.log.d(rxid, "!OK", res.status, txt);
       throw new Error(txt + " http err: " + res);
     }
 

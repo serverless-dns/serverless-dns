@@ -12,6 +12,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 import * as pres from "./plugin-response.js";
 import * as trie from "@serverless-dns/trie/stamp.js";
+import { BlocklistFilter } from "./rethinkdns/filter.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -21,10 +22,39 @@ export const logPrefix = new RegExp(`^l${_b64delim}|^l${_b32delim}`);
 // begins with a digit, followed by b64delim or b32delim
 export const stampPrefix = new RegExp(`^\\d+${_b64delim}|^\\d+${_b32delim}`);
 
-// TODO: wildcard list should be fetched from S3/KV
+const emptystr = "";
+// delim, version, blockstamp (flag), accesskey
+const emptystamp = [emptystr, emptystr, emptystr, emptystr];
+
+// deprecated: all lists are trreated as wildcards
 const _wildcardUint16 = new Uint16Array([
   64544, 18431, 8191, 65535, 64640, 1, 128, 16320,
 ]);
+
+// pec: parental control, rec: recommended, sec: security
+const recBlockstamps = new Map();
+// oisd, 1hosts:mini, cpbl:light, anudeep, yhosts, tiuxo, adguard
+recBlockstamps.set("rec", "1:YAYBACABEDAgAA==");
+// nocoin, malware (url haus), security (stevenblack), kadhosts (polish), inversion,
+// spam404, notrack (malware), baddboyz (michael krogza), malware (michael krogza),
+// malware (rpi), threats (hagezi), malware (oblat), phishing (oblat), red flag domains,
+// malware (dandelion), blackbook, scams (infinitec), malware (rescure), nso (amnesty),
+// global anti-scam (inversion), scamware (shadowwhisperer), covid list (rescure),
+// cryptojacking (tblp), ransomware (tblp), threats (osint)
+recBlockstamps.set("sec", "1:EBx5AqvtyDcAKA==");
+// prevent bypass, safe search, dating (olbat), gambling (olbat), gambling (hostvn),
+// gambling (sinfonietta), adult (tuixo), adult (stevenblack), nsfw (oisd),
+// drugs (tblp), vaping (tblp), adult (tblp), 1hosts (kidsaf), vaping (tblp),
+// nsfl (shadowwhisperer), adult (shadowwhisperer)
+recBlockstamps.set("pec", "1:GMAB-ACgYVIAgA==");
+// rec, sec
+recBlockstamps.set("rs", "1:cB55AqvtyTcgARAwIAAAKA==");
+// pec, rec, sec
+recBlockstamps.set("prs", "1:eN4B-ACgeQKr7ck3IAEQMCAAYXoAgA==");
+// pec, rec
+recBlockstamps.set("pr", "1:eMYB-ACgAQAgARAwIABhUgCA");
+// pec, sec
+recBlockstamps.set("ps", "1:GNwB-ACgeQKr7cg3YXoAgA==");
 
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
@@ -95,6 +125,11 @@ export function blockstampFromCache(cr) {
   return m.stamps;
 }
 
+/**
+ * @param {*} dnsPacket
+ * @param {BlocklistFilter} blocklistFilter
+ * @returns {any|boolean}
+ */
 export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
   if (util.emptyObj(dnsPacket)) return false;
   if (!isBlocklistFilterSetup(blocklistFilter)) return false;
@@ -261,16 +296,37 @@ export function blockstampFromUrl(u) {
 }
 
 /**
+ * @param {URL} url
+ * @returns {String} stampvalue
+ */
+export function recBlockstampFrom(url) {
+  // is the incoming request to the legacy free.bravedns.com endpoint?
+  const isFreeBraveDns = url.hostname.includes("free.bravedns");
+  if (isFreeBraveDns) return "rec";
+
+  for (const [k, v] of recBlockstamps) {
+    // does incoming request have a rec in its path? (DoH)
+    if (
+      url.pathname.includes("/" + k + "/") ||
+      url.pathname.endsWith("/" + k)
+    ) {
+      return v;
+    }
+    // does incoming request have a rec in its hostname? (DoT)
+    if (url.hostname.startsWith(k + ".")) return v;
+  }
+
+  return "";
+}
+
+/**
  * @param {string} u - Request URL string
- * @returns {Array<string>} s - stamps
+ * @returns {Array<string>} s - delim, version, blockstamp (flag), accesskey
  */
 export function extractStamps(u) {
-  const emptystr = "";
-  // delim, version, blockstamp (flag), accesskey
-  const emptystamp = [emptystr, emptystr, emptystr, emptystr];
-
   const url = new URL(u);
-  const useRecStamp = util.useRecBlockstamp(url);
+  const recStamp = recBlockstampFrom(url);
+  const useRecStamp = !util.emptyString(recStamp);
 
   const paths = url.pathname.split("/");
 
@@ -282,7 +338,7 @@ export function extractStamps(u) {
   // note: the legacy free.bravedns endpoint need not support
   // gateway queries or auth
   if (useRecStamp) {
-    s = envutil.recommendedBlockstamp();
+    s = recStamp;
   }
 
   for (const p of paths) {

@@ -43,14 +43,18 @@ export class TcpTx {
     const onTimeout = () => {
       this.onTimeout(rxid);
     };
+    const onError = (err) => {
+      this.onError(rxid);
+    };
 
     try {
       const ans = this.promisedRead();
 
-      this.sock.setTimeout(timeout);
-      this.sock.on("data", onData);
-      this.sock.on("close", onClose);
       this.sock.on("timeout", onTimeout);
+      this.sock.setTimeout(timeout);
+      this.sock.on("error", onError);
+      this.sock.on("close", onClose);
+      this.sock.on("data", onData);
 
       this.write(rxid, query);
 
@@ -58,8 +62,9 @@ export class TcpTx {
     } finally {
       this.sock.setTimeout(0);
       this.sock.removeListener("data", onData);
-      this.sock.removeListener("close", onClose);
       this.sock.removeListener("timeout", onTimeout);
+      this.sock.removeListener("close", onClose);
+      this.sock.removeListener("error", onError);
     }
   }
 
@@ -128,6 +133,12 @@ export class TcpTx {
   onClose(err) {
     if (this.done) return; // no-op
     return err ? this.no("error") : this.no("close");
+  }
+
+  onError(err) {
+    if (this.done) return; // no-op
+    this.log.e(rxid, "udp err", err.message);
+    this.no(err.message);
   }
 
   onTimeout() {
@@ -221,9 +232,9 @@ export class UdpTx {
     try {
       const ans = this.promisedRead(timeout);
 
-      this.sock.on("message", onMessage);
-      this.sock.on("close", onClose);
       this.sock.on("error", onError);
+      this.sock.on("close", onClose);
+      this.sock.on("message", onMessage);
 
       this.write(rxid, query);
 
@@ -249,14 +260,14 @@ export class UdpTx {
 
   onError(rxid, err) {
     if (this.done) return; // no-op
-    this.log.d(rxid, "udp err", err.message);
+    this.log.e(rxid, "udp err", err.message);
     this.no(err.message);
   }
 
   onClose(rxid, err) {
     if (this.done) return; // no-op
     this.log.d(rxid, "udp close");
-    return err ? this.no(err.message) : this.no("close");
+    return err ? this.no("error") : this.no("close");
   }
 
   promisedRead(timeout = 0) {
