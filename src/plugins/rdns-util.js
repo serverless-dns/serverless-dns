@@ -486,5 +486,4 @@ export function blocklists(strflag) {
   } else {
     throw new Error("unknown blocklist version: " + flagVersion);
   }
-  return blocklists;
 }
