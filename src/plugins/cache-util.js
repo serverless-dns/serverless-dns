@@ -11,7 +11,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 
 const minTtlSec = 30; // 30s
-const maxTtlSec = 7200; // 3m
+const maxTtlSec = 86400; // 3m
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 
