@@ -121,7 +121,7 @@ const defaults = new Map(
     // secondary doh upstream
     CF_DNS_RESOLVER_URL_2: {
       type: "string",
-      default: "https://dns.google/dns-query",
+      default: "https://dns.nextdns.io/dns-query",
     },
     // upstream recursive rethinkdns resolver running on Fly.io
     MAX_DNS_RESOLVER_URL: {
@@ -143,7 +143,7 @@ const defaults = new Map(
     // ttl for dns answers, overrides ttls in dns answers
     CACHE_TTL: {
       type: "number",
-      default: "7200", // 30m
+      default: "86400", // 30m
     },
     // disable downloading blocklists altogether
     DISABLE_BLOCKLISTS: {
