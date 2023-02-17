@@ -23,7 +23,7 @@ export class RResp {
 }
 
 export class RespData {
-  constructor(blocked = false, flag, packet, raw, stamps) {
+  constructor(flag, packet, raw, stamps, blocked = false) {
     /** @type {boolean} */
     this.isBlocked = blocked;
     /** @type {String} */
