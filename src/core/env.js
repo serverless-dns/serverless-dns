@@ -123,6 +123,11 @@ const defaults = new Map(
       type: "string",
       default: "https://dns.google/dns-query",
     },
+    // optional tertiary doh upstream
+    CF_DNS_RESOLVER_URL_3: {
+      type: "string",
+      default: "",
+    },
     // upstream recursive rethinkdns resolver running on Fly.io
     MAX_DNS_RESOLVER_URL: {
       type: "string",
