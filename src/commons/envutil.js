@@ -124,6 +124,12 @@ export function secondaryDohResolver() {
   return envManager.get("CF_DNS_RESOLVER_URL_2");
 }
 
+export function tertiaryDohResolver() {
+  if (!envManager) return null;
+
+  return envManager.get("CF_DNS_RESOLVER_URL_3");
+}
+
 export function cfAccountId() {
   if (!envManager) return "";
   // a secret
@@ -145,9 +151,9 @@ export function dohResolvers() {
   if (!envManager) return null;
 
   if (isWorkers()) {
-    // upstream to two resolvers on workers; since egress is free,
-    // faster among the 2 should help lower tail latencies at zero-cost
-    return [primaryDohResolver(), secondaryDohResolver()];
+    // upstream to two or optionally, 3 resolvers on workers; since egress is free,
+    // faster among the 2 (or 3) should help lower tail latencies at zero-cost
+    return [primaryDohResolver(), secondaryDohResolver(), tertiaryDohResolver()];
   }
 
   return [primaryDohResolver()];
