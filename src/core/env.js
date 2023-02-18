@@ -113,12 +113,12 @@ const defaults = new Map(
       type: "string",
       default: "https://cfstore.rethinkdns.com/blocklists/",
     },
-    // primary DoH upstream (DoH, DoT, DoQ upstreams are compatible)
+    // primary upstream (DoH, DoT, DoQ upstreams are compatible)
     CF_DNS_RESOLVER_URL: {
       type: "string",
       default: "https://cloudflare-dns.com/dns-query",
     },
-    // secondary DoH upstream (DoH, DoT, DoQ upstreams are compatible)
+    // secondary upstream (DoH, DoT, DoQ upstreams are compatible)
     CF_DNS_RESOLVER_URL_2: {
       type: "string",
       default: "https://dns.google/dns-query",
