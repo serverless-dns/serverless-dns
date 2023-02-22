@@ -118,6 +118,19 @@ export function rcodeNoError(packet) {
   return packet.rcode === "NOERROR";
 }
 
+export function hasDnssecOk(packet) {
+  if (util.emptyObj(packet)) return false;
+  if (util.emptyArray(packet.additionals)) return false;
+  // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1440
+  // github.com/mafintosh/dns-packet/blob/31d3caf3/index.js#L1523
+  // github.com/mafintosh/dns-packet/blob/31d3caf3/test.js#L407
+  for (const a of packet.additionals) {
+    if (a.flag_do || ((a.flags >> 15) & 0x1) === 1) return true;
+  }
+  return false;
+}
+
+// dup: isAnswerOPT
 export function optAnswer(a) {
   if (util.emptyObj(a) || util.emptyString(a.type)) return false;
   // github.com/serverless-dns/dns-parser/blob/7de73303/index.js#L1770

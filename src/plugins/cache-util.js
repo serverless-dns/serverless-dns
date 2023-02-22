@@ -92,7 +92,8 @@ function makeId(packet) {
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;
   const q = packet.questions[0];
-  return dnsutil.normalizeName(q.name) + ":" + q.type;
+  const addn = dnsutil.hasDnssecOk(packet) ? ":dnssec" : "";
+  return dnsutil.normalizeName(q.name) + ":" + q.type + addn;
 }
 
 export function makeLocalCacheValue(b, metadata) {
