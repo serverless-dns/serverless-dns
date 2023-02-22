@@ -348,12 +348,17 @@ export default class RethinkPlugin {
     if (isGwReq) io.gatewayAnswersOnly(envutil.gwip4(), envutil.gwip6());
 
     try {
-      const questionPacket = dnsutil.decode(question);
-      this.addCtx("isDnsMsg", true);
-      this.log.d(rxid, "cur-ques", JSON.stringify(questionPacket.questions));
-      io.decodedDnsPacket = questionPacket;
+      const [qpacket, ecsdropped] = dnsutil.dropECS(dnsutil.decode(question));
+      // if ecs was removed, then re-encode the question
+      if (ecsdropped) {
+        question = dnsutil.encode(qpacket);
+      }
 
-      this.addCtx("requestDecodedDnsPacket", questionPacket);
+      io.input(qpacket);
+      this.addCtx("isDnsMsg", true);
+      this.log.d(rxid, "cur-ques", JSON.stringify(qpacket.questions));
+
+      this.addCtx("requestDecodedDnsPacket", qpacket);
       this.addCtx("requestBodyBuffer", question);
     } catch (e) {
       // err if question is not a valid dns-packet

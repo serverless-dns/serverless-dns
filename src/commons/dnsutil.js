@@ -130,6 +130,55 @@ export function hasDnssecOk(packet) {
   return false;
 }
 
+export function dropECS(packet) {
+  let rmv = false;
+  if (util.emptyObj(packet)) return [packet, rmv];
+  if (util.emptyArray(packet.additionals)) return [packet, rmv];
+  /*
+    additionals: [{
+      name: '.', // same question as root
+      type: 'OPT',
+      udpPayloadSize: 4096,
+      extendedRcode: 0,
+      ednsVersion: 0,
+      flags: 32768,
+      flag_do: true, // dnssec ok
+      options: [
+        {
+          code: 8,
+          type: 'CLIENT_SUBNET',
+          data: <bytes>,
+          family: 1, // 2 for ipv6
+          sourcePrefixLength: 32,
+          scopePrefixLength: 0,
+          ip: '100.64.0.0'
+        },
+        {
+          code: 12,
+          type: 'PADDING',
+          data: <bytes>
+        }
+      ]
+    },
+    ...]
+  */
+  for (const a of packet.additionals) {
+    if (!optAnswer(a)) continue;
+
+    const filtered = [];
+    for (const opt of a.options) {
+      // github.com/mafintosh/dns-packet/blob/31d3caf3/test.js#L409-L412
+      if (opt.code === 8 || opt.type === "CLIENT_SUBNET") {
+        rmv = true;
+        continue;
+      }
+      filtered.push(opt);
+    }
+    a.options = filtered;
+  }
+  return [packet, rmv];
+}
+
 // dup: isAnswerOPT
 export function optAnswer(a) {
   if (util.emptyObj(a) || util.emptyString(a.type)) return false;

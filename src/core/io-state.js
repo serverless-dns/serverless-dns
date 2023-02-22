@@ -33,6 +33,10 @@ export default class IOState {
     this.region = region;
   }
 
+  input(packet) {
+    this.decodedDnsPacket = packet;
+  }
+
   gatewayAnswersOnly(ip4, ip6) {
     if (util.emptyString(ip4) || util.emptyString(ip6)) {
       this.alwaysGatewayAnswer = false;
