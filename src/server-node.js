@@ -34,8 +34,25 @@ let OUR_RG_DN_RE = null; // regular dns name match
 let OUR_WC_DN_RE = null; // wildcard dns name match
 
 let log = null;
-let noreqs = -1;
-let nofchecks = 0;
+
+// todo: as metrics
+class Stats {
+  constructor() {
+    this.noreqs = -1;
+    this.nofchecks = 0;
+    this.fasttls = 0;
+    this.tlserr = 0;
+  }
+
+  str() {
+    return (
+      `noreqs=${this.noreqs} nofchecks=${this.nofchecks} ` +
+      `fasttls=${this.fasttls} tlserr=${this.tlserr}`
+    );
+  }
+}
+
+const stats = new Stats();
 const listeners = { connmap: [], servers: [] };
 // see also: dns-transport.js:ioTimeout
 const ioTimeoutMs = 50000; // 50 secs
@@ -68,14 +85,14 @@ const tlsSessions = new LfuCache("tlsSessions", 10000);
 async function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
-  console.warn(noreqs, "W rcv stop signal; uptime", uptime() / 1000, "secs");
+  console.warn("W rcv stop; uptime", uptime() / 60000, "mins", stats.str());
 
   const srvs = listeners.servers;
   const cmap = listeners.connmap;
   listeners.servers = [];
   listeners.connmap = [];
 
-  console.warn("W after reqs:", noreqs, "closing", cmap.length, "servers");
+  console.warn("W", stats.str(), "; closing", cmap.length, "servers");
   // drain all sockets stackoverflow.com/a/14636625
   // TODO: handle proxy protocol sockets
   for (const m of cmap) {
@@ -302,6 +319,7 @@ function trapSecureServerEvents(...servers) {
         const hid = bufutil.hex(id);
         const data = tlsSessions.get(hid) || null;
         if (data) log.d("tls: resume session; " + hid);
+        if (data) stats.fasttls += 1;
         next(/* err*/ null, data);
       });
 
@@ -313,7 +331,7 @@ function trapSecureServerEvents(...servers) {
       s.on("close", () => clearInterval(rottm));
 
       s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
-        // todo: metrics
+        stats.tlserr += 1;
         log.d("tls: client err; " + err.message);
         close(tlsSocket);
       });
@@ -754,7 +772,7 @@ async function resolveQuery(rxid, q, host, flag) {
 
 async function serve200(req, res) {
   log.d("-------------> Http-check req", req.method, req.url);
-  nofchecks += 1;
+  stats.nofchecks += 1;
   res.writeHead(200);
   res.end();
 }
@@ -886,9 +904,9 @@ function trapRequestResponseEvents(req, res) {
 
 function machinesHeartbeat() {
   // increment no of requests
-  noreqs += 1;
-  if (noreqs % 100 === 0) {
-    log.i(noreqs, "requests in", uptime() / 1000, "secs; chk:", nofchecks);
+  stats.noreqs += 1;
+  if (stats.noreqs % 100 === 0) {
+    log.i(stats.str(), "in", uptime() / 60000, "mins");
   }
   // nothing to do, if not on fly
   if (!envutil.onFly()) return;
