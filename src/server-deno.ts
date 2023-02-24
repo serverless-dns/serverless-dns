@@ -11,7 +11,7 @@
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
 import { stopAfter, uptime } from "./core/svc.js";
-import { serve, serveTls } from "https://deno.land/std@0.171.0/http/server.ts";
+import { serve, serveTls } from "https://deno.land/std@0.178.0/http/server.ts";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
@@ -79,7 +79,7 @@ function systemUp() {
     certFile: envutil.tlsCrtPath() as string,
     keyFile: envutil.tlsKeyPath() as string,
   };
-  // deno.land/manual@v1.18.0/runtime/http_server_apis_low_level
+  // deno.land/manual@v1.27.0/runtime/http_server_apis_low_level
   const httpOpts = {
     alpnProtocols: ["h2", "http/1.1"],
   };
@@ -87,10 +87,10 @@ function systemUp() {
   startDoh();
   startDotIfPossible();
 
-  // deno.land/manual@v1.29.1/runtime/http_server_apis
+  // deno.land/manual@v1.31.0/runtime/http_server_apis
   async function startDoh() {
     if (terminateTls()) {
-      // deno.land/std@0.170.0/http/server.ts?s=serveTls
+      // deno.land/std@0.178.0/http/server.ts?s=serveTls
       serveTls(serveDoh, {
         ...dohConnOpts,
         ...tlsOpts,
@@ -98,7 +98,7 @@ function systemUp() {
         ...sigOpts,
       });
     } else {
-      // deno.land/std@0.171.0/http/server.ts?s=serve
+      // deno.land/std@0.178.0/http/server.ts?s=serve
       serve(serveDoh, { ...dohConnOpts, ...sigOpts });
     }
 
@@ -117,7 +117,7 @@ function systemUp() {
 
     up("DoT (no blocklists)", dot, dotConnOpts);
 
-    // deno.land/manual@v1.11.3/runtime/http_server_apis#handling-connections
+    // deno.land/manual@v1.31.0/runtime/http_server_apis#handling-connections
     for await (const conn of dot) {
       log.d("DoT conn:", conn.remoteAddr);
 
