@@ -8,7 +8,7 @@
 import { spawnSync } from "child_process";
 
 const swapfile = "swap__";
-const swapsize = "128M";
+const swapsize = "192M";
 
 // linuxize.com/post/create-a-linux-swap-file
 export function mkswap() {
@@ -18,7 +18,7 @@ export function mkswap() {
     sh("chmod", ["600", swapfile]) &&
     sh("mkswap", [swapfile]) &&
     sh("swapon", [swapfile]) &&
-    sh("sysctl", ["vm.swappiness=25"])
+    sh("sysctl", ["vm.swappiness=30"])
   );
 }
 
