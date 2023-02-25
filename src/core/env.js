@@ -113,15 +113,15 @@ const defaults = new Map(
       type: "string",
       default: "https://cfstore.rethinkdns.com/blocklists/",
     },
-    // primary doh or doh3 upstream
+    // primary doh upstream
     CF_DNS_RESOLVER_URL: {
       type: "string",
-      default: "h3://cloudflare-dns.com/dns-query",
+      default: "https://cloudflare-dns.com/dns-query",
     },
-    // secondary doh or doh3 upstream
+    // secondary doh upstream
     CF_DNS_RESOLVER_URL_2: {
       type: "string",
-      default: "h3://dns.google/dns-query",
+      default: "https://dns.google/dns-query",
     },
     // upstream recursive rethinkdns resolver running on Fly.io
     MAX_DNS_RESOLVER_URL: {
