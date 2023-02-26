@@ -123,13 +123,14 @@ async function systemDown() {
   // fly.io init process should mop it up, regardless of what goes on in here.
   // FIXME rid of this delayed-exit once fly.io has health checks in place.
   // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
-  envutil.onFly() &&
-    envutil.machinesTimeoutMillis() > 0 &&
-    util.timeout(/* 2s*/ 2 * 1000, () => {
+  if (envutil.onFly() && envutil.machinesTimeoutMillis() > 0) {
+    const tmr = util.timeout(/* 2s*/ 2 * 1000, () => {
       console.warn("W game over");
       // exit success aka 0; ref: community.fly.io/t/4547/6
       process.exit(0);
     });
+    tmr.unref(); // do not wait for it to finish
+  }
 }
 
 function systemUp() {
@@ -308,6 +309,7 @@ function trapSecureServerEvents(...servers) {
       });
 
       const rottm = setInterval(() => rotateTkt(s), 86400000); // 24 hours
+      rotm.unref();
 
       s.on("newSession", (id, data, next) => {
         const hid = bufutil.hex(id);
