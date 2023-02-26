@@ -41,13 +41,14 @@ class Stats {
     this.noreqs = -1;
     this.nofchecks = 0;
     this.fasttls = 0;
+    this.totfasttls = 0;
     this.tlserr = 0;
   }
 
   str() {
     return (
       `noreqs=${this.noreqs} nofchecks=${this.nofchecks} ` +
-      `fasttls=${this.fasttls} tlserr=${this.tlserr}`
+      `fasttls=${this.fasttls}/${this.totfasttls} tlserr=${this.tlserr}`
     );
   }
 }
@@ -320,6 +321,7 @@ function trapSecureServerEvents(...servers) {
         const data = tlsSessions.get(hid) || null;
         if (data) log.d("tls: resume session; " + hid);
         if (data) stats.fasttls += 1;
+        else stats.totfasttls += 1;
         next(/* err*/ null, data);
       });
 
