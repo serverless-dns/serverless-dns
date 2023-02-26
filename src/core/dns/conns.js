@@ -41,6 +41,7 @@ export class TcpConnPool {
   }
 
   take() {
+    const thres = this.maxsweep / 2;
     let out = null;
     let n = 0;
 
@@ -50,8 +51,10 @@ export class TcpConnPool {
     for (const [sock, report] of this.pool) {
       if (this.healthy(sock, report)) {
         out = this.checkout(sock, report);
-      } else this.evict(sock);
-      if (++n >= this.maxsweep) break;
+      } else {
+        this.evict(sock);
+      }
+      if (++n >= thres) break;
       if (out) break;
     }
 
@@ -187,6 +190,7 @@ export class UdpConnPool {
   }
 
   take() {
+    const thres = this.maxsweep / 2;
     let out = null;
     let n = 0;
 
@@ -199,7 +203,7 @@ export class UdpConnPool {
       } else {
         this.evict(sock);
       }
-      if (++n >= this.maxsweep) break;
+      if (++n >= thres) break;
       if (out) break;
     }
     // no evictions, but no socket available
