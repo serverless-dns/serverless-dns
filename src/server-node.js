@@ -113,24 +113,10 @@ async function systemDown() {
   }
 
   // in some cases, node stops listening but the process doesn't exit because
-  // of other unreleased resources (see: svc.js#systemStop). ideally, fly.io
-  // health checks kick-in and apply a pre-defined restart policy, but as it
-  // stands, health checks are unimplemented for machines, and so we wait for
-  // a small amount of time, and force exit the process. the irony is, this
-  // timed wait here will keep up the node process for longer than necessary.
-  // in other cases where systemDown might be called due to interrupts such as
-  // SIGINT, there's already a pre-defined timeout (10s or so) after which
-  // fly.io init process should mop it up, regardless of what goes on in here.
-  // FIXME rid of this delayed-exit once fly.io has health checks in place.
-  // refs: community.fly.io/t/7341/6 and community.fly.io/t/7289
-  if (envutil.onFly() && envutil.machinesTimeoutMillis() > 0) {
-    const tmr = util.timeout(/* 2s*/ 2 * 1000, () => {
-      console.warn("W game over");
-      // exit success aka 0; ref: community.fly.io/t/4547/6
-      process.exit(0);
-    });
-    tmr.unref(); // do not wait for it to finish
-  }
+  // of other unreleased resources (see: svc.js#systemStop); so exit
+  console.warn("W game over");
+  // exit success aka 0; ref: community.fly.io/t/4547/6
+  process.exit(0);
 }
 
 function systemUp() {
