@@ -145,6 +145,7 @@ jobs:
             --config ${{ env.FLY_TOML }}
             --strategy ${{ env.FLY_DEPLOY_STRAT }}
             --auto-confirm
+            --no-cache
             --verbose
             "
 
