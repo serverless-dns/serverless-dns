@@ -113,9 +113,9 @@ async function systemDown() {
   }
 
   // in some cases, node stops listening but the process doesn't exit because
-  // of other unreleased resources (see: svc.js#systemStop); so exit
+  // of other unreleased resources (see: svc.js#systemStop); and so exit with
+  // success (exit code 0); ref: community.fly.io/t/4547/6
   console.warn("W game over");
-  // exit success aka 0; ref: community.fly.io/t/4547/6
   process.exit(0);
 }
 
@@ -892,14 +892,14 @@ function trapRequestResponseEvents(req, res) {
     if (e) {
       const reqstr = nodeutil.req2str(req);
       const resstr = nodeutil.res2str(res);
-      log.w("h2: res fin w error", reqstr, resstr, e);
+      log.w("h2: res fin w error", reqstr, resstr, e.message);
     }
   });
   finished(req, (e) => {
     if (e) {
       const reqstr = nodeutil.req2str(req);
       const resstr = nodeutil.res2str(res);
-      log.w("h2: req fin w error", reqstr, resstr, e);
+      log.w("h2: req fin w error", reqstr, resstr, e.message);
     }
   });
 }
