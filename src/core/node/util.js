@@ -88,7 +88,7 @@ export function req2str(req) {
   if (!req) return "request[null]";
   return (
     `request[${req.method}] ${req.headers["content-type"]} ` +
-    `${req.url} from ${req.headers["user-agent"]}` +
+    `${req.url} from ${req.headers["user-agent"]} ` +
     `${req.headers["content-length"]}/${req.readableLength} `
   );
 }
@@ -101,7 +101,7 @@ export function res2str(res) {
   if (!res) return "response[null]";
   return (
     `response[${res.statusCode}] ${res.getHeader("content-type")} ` +
-    `headers-sent? ${res.headersSent} write-done? ${res.writableEnded}` +
+    `headers-sent? ${res.headersSent} write-ended? ${res.writableEnded} ` +
     `${res.getHeader("content-length")}/${res.writableLength}`
   );
 }
