@@ -475,6 +475,14 @@ class ScratchBuffer {
       this.qBufOffset = bufutil.recycleBuffer(this.qBuf);
     }
   }
+
+  reset() {
+    const b = this.qBuf;
+    this.qlenBufOffset = bufutil.recycleBuffer(this.qlenBuf);
+    this.qBuf = null;
+    this.qBufOffset = 0;
+    return b;
+  }
 }
 
 /**
@@ -630,12 +638,13 @@ function handleTCPData(socket, chunk, sb, host, flag) {
     sb.qlenBufOffset += seek;
   }
 
-  // header has not been read fully, yet
+  // header has not been read fully, yet; expect more data
+  // www.rfc-editor.org/rfc/rfc7766#section-8
   if (sb.qlenBufOffset !== dnsutil.dnsHeaderSize) return;
 
   const qlen = sb.qlenBuf.readUInt16BE();
   if (!dnsutil.validateSize(qlen)) {
-    log.w(`query range err: ql:${qlen} cl:${cl} rem:${rem}`);
+    log.w(`query size err: ql:${qlen} cl:${cl} rem:${rem}`);
     close(socket);
     return;
   }
@@ -643,27 +652,30 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   // rem bytes already read, is any more left in chunk?
   const size = cl - rem;
   if (size <= 0) return;
-
+  // gobble up at least qlen bytes from chunk starting rem-th byte
+  const qlimit = rem + Math.min(qlen, size);
   // hopefully fast github.com/nodejs/node/issues/20130#issuecomment-382417255
   // chunk out dns-query starting rem-th byte
-  const data = chunk.slice(rem);
+  const data = chunk.slice(rem, qlimit);
+  // out of band data, if any
+  const oob = chunk.slice(qlimit);
 
   sb.allocOnce(qlen);
 
   sb.qBuf.fill(data, sb.qBufOffset);
-  sb.qBufOffset += size;
+  sb.qBufOffset += data.byteLength;
 
+  log.d(`q: ${qlen}, sb.q: ${sb.qBufOffset}, cl: ${cl}, sz: ${size}`);
   // exactly qlen bytes read till now, handle the dns query
   if (sb.qBufOffset === qlen) {
-    handleTCPQuery(sb.qBuf, socket, host, flag);
-    // reset qBuf and qlenBuf states
-    sb.qlenBufOffset = bufutil.recycleBuffer(sb.qlenBuf);
-    sb.qBuf = null;
-    sb.qBufOffset = 0;
-  } else if (sb.qBufOffset > qlen) {
-    log.w(`size mismatch: ${chunk.byteLength} <> ${qlen}`);
-    close(socket);
-    return;
+    // extract out the query and reset the scratch-buffer
+    const b = sb.reset();
+    handleTCPQuery(b, socket, host, flag);
+    // if there is any out of band data, handle it
+    if (!bufutil.emptyBuf(oob)) {
+      log.d(`pipelined, handle oob: ${oob.byteLength}`);
+      handleTCPData(socket, oob, sb, host, flag);
+    }
   } // continue reading from socket
 }
 
