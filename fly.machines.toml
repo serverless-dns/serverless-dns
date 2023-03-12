@@ -71,6 +71,5 @@ protocol = "tcp"
     method = "get"
     path = "/check"
     port = 8888
-    timeout = "10s"
+    timeout = "3s"
     type = "http"
-
