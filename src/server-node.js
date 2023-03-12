@@ -652,8 +652,8 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   // rem bytes already read, is any more left in chunk?
   const size = cl - rem;
   if (size <= 0) return;
-  // gobble up at least qlen bytes from chunk starting rem-th byte
-  const qlimit = rem + Math.min(qlen, size);
+  // gobble up at most qlen bytes from chunk starting rem-th byte
+  const qlimit = rem + Math.min(qlen - sb.qBufOffset, size);
   // hopefully fast github.com/nodejs/node/issues/20130#issuecomment-382417255
   // chunk out dns-query starting rem-th byte
   const data = chunk.slice(rem, qlimit);
