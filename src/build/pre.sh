@@ -17,46 +17,46 @@ dir="bc"
 codec="u6"
 f="basicconfig.json"
 f2="filetag.json"
-cwd=`pwd`
+cwd=$(pwd)
 # exec this script from npm or project root
 out="./src/${codec}-${f}"
 out2="./src/${codec}-${f2}"
-name=`uname`
+name=$(uname)
 
 # timestamp: 1667519318.799 stackoverflow.com/a/69400542
 # nowms =`date -u +"%s.%3N"`
-if [ $name = "Darwin" ]
+if [ "$name" = "Darwin" ]
 then
-    now=`date -u +"%s"`
+    now=$(date -u +"%s")
 else
-    now=`date --utc +"%s"`
+    now=$(date --utc +"%s")
 fi
 
 
 # date from timestamp: stackoverflow.com/a/16311821
-if [ $name = "Darwin" ]
+if [ "$name" = "Darwin" ]
 then
-    day=`date -r $now "+%d"`
+    day=$(date -r "$now" "+%d")
 else
-    day=`date -d @$now "+%d"`
+    day=$(date -d "@$now" "+%d")
 fi
 # ex: conv 08 => 8 stackoverflow.com/a/12821845
 day=${day#0}
 # week; ceil: stackoverflow.com/a/12536521
 wkdef=$(((day + 7 -1) / 7))
 # year
-if [ $name = "Darwin" ]
+if [ "$name" = "Darwin" ]
 then
-    yyyydef=`date -r $now "+%Y"`
+    yyyydef=$(date -r "$now" "+%Y")
 else
-    yyyydef=`date -d @$now "+%Y"`
+    yyyydef=$(date -d "@$now" "+%Y")
 fi
 # month
-if [ $name = "Darwin" ]
+if [ "$name" = "Darwin" ]
 then
-    mmdef=`date -r $now "+%m"`
+    mmdef=$(date -r "$now" "+%m")
 else
-    mmdef=`date -d @$now "+%m"`
+    mmdef=$(date -d "@$now" "+%m")
 fi
 mmdef=${mmdef#0}
 
@@ -66,7 +66,7 @@ mmdef=${mmdef#0}
 # stackoverflow.com/a/1445507
 max=4
 # 0..4 (5 loops)
-for i in `seq 0 $max`
+for i in $(seq 0 $max)
 do
     echo "x=== pre.sh: $i try $yyyy/$mm-$wk at $now from $cwd"
 
@@ -82,7 +82,7 @@ do
         if [ $wcode -eq 0 ]; then
             # baretimestamp=$(cut -d"," -f9 "$out" | cut -d":" -f2 | grep -o -E '[0-9]+' | tail -n1)
             fulltimestamp=$(cut -d"," -f9 "$out" | cut -d":" -f2 | tr -dc '0-9/')
-            if [ $(hasfwslash "$fulltimestamp") = "no" ]; then
+            if [ "$(hasfwslash "$fulltimestamp")" = "no" ]; then
                 echo "==x= pre.sh: $i filetag at f8"
                 fulltimestamp=$(cut -d"," -f8 "$out" | cut -d":" -f2 | tr -dc '0-9/')
             fi
