@@ -507,11 +507,11 @@ function getDnRE(socket) {
       // sliced => *.max.rethinkdns.com
       entry = entry.slice(SAN_DNS_PREFIX.length);
 
-      // d => *\\.max\\.rethinkdns\\.com
+      // d => *\.max\.rethinkdns\.com
       // wc => true
       // pos => 1
-      // match => [a-z0-9-_]*\\.max\\.rethinkdns\\.com
-      const d = entry.replace(/\./g, "\\.");
+      // match => [a-z0-9-_]*\.max\.rethinkdns\.com
+      const d = entry.replaceAll(".", "\\.");
       const wc = d.startsWith("*");
       const pos = wc ? 1 : 0;
       const match = wc ? "[a-z0-9-_]" + d : d;
