@@ -36,9 +36,9 @@ fi
 # date from timestamp: stackoverflow.com/a/16311821
 if [ "$name" = "Darwin" ]
 then
-    day=$(date -r $now "+%d")
+    day=$(date -r "$now" "+%d")
 else
-    day=$(date -d @$now "+%d")
+    day=$(date -d "@$now" "+%d")
 fi
 # ex: conv 08 => 8 stackoverflow.com/a/12821845
 day=${day#0}
@@ -47,16 +47,16 @@ wkdef=$(((day + 7 -1) / 7))
 # year
 if [ "$name" = "Darwin" ]
 then
-    yyyydef=$(date -r $now "+%Y")
+    yyyydef=$(date -r "$now" "+%Y")
 else
-    yyyydef=$(date -d @$now "+%Y")
+    yyyydef=$(date -d "@$now" "+%Y")
 fi
 # month
 if [ "$name" = "Darwin" ]
 then
-    mmdef=$(date -r $now "+%m")
+    mmdef=$(date -r "$now" "+%m")
 else
-    mmdef=$(date -d @$now "+%m")
+    mmdef=$(date -d "@$now" "+%m")
 fi
 mmdef=${mmdef#0}
 
