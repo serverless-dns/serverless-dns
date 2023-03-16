@@ -507,16 +507,18 @@ function getDnRE(socket) {
       // sliced => *.max.rethinkdns.com
       entry = entry.slice(SAN_DNS_PREFIX.length);
 
-      // d => *\\.max\\.rethinkdns\\.com
+      // d => *\.max\.rethinkdns\.com
       // wc => true
       // pos => 1
-      // match => [a-z0-9-_]*\\.max\\.rethinkdns\\.com
-      const d = entry.replace(/\./g, "\\.");
+      // match => [a-z0-9-_]*\.max\.rethinkdns\.com
+      // reStr => (^[a-z0-9-_]*\.max\.rethinkdns\.com$)
+      const d = entry.replaceAll(".", "\\.");
       const wc = d.startsWith("*");
       const pos = wc ? 1 : 0;
       const match = wc ? "[a-z0-9-_]" + d : d;
+      const reStr = "(^" + match + "$)";
 
-      arr[pos].push("(^" + match + "$)");
+      arr[pos].push(reStr);
 
       return arr;
     },
@@ -524,6 +526,9 @@ function getDnRE(socket) {
     [[], []]
   );
 
+  // Construct case-insensitive RegEx from the respective array of RE strings.
+  // RegExs strings are joined with OR operator, before constructing RegEx.
+  // If no RegEx strings are found, a non-matching RegEx `(?!)` is returned.
   const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
   const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
   log.i("SNIs: ", rgDnRE, wcDnRE);
