@@ -191,25 +191,26 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
-// util.js
-
-// Define the rand function that generates a random number between min and max (inclusive)
-function rand(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// Export the rand function
-module.exports = { rand };
+import crypto from 'crypto';
 
 // min inclusive, max exclusive
 function rand(min, max) {
   const range = max - min;
   const bytesNeeded = Math.ceil(Math.log2(range) / 8);
-  const randomBytes = new Uint8Array(bytesNeeded);
-  window.crypto.getRandomValues(randomBytes);
+  const randomBytes = crypto.randomBytes(bytesNeeded);
   const value = bytesToNumber(randomBytes) % range;
   return min + value;
 }
+
+function bytesToNumber(bytes) {
+  let result = 0;
+  for (const b of bytes) {
+    result = result * 256 + b;
+  }
+  return result;
+}
+
+module.exports = { rand };
 
 function bytesToNumber(bytes) {
   let value = 0;
