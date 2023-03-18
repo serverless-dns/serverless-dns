@@ -191,6 +191,16 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
+// util.js
+
+// Define the rand function that generates a random number between min and max (inclusive)
+function rand(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Export the rand function
+module.exports = { rand };
+
 // min inclusive, max exclusive
 function rand(min, max) {
   const range = max - min;
