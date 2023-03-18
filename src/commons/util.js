@@ -191,9 +191,23 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
+import crypto from 'crypto';
+
 // min inclusive, max exclusive
 export function rand(min, max) {
-  return Math.floor(Math.random() * (max - min)) + min;
+  const range = max - min;
+  const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+  const randomBytes = crypto.randomBytes(bytesNeeded);
+  const value = bytesToNumber(randomBytes) % range;
+  return min + value;
+}
+
+function bytesToNumber(bytes) {
+  let value = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8) + bytes[i];
+  }
+  return value;
 }
 
 export function rolldice(sides = 6) {
