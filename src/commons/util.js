@@ -214,10 +214,12 @@ export function rolldice(sides = 6) {
   return rand(1, sides + 1);
 }
 
-// stackoverflow.com/a/8084248
+import crypto from "crypto";
+
 export function uid(prefix = "") {
-  // ex: ".ww8ja208it"
-  return prefix + (Math.random() + 1).toString(36).slice(1);
+  const bytes = crypto.randomBytes(16);
+  const randomString = bytes.toString("hex");
+  return prefix + randomString;
 }
 
 export function xid() {
