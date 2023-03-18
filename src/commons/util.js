@@ -194,23 +194,13 @@ export function timeout(ms, callback) {
 import crypto from 'crypto';
 
 // min inclusive, max exclusive
-function rand(min, max) {
+export function rand(min, max) {
   const range = max - min;
   const bytesNeeded = Math.ceil(Math.log2(range) / 8);
   const randomBytes = crypto.randomBytes(bytesNeeded);
   const value = bytesToNumber(randomBytes) % range;
   return min + value;
 }
-
-function bytesToNumber(bytes) {
-  let result = 0;
-  for (const b of bytes) {
-    result = result * 256 + b;
-  }
-  return result;
-}
-
-module.exports = { rand };
 
 function bytesToNumber(bytes) {
   let value = 0;
