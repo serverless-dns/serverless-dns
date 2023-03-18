@@ -214,8 +214,6 @@ export function rolldice(sides = 6) {
   return rand(1, sides + 1);
 }
 
-import crypto from "crypto";
-
 export function uid(prefix = "") {
   const bytes = crypto.randomBytes(16);
   const randomString = bytes.toString("hex");
