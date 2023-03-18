@@ -9,6 +9,6 @@
 import { createHash } from "crypto";
 import { normalize8 } from "./bufutil.js";
 
-export function md5(b) {
-  return createHash("md5").update(normalize8(b)).digest("hex");
+export function sha256(b) {
+  return createHash("sha256").update(normalize8(b)).digest("hex");
 }
