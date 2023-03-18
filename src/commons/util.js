@@ -191,7 +191,7 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
-import crypto from 'crypto';
+import crypto from "crypto";
 
 // min inclusive, max exclusive
 export function rand(min, max) {
