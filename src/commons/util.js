@@ -191,33 +191,19 @@ export function timeout(ms, callback) {
   return setTimeout(callback, ms);
 }
 
-import crypto from "crypto";
-
 // min inclusive, max exclusive
 export function rand(min, max) {
-  const range = max - min;
-  const bytesNeeded = Math.ceil(Math.log2(range) / 8);
-  const randomBytes = crypto.randomBytes(bytesNeeded);
-  const value = bytesToNumber(randomBytes) % range;
-  return min + value;
-}
-
-function bytesToNumber(bytes) {
-  let value = 0;
-  for (let i = 0; i < bytes.length; i++) {
-    value = (value << 8) + bytes[i];
-  }
-  return value;
+  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 export function rolldice(sides = 6) {
   return rand(1, sides + 1);
 }
 
+// stackoverflow.com/a/8084248
 export function uid(prefix = "") {
-  const bytes = crypto.randomBytes(16);
-  const randomString = bytes.toString("hex");
-  return prefix + randomString;
+  // ex: ".ww8ja208it"
+  return prefix + (Math.random() + 1).toString(36).slice(1);
 }
 
 export function xid() {
