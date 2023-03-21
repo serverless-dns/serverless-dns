@@ -5,7 +5,7 @@ const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
 // archive.is/FDky9
 module.exports = {
   entry: "./src/server-workers.js",
-  target: ["webworker", "es2020"],
+  target: ["webworker", "es2022"],
   mode: "production",
   // enable devtool in development
   // devtool: 'eval-cheap-module-source-map',
