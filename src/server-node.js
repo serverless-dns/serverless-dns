@@ -614,10 +614,10 @@ function serveTCP(socket) {
   const [flag, host] = ["", "ignored.example.com"];
   const sb = new ScratchBuffer();
 
-  machinesHeartbeat();
   log.d("----> DoT Cleartext request", host, flag);
 
   socket.on("data", (data) => {
+    machinesHeartbeat();
     handleTCPData(socket, data, sb, host, flag);
   });
 }
