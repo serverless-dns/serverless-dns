@@ -1,0 +1,156 @@
+name: 🪂 Fly
+
+on:
+  push:
+    branches:
+      - "main"
+    tags:
+      - "v*"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/fly.yml"
+      - ".env.example"
+      - ".eslintrc.cjs"
+      - ".prettierignore"
+      - "wrangler.toml"
+      - "README.md"
+      - "wrangler.toml"
+      - ".vscode/*"
+      - ".husky/*"
+      - ".prettierrc.json"
+      - "LICENSE"
+      - "run"
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "Branch / ref / tag to build"
+        required: false
+        default: "main"
+      deployment-type:
+        description: "Fly app type to deploy to"
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - prod
+        - mach
+        - b1
+      deployment-strat:
+        description: "Deploy strategy"
+        required: true
+        default: 'rolling'
+        type: choice
+        options:
+        - rolling
+        - immediate
+        - bluegreen
+        - canary
+      builder:
+        description: "App builder type"
+        required: true
+        default: 'remote-only'
+        type: choice
+        options:
+        - remote-only
+        - local-only
+
+env:
+  GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+  # one of immediate, rolling (default), bluegreen, canary
+  FLY_DEPLOY_STRAT: ${{ github.event.inputs.deployment-strat }}
+  # local-only, remote-only (default)
+  FLY_BUILDER_TYPE: ${{ github.event.inputs.builder }}
+  # default fly app to deploy to (typically, dev)
+  FLY_APP: ${{ secrets.FLY_APP_NAME }}
+  FLY_PROD_APP: ${{ secrets.FLY_APP_NAME_LIVE }}
+  FLY_B1_APP: ${{ secrets.FLY_APP_NAME_B1 }}
+  FLY_MACHINES_APP: "udns"
+  FLY_CFG: "fly.toml"
+  FLY_B1_CFG: "fly.tls.toml"
+  FLY_MACHINES_CFG: "fly.machines.toml"
+
+jobs:
+  deploy:
+    name: 🚀 Deploy app
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
+
+      - name: 🏗 Setup env vars
+        run: |
+          echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "FLY_TOML=${FLY_CFG}" >> $GITHUB_ENV
+          echo "FLY_DEPLOY_STRAT=${FLY_DEPLOY_STRAT:-rolling}" >> $GITHUB_ENV
+          echo "FLY_BUILDER_TYPE=${FLY_BUILDER_TYPE:-remote-only}" >> $GITHUB_ENV
+        shell: bash
+
+      - name: 🔐👨‍🚒 B1 via dispatch?
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment-type == 'b1' }}
+        run: |
+          echo "FLY_APP=${FLY_B1_APP}" >> $GITHUB_ENV
+          echo "FLY_TOML=${FLY_B1_CFG}" >> $GITHUB_ENV
+          echo "::notice::Deploying B1 / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: 🚨👨‍🚒 Prod via dispatch?
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment-type == 'prod' }}
+        run: |
+          echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: 🚨🛺 Prod via tag?
+        # docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        if: ${{ github.event_name != 'workflow_dispatch' && github.ref_type == 'tag' }}
+        run: |
+          echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: 🚜👨‍🚒 Machines via dispatch?
+        if: ${{ github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.deployment-type == 'mach' }}
+        run: |
+          echo "FLY_APP=${FLY_MACHINES_APP}" >> $GITHUB_ENV
+          echo "FLY_TOML=${FLY_MACHINES_CFG}" >> $GITHUB_ENV
+          echo "::notice::Deploying MACH / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      # experimental: github.com/superfly/flyctl-actions/pull/20
+      - name: 🏗 Setup flyctl @ latest
+        uses: superfly/flyctl-actions/setup-flyctl@master
+        with:
+          version: latest
+
+      - name: 🚢 Ship
+        run: "flyctl deploy
+            --${{ env.FLY_BUILDER_TYPE }}
+            --image-label ${{ env.GIT_HEAD }}
+            --config ${{ env.FLY_TOML }}
+            --strategy ${{ env.FLY_DEPLOY_STRAT }}
+            --auto-confirm
+            --no-cache
+            --verbose
+            "
+
+      - name: 📕 Registry
+        if: success()
+        run: |
+          echo "::notice::Image @ registry.fly.io/<fly-app-name>:${{ env.GIT_HEAD }}"
+        shell: bash

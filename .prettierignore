@@ -1,0 +1,9 @@
+.vscode/
+dist/
+node_modules/
+worker/
+test/data/cache
+
+*.md
+*.css
+*.html

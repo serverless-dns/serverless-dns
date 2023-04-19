@@ -1,0 +1,63 @@
+app = "udns"
+
+kill_signal = "SIGINT"
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
+
+[env]
+NODE_ENV = "production"
+CLOUD_PLATFORM = "fly"
+# (set for machines only) node proc shuts itself after this threshold:
+# on Fly, the in-memory DNS cache is evicted on process exit, hence
+# more efficient to let the Machine linger for as much time affordable.
+# also: fly can't start vms that shutdown quick: community.fly.io/t/6091/12
+MACHINES_TIMEOUT_SEC = "180"
+LOG_LEVEL = "info"
+
+[experimental]
+auto_rollback = true
+
+# DNS over HTTPS
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  port = 443
+
+  [[services.ports]]
+  port = 8080
+
+# DNS over TCP/TLS
+[[services]]
+internal_port = 10000
+protocol = "tcp"
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  port = 853
+
+  [[services.ports]]
+  port = 10000
+
+# community.fly.io/t/5490/3
+[checks]
+  [checks.up]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/check"
+    port = 8888
+    timeout = "3s"
+    type = "http"

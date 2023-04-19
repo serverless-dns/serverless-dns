@@ -1,0 +1,8 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = dns.rethinkdns.localhost
+DNS.2 = *.dns.rethinkdns.localhost

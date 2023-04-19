@@ -1,0 +1,39 @@
+# This file describes a Fastly Compute@Edge package. To learn more visit:
+# https://developer.fastly.com/reference/fastly-toml/
+
+authors = [""]
+description = "Serverless DNS deploys to Fastly Compute@Edge"
+language = "javascript"
+manifest_version = 2
+name = "serverless-dns"
+service_id = ""
+
+[local_server]
+
+  [local_server.backends]
+
+  [local_server.dictionaries]
+
+    [local_server.dictionaries.env]
+      format = "inline-toml"
+
+      [local_server.dictionaries.env.contents]
+        env = "development"
+        CLOUD_PLATFORM = "fastly"
+
+[scripts]
+  build = "npm run build:fastly"
+
+[setup]
+
+  [setup.dictionaries]
+
+    [setup.dictionaries.env]
+
+      [setup.dictionaries.env.items]
+
+        [setup.dictionaries.env.items.env]
+          value = "production"
+        [setup.dictionaries.env.items.CLOUD_PLATFORM]
+          value = "fastly"
+

@@ -1,0 +1,27 @@
+# Ignoring directories
+dist/
+node_modules/
+worker/
+test/data/cache/
+blocklists__/
+dbip__/
+src/basicconfig.json
+
+# lock files
+/package-lock.json
+/deno.lock
+
+.clinic/
+**basicconfig.json
+**filetag.json
+*.log
+*.swp
+*.bak
+
+# Local enviroment variables
+.env
+
+# Cache
+.eslintcache
+bin/main.wasm
+pkg/serverless-dns.tar.gz

@@ -1,0 +1,71 @@
+app = ""
+
+kill_signal = "SIGINT"
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
+
+[env]
+DENO_ENV = "production"
+NODE_ENV = "production"
+CLOUD_PLATFORM = "fly"
+LOG_LEVEL = "info"
+# DOT_HAS_PROXY_PROTO = "true"
+
+[experimental]
+auto_rollback = true
+
+# Don't use `[processes]`, undocumented and causes problems with [auto]scaling.
+# Instead, use CMD in Dockerfile.
+# [processes]
+# app = "run --allow-net --allow-env --import-map=import_map.json server-deno.ts"
+# app = "node server-node.js"
+
+# DNS over HTTP[S]
+[[services]]
+http_checks = []
+internal_port = 8080
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  # handlers = ["proxy_proto"]
+  port = 443
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"
+
+# DNS over TCP/TLS
+[[services]]
+http_checks = []
+internal_port = 10000
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  # handlers = ["proxy_proto"]
+  port = 853
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"

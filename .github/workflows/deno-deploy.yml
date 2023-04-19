@@ -1,0 +1,120 @@
+name: 🦕 Deno
+
+on:
+  push:
+    branches:
+      - "main"
+    paths-ignore:
+      - ".github/**"
+      - "!.github/workflows/deno-deploy.yml"
+      - ".env.example"
+      - ".eslintrc.cjs"
+      - ".prettierignore"
+      - "README.md"
+      - "wrangler.toml"
+      - "fly.toml"
+      - "node.Dockerfile"
+      - "deno.Dockerfile"
+      - ".vscode/*"
+      - ".husky/*"
+      - ".prettierrc.json"
+      - "LICENSE"
+      - "run"
+  workflow_dispatch:
+    inputs:
+      deploy-mode:
+        description: 'Deploy via action or auto'
+        required: false
+        default: 'action'
+        type: choice
+        options:
+        - action
+        - auto
+      git-ref:
+        description: 'Git branch / tag / commit (used for auto deploy-mode)'
+        required: false
+        default: 'main'
+      deployment-type:
+        description: 'Deploy branch (used for auto deploy-mode)'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - live
+
+env:
+  DEPLOY_MODE: 'action'
+  PROJECT_NAME: ${{ secrets.DENO_PROJECT_NAME || 'rdns' }}
+  BUILD_BRANCH: >
+    ${{ github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.deployment-type == 'live' &&
+      'build/deno-deploy/live' || 'build/deno-deploy/dev' }}
+  IN_FILE: 'src/server-deno.ts'
+  OUT_FILE: 'rethinkdns.js'
+
+jobs:
+  deploy:
+    name: 🌯 Deno Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      # needed for auth with deno.com
+      id-token: write
+      # needed to clone repo
+      contents: read
+    steps:
+      - name: 🚚 Fetch code
+        uses: actions/checkout@v3.3.0
+        with:
+          ref: ${{ github.event.inputs.git-ref || github.ref }}
+          fetch-depth: 0
+
+      - name: 🏝 Setup env
+        shell: bash
+        run: |
+          echo "DEPLOY_MODE=${DM}" >> $GITHUB_ENV
+          echo "::notice::deploy mode: $DM, project: $PROJECT_NAME"
+        env:
+          DM: ${{ github.event.inputs.deploy-mode || env.DEPLOY_MODE }}
+
+      - name: 🧰 Checkout deploy-branch
+        if: ${{ env.DEPLOY_MODE == 'auto' }}
+        run: |
+          git fetch --all
+          git checkout --orphan ${BUILD_BRANCH} || git checkout ${BUILD_BRANCH}
+          git reset
+          git merge origin/${BUILD_BRANCH} || :
+
+      - name: 🦕 Install Deno @1.29
+        uses: denoland/setup-deno@main
+        with:
+          deno-version: 1.29.3
+
+      - name: 📦 Bundle up
+        if: ${{ env.DEPLOY_MODE == 'action' }}
+        run: |
+          echo "::notice::do not forget to set DENO_PROJECT_NAME via github secrets!"
+          deno task prepare
+          deno bundle ${IN_FILE} ${OUT_FILE}
+        shell: bash
+
+      # github.com/denoland/deployctl/blob/febd898/action.yml
+      # step output: www.actionsbyexample.com/outputs.html
+      - name: 🤸🏼 Deploy to deno.com
+        id: dd
+        if: ${{ env.DEPLOY_MODE == 'action' }}
+        uses: denoland/deployctl@1.4.0
+        with:
+          project: ${{ env.PROJECT_NAME }}
+          entrypoint: ${{ env.OUT_FILE }}
+
+      - name: 🚢 Merge latest code into deploy-branch
+        if: ${{ env.DEPLOY_MODE == 'auto' }}
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ${OUT_FILE}
+          git commit -m "Update bundle for ${GITHUB_SHA}" && \
+            echo "::notice::Pushing to ${BUILD_BRANCH}" || \
+            echo "::notice::No changes to commit"
+          git push origin ${BUILD_BRANCH}

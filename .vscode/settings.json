@@ -1,0 +1,16 @@
+{
+  // Uncomment deno specific settings while developing deno for intellisense,
+  // type definitions, etc.
+
+  // "deno.enable": true,
+  // "deno.lint": true,
+  // "deno.unstable": false
+  "deno.importMap": "./import_map.json",
+  "cSpell.words": [
+    "Deno",
+    "rethinkdns"
+  ],
+  "cSpell.enableFiletypes": [
+    "env"
+  ]
+}

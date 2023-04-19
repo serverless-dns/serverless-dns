@@ -1,0 +1,115 @@
+name: 🎯 Profiler
+
+on:
+  push:
+    branches:
+      - profile
+    paths:
+      - 'src/**'
+
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "git tip: branch/ref/tag"
+        required: false
+        default: 'main'
+      # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
+      js-runtime:
+        description: "proc: deno/node"
+        required: false
+        default: 'node'
+        type: choice
+        options:
+        - node
+        - deno
+      mode:
+        description: "p1 (fetch) / p2 (http2) / p3 (udp/tcp)"
+        required: false
+        default: 'p1'
+        type: choice
+        options:
+        - p1
+        - p2
+        - p3
+      maxtime:
+        description: "run time (in seconds)"
+        required: false
+        default: '60s'
+
+env:
+  GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
+  JS_RUNTIME: 'node'
+  MAXTIME_SEC: '30s'
+  NODE_VER: '19.x'
+  DENO_VER: '1.29.3'
+  MODE: 'p1'
+  QDOH: 'q'
+
+jobs:
+  profiler1:
+    name: 🕒 Fetch profiler
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🍌 Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
+
+      - name: ⚓️ Set git tip
+        run: |
+          echo "GIT_HEAD=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          echo "JS_RUNTIME=${JSR}" >> $GITHUB_ENV
+        shell: bash
+        env:
+          JSR: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
+
+      # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
+      - name: 🐎 Setup Node @v19
+        if: env.JS_RUNTIME == 'node'
+        uses: actions/setup-node@v3.6.0
+        with:
+          node-version: ${{ env.NODE_VER }}
+
+      - name: 🥑 Node deps
+        if: env.JS_RUNTIME == 'node'
+        run: |
+          # npm ci is faster, but it needs package-lock.json which isn't checked-in
+          npm i
+          npm run build --if-present
+
+      # deno.com/blog/deploy-static-files#example-a-statically-generated-site
+      - name: 🦕 Setup Deno @1.29.3
+        if: env.JS_RUNTIME == 'deno'
+        uses: denoland/setup-deno@main
+        with:
+          deno-version: ${{ env.DENO_VER }}
+
+      - name: 🥝 Deno deps
+        if: env.JS_RUNTIME == 'deno'
+        run: |
+          deno cache ./src/server-deno.ts
+
+      # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
+      # github.com/natesales/repo
+      # docs.github.com/en/actions/using-github-hosted-runners/customizing-github-hosted-runners#installing-software-on-ubuntu-runners
+      - name: 🌶 Setup Q
+        run: |
+          # sudo and echo: stackoverflow.com/a/550808
+          echo "deb [trusted=yes] https://repo.natesales.net/apt /" | sudo tee /etc/apt/sources.list.d/natesales.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install q
+
+      # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#example-using-a-fallback-value
+      # timeout exit-code: stackoverflow.com/a/60996259
+      - name: 🎱 Run profiler
+        if: success()
+        run: |
+          # for now, use runtime-specific timeouts (currently 60s for node and deno) for profiling
+          # timeout "$MAXTIME_SEC" ./run "$JS_RUNTIME" "$MODE" || ( [[ $? -eq 124 ]] && echo "::notice::Timeout OK" )
+          ./run "$JS_RUNTIME" "$MODE"
+        shell: bash
+        env:
+          MAXTIME_SEC: ${{ github.event.inputs.maxtime || env.MAXTIME_SEC }}
+          MODE: ${{ github.event.inputs.mode || env.MODE }}

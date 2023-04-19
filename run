@@ -1,0 +1,233 @@
+#!/bin/sh
+
+set -eu
+
+# this script is for development/test runs only
+# defaults: stackoverflow.com/a/16753536
+jobfile="${1:-/tmp/sdns-profiler-job-pids}"
+runtime="${1:-node}";
+profiler="${2:-$1}";
+waitsec="${3:-0}";
+qdoh="${QDOH:-invalid}";
+prestart=""
+proc0=""
+
+echo "run $runtime";
+
+# patorjk.com/software/taag/#p=display&c=echo&f=Small%20Slant&t=r-profiler
+profilerbanner() {
+  echo "                              ___ _  __         ";
+  echo "  ____ ____ ___   ____ ___   / _/(_)/ /___  ____";
+  echo " / __//___// _ \ / __// _ \ / _// // // -_)/ __/";
+  echo "/_/       / .__//_/   \___//_/ /_//_/ \__//_/   ";
+  echo "         /_/                                    ";
+}
+
+# patorjk.com/software/taag/#p=display&c=echo&f=Small%20Slant&t=rethinkdns
+banner() {
+  echo "             __   __    _        __       __         ";
+  echo "  ____ ___  / /_ / /   (_)___   / /__ ___/ /___   ___";
+  echo " / __// -_)/ __// _ \ / // _ \ /  '_// _  // _ \ (_-<";
+  echo "/_/   \__/ \__//_//_//_//_//_//_/\_\ \_,_//_//_//___/";
+  echo "                                                     ";
+}
+
+cleanup() {
+  # alt? unix.stackexchange.com/a/146770
+  # echo "sig... $proc0"
+  # kill -INT $proc0
+  # stackoverflow.com/a/51576504
+  jobs -p > jobfile
+  j=$(cat jobfile)
+  echo "kill... $j"
+  kill -INT $j
+  # does not work... jobs -p | xargs -r kill -9
+  rm jobfile
+}
+# davidpashley.com/articles/writing-robust-shell-scripts
+trap cleanup INT TERM EXIT
+
+bgcmd() {
+  $1 &
+}
+
+bgsilent() {
+  $1 >/dev/null 2>&1 &
+}
+
+dohquery() {
+  domain=$1
+  resolver="https://localhost:8080/"
+  pstart="${qdoh} -i -t A -s ${resolver} -q ${domain}"
+  bgsilent "$pstart"
+}
+
+reqs() {
+  while true
+  do
+
+    prefix=$( dd if=/dev/urandom bs=20 count=20 status=none | tr -dc 'A-Z0-9' | xargs echo )
+    domain="${prefix}.dnsleaktest.com"
+    dohquery ${domain}
+
+    if [ $1 != "0" ]; then
+      sleep $1
+    fi
+
+  done
+}
+
+greqs() {
+  while true
+  do
+    dohquery google.co.pk
+    dohquery google.co.in
+    dohquery google.com
+    dohquery google.co.uk
+
+    if [ $1 != "0" ]; then
+      sleep $1
+    fi
+
+  done
+}
+
+if [ $runtime = "help" ] || [ $runtime = "h" ]; then
+  echo "note: make sure node / deno / wrangler are in path";
+  echo "usage: $0 [node|deno|workers] [[p1|p2] [waitsec]]";
+  exit 0;
+fi
+
+if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
+  echo "note: deno v1.17+ required";
+  echo "using `which deno`";
+  start="deno run --unstable \
+           --allow-env \
+           --allow-net \
+           --allow-read \
+           --allow-write \
+           src/server-deno.ts";
+elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
+  echo "note: wrangler v1.16+ required";
+  echo "using `which wrangler`";
+  start="npx wrangler dev --local";
+elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
+  echo "note: Fastly CLI required";
+  echo "using `which fastly`";
+  # developer.fastly.com/learning/compute/testing/#starting-the-server
+  start="fastly compute serve --skip-verification --verbose --file ./dist/fastly.wasm";
+elif [ $runtime = "fly" ] || [ $runtime = "ff" ]; then
+  prestart="npm run build:fly"
+  start="node --trace-warnings ./dist/fly.mjs"
+else
+  echo "note: nodejs v19+ required";
+  echo "using `which node`";
+  # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
+  start="node --trace-warnings ./src/server-node.js";
+fi
+
+# prestart ceremony, if any
+if [ ! -z "$prestart" ]; then
+  $prestart
+fi
+
+# prevent stdin from early close on signals?
+# unix.stackexchange.com/a/672061
+
+if [ $profiler = "cpu" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (cpu): only on node"
+    exit 1
+  fi
+
+  echo "profiler (cpu): running clinicjs flame";
+  echo "profiler (cpu): press ctrl+c to open cpu flame graphs in a browser";
+  profilerbanner;
+  npx clinic flame -- $start
+  proc0=$!
+elif [ $profiler = "mem" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (mem): only on node"
+    exit 1
+  fi
+
+  echo "profiler (mem): running clinicjs heapprofile"
+  echo "profiler (mem): press ctrl+c to open memory flame graphs in a browser"
+  profilerbanner;
+  npx clinic heapprofiler -- $start
+  proc0=$!
+elif [ $profiler = "fn" ]; then
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "profiler (fn): only on node"
+    exit 1
+  fi
+
+  echo "profiler (fn): running clinicjs bubbleprof"
+  echo "profiler (fn): press ctrl+c to open func bubble graphs in a browser"
+  profilerbanner;
+  npx clinic bubbleprof -- $start
+  proc0=$!
+elif [ $profiler = "profile1" ] || [ $profiler = "p1" ]; then
+  if [ $qdoh = "invalid" ]; then
+    echo "Specify env QDOH path"
+    exit 1
+  fi
+
+  echo "profiler: running doh with fetch";
+  profilerbanner;
+  DISABLE_BLOCKLISTS=true \
+    PROFILE_DNS_RESOLVES=true \
+    NODE_DOH_ONLY=true \
+    NODE_AVOID_FETCH=false \
+    LOG_LEVEL=warn \
+    $start &
+  proc0=$!
+  sleep 1
+  reqs "$waitsec" &
+elif [ $profiler = "profile2" ] || [ $profiler = "p2" ]; then
+  if [ ${qdoh} = "invalid" ]; then
+    echo "Specify env QDOH path"
+    exit 1
+  fi
+
+  echo "profiler: running non-fetch doh";
+  profilerbanner;
+  DISABLE_BLOCKLISTS=true \
+    PROFILE_DNS_RESOLVES=true \
+    NODE_DOH_ONLY=true \
+    NODE_AVOID_FETCH=true \
+    LOG_LEVEL=warn \
+    $start &
+  proc0=$!
+  sleep 1
+  reqs "$waitsec" &
+elif [ $profiler = "profile3" ] || [ $profiler = "p3" ]; then
+  if [ ${qdoh} = "invalid" ]; then
+    echo "Specify env QDOH path"
+    exit 1
+  fi
+  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
+    echo "Profile3 only valid on Node"
+    exit 1
+  fi
+
+  echo "profiler: running podns";
+  profilerbanner;
+  DISABLE_BLOCKLISTS=true \
+    PROFILE_DNS_RESOLVES=true \
+    NODE_DOH_ONLY=false \
+    LOG_LEVEL=warn \
+    $start &
+  proc0=$!
+  sleep 1
+  reqs "$waitsec" &
+else
+  banner;
+  bgcmd "$start"
+  proc0=$!
+fi
+
+# list all bg jobs
+jobs -l
+# wait for the main job to finish
+wait $proc0

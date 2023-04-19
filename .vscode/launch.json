@@ -1,0 +1,36 @@
+{
+  // For VS Code debugger
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Deno",
+      "type": "pwa-node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "deno",
+      "runtimeArgs": [
+        "run",
+        "--inspect",
+        "--unstable",
+        "--import-map",
+        "import_map.json",
+        "--allow-all",
+        "src/server-deno.ts"
+      ],
+      // "outputCapture": "std",
+      "attachSimplePort": 9229
+    },
+    {
+      "type": "pwa-node",
+      "request": "launch",
+      "name": "Launch Node Server",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}/src/server-node.js"
+    }
+  ]
+}

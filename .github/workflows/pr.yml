@@ -1,0 +1,103 @@
+name: 📩 PR
+
+on:
+  # "I am a workflow on the main branch's HEAD, target (base) of a PR"
+  pull_request_target:
+    branches:
+      - "main"
+
+# Avoid concurrent runs of this workflow on an incoming PR, cancel previous
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+env:
+  # Base branch for the PR
+  BASE_REF: ${{ github.base_ref }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  BASE_REPO: ${{ github.event.pull_request.base.repo.clone_url }}
+
+  # Branch of PR (maybe of a fork repo)
+  PR_HEAD_REF: ${{ github.head_ref }}
+  PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
+
+  # Full ref of base branch like `refs/heads/master`, gh_sha is same as base_sha
+  GH_REF: "${{ github.ref }}"
+  GH_SHA: ${{ github.sha }}
+
+jobs:
+  lint-fmt:
+    name: Lint & fmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v3.3.0
+        with:
+          # Checkout base (target) repo
+          ref: ${{ env.GH_REF }}
+
+      - name: 🥑 Install deps
+        run: |
+          npm install
+
+      - name: 🎣 Fetch PR's head
+        run: |
+          git fetch origin ${{ env.PR_HEAD_SHA }}
+
+      # Abort if node modules are checked in
+      - name: 🚨 Check for unsafe changes
+        run: |
+          DIFF=$(git diff --name-only --diff-filter=ACMRT \
+            ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
+
+          echo "::notice::DIFF(files): ${DIFF//$'\n'/ }"
+
+          if echo $DIFF | grep "node_modules"; then
+            echo "::error::Unsafe change 'node_modules' found"
+            exit 1
+          fi
+
+      - name: 🍌 Checkout PR_HEAD
+        run: |
+          git checkout ${{ env.PR_HEAD_SHA }}
+
+      - name: 🔧 Run eslint on changed files only
+        run: |
+          DIFF=$(git diff --name-only --diff-filter=ACMRT \
+            ${{ env.BASE_SHA }}...${{ env.PR_HEAD_SHA }})
+
+          npx eslint $DIFF --cache --fix
+
+      - name: 👀 Look for lint changes
+        id: lint-changes
+        run: |
+          echo changes=$( \
+            if git diff-index --quiet HEAD --; \
+            then echo "false"; \
+            else echo "true"; \
+            fi) \
+            >> $GITHUB_OUTPUT
+
+      - name: 🏗 Commit lint changes
+        if: steps.lint-changes.outputs.changes == 'true'
+        run: |
+          git config --local user.name 'github-actions[bot]'
+          git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit --no-verify -am "Automatic lint & fmt"
+
+      - name: 🚢 Push to origin?
+        if: ${{ env.BASE_REPO == env.PR_HEAD_REPO }}
+        run: |
+          git push origin HEAD:${{ env.PR_HEAD_REF }}
+
+      # `GITHUB_TOKEN` owned by `github-actions[bot]` has write access to
+      # origin in this `PR-target` workflow but not the write access to fork
+      # repo.
+      # A "personal access token" of repository maintainer may be required
+      # for pushing to forks.
+      - name: 🚢 Push to fork?
+        if: ${{ env.BASE_REPO != env.PR_HEAD_REPO }}
+        run: |
+          git remote add fork ${{ env.PR_HEAD_REPO }}
+          git push fork HEAD:${{ env.PR_HEAD_REF }}

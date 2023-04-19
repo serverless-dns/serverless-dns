@@ -1,0 +1,68 @@
+app = ""
+
+kill_signal = "SIGINT"
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
+
+[env]
+# offload TLS to Fly.io's load balancers
+TLS_OFFLOAD = "true"
+DENO_ENV = "production"
+NODE_ENV = "production"
+CLOUD_PLATFORM = "fly"
+LOG_LEVEL = "info"
+
+[experimental]
+auto_rollback = true
+
+# DNS over HTTPS (well, h2c and http1.1)
+[[services]]
+http_checks = []
+internal_port = 8055
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  handlers = ["tls"]
+  tls_options = { alpn = ["h2", "http/1.1"] }
+  port = 443
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"
+
+# DNS over TCP/TLS
+[[services]]
+http_checks = []
+internal_port = 10555
+protocol = "tcp"
+script_checks = []
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  # TODO: ProxyProto v2
+  handlers = ["tls"]
+  port = 853
+
+  [[services.tcp_checks]]
+  # account for delay due to blocklists download that
+  # happens on process startup: plugin.js:systemReady
+  grace_period = "15s"
+  interval = "30s"
+  restart_limit = 6
+  timeout = "2s"

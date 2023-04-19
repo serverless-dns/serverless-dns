@@ -1,0 +1,73 @@
+app = "udns"
+
+kill_signal = "SIGINT"
+kill_timeout = 10
+
+[build]
+  dockerfile = "node.Dockerfile"
+
+[env]
+# offload TLS to Fly.io's load balancers
+TLS_OFFLOAD = "true"
+NODE_ENV = "production"
+CLOUD_PLATFORM = "fly"
+# (set for machines only) node proc shuts itself after this threshold:
+# on Fly, the in-memory DNS cache is evicted on process exit, hence
+# more efficient to let the Machine linger for as much time affordable
+MACHINES_TIMEOUT_SEC = "180"
+LOG_LEVEL = "info"
+
+[experimental]
+auto_rollback = true
+
+# DNS over HTTPS (well, h2c and http1.1)
+[[services]]
+internal_port = 8055
+protocol = "tcp"
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  handlers = ["tls"]
+  tls_options = { alpn = ["h2", "http/1.1"] }
+  port = 443
+
+  [[services.ports]]
+  handlers = ["tls"]
+  tls_options = { alpn = ["h2", "http/1.1"] }
+  port = 8055
+
+# DNS over TCP/TLS
+[[services]]
+internal_port = 10555
+protocol = "tcp"
+
+  [services.concurrency]
+  hard_limit = 575
+  soft_limit = 500
+  type = "connections"
+
+  [[services.ports]]
+  # TODO: ProxyProto v2
+  handlers = ["tls"]
+  port = 853
+
+  [[services.ports]]
+  # TODO: ProxyProto v2
+  handlers = ["tls"]
+  port = 10555
+
+# community.fly.io/t/5490/3
+[checks]
+  [checks.up]
+    grace_period = "30s"
+    interval = "15s"
+    method = "get"
+    path = "/check"
+    port = 8888
+    timeout = "3s"
+    type = "http"
+
