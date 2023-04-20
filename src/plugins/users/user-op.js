@@ -66,12 +66,13 @@ export class UserOp {
       if (!util.emptyString(blocklistFlag) && util.emptyObj(r)) {
         r = rdnsutil.unstamp(blocklistFlag);
 
-        // FIXME: add to cache iff !empty(r.userBlocklistFlagUint)?
-        this.log.d(ctx.rxid, "new cfg cache kv", blocklistFlag, r);
-        // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
-        // converted to its b64 form (which doh and rethinkdns modules use)
-        // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
-        this.userConfigCache.put(blocklistFlag, r);
+        if (!util.empty(r.userBlocklistFlagUint)) {
+          this.log.d(ctx.rxid, "new cfg cache kv", blocklistFlag, r);
+          // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
+          // converted to its b64 form (which doh and rethinkdns modules use)
+          // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
+          this.userConfigCache.put(r.userBlocklistFlagUint, r);
+        }
       } else {
         this.log.d(ctx.rxid, "cfg cache hit?", r != null, blocklistFlag, r);
       }
