@@ -12,6 +12,10 @@
  */
 // musn't import any non-std modules
 
+export function empty(value) {
+  return value === undefined || value === null || value === "";
+}
+
 export function fromBrowser(ua) {
   return ua && ua.startsWith("Mozilla/5.0");
 }
