@@ -10,6 +10,7 @@ import * as pres from "../plugin-response.js";
 import * as util from "../../commons/util.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as token from "./auth-token.js";
+import * as bufutil from "../../commons/bufutil.js";
 
 // TODO: determine an approp cache-size
 const cacheSize = 20000;
