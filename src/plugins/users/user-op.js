@@ -72,7 +72,7 @@ export class UserOp {
           // TODO: blocklistFlag is not normalized, ie b32 used for dot isn't
           // converted to its b64 form (which doh and rethinkdns modules use)
           // example, b32: 1-AABABAA / equivalent b64: 1:AAIAgA==
-          this.userConfigCache.put(r.userBlocklistFlagUint, r);
+          this.userConfigCache.put(blocklistFlag, r);
         }
       } else {
         this.log.d(ctx.rxid, "cfg cache hit?", r != null, blocklistFlag, r);
