@@ -274,7 +274,7 @@ export function getB64Flag(uint16Arr, flagVersion) {
 export function msgkeyFromUrl(u) {
   const ans = extractStamps(u);
   // accesskey is at index 3
-  return ans[3];
+  return ans[3] || "";
 }
 
 /**
@@ -286,8 +286,8 @@ export function msgkeyFromUrl(u) {
 export function blockstampFromUrl(u) {
   const ans = extractStamps(u);
   const delim = ans[0];
-  const ver = ans[1];
-  const blockstamp = ans[2];
+  const ver = ans[1] || ""; // may be undefined
+  const blockstamp = ans[2] || ""; // may be undefined
 
   // delim at index 0, version at index 1, blockstamp at index 2
   if (util.emptyString(ver) || util.emptyString(blockstamp)) return "";
@@ -328,12 +328,6 @@ export function extractStamps(u) {
   const recStamp = recBlockstampFrom(url);
   const useRecStamp = !util.emptyString(recStamp);
 
-  const paths = url.pathname.split("/");
-
-  if (!useRecStamp && paths.length <= 1) {
-    return emptystamp;
-  }
-
   let s = emptystr;
   // note: the legacy free.bravedns endpoint need not support
   // gateway queries or auth
@@ -341,6 +335,19 @@ export function extractStamps(u) {
     s = recStamp;
   }
 
+  const paths = url.pathname.split("/");
+  const domains = url.hostname.split(".");
+  // could be a b32 flag in the hostname,
+  // even if its a http-req (possible for a cc request)
+  for (const d of domains) {
+    if (d.length === 0) continue;
+    // capture the first occurence of a b32 delimiter "-"
+    if (isStampQuery(d)) {
+      s = d;
+      break;
+    }
+  }
+  // overwrite if there exists a b64 flag in path
   for (const p of paths) {
     if (p.length === 0) continue;
     // skip to next if path has `/dns-query` or `/gateway` or '/l:'
@@ -350,8 +357,9 @@ export function extractStamps(u) {
     }
   }
 
-  // get blockstamp with access-key from paths[1|2]
+  // get blockstamp with access-key from paths[1|2] or from hostname[0|1]
   try {
+    // FIXME: the array returned here may not always be of length 4
     return splitBlockstamp(s);
   } catch (e) {
     log.d("Rdns:blockstampFromUrl", e);
@@ -379,17 +387,16 @@ export function base32ToUintV1(flag) {
   return bufutil.decodeFromBinaryArray(rbase32(b32));
 }
 
-export function splitBlockstamp(s) {
+function splitBlockstamp(s) {
   // delim, version, blockstamp, accesskey
-  let out = ["", "", "", ""];
 
-  if (util.emptyString(s)) return out;
-  if (!isStampQuery(s)) return out;
+  if (util.emptyString(s)) return emptystamp;
+  if (!isStampQuery(s)) return emptystamp;
 
   if (isB32Stamp(s)) {
-    out = [_b32delim, ...s.split(_b32delim)];
+    return [_b32delim, ...s.split(_b32delim)];
   } else {
-    out = [_b64delim, ...s.split(_b64delim)];
+    return [_b64delim, ...s.split(_b64delim)];
   }
 
   return out;

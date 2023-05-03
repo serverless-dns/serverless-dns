@@ -836,7 +836,7 @@ async function handleHTTPRequest(b, req, res) {
 
     // nb: req.url is a url-path, for ex: /a/b/c
     const fReq = new Request(new URL(req.url, `https://${host}`), {
-      // Note: In VM container, Object spread may not be working for all
+      // Note: In a VM container, Object spread may not be working for all
       // properties, especially of "hidden" Symbol values!? like "headers"?
       ...req,
       // TODO: populate req ip in x-nile-client-ip header
