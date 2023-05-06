@@ -295,7 +295,7 @@ function trapSecureServerEvents(...servers) {
       });
 
       const rottm = setInterval(() => rotateTkt(s), 86400000); // 24 hours
-      rotm.unref();
+      rottm.unref();
 
       s.on("newSession", (id, data, next) => {
         const hid = bufutil.hex(id);
