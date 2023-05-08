@@ -555,7 +555,7 @@ const defaults = {
     },
     CF_BLOCKLIST_URL: {
         type: "string",
-        default: "https://dist.rethinkdns.com/blocklists/"
+        default: "https://cfstore.rethinkdns.com/blocklists/"
     },
     CF_LATEST_BLOCKLIST_TIMESTAMP: {
         type: "string",
@@ -563,7 +563,7 @@ const defaults = {
     },
     CF_DNS_RESOLVER_URL: {
         type: "string",
-        default: "https://cloudflare-dns.com/dns-query"
+        default: "https://anexia-han-1.edge.nextdns.io"
     },
     CF_DNS_RESOLVER_URL_2: {
         type: "string",
