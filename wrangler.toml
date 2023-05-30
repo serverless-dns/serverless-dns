@@ -24,6 +24,8 @@ type = "ESModule"
 globs = ["**/*.js"]
 
 [vars]
+CF_DNS_RESOLVER_URL = "https://greencloud-han-1.edge.nextdns.io/fd88ba"
+CF_DNS_RESOLVER_URL_2  = "https://anexia-han-1.edge.nextdns.io/fd88ba"
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
