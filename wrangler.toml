@@ -51,7 +51,8 @@ routes = [
 LOG_LEVEL = "info"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
-
+CF_DNS_RESOLVER_URL = "https://zepto-hkg-1.edge.nextdns.io/cec989"
+CF_DNS_RESOLVER_URL_2 = "https://dns.google/dns-query"
 ##################
 #------ONE-------#
 ##################
