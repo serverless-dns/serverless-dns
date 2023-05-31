@@ -54,6 +54,10 @@ class Stats {
 }
 
 const stats = new Stats();
+// nodejs.org/api/net.html#serverlisten
+const zero6 = "::";
+// sysctl get net.ipv4.tcp_syn_backlog
+const tcpbacklog = 100;
 const listeners = { connmap: [], servers: [] };
 // see also: dns-transport.js:ioTimeout
 const ioTimeoutMs = 50000; // 50 secs
@@ -94,6 +98,7 @@ async function systemDown() {
   listeners.connmap = [];
 
   console.warn("W", stats.str(), "; closing", cmap.length, "servers");
+
   // drain all sockets stackoverflow.com/a/14636625
   // TODO: handle proxy protocol sockets
   for (const m of cmap) {
@@ -104,8 +109,11 @@ async function systemDown() {
     }
   }
 
+  // stopping net.server only stops incoming reqs; it does not 
+  // close open sockets: github.com/nodejs/node/issues/2642
   for (const s of srvs) {
     if (!s) continue;
+    if (!s.listening) continue;
     const saddr = s.address();
     console.warn("W stopping...", saddr);
     s.close(() => down(saddr));
@@ -134,6 +142,8 @@ function systemUp() {
     const durationms = 60 * 1000;
     log.w("in profiler mode, run for", durationms, "and exit");
     stopAfter(durationms);
+  } else {
+    log.i(`starting rdns; bind ${zero6}, backlog ${tcpbacklog}`);
   }
 
   if (tlsoffload) {
@@ -146,7 +156,7 @@ function systemUp() {
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
       .createServer(serverOpts, serveTCP)
-      .listen(portdot, () => up("DoT Cleartext", dotct.address()));
+      .listen(portdot, zero6, tcpbacklog, () => up("DoT Cleartext", dotct.address()));
 
     // DNS over HTTPS Cleartext
     // Same port for http1.1/h2 does not work on node without tls, that is,
@@ -159,7 +169,7 @@ function systemUp() {
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
-      .listen(portdoh, () => up("DoH Cleartext", dohct.address()));
+      .listen(portdoh, zero6, tcpbacklog, () => up("DoH Cleartext", dohct.address()));
 
     const conns = trapServerEvents(dohct, dotct);
     listeners.connmap = [conns];
@@ -181,7 +191,7 @@ function systemUp() {
     const dot1 = tls
       // serveTLS must eventually invoke machines-heartbeat
       .createServer(secOpts, serveTLS)
-      .listen(portdot1, () => up("DoT", dot1.address()));
+      .listen(portdot1, zero6, tcpbacklog, () => up("DoT", dot1.address()));
 
     // DNS over TLS w ProxyProto
     const dot2 =
@@ -189,13 +199,13 @@ function systemUp() {
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serverOpts, serveDoTProxyProto)
-        .listen(portdot2, () => up("DoT ProxyProto", dot2.address()));
+        .listen(portdot2, zero6, tcpbacklog, () => up("DoT ProxyProto", dot2.address()));
 
     // DNS over HTTPS
     const doh = http2
       // serveHTTPS must eventually invoke machines-heartbeat
       .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
-      .listen(portdoh, () => up("DoH", doh.address()));
+      .listen(portdoh, zero6, tcpbacklog, () => up("DoH", doh.address()));
 
     const conns1 = trapServerEvents(dot2);
     const conns2 = trapSecureServerEvents(dot1, doh);
