@@ -118,12 +118,14 @@ elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
   start="fastly compute serve --skip-verification --verbose --file ./dist/fastly.wasm";
 elif [ $runtime = "fly" ] || [ $runtime = "ff" ]; then
   prestart="npm run build:fly"
-  start="node --trace-warnings ./dist/fly.mjs"
+  export NODE_OPTIONS="--trace-warnings --max-old-space-size=320 --heapsnapshot-signal=SIGUSR2 --heapsnapshot-near-heap-limit=2"
+  start="node ./dist/fly.mjs"
 else
   echo "note: nodejs v19+ required";
   echo "using `which node`";
   # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
-  start="node --trace-warnings ./src/server-node.js";
+  export NODE_OPTIONS="--trace-warnings --max-old-space-size=320 --heapsnapshot-signal=SIGUSR2 --heapsnapshot-near-heap-limit=2"
+  start="node ./src/server-node.js";
 fi
 
 # prestart ceremony, if any
