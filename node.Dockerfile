@@ -16,7 +16,7 @@ FROM node:alpine AS runner
 # env vals persist even at run-time: archive.is/QpXp2
 # and overrides fly.toml env values
 ENV NODE_ENV production
-ENV NODE_OPTIONS="--max-old-space-size=320"
+ENV NODE_OPTIONS="--max-old-space-size=320 --heapsnapshot-signal=SIGUSR2"
 # get working dir in order
 WORKDIR /app
 COPY --from=setup /node-dir/dist ./
