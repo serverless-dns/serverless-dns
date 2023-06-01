@@ -70,6 +70,7 @@ env:
   FLY_CFG: "fly.toml"
   FLY_B1_CFG: "fly.tls.toml"
   FLY_MACHINES_CFG: "fly.machines.toml"
+  FLY_DEPLOY_WAIT_SEC: "300"
 
 jobs:
   deploy:
@@ -144,6 +145,7 @@ jobs:
             --image-label ${{ env.GIT_HEAD }}
             --config ${{ env.FLY_TOML }}
             --strategy ${{ env.FLY_DEPLOY_STRAT }}
+            --wait-timeout ${{ env.FLY_DEPLOY_WAIT_SEC }}
             --auto-confirm
             --no-cache
             --verbose
