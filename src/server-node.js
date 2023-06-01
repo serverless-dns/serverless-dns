@@ -66,6 +66,8 @@ const listeners = { connmap: [], servers: [] };
 const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10 * 1000); // ms
 const cpucount = os.cpus().length || 1;
+const adjPeriodSec = 30;
+const adjTimer = util.timeout(adjPeriodSec * 1000, adjustMaxConns);
 /** @type {memwatch.HeapDiff} */
 let heapdiff = null;
 
@@ -88,8 +90,9 @@ async function systemDown() {
   listeners.servers = [];
   listeners.connmap = [];
 
-  console.warn("W", stats.str(), "; closing", cmap.length, "servers");
+  console.warn("W", stats.str(), "/ closing", cmap.length, "servers");
 
+  clearTimeout(adjTimer);
   // 0 is ignored; github.com/nodejs/node/pull/48276
   // accept only 1 conn (which keeps health-checks happy)
   adjustMaxConns(1);
@@ -952,10 +955,6 @@ function machinesHeartbeat() {
 
   // increment no of requests
   stats.noreqs += 1;
-  // todo: adjust-max-conns every min?
-  if (stats.noreqs % (maxc / 2) === 0) {
-    adjustMaxConns();
-  }
 
   if (!measureHeap) {
     endHeapDiff(heapdiff);
@@ -982,7 +981,6 @@ function machinesHeartbeat() {
 function adjustMaxConns(n) {
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
-  let adj = (stats.bp[3] || 0) + 1;
   // caveats:
   // linux-magazine.com/content/download/62593/485442/version/1/file/Load_Average.pdf
   // brendangregg.com/blog/2017-08-08/linux-load-averages.html
@@ -992,16 +990,19 @@ function adjustMaxConns(n) {
   avg5 = (avg5 * 100) / cpucount;
   avg15 = (avg15 * 100) / cpucount;
 
+  let adj = stats.bp[3] || 0;
+  // increase in load
+  if (avg1 > avg5) {
+    adj += 1;
+  }
   if (n == null) {
     // determine n based on load-avg
     n = maxc;
-    if (avg1 > 95) {
+    if (avg1 > 90) {
       n = minc;
-    } else if (avg1 > 90 || avg5 > 80 || avg15 > 75) {
-      n = Math.max((n * 0.1) | 0, minc);
-    } else if (avg1 > 80 || avg5 > 75 || avg15 > 70) {
-      n = Math.max((n * 0.25) | 0, minc);
-    } else if (avg1 > 75 || avg5 > 70 || avg15 > 65) {
+    } else if (avg1 > 80 || avg5 > 80) {
+      n = Math.max((n * 0.2) | 0, minc);
+    } else if (avg1 > 70 || avg5 > 70) {
       n = Math.max((n * 0.4) | 0, minc);
     } else {
       // reset; n reverting back to maxconns
@@ -1013,6 +1014,18 @@ function adjustMaxConns(n) {
     n = Math.max(minc, n);
     // n adjusts as per client input, not load avg
     adj = 0;
+  }
+
+  // adjustMaxConns is called every adjPeriodSec
+  const count15minutes = 15 * (60 / adjPeriodSec);
+  const count10minutes = 10 * (60 / adjPeriodSec);
+  if (adj > count15minutes) {
+    log.w("load: stopping; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    stopAfter(0);
+    return;
+  } else if (adj > count10minutes) {
+    n = (minc / 2) | 0;
+    log.w("load: persistent; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
