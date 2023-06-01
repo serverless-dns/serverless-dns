@@ -10,6 +10,7 @@ import net, { isIPv6 } from "net";
 import tls, { Server } from "tls";
 import http2 from "http2";
 import * as h2c from "httpx-server";
+import * as os from "os"; 
 import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
@@ -43,21 +44,26 @@ class Stats {
     this.fasttls = 0;
     this.totfasttls = 0;
     this.tlserr = 0;
+    this.bp = [0, 0, 0, 0, maxconns];
   }
 
   str() {
     return (
       `noreqs=${this.noreqs} nofchecks=${this.nofchecks} ` +
+      `maxconns=${this.bp[4]}/adj=${this.bp[3]} ` +
+      `load=${this.bp[0]}%/${this.bp[1]}%/${this.bp[2]}% ` +
       `fasttls=${this.fasttls}/${this.totfasttls} tlserr=${this.tlserr}`
     );
   }
 }
 
-const stats = new Stats();
 // nodejs.org/api/net.html#serverlisten
 const zero6 = "::";
 // sysctl get net.ipv4.tcp_syn_backlog
 const tcpbacklog = 100;
+// todo: move to env
+const maxconns = 1000;
+const minconns = 50;
 const listeners = { connmap: [], servers: [] };
 // see also: dns-transport.js:ioTimeout
 const ioTimeoutMs = 50000; // 50 secs
@@ -76,8 +82,9 @@ const tlsOpts = {
 const h2Opts = {
   allowHTTP1: true,
 };
+const stats = new Stats();
+const tlsSessions = new LfuCache("tlsSessions", 10 * 1000); // ms
 
-const tlsSessions = new LfuCache("tlsSessions", 10000);
 ((main) => {
   // listen for "go" and start the server
   system.sub("go", systemUp);
@@ -99,6 +106,10 @@ async function systemDown() {
 
   console.warn("W", stats.str(), "; closing", cmap.length, "servers");
 
+  // 0 is ignored; github.com/nodejs/node/pull/48276
+  // accept only 1 conn (which keeps health-checks happy)
+  adjustMaxConns(1);
+
   // drain all sockets stackoverflow.com/a/14636625
   // TODO: handle proxy protocol sockets
   for (const m of cmap) {
@@ -112,8 +123,7 @@ async function systemDown() {
   // stopping net.server only stops incoming reqs; it does not 
   // close open sockets: github.com/nodejs/node/issues/2642
   for (const s of srvs) {
-    if (!s) continue;
-    if (!s.listening) continue;
+    if (!s || !s.listening) continue;
     const saddr = s.address();
     console.warn("W stopping...", saddr);
     s.close(() => down(saddr));
@@ -143,7 +153,7 @@ function systemUp() {
     log.w("in profiler mode, run for", durationms, "and exit");
     stopAfter(durationms);
   } else {
-    log.i(`starting rdns; bind ${zero6}, backlog ${tcpbacklog}`);
+    log.i(`bind ${zero6}, backlog ${tcpbacklog}, conns ${maxconns}`);
   }
 
   if (tlsoffload) {
@@ -922,9 +932,13 @@ function trapRequestResponseEvents(req, res) {
 function machinesHeartbeat() {
   // increment no of requests
   stats.noreqs += 1;
-  if (stats.noreqs % 100 === 0) {
+  if (stats.noreqs % (maxconns / 2) === 0) {
+    adjustMaxConns();
+  }
+  if (stats.noreqs % (minconns * 2) === 0) {
     log.i(stats.str(), "in", uptime() / 60000, "mins");
   }
+
   // nothing to do, if not on fly
   if (!envutil.onFly()) return;
   // if a fly machine app, figure out ttl
@@ -932,4 +946,42 @@ function machinesHeartbeat() {
   log.d("extend-machines-ttl by", t);
   if (t >= 0) stopAfter(t);
   // else: not on machines
+}
+
+function adjustMaxConns(n) {
+  let adj = (stats.bp[3] || 0) + 1;
+  let [avg1, avg5, avg15] = os.loadavg();
+  avg1 *= 100;
+  avg5 *= 100;
+  avg15 *= 100;
+
+  if (n == null) {
+    // determine n based on load-avg
+    n = maxconns;
+    if (avg1 > 95) {
+      n = minconns;
+    } else if (avg1 > 90 || avg5 > 80 || avg15 > 75) {
+      n = Math.max(maxconns * 0.10 | 0, minconns);
+    } else if (avg1 > 80 || avg5 > 75 || avg15 > 70) {
+      n = Math.max(maxconns * 0.25 | 0, minconns);
+    } else if (avg1 > 75 || avg5 > 70 || avg15 > 65) {
+      n = Math.max(maxconns * 0.40 | 0, minconns);
+    } else {
+      // reset; n reverting back to maxconns
+      adj = 0;
+    }
+  } else {
+    // clamp n based on a preset
+    n = Math.min(maxconns, n);
+    n = Math.max(minconns, n);
+    // n adjusts as per client input, not load avg
+    adj = 0;
+  }
+
+  stats.bp = [avg1, avg5, avg15, adj, n];
+  const srvs = listeners.servers
+  for (const s of srvs) {
+    if (!s || !s.listening) continue;
+    s.maxConnections = n;
+  }
 }
