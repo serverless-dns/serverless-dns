@@ -24,6 +24,7 @@ import * as util from "./commons/util.js";
 import "./core/node/config.js";
 import { finished } from "stream";
 import { LfuCache } from "@serverless-dns/lfu-cache";
+import * as memwatch from "@airbnb/node-memwatch";
 
 /**
  * @typedef {import("net").Socket} Socket
@@ -45,7 +46,8 @@ class Stats {
     this.fasttls = 0;
     this.totfasttls = 0;
     this.tlserr = 0;
-    this.bp = [0, 0, 0, 0, maxconns];
+    // avg1, avg5, avg15, adj, maxconns
+    this.bp = [0, 0, 0, 0, 0];
   }
 
   str() {
@@ -60,32 +62,12 @@ class Stats {
 
 // nodejs.org/api/net.html#serverlisten
 const zero6 = "::";
-// sysctl get net.ipv4.tcp_syn_backlog
-const tcpbacklog = 100;
-// todo: move to env
-const maxconns = 1000;
-const minconns = 50;
 const listeners = { connmap: [], servers: [] };
-// see also: dns-transport.js:ioTimeout
-const ioTimeoutMs = 50000; // 50 secs
-// nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
-const serverOpts = {
-  keepAlive: true,
-  noDelay: true,
-};
-// nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
-const tlsOpts = {
-  handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 7000), // ms
-  // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
-  sessionTimeout: 60 * 60 * 12, // 12 hrs
-};
-// nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
-const h2Opts = {
-  allowHTTP1: true,
-};
 const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10 * 1000); // ms
 const cpucount = os.cpus().length || 1;
+/** @type {memwatch.HeapDiff} */
+let heapdiff = null;
 
 ((main) => {
   // listen for "go" and start the server
@@ -146,6 +128,11 @@ function systemUp() {
   const downloadmode = envutil.blocklistDownloadOnly();
   const profilermode = envutil.profileDnsResolves();
   const tlsoffload = envutil.isCleartext();
+  const tcpbacklog = envutil.tcpBacklog();
+  const maxconns = envutil.maxconns();
+  // see also: dns-transport.js:ioTimeout
+  const ioTimeoutMs = envutil.ioTimeoutMs();
+  const measureHeap = envutil.measureHeap();
 
   if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
@@ -157,6 +144,22 @@ function systemUp() {
   } else {
     log.i(`bind ${zero6}, backlog ${tcpbacklog}, conns ${maxconns}`);
   }
+
+  // nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
+  const serverOpts = {
+    keepAlive: true,
+    noDelay: true,
+  };
+  // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
+  const tlsOpts = {
+    handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 7000), // ms
+    // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
+    sessionTimeout: 60 * 60 * 12, // 12 hrs
+  };
+  // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
+  const h2Opts = {
+    allowHTTP1: true,
+  };
 
   if (tlsoffload) {
     // fly.io terminated tls?
@@ -241,6 +244,8 @@ function systemUp() {
     listeners.servers.push(hcheck);
   }
 
+  if (measureHeap) heapdiff = new memwatch.HeapDiff();
+  adjustMaxConns();
   machinesHeartbeat();
 }
 
@@ -249,6 +254,8 @@ function systemUp() {
  * @returns {boolean}
  */
 function trapServerEvents(...servers) {
+  const ioTimeoutMs = envutil.ioTimeoutMs();
+
   const conntrack = new Map();
   servers &&
     servers.forEach((s) => {
@@ -291,6 +298,7 @@ function trapServerEvents(...servers) {
  * @returns {boolean}
  */
 function trapSecureServerEvents(...servers) {
+  const ioTimeoutMs = envutil.ioTimeoutMs();
   const conntrack = new Map();
 
   servers &&
@@ -938,13 +946,28 @@ function trapRequestResponseEvents(req, res) {
 }
 
 function machinesHeartbeat() {
+  const maxc = envutil.maxconns();
+  const minc = envutil.minconns();
+  const measureHeap = envutil.measureHeap();
+
   // increment no of requests
   stats.noreqs += 1;
-  if (stats.noreqs % (maxconns / 2) === 0) {
+  // todo: adjust-max-conns every min?
+  if (stats.noreqs % (maxc / 2) === 0) {
     adjustMaxConns();
   }
-  if (stats.noreqs % (minconns * 2) === 0) {
-    log.i(stats.str(), "in", uptime() / 60000, "mins");
+
+  if (!measureHeap) {
+    endHeapDiff(heapdiff);
+    heapdiff = null;
+  } else if (heapdiff == null) {
+    heapdiff = new memwatch.HeapDiff();
+  } else if (stats.noreqs % (maxc * 10) === 0) {
+    endHeapDiff(heapdiff);
+    heapdiff = new memwatch.HeapDiff();
+  }
+  if (stats.noreqs % (minc * 2) === 0) {
+    log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
 
   // nothing to do, if not on fly
@@ -957,6 +980,8 @@ function machinesHeartbeat() {
 }
 
 function adjustMaxConns(n) {
+  const maxc = envutil.maxconns();
+  const minc = envutil.minconns();
   let adj = (stats.bp[3] || 0) + 1;
   // caveats:
   // linux-magazine.com/content/download/62593/485442/version/1/file/Load_Average.pdf
@@ -969,23 +994,23 @@ function adjustMaxConns(n) {
 
   if (n == null) {
     // determine n based on load-avg
-    n = maxconns;
+    n = maxc;
     if (avg1 > 95) {
-      n = minconns;
+      n = minc;
     } else if (avg1 > 90 || avg5 > 80 || avg15 > 75) {
-      n = Math.max((n * 0.1) | 0, minconns);
+      n = Math.max((n * 0.1) | 0, minc);
     } else if (avg1 > 80 || avg5 > 75 || avg15 > 70) {
-      n = Math.max((n * 0.25) | 0, minconns);
+      n = Math.max((n * 0.25) | 0, minc);
     } else if (avg1 > 75 || avg5 > 70 || avg15 > 65) {
-      n = Math.max((n * 0.4) | 0, minconns);
+      n = Math.max((n * 0.4) | 0, minc);
     } else {
       // reset; n reverting back to maxconns
       adj = 0;
     }
   } else {
     // clamp n based on a preset
-    n = Math.min(maxconns, n);
-    n = Math.max(minconns, n);
+    n = Math.min(maxc, n);
+    n = Math.max(minc, n);
     // n adjusts as per client input, not load avg
     adj = 0;
   }
@@ -1002,5 +1027,21 @@ function adjustMaxConns(n) {
   for (const s of srvs) {
     if (!s || !s.listening) continue;
     s.maxConnections = n;
+  }
+}
+
+/**
+ * @param {memwatch.HeapDiff} h
+ * @returns void
+ */
+function endHeapDiff(h) {
+  if (!h) return;
+  try {
+    const diff = h.end();
+    log.i("heap before", diff.before);
+    log.i("heap after", diff.after);
+    log.i("heap details", diff.change.details);
+  } catch (ex) {
+    log.w("heap-diff err", ex.message);
   }
 }
