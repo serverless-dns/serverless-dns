@@ -508,7 +508,7 @@ DNSResolver.prototype.doh2 = async function (rxid, request) {
       req.on("end", () => {
         const rb = bufutil.concatBuf(b);
         const h = this.nodeutil.transformPseudoHeaders(headers);
-        util.safeBox(() => c.close());
+        c.close();
         resolve(new Response(rb, h));
       });
     });

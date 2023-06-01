@@ -55,7 +55,7 @@ export function sub(event, cb) {
   if (!eventCallbacks) {
     // but event is sticky, fire off the listener at once
     if (stickyEvents.has(event)) {
-      util.microtaskBox(cb);
+      microtaskBox(cb);
       return true;
     }
     // but event doesn't exist, then there's nothing to do
@@ -105,7 +105,7 @@ function awaiters(event, parcel) {
     waitGroup.delete(event);
   }
 
-  util.safeBox(g, parcel);
+  safeBox(g, parcel);
 }
 
 function callbacks(event, parcel) {
@@ -123,5 +123,55 @@ function callbacks(event, parcel) {
   // which is only available when fns are invoked in response to an
   // incoming request (through the fetch event handler), such callbacks
   // may not even fire. Instead use: awaiters and not callbacks.
-  util.microtaskBox(cbs, parcel);
+  microtaskBox(cbs, parcel);
+}
+
+// TODO: could be replaced with scheduler.wait
+// developers.cloudflare.com/workers/platform/changelog#2021-12-10
+// queues fn in a macro-task queue of the event-loop
+// exec order: github.com/nodejs/node/issues/22257
+export function taskBox(fn) {
+  util.timeout(/* with 0ms delay*/ 0, () => safeBox(fn));
+}
+
+// queues fn in a micro-task queue
+// ref: MDN: Web/API/HTML_DOM_API/Microtask_guide/In_depth
+// queue-task polyfill: stackoverflow.com/a/61605098
+const taskboxPromise = { p: Promise.resolve() };
+function microtaskBox(fns, arg) {
+  let enqueue = null;
+  if (typeof queueMicrotask === "function") {
+    enqueue = queueMicrotask;
+  } else {
+    enqueue = taskboxPromise.p.then.bind(taskboxPromise.p);
+  }
+
+  enqueue(() => safeBox(fns, arg));
+}
+
+// TODO: safeBox for async fns with r.push(await f())?
+// stackoverflow.com/questions/38508420
+function safeBox(fns, arg) {
+  if (typeof fns === "function") {
+    fns = [fns];
+  }
+
+  const r = [];
+  if (!util.isIterable(fns)) {
+    return r;
+  }
+
+  for (const f of fns) {
+    if (typeof f !== "function") {
+      r.push(null);
+      continue;
+    }
+    try {
+      r.push(f(arg));
+    } catch (ignore) {
+      r.push(null);
+    }
+  }
+
+  return r;
 }

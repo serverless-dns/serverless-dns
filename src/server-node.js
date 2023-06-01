@@ -152,9 +152,9 @@ function systemUp() {
   };
   // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
   const tlsOpts = {
-    handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 7000), // ms
+    handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 6 * 1000), // 6s in ms
     // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
-    sessionTimeout: 60 * 60 * 12, // 12 hrs
+    sessionTimeout: 60 * 60 * 12, // 12h in secs
   };
   // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
   const h2Opts = {
@@ -311,10 +311,11 @@ function trapSecureServerEvents(...servers) {
         conntrack.set(id, socket);
         socket.setTimeout(ioTimeoutMs, () => {
           log.d("tls: incoming conn timed out; " + id);
-          socket.end();
+          close(socket);
         });
 
-        // must be handled by Http2SecureServer, github.com/nodejs/node/issues/35824
+        // error must be handled by Http2SecureServer
+        // github.com/nodejs/node/issues/35824
         socket.on("error", (err) => {
           log.e("tls: incoming conn", id, "closed;", err.message);
           close(socket);
@@ -325,7 +326,8 @@ function trapSecureServerEvents(...servers) {
         });
 
         socket.on("end", () => {
-          // TODO: is this needed? this is the default anyway
+          // client gone, socket half-open at this point
+          // close this end of the socket, too
           socket.end();
         });
       });
@@ -388,12 +390,10 @@ function up(server, addr) {
  * @param {net.Socket | tls.TLSSocket} sock
  */
 function close(sock) {
-  sock &&
-    util.safeBox(() => {
-      if (sock.connecting) sock.resetAndDestroy();
-      else sock.destroySoon();
-      sock.unref();
-    });
+  if (!sock || sock.destroyed) return;
+  if (sock.connecting) sock.resetAndDestroy();
+  else sock.destroySoon();
+  sock.unref();
 }
 
 /**
@@ -851,8 +851,8 @@ async function serveHTTPS(req, res) {
       res.end();
       log.w(`HTTP req body length out of bounds: ${bLen}`);
     } else {
-      machinesHeartbeat();
       log.d("----> DoH request", req.method, bLen, req.url);
+      machinesHeartbeat();
       handleHTTPRequest(b, req, res);
     }
   });

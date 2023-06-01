@@ -141,10 +141,11 @@ export class TcpConnPool {
   }
 
   evict(sock) {
-    try {
-      if (sock) util.safeBox(() => sock.destroySoon());
-    } catch (ignore) {}
     this.pool.delete(sock);
+
+    try {
+      if (sock && !sock.destroyed) sock.destroySoon();
+    } catch (ignore) {}
   }
 
   mkreport() {
@@ -274,9 +275,11 @@ export class UdpConnPool {
   }
 
   evict(sock) {
-    util.safeBox(() => sock.disconnect());
-    util.safeBox(() => sock.close());
+    if (!sock) return;
     this.pool.delete(sock);
+
+    sock.disconnect();
+    sock.close();
   }
 
   mkreport() {

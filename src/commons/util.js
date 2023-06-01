@@ -234,56 +234,6 @@ export function vmid() {
   return _vmid;
 }
 
-// TODO: could be replaced with scheduler.wait
-// developers.cloudflare.com/workers/platform/changelog#2021-12-10
-// queues fn in a macro-task queue of the event-loop
-// exec order: github.com/nodejs/node/issues/22257
-export function taskBox(fn) {
-  timeout(/* with 0ms delay*/ 0, () => safeBox(fn));
-}
-
-// queues fn in a micro-task queue
-// ref: MDN: Web/API/HTML_DOM_API/Microtask_guide/In_depth
-// queue-task polyfill: stackoverflow.com/a/61605098
-const taskboxPromise = { p: Promise.resolve() };
-export function microtaskBox(fns, arg) {
-  let enqueue = null;
-  if (typeof queueMicrotask === "function") {
-    enqueue = queueMicrotask;
-  } else {
-    enqueue = taskboxPromise.p.then.bind(taskboxPromise.p);
-  }
-
-  enqueue(() => safeBox(fns, arg));
-}
-
-// TODO: safeBox for async fns with r.push(await f())?
-// stackoverflow.com/questions/38508420
-export function safeBox(fns, arg) {
-  if (typeof fns === "function") {
-    fns = [fns];
-  }
-
-  const r = [];
-  if (!isIterable(fns)) {
-    return r;
-  }
-
-  for (const f of fns) {
-    if (typeof f !== "function") {
-      r.push(null);
-      continue;
-    }
-    try {
-      r.push(f(arg));
-    } catch (ignore) {
-      r.push(null);
-    }
-  }
-
-  return r;
-}
-
 export function isDohGetRequest(queryString) {
   return queryString && queryString.has("dns");
 }
@@ -368,7 +318,7 @@ export function emptyMap(m) {
 }
 
 // stackoverflow.com/a/32538867
-function isIterable(obj) {
+export function isIterable(obj) {
   if (obj == null) return false;
 
   return typeof obj[Symbol.iterator] === "function";
