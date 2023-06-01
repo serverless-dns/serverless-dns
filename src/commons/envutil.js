@@ -197,6 +197,50 @@ export function isCleartext() {
   return envManager.get("TLS_OFFLOAD") || false;
 }
 
+// sysctl get net.ipv4.tcp_syn_backlog
+export function tcpBacklog() {
+  if (!envManager) return 100;
+
+  return envManager.get("TCP_BACKLOG") || 100;
+}
+
+// don't forget to update the fly.toml too
+export function maxconns() {
+  if (!envManager) return 1000;
+
+  return envManager.get("MAXCONNS") || 1000;
+}
+
+export function minconns() {
+  if (!envManager) return 50;
+
+  return envManager.get("MINCONNS") || 50;
+}
+
+export function ioTimeoutMs() {
+  if (!envManager) return 50 * 1000;
+
+  return envManager.get("IO_TIMEOUT_MS") || 50 * 1000;
+}
+
+export function measureHeap() {
+  if (!envManager) return false;
+  const reg = region();
+  if (
+    reg === "maa" ||
+    reg === "sin" ||
+    reg === "fra" ||
+    reg === "ams" ||
+    reg === "lhr" ||
+    reg === "cdg" ||
+    reg === "iad" ||
+    reg === "mia"
+  ) {
+    return true;
+  }
+  return envManager.get("MEASURE_HEAP") || false;
+}
+
 export function blocklistDownloadOnly() {
   if (!envManager) return false;
 
@@ -330,14 +374,17 @@ export function logpushSecretKey() {
 }
 
 export function gwip4() {
+  if (!envManager) return "";
   return envManager.get("GW_IP4") || "";
 }
 
 export function gwip6() {
+  if (!envManager) return "";
   return envManager.get("GW_IP6") || "";
 }
 
 export function region() {
+  if (!envManager) return "";
   return envManager.get("FLY_REGION") || "";
 }
 
