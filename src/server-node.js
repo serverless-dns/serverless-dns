@@ -10,7 +10,8 @@ import net, { isIPv6 } from "net";
 import tls, { Server } from "tls";
 import http2 from "http2";
 import * as h2c from "httpx-server";
-import * as os from "os"; 
+import * as os from "os";
+import v8 from "v8";
 import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
@@ -84,6 +85,7 @@ const h2Opts = {
 };
 const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10 * 1000); // ms
+const cpucount = os.cpus().length || 1;
 
 ((main) => {
   // listen for "go" and start the server
@@ -120,7 +122,7 @@ async function systemDown() {
     }
   }
 
-  // stopping net.server only stops incoming reqs; it does not 
+  // stopping net.server only stops incoming reqs; it does not
   // close open sockets: github.com/nodejs/node/issues/2642
   for (const s of srvs) {
     if (!s || !s.listening) continue;
@@ -166,7 +168,9 @@ function systemUp() {
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
       .createServer(serverOpts, serveTCP)
-      .listen(portdot, zero6, tcpbacklog, () => up("DoT Cleartext", dotct.address()));
+      .listen(portdot, zero6, tcpbacklog, () =>
+        up("DoT Cleartext", dotct.address())
+      );
 
     // DNS over HTTPS Cleartext
     // Same port for http1.1/h2 does not work on node without tls, that is,
@@ -179,7 +183,9 @@ function systemUp() {
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
-      .listen(portdoh, zero6, tcpbacklog, () => up("DoH Cleartext", dohct.address()));
+      .listen(portdoh, zero6, tcpbacklog, () =>
+        up("DoH Cleartext", dohct.address())
+      );
 
     const conns = trapServerEvents(dohct, dotct);
     listeners.connmap = [conns];
@@ -209,7 +215,9 @@ function systemUp() {
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serverOpts, serveDoTProxyProto)
-        .listen(portdot2, zero6, tcpbacklog, () => up("DoT ProxyProto", dot2.address()));
+        .listen(portdot2, zero6, tcpbacklog, () =>
+          up("DoT ProxyProto", dot2.address())
+        );
 
     // DNS over HTTPS
     const doh = http2
@@ -950,10 +958,14 @@ function machinesHeartbeat() {
 
 function adjustMaxConns(n) {
   let adj = (stats.bp[3] || 0) + 1;
+  // caveats:
+  // linux-magazine.com/content/download/62593/485442/version/1/file/Load_Average.pdf
+  // brendangregg.com/blog/2017-08-08/linux-load-averages.html
+  // linuxjournal.com/article/9001
   let [avg1, avg5, avg15] = os.loadavg();
-  avg1 *= 100;
-  avg5 *= 100;
-  avg15 *= 100;
+  avg1 = (avg1 * 100) / cpucount;
+  avg5 = (avg5 * 100) / cpucount;
+  avg15 = (avg15 * 100) / cpucount;
 
   if (n == null) {
     // determine n based on load-avg
@@ -961,11 +973,11 @@ function adjustMaxConns(n) {
     if (avg1 > 95) {
       n = minconns;
     } else if (avg1 > 90 || avg5 > 80 || avg15 > 75) {
-      n = Math.max(maxconns * 0.10 | 0, minconns);
+      n = Math.max((n * 0.1) | 0, minconns);
     } else if (avg1 > 80 || avg5 > 75 || avg15 > 70) {
-      n = Math.max(maxconns * 0.25 | 0, minconns);
+      n = Math.max((n * 0.25) | 0, minconns);
     } else if (avg1 > 75 || avg5 > 70 || avg15 > 65) {
-      n = Math.max(maxconns * 0.40 | 0, minconns);
+      n = Math.max((n * 0.4) | 0, minconns);
     } else {
       // reset; n reverting back to maxconns
       adj = 0;
@@ -978,8 +990,15 @@ function adjustMaxConns(n) {
     adj = 0;
   }
 
+  // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
+  if (adj > 0) {
+    v8.setFlagsFromString("--trace-gc");
+  } else {
+    v8.setFlagsFromString("--notrace-gc");
+  }
+
   stats.bp = [avg1, avg5, avg15, adj, n];
-  const srvs = listeners.servers
+  const srvs = listeners.servers;
   for (const s of srvs) {
     if (!s || !s.listening) continue;
     s.maxConnections = n;
