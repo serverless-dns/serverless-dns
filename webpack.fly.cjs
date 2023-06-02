@@ -27,11 +27,12 @@ module.exports = {
   },
 
   // github.com/webpack/webpack/issues/14072
-  node: {
-    // global: true,
+  // see also: src/core/node/config.js
+  /* node: {
+    global: true,
     __filename: true,
     __dirname: true,
-  },
+  },*/
 
   // require missing: github.com/webpack/webpack/issues/16029
 

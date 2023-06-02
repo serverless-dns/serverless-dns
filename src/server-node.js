@@ -24,7 +24,9 @@ import * as util from "./commons/util.js";
 import "./core/node/config.js";
 import { finished } from "stream";
 import { LfuCache } from "@serverless-dns/lfu-cache";
-import * as memwatch from "@airbnb/node-memwatch";
+// webpack can't handle node-bindings, a dependency of node-memwatch
+// github.com/webpack/webpack/issues/16029
+// import * as memwatch from "@airbnb/node-memwatch";
 
 /**
  * @typedef {import("net").Socket} Socket
@@ -247,7 +249,7 @@ function systemUp() {
     listeners.servers.push(hcheck);
   }
 
-  if (measureHeap) heapdiff = new memwatch.HeapDiff();
+  // if (measureHeap) heapdiff = new memwatch.HeapDiff();
   adjustMaxConns();
   machinesHeartbeat();
 }
@@ -957,13 +959,13 @@ function machinesHeartbeat() {
   stats.noreqs += 1;
 
   if (!measureHeap) {
-    endHeapDiff(heapdiff);
+    endHeapDiffIfNeeded(heapdiff);
     heapdiff = null;
   } else if (heapdiff == null) {
-    heapdiff = new memwatch.HeapDiff();
+    // heapdiff = new memwatch.HeapDiff();
   } else if (stats.noreqs % (maxc * 10) === 0) {
-    endHeapDiff(heapdiff);
-    heapdiff = new memwatch.HeapDiff();
+    endHeapDiffIfNeeded(heapdiff);
+    // heapdiff = new memwatch.HeapDiff();
   }
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
@@ -1047,8 +1049,9 @@ function adjustMaxConns(n) {
  * @param {memwatch.HeapDiff} h
  * @returns void
  */
-function endHeapDiff(h) {
-  if (!h) return;
+function endHeapDiffIfNeeded(h) {
+  // disabled; memwatch is not bundled due to a webpack bug
+  if (!h || true) return;
   try {
     const diff = h.end();
     log.i("heap before", diff.before);
