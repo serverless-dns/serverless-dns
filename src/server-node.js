@@ -92,7 +92,7 @@ async function systemDown() {
   listeners.servers = [];
   listeners.connmap = [];
 
-  console.warn("W", stats.str(), "/ closing", cmap.length, "servers");
+  console.warn("W", stats.str(), "/ closing", cmap.length, "conn maps");
 
   clearTimeout(adjTimer);
   // 0 is ignored; github.com/nodejs/node/pull/48276

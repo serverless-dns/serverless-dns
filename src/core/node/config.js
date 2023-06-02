@@ -22,6 +22,14 @@ import { services, stopAfter } from "../svc.js";
 import EnvManager from "../env.js";
 import * as swap from "../linux/swap.js";
 
+// some of the cjs node globals aren't available in esm
+// nodejs.org/docs/latest/api/globals.html
+// github.com/webpack/webpack/issues/14072
+// import path from "path";
+// import { fileURLToPath } from "url";
+// globalThis.__filename = fileURLToPath(import.meta.url);
+// globalThis.__dirname = path.dirname(__filename);
+
 (async (main) => {
   system.when("prepare").then(prep);
   system.when("steady").then(up);
@@ -59,8 +67,6 @@ async function prep() {
   // for local non-prod nodejs deploys with self-signed certs).
   // If requisite TLS secrets are missing, set tlsoffload to true, eventually.
   let tlsoffload = envManager.get("TLS_OFFLOAD");
-  const _TLS_CRT_AND_KEY =
-    eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
   const TLS_CERTKEY = process.env.TLS_CERTKEY;
 
   if (tlsoffload) {
@@ -71,14 +77,18 @@ async function prep() {
       envManager.set("TLS_KEY", tlsKey);
       envManager.set("TLS_CRT", tlsCrt);
       log.i("env (fly) tls setup with tls_certkey");
-    } else if (_TLS_CRT_AND_KEY) {
-      const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
-      envManager.set("TLS_KEY", tlsKey);
-      envManager.set("TLS_CRT", tlsCrt);
-      log.i("[deprecated] env (fly) tls setup with tls_cn");
     } else {
-      log.w("Skip TLS: neither TLS_CERTKEY nor TLS_CN set; enable TLS offload");
-      tlsoffload = true;
+      const _TLS_CRT_AND_KEY =
+        eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
+      if (_TLS_CRT_AND_KEY) {
+        const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
+        envManager.set("TLS_KEY", tlsKey);
+        envManager.set("TLS_CRT", tlsCrt);
+        log.i("[deprecated] env (fly) tls setup with tls_cn");
+      } else {
+        log.w("Skip TLS: TLS_CERTKEY nor TLS_CN set; enable TLS offload");
+        tlsoffload = true;
+      }
     }
   } else {
     try {
