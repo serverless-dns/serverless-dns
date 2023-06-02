@@ -2,7 +2,7 @@ const webpack = require("webpack");
 
 module.exports = {
   entry: "./src/server-node.js",
-  target: ["node", "es2020"],
+  target: ["node", "es2022"],
   mode: "production",
   // enable devtool in development
   // devtool: 'eval-cheap-module-source-map',
@@ -25,6 +25,15 @@ module.exports = {
   experiments: {
     outputModule: true,
   },
+
+  // github.com/webpack/webpack/issues/14072
+  node: {
+    // global: true,
+    __filename: true,
+    __dirname: true,
+  },
+
+  // require missing: github.com/webpack/webpack/issues/16029
 
   // github.com/webpack/webpack/issues/13290
   // stackoverflow.com/a/68916455
