@@ -403,7 +403,7 @@ function close(sock) {
  * @param {Http2ServerResponse} res
  */
 function resClose(res) {
-  if (res && !res.destroy) util.safeBox(() => res.destroy());
+  if (res && !res.destroy) res.destroy();
 }
 
 /**
