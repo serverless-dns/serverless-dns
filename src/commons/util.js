@@ -186,9 +186,15 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   });
 }
 
-export function timeout(ms, callback) {
-  if (typeof callback !== "function") return -1;
-  return setTimeout(callback, ms);
+export function timeout(ms, fn) {
+  if (typeof fn !== "function") return -1;
+  return setTimeout(fn, ms);
+}
+
+export function repeat(ms, fn) {
+  if (typeof fn !== "function") return -1;
+  setImmediate(fn);
+  return setInterval(fn, ms);
 }
 
 // min inclusive, max exclusive

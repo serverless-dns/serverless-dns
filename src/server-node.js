@@ -68,8 +68,8 @@ const listeners = { connmap: [], servers: [] };
 const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
-const adjPeriodSec = 30;
-const adjTimer = util.timeout(adjPeriodSec * 1000, adjustMaxConns);
+const adjPeriodSec = 15;
+const adjTimer = util.repeat(adjPeriodSec * 1000, adjustMaxConns);
 /** @type {memwatch.HeapDiff} */
 let heapdiff = null;
 
@@ -251,7 +251,6 @@ function systemUp() {
   }
 
   // if (measureHeap) heapdiff = new memwatch.HeapDiff();
-  adjustMaxConns();
   machinesHeartbeat();
 }
 
@@ -338,7 +337,7 @@ function trapSecureServerEvents(...servers) {
         });
       });
 
-      const rottm = setInterval(() => rotateTkt(s), 86400000); // 24 hours
+      const rottm = util.repeat(86400000, () => rotateTkt(s)); // 24h
       rottm.unref();
 
       s.on("newSession", (id, data, next) => {
@@ -969,9 +968,6 @@ function machinesHeartbeat() {
     endHeapDiffIfNeeded(heapdiff);
     // heapdiff = new memwatch.HeapDiff();
   }
-  if (stats.noreqs % (maxc * 2) === 0) {
-    adjustMaxConns();
-  }
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
@@ -988,6 +984,7 @@ function machinesHeartbeat() {
 function adjustMaxConns(n) {
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
+
   // caveats:
   // linux-magazine.com/content/download/62593/485442/version/1/file/Load_Average.pdf
   // brendangregg.com/blog/2017-08-08/linux-load-averages.html
