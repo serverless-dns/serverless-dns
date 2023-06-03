@@ -54,9 +54,9 @@ class Stats {
 
   str() {
     return (
-      `noreqs=${this.noreqs} nofchecks=${this.nofchecks} ` +
-      `maxconns=${this.bp[4]}/adj=${this.bp[3]} ` +
-      `load=${this.bp[0]}%/${this.bp[1]}%/${this.bp[2]}% ` +
+      `reqs=${this.noreqs} checks=${this.nofchecks} ` +
+      `n=${this.bp[4]}/adj=${this.bp[3]} ` +
+      `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]} ` +
       `fasttls=${this.fasttls}/${this.totfasttls} tlserr=${this.tlserr}`
     );
   }
@@ -66,7 +66,7 @@ class Stats {
 const zero6 = "::";
 const listeners = { connmap: [], servers: [] };
 const stats = new Stats();
-const tlsSessions = new LfuCache("tlsSessions", 10 * 1000); // ms
+const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 30;
 const adjTimer = util.timeout(adjPeriodSec * 1000, adjustMaxConns);
@@ -85,7 +85,8 @@ let heapdiff = null;
 async function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
-  console.warn("W rcv stop; uptime", uptime() / 60000, "mins", stats.str());
+  const upmins = (uptime() / 60000) | 0;
+  console.warn("W rcv stop; uptime", upmins, "mins", stats.str());
 
   const srvs = listeners.servers;
   const cmap = listeners.connmap;
@@ -147,7 +148,7 @@ function systemUp() {
     log.w("in profiler mode, run for", durationms, "and exit");
     stopAfter(durationms);
   } else {
-    log.i(`bind ${zero6}, backlog ${tcpbacklog}, conns ${maxconns}`);
+    log.i(`cpu ${cpucount}, ip ${zero6}, tcpb ${tcpbacklog}, c ${maxconns}`);
   }
 
   // nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
@@ -628,7 +629,6 @@ function serveTLS(socket) {
     return;
   }
 
-  machinesHeartbeat();
   if (false) {
     const tkt = bufutil.hex(socket.getTLSTicket());
     const sess = bufutil.hex(socket.getSession());
@@ -658,7 +658,6 @@ function serveTCP(socket) {
   log.d("----> DoT Cleartext request", host, flag);
 
   socket.on("data", (data) => {
-    machinesHeartbeat();
     handleTCPData(socket, data, sb, host, flag);
   });
 }
@@ -732,6 +731,8 @@ function handleTCPData(socket, chunk, sb, host, flag) {
  * @param {String} flag
  */
 async function handleTCPQuery(q, socket, host, flag) {
+  machinesHeartbeat();
+
   let ok = true;
   if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return;
 
@@ -857,7 +858,6 @@ async function serveHTTPS(req, res) {
       log.w(`HTTP req body length out of bounds: ${bLen}`);
     } else {
       log.d("----> DoH request", req.method, bLen, req.url);
-      machinesHeartbeat();
       handleHTTPRequest(b, req, res);
     }
   });
@@ -869,6 +869,8 @@ async function serveHTTPS(req, res) {
  * @param {Http2ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
+  machinesHeartbeat();
+
   const rxid = util.xid();
   const t = log.startTime("handle-http-req-" + rxid);
   try {
@@ -988,9 +990,9 @@ function adjustMaxConns(n) {
   // brendangregg.com/blog/2017-08-08/linux-load-averages.html
   // linuxjournal.com/article/9001
   let [avg1, avg5, avg15] = os.loadavg();
-  avg1 = (avg1 * 100) / cpucount;
-  avg5 = (avg5 * 100) / cpucount;
-  avg15 = (avg15 * 100) / cpucount;
+  avg1 = ((avg1 * 100) / cpucount) | 0;
+  avg5 = ((avg5 * 100) / cpucount) | 0;
+  avg15 = ((avg15 * 100) / cpucount) | 0;
 
   let adj = stats.bp[3] || 0;
   // increase in load
@@ -1028,6 +1030,8 @@ function adjustMaxConns(n) {
   } else if (adj > count10minutes) {
     n = (minc / 2) | 0;
     log.w("load: persistent; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+  } else if (adj > 0) {
+    log.d("load: temporary; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
