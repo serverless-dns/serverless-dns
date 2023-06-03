@@ -969,6 +969,9 @@ function machinesHeartbeat() {
     endHeapDiffIfNeeded(heapdiff);
     // heapdiff = new memwatch.HeapDiff();
   }
+  if (stats.noreqs % (maxc * 2) === 0) {
+    adjustMaxConns();
+  }
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
