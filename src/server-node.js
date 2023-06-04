@@ -69,7 +69,7 @@ const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
-const adjTimer = util.repeat(adjPeriodSec * 1000, adjustMaxConns);
+let adjTimer = null;
 /** @type {memwatch.HeapDiff} */
 let heapdiff = null;
 
@@ -95,7 +95,7 @@ async function systemDown() {
 
   console.warn("W", stats.str(), "/ closing", cmap.length, "conn maps");
 
-  clearTimeout(adjTimer);
+  if (adjTimer) clearTimeout(adjTimer);
   // 0 is ignored; github.com/nodejs/node/pull/48276
   // accept only 1 conn (which keeps health-checks happy)
   adjustMaxConns(1);
@@ -148,6 +148,7 @@ function systemUp() {
     log.w("in profiler mode, run for", durationms, "and exit");
     stopAfter(durationms);
   } else {
+    adjTimer = util.repeat(adjPeriodSec * 1000, adjustMaxConns);
     log.i(`cpu ${cpucount}, ip ${zero6}, tcpb ${tcpbacklog}, c ${maxconns}`);
   }
 
