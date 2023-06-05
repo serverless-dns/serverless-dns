@@ -54,7 +54,8 @@ protocol = "tcp"
 # community.fly.io/t/5490/3
 [checks]
   [checks.up]
-    grace_period = "30s"
+    # grace_period affects time taken for rolling deploys
+    grace_period = "15s"
     interval = "15s"
     method = "get"
     path = "/check"
