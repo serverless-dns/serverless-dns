@@ -12,6 +12,8 @@ const ZERO = new Uint8Array(0);
 
 export function hex(b) {
   if (emptyBuf(b)) return "";
+  // avoids slicing Buffer (normalize8) to get hex
+  if (b instanceof Buffer) return b.toString("hex");
   const ab = normalize8(b);
   return Array.prototype.map
     .call(new Uint8Array(ab), (b) => b.toString(16).padStart(2, "0"))
