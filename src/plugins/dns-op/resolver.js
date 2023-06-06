@@ -68,10 +68,11 @@ export default class DNSResolver {
       this.log.i("imported node-util");
     }
     if (isnode && !this.transport) {
-      // awaiting on dns-transport takes a tad longer that more than 1 event
-      // awaiting lazyInit() trigger this part of the code and end up
-      // initializing multiple transports. This reproduces easily when 100+
-      // requests arrive at once.
+      // awaiting on dns-transport may take more than 1 micro tick;
+      // and so, multiple concurrent awaits on lazyInit() ends up
+      // initializing multiple transports (ex, when 100+
+      // requests arrive at once). Hence the need to check if
+      // the transport is already set / not null.
       const dnst = await import("../../core/node/dns-transport.js");
       if (this.transport == null) {
         this.transport = dnst.makeTransport(plainOldDnsIp, 53);
