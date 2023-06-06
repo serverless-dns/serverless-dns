@@ -223,6 +223,12 @@ export function ioTimeoutMs() {
   return envManager.get("IO_TIMEOUT_MS") || 15 * 1000;
 }
 
+export function shutdownTimeoutMs() {
+  if (!envManager) return 60 * 1000;
+
+  return envManager.get("SHUTDOWN_TIMEOUT_MS") || 60 * 1000;
+}
+
 export function measureHeap() {
   // disable; webpack can't bundle memwatch; see: server-node.js
   return false;

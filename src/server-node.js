@@ -7,7 +7,7 @@
  */
 
 import net, { isIPv6 } from "net";
-import tls, { Server } from "tls";
+import * as tls from "tls";
 import http2 from "http2";
 import * as h2c from "httpx-server";
 import * as os from "os";
@@ -29,10 +29,10 @@ import { LfuCache } from "@serverless-dns/lfu-cache";
 // import * as memwatch from "@airbnb/node-memwatch";
 
 /**
- * @typedef {import("net").Socket} Socket
- * @typedef {import("tls").TLSSocket} TLSSocket
- * @typedef {import("http2").Http2ServerRequest} Http2ServerRequest
- * @typedef {import("http2").Http2ServerResponse} Http2ServerResponse
+ * @typedef {net.Socket} Socket
+ * @typedef {tls.TLSSocket} TLSSocket
+ * @typedef {http2.Http2ServerRequest} Http2ServerRequest
+ * @typedef {http2.Http2ServerResponse} Http2ServerResponse
  */
 
 let OUR_RG_DN_RE = null; // regular dns name match
@@ -48,6 +48,9 @@ class Stats {
     this.fasttls = 0;
     this.totfasttls = 0;
     this.tlserr = 0;
+    this.nofdrops = 0;
+    this.nofconns = 0;
+    this.noftimeouts = 0;
     // avg1, avg5, avg15, adj, maxconns
     this.bp = [0, 0, 0, 0, 0];
   }
@@ -55,6 +58,7 @@ class Stats {
   str() {
     return (
       `reqs=${this.noreqs} checks=${this.nofchecks} ` +
+      `drops=${this.nofdrops}/tot=${this.nofconns}/t=${this.noftimeouts} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
       `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]} ` +
       `fasttls=${this.fasttls}/${this.totfasttls} tlserr=${this.tlserr}`
@@ -62,9 +66,107 @@ class Stats {
   }
 }
 
+class Tracker {
+  constructor() {
+    this.zeroid = "";
+    /** @type {Array<Map<string, Socket>>} */
+    this.connmap = [];
+    /** @type {Array<net.Server>} */
+    this.srvs = [];
+  }
+
+  valid(id) {
+    return this.zeroid !== id || !util.emptyString(id);
+  }
+
+  /**
+   * @param {net.Server|tls.Server} server
+   * @returns {string}
+   */
+  sid(server) {
+    if (!server) return this.zeroid;
+
+    const saddr = server.address();
+    if (!saddr || !saddr.port) {
+      log.w("trackConn: no addr/port", saddr);
+      return this.zeroid;
+    }
+
+    return saddr.port + "";
+  }
+
+  /**
+   * @param {Socket} sock
+   * @returns {string}
+   */
+  cid(sock) {
+    if (!sock || util.emptyString(sock.remoteAddress)) return this.zeroid;
+    else return sock.remoteAddress + "|" + sock.remotePort;
+  }
+
+  trackServer(s) {
+    if (!s) return this.zeroid;
+    const mapid = this.sid(s);
+
+    if (!this.valid(mapid)) return this.zeroid;
+
+    const cmap = this.connmap[mapid];
+    if (cmap) {
+      log.w("trackServer: server already tracked?", sid);
+      return mapid;
+    }
+    this.connmap[mapid] = new Map();
+    this.srvs.push(s);
+  }
+
+  *servers() {
+    yield* this.srvs;
+  }
+
+  *conns() {
+    for (const cm of this.connmap) {
+      if (!cm) continue;
+      yield* cm.values();
+    }
+  }
+
+  /**
+   * @param {net.Server} server
+   * @param {Socket} sock
+   * @returns {string}
+   */
+  trackConn(server, sock) {
+    // if no servers are being tracked, don't track connections either
+    // happens if the server did not start or this.end was called
+    if (util.emptyArray(this.srvs)) return "";
+    if (!server || !server.listening || !sock) return "";
+
+    const mapid = this.sid(server);
+    const connid = this.cid(sock);
+    const cmap = this.connmap[mapid];
+    if (!this.valid(mapid) || !this.valid(connid) || !cmap) {
+      log.w("trackConn: server/socket not tracked?", mapid, connid);
+      return "";
+    }
+
+    cmap.set(connid, sock);
+    sock.on("close", (haderr) => cmap.delete(connid));
+
+    return connid;
+  }
+
+  end() {
+    const srvs = this.srvs;
+    const cmap = this.connmap;
+    this.srvs = [];
+    this.connmap = [];
+    return [srvs, cmap];
+  }
+}
+
 // nodejs.org/api/net.html#serverlisten
 const zero6 = "::";
-const listeners = { connmap: [], servers: [] };
+const tracker = new Tracker();
 const stats = new Stats();
 const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
@@ -88,14 +190,15 @@ async function systemDown() {
   const upmins = (uptime() / 60000) | 0;
   console.warn("W rcv stop; uptime", upmins, "mins", stats.str());
 
-  const srvs = listeners.servers;
-  const cmap = listeners.connmap;
-  listeners.servers = [];
-  listeners.connmap = [];
+  const shutdownTimeoutMs = envutil.shutdownTimeoutMs();
+  // servers will start rejecting conns when tracker is empty
+  const [srvs, cmap] = tracker.end();
 
-  console.warn("W", stats.str(), "/ closing", cmap.length, "conn maps");
+  console.warn("W closing", cmap.length, "conn maps");
 
-  if (adjTimer) clearTimeout(adjTimer);
+  util.timeout(shutdownTimeoutMs, bye).unref();
+
+  if (adjTimer) clearInterval(adjTimer);
   // 0 is ignored; github.com/nodejs/node/pull/48276
   // accept only 1 conn (which keeps health-checks happy)
   adjustMaxConns(1);
@@ -120,11 +223,7 @@ async function systemDown() {
     s.unref();
   }
 
-  // in some cases, node stops listening but the process doesn't exit because
-  // of other unreleased resources (see: svc.js#systemStop); and so exit with
-  // success (exit code 0); ref: community.fly.io/t/4547/6
-  console.warn("W game over");
-  process.exit(0);
+  bye();
 }
 
 function systemUp() {
@@ -138,7 +237,6 @@ function systemUp() {
   const maxconns = envutil.maxconns();
   // see also: dns-transport.js:ioTimeout
   const ioTimeoutMs = envutil.ioTimeoutMs();
-  const measureHeap = envutil.measureHeap();
 
   if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
@@ -178,9 +276,10 @@ function systemUp() {
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
       .createServer(serverOpts, serveTCP)
-      .listen(portdot, zero6, tcpbacklog, () =>
-        up("DoT Cleartext", dotct.address())
-      );
+      .listen(portdot, zero6, tcpbacklog, () => {
+        up("DoT Cleartext", dotct.address());
+        trapServerEvents(dotct);
+      });
 
     // DNS over HTTPS Cleartext
     // Same port for http1.1/h2 does not work on node without tls, that is,
@@ -193,13 +292,10 @@ function systemUp() {
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
-      .listen(portdoh, zero6, tcpbacklog, () =>
-        up("DoH Cleartext", dohct.address())
-      );
-
-    const conns = trapServerEvents(dohct, dotct);
-    listeners.connmap = [conns];
-    listeners.servers = [dotct, dohct];
+      .listen(portdoh, zero6, tcpbacklog, () => {
+        up("DoH Cleartext", dohct.address());
+        trapServerEvents(dohct);
+      });
   } else {
     // terminate tls ourselves
     const secOpts = {
@@ -217,7 +313,10 @@ function systemUp() {
     const dot1 = tls
       // serveTLS must eventually invoke machines-heartbeat
       .createServer(secOpts, serveTLS)
-      .listen(portdot1, zero6, tcpbacklog, () => up("DoT", dot1.address()));
+      .listen(portdot1, zero6, tcpbacklog, () => {
+        up("DoT", dot1.address());
+        trapSecureServerEvents(dot1);
+      });
 
     // DNS over TLS w ProxyProto
     const dot2 =
@@ -225,21 +324,19 @@ function systemUp() {
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serverOpts, serveDoTProxyProto)
-        .listen(portdot2, zero6, tcpbacklog, () =>
-          up("DoT ProxyProto", dot2.address())
-        );
+        .listen(portdot2, zero6, tcpbacklog, () => {
+          up("DoT ProxyProto", dot2.address());
+          trapServerEvents(dot2);
+        });
 
     // DNS over HTTPS
     const doh = http2
       // serveHTTPS must eventually invoke machines-heartbeat
       .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
-      .listen(portdoh, zero6, tcpbacklog, () => up("DoH", doh.address()));
-
-    const conns1 = trapServerEvents(dot2);
-    const conns2 = trapSecureServerEvents(dot1, doh);
-    listeners.connmap = [conns1, conns2];
-    // may contain null elements
-    listeners.servers = [dot1, dot2, doh];
+      .listen(portdoh, zero6, tcpbacklog, () => {
+        up("DoH", doh.address());
+        trapSecureServerEvents(doh);
+      });
   }
 
   if (envutil.httpCheck()) {
@@ -247,74 +344,86 @@ function systemUp() {
     const hcheck = h2c
       .createServer(serve200)
       .listen(portcheck, () => up("http-check", hcheck.address()));
-    listeners.connmap.push(trapServerEvents(hcheck));
-    listeners.servers.push(hcheck);
+    trapServerEvents(hcheck);
   }
 
-  // if (measureHeap) heapdiff = new memwatch.HeapDiff();
+  // if (envutil.measureHeap()) heapdiff = new memwatch.HeapDiff();
   machinesHeartbeat();
 }
 
 /**
- * @param  {... import("http2").Http2Server | net.Server} servers
- * @returns {boolean}
+ * @param  {... import("http2").Http2Server | net.Server} s
  */
-function trapServerEvents(...servers) {
+function trapServerEvents(s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
 
-  const conntrack = new Map();
-  servers &&
-    servers.forEach((s) => {
-      if (!s) return;
-      s.on("connection", (/** @type {net.Socket} */ socket) => {
-        // use the network five tuple instead?
-        const id = util.uid("sct");
-        conntrack.set(id, socket);
-        socket.setTimeout(ioTimeoutMs, () => {
-          log.d("tcp: incoming conn timed out; " + id);
-          socket.end();
-        });
+  if (!s) return;
 
-        socket.on("error", (err) => {
-          log.d("tcp: incoming conn closed with err; " + err.message);
-          close(socket);
-        });
+  tracker.trackServer(s);
 
-        socket.on("close", (haderr) => {
-          conntrack.delete(id);
-        });
+  s.on("connection", (/** @type {Socket} */ socket) => {
+    stats.nofconns += 1;
 
-        socket.on("end", () => {
-          // TODO: is this needed? this is the default anyway
-          socket.end();
-        });
-      });
+    const id = tracker.trackConn(s, socket);
+    if (!tracker.valid(id)) {
+      log.i("tcp: not tracking; server shutting down?");
+      close(socket);
+      return;
+    }
 
-      s.on("error", (err) => {
-        log.e("tcp: stop! server error; " + err.message, err);
-        stopAfter(0);
-      });
+    socket.setTimeout(ioTimeoutMs, () => {
+      stats.noftimeouts += 1;
+      log.d("tcp: incoming conn timed out; " + id);
+      socket.end();
     });
 
-  return conntrack;
+    socket.on("error", (err) => {
+      log.d("tcp: incoming conn closed with err; " + err.message);
+      close(socket);
+    });
+
+    socket.on("end", () => {
+      // TODO: is this needed? this is the default anyway
+      socket.end();
+    });
+  });
+
+  // emitted when the req is discarded due to maxConnections
+  s.on("drop", (data) => {
+    stats.nofdrops += 1;
+    stats.nofconns += 1;
+  });
+
+  s.on("error", (err) => {
+    log.e("tcp: stop! server error; " + err.message, err);
+    stopAfter(0);
+  });
 }
 
 /**
  * @param  {... import("http2").Http2SecureServer | Server} servers
- * @returns {boolean}
  */
 function trapSecureServerEvents(...servers) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
-  const conntrack = new Map();
 
+  // may contain null elements
   servers &&
     servers.forEach((s) => {
       if (!s) return;
+
+      tracker.trackServer(s);
+
       // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
       s.on("secureConnection", (socket) => {
-        // use the network five tuple instead?
-        const id = util.uid("stls");
-        conntrack.set(id, socket);
+        stats.nofconns += 1;
+
+        const id = tracker.trackConn(s, socket);
+        if (!tracker.valid(id)) {
+          log.i("tls: not tracking; server shutting down?");
+          close(socket);
+          return;
+        }
+
         socket.setTimeout(ioTimeoutMs, () => {
           log.d("tls: incoming conn timed out; " + id);
           close(socket);
@@ -325,10 +434,6 @@ function trapSecureServerEvents(...servers) {
         socket.on("error", (err) => {
           log.e("tls: incoming conn", id, "closed;", err.message);
           close(socket);
-        });
-
-        socket.on("close", (haderr) => {
-          conntrack.delete(id);
         });
 
         socket.on("end", () => {
@@ -364,14 +469,18 @@ function trapSecureServerEvents(...servers) {
 
       s.on("close", () => clearInterval(rottm));
 
+      // emitted when the req is discarded due to maxConnections
+      s.on("drop", (data) => {
+        stats.nofdrops += 1;
+        stats.nofconns += 1;
+      });
+
       s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
         stats.tlserr += 1;
         log.d("tls: client err; " + err.message);
         close(tlsSocket);
       });
     });
-
-  return conntrack;
 }
 
 /**
@@ -393,7 +502,7 @@ function up(server, addr) {
 
 /**
  * RST and/or closes tcp socket.
- * @param {net.Socket | tls.TLSSocket} sock
+ * @param {Socket | TLSSocket} sock
  */
 function close(sock) {
   if (!sock || sock.destroyed) return;
@@ -419,7 +528,7 @@ function resOkay(res) {
 }
 
 /**
- * @param {net.Socket} sock
+ * @param {Socket} sock
  * @returns {Boolean}
  */
 function tcpOkay(sock) {
@@ -762,7 +871,7 @@ async function handleTCPQuery(q, socket, host, flag) {
 
 /**
  * @param {string} rxid
- * @param {net.Socket} socket
+ * @param {Socket} socket
  * @param {Uint8Array} data
  */
 function measuredWrite(rxid, socket, data) {
@@ -1024,17 +1133,15 @@ function adjustMaxConns(n) {
   }
 
   // adjustMaxConns is called every adjPeriodSec
-  const count15minutes = 15 * (60 / adjPeriodSec);
-  const count10minutes = 10 * (60 / adjPeriodSec);
+  const count15minutes = 12 * (60 / adjPeriodSec);
+  const count10minutes = 7 * (60 / adjPeriodSec);
   if (adj > count15minutes) {
-    log.w("load: stopping; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    log.w("load: stopping; n:", n, "adjs:", adj);
     stopAfter(0);
     return;
   } else if (adj > count10minutes) {
-    n = (minc / 2) | 0;
     log.w("load: persistent; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
-  } else if (adj > 0) {
-    log.d("load: temporary; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    n = (minc / 2) | 0;
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
@@ -1045,8 +1152,7 @@ function adjustMaxConns(n) {
   }
 
   stats.bp = [avg1, avg5, avg15, adj, n];
-  const srvs = listeners.servers;
-  for (const s of srvs) {
+  for (const s of tracker.servers()) {
     if (!s || !s.listening) continue;
     s.maxConnections = n;
   }
@@ -1067,4 +1173,12 @@ function endHeapDiffIfNeeded(h) {
   } catch (ex) {
     log.w("heap-diff err", ex.message);
   }
+}
+
+function bye() {
+  // in some cases, node stops listening but the process doesn't exit because
+  // of other unreleased resources (see: svc.js#systemStop); and so exit with
+  // success (exit code 0) regardless; ref: community.fly.io/t/4547/6
+  console.warn("W game over");
+  process.exit(0);
 }

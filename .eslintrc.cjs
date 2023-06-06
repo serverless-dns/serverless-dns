@@ -61,6 +61,15 @@ module.exports = {
         ignoreTemplateLiterals: true,
       },
     ],
+    "generator-star-spacing": [
+      "error",
+      {
+        before: false,
+        after: true, // function* () {}
+        anonymous: "neither", // function*() {}
+        method: { before: false, after: false }, // { *gen() {} }
+      },
+    ],
 
     // Enforces rules from .prettierrc file.
     // These should be fixed automatically with formatting.
