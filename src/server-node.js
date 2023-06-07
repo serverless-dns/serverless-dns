@@ -46,8 +46,6 @@ class Stats {
   constructor() {
     this.noreqs = -1;
     this.nofchecks = 0;
-    this.fasttls = 0;
-    this.totfasttls = 0;
     this.tlserr = 0;
     this.nofdrops = 0;
     this.nofconns = 0;
@@ -59,10 +57,10 @@ class Stats {
   str() {
     return (
       `reqs=${this.noreqs} checks=${this.nofchecks} ` +
-      `drops=${this.nofdrops}/tot=${this.nofconns}/t=${this.noftimeouts} ` +
+      `drops=${this.nofdrops}/tot=${this.nofconns} ` +
+      `timeouts=${this.noftimeouts}/tlserr=${this.tlserr} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
-      `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]} ` +
-      `fasttls=${this.fasttls}/${this.totfasttls} tlserr=${this.tlserr}`
+      `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]}`
     );
   }
 }
@@ -169,7 +167,6 @@ class Tracker {
 const zero6 = "::";
 const tracker = new Tracker();
 const stats = new Stats();
-const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
 let adjTimer = null;
@@ -441,22 +438,6 @@ function trapSecureServerEvents(s) {
 
   const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
   rottm.unref();
-
-  s.on("newSession", (id, data, next) => {
-    const hid = bufutil.hex(id);
-    tlsSessions.put(hid, data);
-    log.d("tls: new session;", hid);
-    next();
-  });
-
-  s.on("resumeSession", (id, next) => {
-    const hid = bufutil.hex(id);
-    const data = tlsSessions.get(hid) || null;
-    log.d("tls: resume session;", hid, "ok?", data != null);
-    if (data) stats.fasttls += 1;
-    else stats.totfasttls += 1;
-    next(/* err*/ null, data);
-  });
 
   s.on("error", (err) => {
     log.e("tls: stop! server error; " + err.message, err);
