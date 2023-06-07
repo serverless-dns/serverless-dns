@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 RethinkDNS and its authors.
+ * Copyright (c) 2023 RethinkDNS and its authors.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -83,12 +83,12 @@ export async function auth(rxid, url) {
     log.d(rxid, msg, dom, "<= msg/h :auth: hex/k =>", hexcat, accesskeys);
 
     // allow if access-key (upto its full len) matches calculated hex
-    for (const accesskey of accesskeys) {
-      ok = hexcat.startsWith(accesskey);
+    for (const ak of accesskeys) {
+      ok = hexcat.startsWith(ak);
       if (ok) {
         return Outcome.pass();
       } else {
-        const [d, h] = accesskey.split(akdelim);
+        const [d, h] = ak.split(akdelim);
         a6 += d + akdelim + h.slice(0, 6) + " ";
       }
     }
