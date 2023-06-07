@@ -218,9 +218,9 @@ export function minconns() {
 }
 
 export function ioTimeoutMs() {
-  if (!envManager) return 15 * 1000;
+  if (!envManager) return 7 * 1000;
 
-  return envManager.get("IO_TIMEOUT_MS") || 15 * 1000;
+  return envManager.get("IO_TIMEOUT_MS") || 7 * 1000;
 }
 
 export function shutdownTimeoutMs() {
