@@ -422,6 +422,7 @@ function trapSecureServerEvents(s) {
     }
 
     socket.setTimeout(ioTimeoutMs, () => {
+      stats.noftimeouts += 1;
       log.d("tls: incoming conn timed out; " + id);
       close(socket);
     });
