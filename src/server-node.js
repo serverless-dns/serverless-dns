@@ -1106,7 +1106,11 @@ function adjustMaxConns(n) {
 
   let adj = stats.bp[3] || 0;
   // increase in load
-  if (avg1 > avg5) {
+  if (avg5 > 100) {
+    adj += 5;
+  } else if (avg1 > 100) {
+    adj += 3;
+  } else if (avg1 > avg5) {
     adj += 1;
   }
   if (n == null) {
@@ -1133,15 +1137,17 @@ function adjustMaxConns(n) {
   }
 
   // adjustMaxConns is called every adjPeriodSec
-  const count15minutes = 12 * (60 / adjPeriodSec);
-  const count10minutes = 7 * (60 / adjPeriodSec);
-  if (adj > count15minutes) {
+  const breakpoint = 15 * (60 / adjPeriodSec); // 15 mins
+  const stresspoint = 10 * (60 / adjPeriodSec); // 10 mins
+  if (adj > breakpoint) {
     log.w("load: stopping; n:", n, "adjs:", adj);
     stopAfter(0);
     return;
-  } else if (adj > count10minutes) {
-    log.w("load: persistent; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+  } else if (adj > stresspoint) {
+    log.w("load: stress; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
     n = (minc / 2) | 0;
+  } else if (adj > 0) {
+    log.w("load: high; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
