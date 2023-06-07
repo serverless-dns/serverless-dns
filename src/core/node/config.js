@@ -74,16 +74,14 @@ async function prep() {
   } else if (isProd) {
     if (TLS_CERTKEY) {
       const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(TLS_CERTKEY);
-      envManager.set("TLS_KEY", tlsKey);
-      envManager.set("TLS_CRT", tlsCrt);
+      setTlsVars(tlsKey, tlsCrt);
       log.i("env (fly) tls setup with tls_certkey");
     } else {
       const _TLS_CRT_AND_KEY =
         eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
       if (_TLS_CRT_AND_KEY) {
         const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
-        envManager.set("TLS_KEY", tlsKey);
-        envManager.set("TLS_CRT", tlsCrt);
+        setTlsVars(tlsKey, tlsCrt);
         log.i("[deprecated] env (fly) tls setup with tls_cn");
       } else {
         log.w("Skip TLS: TLS_CERTKEY nor TLS_CN set; enable TLS offload");
@@ -97,8 +95,7 @@ async function prep() {
         envManager.get("TLS_KEY_PATH"),
         envManager.get("TLS_CRT_PATH")
       );
-      envManager.set("TLS_KEY", tlsKey);
-      envManager.set("TLS_CRT", tlsCrt);
+      setTlsVars(tlsKey, tlsCrt);
       log.i("dev (local) tls setup from tls_key_path");
     } catch (ex) {
       // this can happen when running server in BLOCKLIST_DOWNLOAD_ONLY mode
@@ -127,6 +124,11 @@ async function prep() {
 
   /** signal ready */
   system.pub("ready");
+}
+
+function setTlsVars(tlsKey, tlsCrt) {
+  envManager.set("TLS_KEY", tlsKey);
+  envManager.set("TLS_CRT", tlsCrt);
 }
 
 async function up() {
