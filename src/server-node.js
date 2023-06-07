@@ -139,8 +139,8 @@ class Tracker {
   trackConn(server, sock) {
     // if no servers are being tracked, don't track connections either
     // happens if the server did not start or this.end was called
-    if (util.emptyArray(this.srvs)) return "";
-    if (!server || !server.listening || !sock) return "";
+    if (util.emptyArray(this.srvs)) return this.zeroid;
+    if (!server || !server.listening || !sock) return this.zeroid;
 
     const mapid = this.sid(server);
     const connid = this.cid(sock);
@@ -243,7 +243,7 @@ function systemUp() {
     log.i("in download mode, not running the dns resolver");
     return;
   } else if (profilermode) {
-    const durationms = 60 * 1000;
+    const durationms = 60 * 1000; // 1 min
     log.w("in profiler mode, run for", durationms, "and exit");
     stopAfter(durationms);
   } else {
@@ -258,9 +258,9 @@ function systemUp() {
   };
   // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
   const tlsOpts = {
-    handshakeTimeout: Math.max((ioTimeoutMs / 5) | 0, 6 * 1000), // 6s in ms
+    handshakeTimeout: Math.max((ioTimeoutMs / 2) | 0, 3 * 1000), // 3s in ms
     // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
-    sessionTimeout: 60 * 60 * 12, // 12h in secs
+    sessionTimeout: 60 * 60 * 24 * 7, // 7d in secs
   };
   // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
   const h2Opts = {
@@ -441,20 +441,20 @@ function trapSecureServerEvents(s) {
     });
   });
 
-  const rottm = util.repeat(86400000, () => rotateTkt(s)); // 24h
+  const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
   rottm.unref();
 
   s.on("newSession", (id, data, next) => {
     const hid = bufutil.hex(id);
     tlsSessions.put(hid, data);
-    log.d("tls: new session; " + hid);
+    log.d("tls: new session;", hid);
     next();
   });
 
   s.on("resumeSession", (id, next) => {
     const hid = bufutil.hex(id);
     const data = tlsSessions.get(hid) || null;
-    if (data) log.d("tls: resume session; " + hid);
+    log.d("tls: resume session;", hid, "ok?", data != null);
     if (data) stats.fasttls += 1;
     else stats.totfasttls += 1;
     next(/* err*/ null, data);
@@ -493,7 +493,8 @@ function rotateTkt(s) {
   }
   let ctx = envutil.imageRef();
   if (!util.emptyString(ctx)) {
-    const cur = new Date().toDateString(); // Tue Jun 06 2023
+    const d = new Date();
+    const cur = d.getUTCFullYear() + " " + d.getUTCMonth(); // 2023 7
     ctx = cur + ctx;
   }
 
@@ -569,11 +570,11 @@ function serveDoTProxyProto(clientSocket) {
   log.d("--> new client Connection");
 
   const dotSock = net.connect(envutil.dotBackendPort(), () =>
-    log.d("DoT socket ready")
+    log.d("pp: dot socket ready")
   );
 
   dotSock.on("error", (e) => {
-    log.w("DoT socket err, close conn", e);
+    log.w("pp: dot socket err", e);
     close(clientSocket);
     close(dotSock);
   });
@@ -589,7 +590,7 @@ function serveDoTProxyProto(clientSocket) {
     ppHandled = true;
 
     if (delim < 0) {
-      log.e("proxy proto header invalid / not found =>", chunk);
+      log.e("pp: header invalid / not found =>", chunk);
       close(clientSocket);
       close(dotSock);
       return;
@@ -598,7 +599,7 @@ function serveDoTProxyProto(clientSocket) {
     try {
       // TODO: admission control
       const proto = V2ProxyProtocol.parse(chunk.slice(0, delim));
-      log.d(`--> [${proto.source.ipAddress}]:${proto.source.port}`);
+      log.d(`pp: --> [${proto.source.ipAddress}]:${proto.source.port}`);
 
       // remaining data from first tcp segment
       if (!dotSock.destroyed) dotSock.write(buf.slice(delim));
@@ -614,7 +615,7 @@ function serveDoTProxyProto(clientSocket) {
   }
 
   clientSocket.on("error", (e) => {
-    log.w("Client socket error, closing connection");
+    log.w("client socket err, closing");
     close(clientSocket);
     close(dotSock);
   });
@@ -693,7 +694,7 @@ function getDnRE(socket) {
   // If no RegEx strings are found, a non-matching RegEx `(?!)` is returned.
   const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
   const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
-  log.i("SNIs: ", rgDnRE, wcDnRE);
+  log.i("sni:", rgDnRE, wcDnRE);
   return [rgDnRE, wcDnRE];
 }
 
@@ -731,7 +732,7 @@ function getMetadata(sni) {
 function serveTLS(socket) {
   const sni = socket.servername;
   if (!sni) {
-    log.d("No SNI, close conn");
+    log.d("no sni, close conn");
     close(socket);
     return;
   }
@@ -744,7 +745,7 @@ function serveTLS(socket) {
   const isOurWcDn = OUR_WC_DN_RE.test(sni);
 
   if (!isOurWcDn && !isOurRgDn) {
-    log.w("unexpected SNI, close conn", sni);
+    log.w("unexpected sni, close conn", sni);
     close(socket);
     return;
   }
@@ -760,7 +761,7 @@ function serveTLS(socket) {
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = new ScratchBuffer();
 
-  log.d("----> DoT request", host, flag);
+  log.d("----> dot request", host, flag);
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
   });
@@ -775,7 +776,7 @@ function serveTCP(socket) {
   const [flag, host] = ["", "ignored.example.com"];
   const sb = new ScratchBuffer();
 
-  log.d("----> DoT Cleartext request", host, flag);
+  log.d("----> dot cleartext request", host, flag);
 
   socket.on("data", (data) => {
     handleTCPData(socket, data, sb, host, flag);
@@ -809,7 +810,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
 
   const qlen = sb.qlenBuf.readUInt16BE();
   if (!dnsutil.validateSize(qlen)) {
-    log.w(`query size err: ql:${qlen} cl:${cl} rem:${rem}`);
+    log.w(`tcp: query size err: ql:${qlen} cl:${cl} rem:${rem}`);
     close(socket);
     return;
   }
@@ -830,7 +831,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   sb.qBuf.fill(data, sb.qBufOffset);
   sb.qBufOffset += data.byteLength;
 
-  log.d(`q: ${qlen}, sb.q: ${sb.qBufOffset}, cl: ${cl}, sz: ${size}`);
+  log.d(`tcp: q: ${qlen}, sb.q: ${sb.qBufOffset}, cl: ${cl}, sz: ${size}`);
   // exactly qlen bytes read till now, handle the dns query
   if (sb.qBufOffset === qlen) {
     // extract out the query and reset the scratch-buffer
@@ -838,7 +839,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
     handleTCPQuery(b, socket, host, flag);
     // if there is any out of band data, handle it
     if (!bufutil.emptyBuf(oob)) {
-      log.d(`pipelined, handle oob: ${oob.byteLength}`);
+      log.d(`tcp: pipelined, handle oob: ${oob.byteLength}`);
       handleTCPData(socket, oob, sb, host, flag);
     }
   } // continue reading from socket
@@ -861,7 +862,7 @@ async function handleTCPQuery(q, socket, host, flag) {
   try {
     const r = await resolveQuery(rxid, q, host, flag);
     if (bufutil.emptyBuf(r)) {
-      log.w(rxid, "empty ans from resolve");
+      log.w(rxid, "tcp: empty ans from resolver");
       ok = false;
     } else {
       const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
@@ -870,7 +871,7 @@ async function handleTCPQuery(q, socket, host, flag) {
     }
   } catch (e) {
     ok = false;
-    log.w(rxid, "send fail, err", e);
+    log.w(rxid, "tcp: send fail, err", e);
   }
   log.endTime(t);
 
@@ -940,7 +941,7 @@ async function resolveQuery(rxid, q, host, flag) {
 }
 
 async function serve200(req, res) {
-  log.d("-------------> Http-check req", req.method, req.url);
+  log.d("-------------> http-check req", req.method, req.url);
   stats.nofchecks += 1;
   res.writeHead(200);
   res.end();
@@ -975,9 +976,9 @@ async function serveHTTPS(req, res) {
     if (util.isPostRequest(req) && !dnsutil.validResponseSize(b)) {
       res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
       res.end();
-      log.w(`HTTP req body length out of bounds: ${bLen}`);
+      log.w(`h2: req body length out of bounds: ${bLen}`);
     } else {
-      log.d("----> DoH request", req.method, bLen, req.url);
+      log.d("----> doh request", req.method, bLen, req.url);
       handleHTTPRequest(b, req, res);
     }
   });
@@ -1097,7 +1098,7 @@ function machinesHeartbeat() {
   if (!envutil.onFly()) return;
   // if a fly machine app, figure out ttl
   const t = envutil.machinesTimeoutMillis();
-  log.d("extend-machines-ttl by", t);
+  log.d("mach: extend-machines-ttl by", t);
   if (t >= 0) stopAfter(t);
   // else: not on machines
 }
