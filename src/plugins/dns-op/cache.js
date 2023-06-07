@@ -89,7 +89,7 @@ export class DnsCache {
         return;
       } // else: override cachedEntry with incoming
 
-      this.putLocalCache(url, data);
+      this.putLocalCache(url.href, data);
 
       dispatcher(this.putHttpCache(url, data));
     } catch (e) {
