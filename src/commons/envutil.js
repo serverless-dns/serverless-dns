@@ -287,6 +287,19 @@ export function profileDnsResolves() {
   return envManager.get("PROFILE_DNS_RESOLVES") || false;
 }
 
+export function imageRef() {
+  if (!envManager) return "";
+  if (!onFly()) return "";
+
+  return envManager.get("FLY_IMAGE_REF") || "";
+}
+
+export function secretb64() {
+  if (!envManager) return null;
+
+  return envManager.get("TOP_SECRET_512_B64") || null;
+}
+
 export function accessKeys() {
   if (!envManager) return "";
 

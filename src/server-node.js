@@ -24,6 +24,7 @@ import * as util from "./commons/util.js";
 import "./core/node/config.js";
 import { finished } from "stream";
 import { LfuCache } from "@serverless-dns/lfu-cache";
+import * as nodecrypto from "./commons/crypto.js";
 // webpack can't handle node-bindings, a dependency of node-memwatch
 // github.com/webpack/webpack/issues/16029
 // import * as memwatch from "@airbnb/node-memwatch";
@@ -76,7 +77,7 @@ class Tracker {
   }
 
   valid(id) {
-    return this.zeroid !== id || !util.emptyString(id);
+    return id != null && this.zeroid !== id;
   }
 
   /**
@@ -301,7 +302,6 @@ function systemUp() {
     const secOpts = {
       key: envutil.tlsKey(),
       cert: envutil.tlsCrt(),
-      ticketKeys: util.tkt48(),
       ...tlsOpts,
       ...serverOpts,
     };
@@ -341,10 +341,10 @@ function systemUp() {
 
   if (envutil.httpCheck()) {
     const portcheck = envutil.httpCheckPort();
-    const hcheck = h2c
-      .createServer(serve200)
-      .listen(portcheck, () => up("http-check", hcheck.address()));
-    trapServerEvents(hcheck);
+    const hcheck = h2c.createServer(serve200).listen(portcheck, () => {
+      up("http-check", hcheck.address());
+      trapServerEvents(hcheck);
+    });
   }
 
   // if (envutil.measureHeap()) heapdiff = new memwatch.HeapDiff();
@@ -401,86 +401,82 @@ function trapServerEvents(s) {
 }
 
 /**
- * @param  {... import("http2").Http2SecureServer | Server} servers
+ * @param  {http2.Http2SecureServer | tls.Server} s
  */
-function trapSecureServerEvents(...servers) {
+function trapSecureServerEvents(s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
 
-  // may contain null elements
-  servers &&
-    servers.forEach((s) => {
-      if (!s) return;
+  if (!s) return;
 
-      tracker.trackServer(s);
+  tracker.trackServer(s);
 
-      // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
-      s.on("secureConnection", (socket) => {
-        stats.nofconns += 1;
+  // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
+  s.on("secureConnection", (socket) => {
+    stats.nofconns += 1;
 
-        const id = tracker.trackConn(s, socket);
-        if (!tracker.valid(id)) {
-          log.i("tls: not tracking; server shutting down?");
-          close(socket);
-          return;
-        }
+    const id = tracker.trackConn(s, socket);
+    if (!tracker.valid(id)) {
+      log.i("tls: not tracking; server shutting down?");
+      close(socket);
+      return;
+    }
 
-        socket.setTimeout(ioTimeoutMs, () => {
-          log.d("tls: incoming conn timed out; " + id);
-          close(socket);
-        });
-
-        // error must be handled by Http2SecureServer
-        // github.com/nodejs/node/issues/35824
-        socket.on("error", (err) => {
-          log.e("tls: incoming conn", id, "closed;", err.message);
-          close(socket);
-        });
-
-        socket.on("end", () => {
-          // client gone, socket half-open at this point
-          // close this end of the socket, too
-          socket.end();
-        });
-      });
-
-      const rottm = util.repeat(86400000, () => rotateTkt(s)); // 24h
-      rottm.unref();
-
-      s.on("newSession", (id, data, next) => {
-        const hid = bufutil.hex(id);
-        tlsSessions.put(hid, data);
-        log.d("tls: new session; " + hid);
-        next();
-      });
-
-      s.on("resumeSession", (id, next) => {
-        const hid = bufutil.hex(id);
-        const data = tlsSessions.get(hid) || null;
-        if (data) log.d("tls: resume session; " + hid);
-        if (data) stats.fasttls += 1;
-        else stats.totfasttls += 1;
-        next(/* err*/ null, data);
-      });
-
-      s.on("error", (err) => {
-        log.e("tls: stop! server error; " + err.message, err);
-        stopAfter(0);
-      });
-
-      s.on("close", () => clearInterval(rottm));
-
-      // emitted when the req is discarded due to maxConnections
-      s.on("drop", (data) => {
-        stats.nofdrops += 1;
-        stats.nofconns += 1;
-      });
-
-      s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
-        stats.tlserr += 1;
-        log.d("tls: client err; " + err.message);
-        close(tlsSocket);
-      });
+    socket.setTimeout(ioTimeoutMs, () => {
+      log.d("tls: incoming conn timed out; " + id);
+      close(socket);
     });
+
+    // error must be handled by Http2SecureServer
+    // github.com/nodejs/node/issues/35824
+    socket.on("error", (err) => {
+      log.e("tls: incoming conn", id, "closed;", err.message);
+      close(socket);
+    });
+
+    socket.on("end", () => {
+      // client gone, socket half-open at this point
+      // close this end of the socket, too
+      socket.end();
+    });
+  });
+
+  const rottm = util.repeat(86400000, () => rotateTkt(s)); // 24h
+  rottm.unref();
+
+  s.on("newSession", (id, data, next) => {
+    const hid = bufutil.hex(id);
+    tlsSessions.put(hid, data);
+    log.d("tls: new session; " + hid);
+    next();
+  });
+
+  s.on("resumeSession", (id, next) => {
+    const hid = bufutil.hex(id);
+    const data = tlsSessions.get(hid) || null;
+    if (data) log.d("tls: resume session; " + hid);
+    if (data) stats.fasttls += 1;
+    else stats.totfasttls += 1;
+    next(/* err*/ null, data);
+  });
+
+  s.on("error", (err) => {
+    log.e("tls: stop! server error; " + err.message, err);
+    stopAfter(0);
+  });
+
+  s.on("close", () => clearInterval(rottm));
+
+  // emitted when the req is discarded due to maxConnections
+  s.on("drop", (data) => {
+    stats.nofdrops += 1;
+    stats.nofconns += 1;
+  });
+
+  s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
+    stats.tlserr += 1;
+    log.d("tls: client err; " + err.message);
+    close(tlsSocket);
+  });
 }
 
 /**
@@ -489,7 +485,21 @@ function trapSecureServerEvents(...servers) {
  */
 function rotateTkt(s) {
   if (!s || !s.listening) return;
-  s.setTicketKeys(util.tkt48());
+
+  let seed = bufutil.fromB64(envutil.secretb64());
+  if (bufutil.emptyBuf(seed)) {
+    seed = envutil.tlsKey();
+  }
+  let ctx = envutil.imageRef();
+  if (!util.emptyString(ctx)) {
+    const cur = new Date().toDateString(); // Tue Jun 06 2023
+    ctx = cur + ctx;
+  }
+
+  nodecrypto
+    .tkt48(seed, ctx)
+    .then((k) => s.setTicketKeys(k))
+    .catch((err) => log.e("tls: ticket rotation failed:", err));
 }
 
 function down(addr) {

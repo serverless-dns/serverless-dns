@@ -9,6 +9,31 @@ import { Buffer } from "buffer";
 import * as util from "./util.js";
 
 const ZERO = new Uint8Array(0);
+const ZEROSTR = "";
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+export function fromStr(s) {
+  if (util.emptyString(s)) return ZERO;
+  return encoder.encode(s);
+}
+
+export function toStr(b) {
+  if (emptyBuf(b)) return ZEROSTR;
+  return decoder.decode(b);
+}
+
+export function fromB64(b64std) {
+  if (util.emptyString(b64std)) return ZERO;
+  return Buffer.from(b64std, "base64");
+}
+
+export function toB64(buf) {
+  if (emptyBuf(buf)) return ZEROSTR;
+  if (buf instanceof Buffer) return buf.toString("base64");
+  const u8 = normalize8(buf);
+  return Buffer.of(u8).toString("base64");
+}
 
 export function hex(b) {
   if (emptyBuf(b)) return "";

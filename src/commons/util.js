@@ -375,12 +375,6 @@ export function respond503() {
   });
 }
 
-export function tkt48() {
-  const t = new Uint8Array(48);
-  crypto.getRandomValues(t);
-  return t;
-}
-
 export function logger(...tags) {
   if (!log) return null;
 
