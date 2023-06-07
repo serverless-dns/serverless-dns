@@ -147,7 +147,7 @@ class Tracker {
     const cmap = this.connmap[mapid];
     if (!this.valid(mapid) || !this.valid(connid) || !cmap) {
       log.w("trackConn: server/socket not tracked?", mapid, connid);
-      return "";
+      return this.zeroid;
     }
 
     cmap.set(connid, sock);
@@ -613,7 +613,7 @@ function serveDoTProxyProto(clientSocket) {
   }
 
   clientSocket.on("error", (e) => {
-    log.w("client socket err, closing");
+    log.w("pp: client err, closing");
     close(clientSocket);
     close(dotSock);
   });
@@ -1157,7 +1157,7 @@ function adjustMaxConns(n) {
     log.w("load: stress; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
     n = (minc / 2) | 0;
   } else if (adj > 0) {
-    log.w("load: high; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    log.d("load: high; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
