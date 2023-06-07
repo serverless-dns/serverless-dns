@@ -169,13 +169,13 @@ export function tlsKeyPath() {
 }
 
 export function tlsCrt() {
-  if (!envManager) return "";
-  return envManager.get("TLS_CRT") || "";
+  if (!envManager) return null;
+  return envManager.get("TLS_CRT") || null;
 }
 
 export function tlsKey() {
-  if (!envManager) return "";
-  return envManager.get("TLS_KEY") || "";
+  if (!envManager) return null;
+  return envManager.get("TLS_KEY") || null;
 }
 
 export function cacheTtl() {
