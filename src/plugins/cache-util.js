@@ -52,19 +52,38 @@ function makeCacheMetadata(dnsPacket, stamps) {
   //     "rewrite.amazon.com": [944,32768,8,16384,16,16]
   //   }
   // }
-  return {
-    expiry: determineCacheExpiry(dnsPacket),
-    stamps: stamps,
-  };
+  return new DnsCacheMetadata(determineCacheExpiry(dnsPacket), stamps);
 }
 
+export class DnsCacheMetadata {
+  constructor(expiry, stamps) {
+    /** @type {number} */
+    this.expiry = expiry;
+    /** @type {Object} */
+    this.stamps = stamps;
+  }
+}
+
+export class DnsCacheData {
+  constructor(packet, raw, metadata) {
+    /** @type {any} */
+    this.dnsPacket = packet; // may be null
+    /** @type {ArrayBuffer} */
+    this.dnsBuffer = raw;
+    /** @type {DnsCacheMetadata} */
+    this.metadata = metadata;
+  }
+}
+
+/**
+ * @param {any} packet
+ * @param {ArrayBuffer} raw
+ * @param {DnsCacheMetadata} metadata
+ * @returns {DnsCacheData}
+ */
 export function makeCacheValue(packet, raw, metadata) {
   // null value allowed for packet / raw
-  return {
-    dnsPacket: packet,
-    dnsBuffer: raw,
-    metadata: metadata,
-  };
+  return new DnsCacheData(packet, raw, metadata);
 }
 
 export function cacheValueOf(rdnsResponse) {
@@ -96,14 +115,24 @@ function makeId(packet) {
   return dnsutil.normalizeName(q.name) + ":" + q.type + addn;
 }
 
-export function makeLocalCacheValue(b, metadata) {
-  return {
-    dnsBuffer: b,
-    metadata: metadata,
-  };
+/**
+ * @param {DnsCacheData} data
+ * @returns {DnsCacheData}
+ */
+export function makeLocalCacheValue(data) {
+  const b = data.dnsBuffer;
+  const metadata = data.metadata;
+  // ensure dnsPacket is null
+  return new DnsCacheData(null, b, metadata);
 }
 
-export function makeHttpCacheValue(b, metadata) {
+/**
+ * @param {DnsCacheData} data
+ * @returns {Response}
+ */
+export function makeHttpCacheValue(data) {
+  const b = data.dnsBuffer;
+  const metadata = data.metadata;
   const headers = {
     headers: util.concatHeaders(
       {
@@ -121,17 +150,30 @@ export function makeHttpCacheValue(b, metadata) {
   return new Response(b, headers);
 }
 
+/**
+ * @param {any} packet
+ * @returns {URL}
+ */
 export function makeHttpCacheKey(packet) {
-  const id = makeId(packet);
+  const id = makeId(packet); // ex: domain.tld:A:dnssec
   if (util.emptyString(id)) return null;
 
   return new URL(_cacheurl + cfg.timestamp() + "/" + id);
 }
 
+/**
+ * @param {Response} cres
+ * @returns {DnsCacheMetadata}
+ */
 export function extractMetadata(cres) {
-  return JSON.parse(cres.headers.get(cheader));
+  const j = JSON.parse(cres.headers.get(cheader));
+  return new DnsCacheMetadata(j.expiry, j.stamps);
 }
 
+/**
+ * @param {DnsCacheMetadata} m
+ * @returns {string}
+ */
 function embedMetadata(m) {
   return JSON.stringify(m);
 }
@@ -151,12 +193,20 @@ export function updateQueryId(decodedDnsPacket, queryId) {
   return true;
 }
 
+/**
+ * @param {DnsCacheData} v
+ * @returns {boolean}
+ */
 export function isValueValid(v) {
   if (util.emptyObj(v)) return false;
 
   return hasMetadata(v.metadata);
 }
 
+/**
+ * @param {DnsCacheMetadata} m
+ * @returns {boolean}
+ */
 export function hasMetadata(m) {
   return !util.emptyObj(m);
 }

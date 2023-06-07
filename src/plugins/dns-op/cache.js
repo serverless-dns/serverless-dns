@@ -28,6 +28,11 @@ export class DnsCache {
     this.httpcache = new CacheApi();
   }
 
+  /**
+   * @param {URL} url
+   * @param {boolean} localOnly
+   * @returns {Promise<cacheutil.DnsCacheData?>}
+   */
   async get(url, localOnly = false) {
     if (this.disabled) return null;
 
@@ -39,25 +44,30 @@ export class DnsCache {
     // http-cache can be updated by any number of workers
     // in the region, and could contain latest / full
     // entry, whereas a local-cache may not.
-    let entry = this.fromLocalCache(url.href);
-    if (entry) {
-      return entry;
+    let data = this.fromLocalCache(url.href);
+    if (data) {
+      return data;
     }
 
     // fetch only from local-cache
     if (localOnly) return null;
 
     // note: http cache api availble only on cloudflare
-    entry = await this.fromHttpCache(url);
-
-    if (entry) {
+    data = await this.fromHttpCache(url);
+    if (data) {
       // write-through local cache
-      this.putLocalCache(url.href, entry);
+      this.putLocalCache(url.href, data);
     }
 
-    return entry;
+    return data;
   }
 
+  /**
+   * @param {URL} url
+   * @param {cacheutil.DnsCacheData} data
+   * @param {function(function):void} dispatcher
+   * @returns {Promise<void>}
+   */
   async put(url, data, dispatcher) {
     if (this.disabled) return;
 
@@ -97,19 +107,33 @@ export class DnsCache {
     }
   }
 
-  putLocalCache(url, data) {
-    const k = url.href;
-    const v = cacheutil.makeLocalCacheValue(data.dnsBuffer, data.metadata);
+  /**
+   * @param {string} href
+   * @param {cacheutil.DnsCacheData} data
+   * @returns {void}
+   */
+  putLocalCache(href, data) {
+    // href "https://caches.rethinkdns.com/2023/1682978161602/0.test.dns0.eu:A"
+    // k "/0.test.dns0.eu:A"
+    const k = href.slice(href.lastIndexOf("/"));
+    const v = cacheutil.makeLocalCacheValue(data);
 
     if (!k || !v) return;
 
     this.localcache.put(k, v);
   }
 
-  fromLocalCache(key) {
+  /**
+   * @param {string} href
+   * @returns {cacheutil.DnsCacheData|null}
+   */
+  fromLocalCache(href) {
+    const key = href.slice(href.lastIndexOf("/"));
+    if (!key) return false;
+
     const res = this.localcache.get(key);
 
-    if (util.emptyObj(res)) return false;
+    if (util.emptyObj(res)) return null;
 
     const b = res.dnsBuffer;
     const p = dnsutil.decode(b);
@@ -117,22 +141,31 @@ export class DnsCache {
 
     const cr = cacheutil.makeCacheValue(p, b, m);
 
-    return cacheutil.isValueValid(cr) ? cr : false;
+    return cacheutil.isValueValid(cr) ? cr : null;
   }
 
+  /**
+   * @param {URL} url
+   * @param {cacheutil.DnsCacheData} data
+   * @returns
+   */
   async putHttpCache(url, data) {
     const k = url.href;
-    const v = cacheutil.makeHttpCacheValue(data.dnsBuffer, data.metadata);
+    const v = cacheutil.makeHttpCacheValue(data);
 
     if (!k || !v) return;
 
     return this.httpcache.put(k, v);
   }
 
+  /**
+   * @param {URL} url
+   * @returns {Promise<cacheutil.DnsCacheData|null>}
+   */
   async fromHttpCache(url) {
     const k = url.href;
     const response = await this.httpcache.get(k);
-    if (!response || !response.ok) return false;
+    if (!response || !response.ok) return null;
 
     const metadata = cacheutil.extractMetadata(response);
     this.log.d("http-cache response metadata", metadata);
@@ -146,6 +179,6 @@ export class DnsCache {
 
     const cr = cacheutil.makeCacheValue(p, b, m);
 
-    return cacheutil.isValueValid(cr) ? cr : false;
+    return cacheutil.isValueValid(cr) ? cr : null;
   }
 }
