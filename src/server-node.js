@@ -23,7 +23,6 @@ import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
 import "./core/node/config.js";
 import { finished } from "stream";
-import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as nodecrypto from "./commons/crypto.js";
 // webpack can't handle node-bindings, a dependency of node-memwatch
 // github.com/webpack/webpack/issues/16029
