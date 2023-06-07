@@ -16,7 +16,7 @@ const geo4name = "dbip.v4";
 const geo6name = "dbip.v6";
 
 export async function setup(lp: LogPusher) {
-  if (!lp || !envutil.hasDisk()) return false;
+  if (!lp || !envutil.logpushEnabled()) return false;
 
   const url: string = envutil.geoipUrl();
   const timestamp: string = timestampFromUrl(url);
@@ -84,6 +84,8 @@ function setupLocally(lp: LogPusher, timestamp: string) {
 }
 
 function hasDbipFiles(timestamp: string) {
+  if (!envutil.hasDisk()) return false;
+
   const [g4fp, g6fp] = getFilePaths(timestamp);
 
   try {

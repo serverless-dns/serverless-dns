@@ -196,6 +196,10 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
+    LOGPUSH_ENABLED: {
+      type: "boolean",
+      default: false,
+    },
     // use hostname as log-id if log-id is not set in the request
     LOGPUSH_HOSTNAME_AS_LOGID: {
       type: "boolean",

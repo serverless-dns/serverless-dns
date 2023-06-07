@@ -351,6 +351,12 @@ export function recursive() {
   return onFly();
 }
 
+export function logpushEnabled() {
+  if (!envManager) return false;
+
+  return envManager.get("LOGPUSH_ENABLED") || false;
+}
+
 export function logpushHostnameAsLogid() {
   if (!envManager) return false;
 
