@@ -13,6 +13,7 @@ import * as dnsutil from "../../commons/dnsutil.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as envutil from "../../commons/envutil.js";
+import { BlocklistFilter } from "../rethinkdns/filter.js";
 
 export default class DNSResolver {
   /**
@@ -163,6 +164,7 @@ export default class DNSResolver {
    * @param {Object} ctx.userBlocklistInfo
    * @param {String} ctx.userDnsResolverUrl
    * @param {string} ctx.userBlockstamp
+   * @param {any} ctx.domainBlockstamp
    * @param {function(function):void} ctx.dispatcher
    * @returns {Promise<pres.RResp>}
    */
@@ -295,6 +297,13 @@ export default class DNSResolver {
     return r;
   }
 
+  /**
+   * @param {string} rxid
+   * @param {ArrayBuffer} raw
+   * @param {BlocklistFilter} blf
+   * @param {any} stamps
+   * @returns
+   */
   async makeRdnsResponse(rxid, raw, blf, stamps = null) {
     if (!raw) throw new Error(rxid + " mk-res no upstream result");
 
@@ -310,7 +319,13 @@ export default class DNSResolver {
     return pres.dnsResponse(dnsPacket, raw, stamps);
   }
 
-  primeCache(rxid, r, dispatcher) {
+  /**
+   * @param {string} rxid
+   * @param {pres.RespData} r
+   * @param {function(function):void} dispatcher
+   * @returns {Promise<void>}
+   */
+  async primeCache(rxid, r, dispatcher) {
     const blocked = r.isBlocked;
 
     const k = cacheutil.makeHttpCacheKey(r.dnsPacket);

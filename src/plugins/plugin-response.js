@@ -54,6 +54,12 @@ export function errResponse(id, err) {
   return new RResp(data, hasex, id, st);
 }
 
+/**
+ * @param {Object} packet
+ * @param {ArrayBuffer} raw
+ * @param {Object?} stamps
+ * @returns {RespData}
+ */
 export function dnsResponse(packet = null, raw = null, stamps = null) {
   if (util.emptyObj(packet) || bufutil.emptyBuf(raw)) {
     throw new Error("empty packet for dns-res");

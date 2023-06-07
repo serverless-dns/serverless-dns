@@ -16,6 +16,10 @@ export class CacheApi {
     }
   }
 
+  /**
+   * @param {string} href
+   * @returns {Promise<Response?>}
+   */
   async get(href) {
     if (this.noop) return false;
     if (!href) return false;
@@ -23,10 +27,15 @@ export class CacheApi {
     return await caches.default.match(href);
   }
 
+  /**
+   * @param {string} href
+   * @param {Response} response
+   * @returns
+   */
   put(href, response) {
     if (this.noop) return false;
     if (!href || !response) return false;
-
+    // todo: what does this return?
     return caches.default.put(href, response);
   }
 }
