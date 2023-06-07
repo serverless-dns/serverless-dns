@@ -195,8 +195,6 @@ async function systemDown() {
   // servers will start rejecting conns when tracker is empty
   const [srvs, cmap] = tracker.end();
 
-  console.warn("W closing", cmap.length, "conn maps");
-
   util.timeout(shutdownTimeoutMs, bye).unref();
 
   if (adjTimer) clearInterval(adjTimer);
