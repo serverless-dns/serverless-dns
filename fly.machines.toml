@@ -13,7 +13,7 @@ CLOUD_PLATFORM = "fly"
 # on Fly, the in-memory DNS cache is evicted on process exit, hence
 # more efficient to let the Machine linger for as much time affordable.
 # also: fly can't start vms that shutdown quick: community.fly.io/t/6091/12
-MACHINES_TIMEOUT_SEC = "180"
+MACHINES_TIMEOUT_SEC = "100"
 LOG_LEVEL = "info"
 
 [experimental]

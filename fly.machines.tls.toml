@@ -14,7 +14,7 @@ CLOUD_PLATFORM = "fly"
 # (set for machines only) node proc shuts itself after this threshold:
 # on Fly, the in-memory DNS cache is evicted on process exit, hence
 # more efficient to let the Machine linger for as much time affordable
-MACHINES_TIMEOUT_SEC = "180"
+MACHINES_TIMEOUT_SEC = "100"
 LOG_LEVEL = "info"
 
 [experimental]
