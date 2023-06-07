@@ -21,7 +21,7 @@ const ver = "1";
 // csv separator length
 const commalen = 1;
 // logpush limits a single log msg to upto 150 chars
-const charlimit = 150;
+const charlimit = 300;
 // max number of datapoints per metric write
 const maxdatapoints = 20;
 // max answer data length (in chars)
