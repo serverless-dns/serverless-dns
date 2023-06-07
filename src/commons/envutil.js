@@ -217,10 +217,10 @@ export function minconns() {
   return envManager.get("MINCONNS") || 50;
 }
 
-export function ioTimeoutMs() {
-  if (!envManager) return 7 * 1000;
+export function ioTimeoutMs(missing = 0) {
+  if (!envManager) return missing;
 
-  return envManager.get("IO_TIMEOUT_MS") || 7 * 1000;
+  return envManager.get("WORKER_TIMEOUT") || missing;
 }
 
 export function shutdownTimeoutMs() {
