@@ -16,7 +16,11 @@ const geo4name = "dbip.v4";
 const geo6name = "dbip.v6";
 
 export async function setup(lp: LogPusher) {
-  if (!lp || !envutil.logpushEnabled()) return false;
+  if (!lp) return false;
+  // in download only mode, logpush enable/disable is ignored
+  if (!envutil.logpushEnabled() && !envutil.blocklistDownloadOnly()) {
+    return false;
+  }
 
   const url: string = envutil.geoipUrl();
   const timestamp: string = timestampFromUrl(url);

@@ -18,7 +18,11 @@ const geo6name = "dbip.v6";
 
 /** @param {LogPusher} lp */
 export async function setup(lp) {
-  if (!lp || !envutil.logpushEnabled()) return false;
+  if (!lp) return false;
+  // in download only mode, logpush enable/disable is ignored
+  if (!envutil.logpushEnabled() && !envutil.blocklistDownloadOnly()) {
+    return false;
+  }
 
   const url = envutil.geoipUrl();
   const timestamp = timestampFromUrl(url);
