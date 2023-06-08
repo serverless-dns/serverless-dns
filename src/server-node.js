@@ -191,7 +191,7 @@ async function systemDown() {
   // servers will start rejecting conns when tracker is empty
   const [srvs, cmap] = tracker.end();
 
-  util.timeout(shutdownTimeoutMs, bye).unref();
+  util.timeout(shutdownTimeoutMs, bye);
 
   if (adjTimer) clearInterval(adjTimer);
   // 0 is ignored; github.com/nodejs/node/pull/48276
@@ -435,8 +435,7 @@ function trapSecureServerEvents(s) {
     });
   });
 
-  const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
-  rottm.unref();
+  util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
 
   s.on("error", (err) => {
     log.e("tls: stop! server error; " + err.message, err);

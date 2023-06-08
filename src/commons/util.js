@@ -188,13 +188,17 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
 
 export function timeout(ms, fn) {
   if (typeof fn !== "function") return -1;
-  return setTimeout(fn, ms);
+  const timer = setTimeout(fn, ms);
+  if (typeof timer.unref === "function") timer.unref();
+  return timer;
 }
 
 export function repeat(ms, fn) {
   if (typeof fn !== "function") return -1;
   setImmediate(fn);
-  return setInterval(fn, ms);
+  const timer = setInterval(fn, ms);
+  if (typeof timer.unref === "function") timer.unref();
+  return timer;
 }
 
 // min inclusive, max exclusive
