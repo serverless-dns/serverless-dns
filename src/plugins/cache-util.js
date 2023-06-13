@@ -9,7 +9,7 @@ import * as cfg from "../core/cfg.js";
 import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
-import { RespData, BStamp } from "./plugin-response.js";
+import * as pres from "./plugin-response.js";
 
 const minTtlSec = 30; // 30s
 const maxTtlSec = 180; // 3m
@@ -46,7 +46,7 @@ function determineCacheExpiry(packet) {
 
 /**
  * @param {any} dnsPacket
- * @param {BStamp} stamps
+ * @param {pres.BStamp} stamps
  * @returns {DnsCacheMetadata}
  */
 function makeCacheMetadata(dnsPacket, stamps) {
@@ -65,7 +65,7 @@ export class DnsCacheMetadata {
   constructor(expiry, stamps) {
     /** @type {number} */
     this.expiry = expiry;
-    /** @type {BStamp} */
+    /** @type {pres.BStamp} */
     this.stamps = stamps;
   }
 }
@@ -93,7 +93,7 @@ export function makeCacheValue(packet, raw, metadata) {
 }
 
 /**
- * @param {RespData} rdnsResponse
+ * @param {pres.RespData} rdnsResponse
  * @returns {DnsCacheData}
  */
 export function cacheValueOf(rdnsResponse) {
