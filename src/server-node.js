@@ -1086,9 +1086,9 @@ function adjustMaxConns(n) {
   let adj = stats.bp[3] || 0;
   // increase in load
   if (avg5 > 100) {
-    adj += 5;
-  } else if (avg1 > 100) {
     adj += 3;
+  } else if (avg1 > 100) {
+    adj += 2;
   } else if (avg1 > avg5) {
     adj += 1;
   }
