@@ -12,8 +12,13 @@ import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import IOState from "./io-state.js";
 
+// TODO: define FetchEventLike
 /**
- * @param {FetchEvent} event
+ * @typedef {any} FetchEventLike
+ */
+
+/**
+ * @param {FetchEvent|FetchEventLike} event
  * @returns {Promise<Response>}
  */
 export function handleRequest(event) {

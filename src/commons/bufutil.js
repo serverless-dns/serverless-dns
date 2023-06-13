@@ -8,8 +8,9 @@
 import { Buffer } from "buffer";
 import * as util from "./util.js";
 
-const ZERO = new Uint8Array(0);
+export const ZERO = new Uint8Array();
 const ZEROSTR = "";
+export const ZEROAB = new ArrayBuffer();
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -36,7 +37,7 @@ export function toB64(buf) {
 }
 
 export function hex(b) {
-  if (emptyBuf(b)) return "";
+  if (emptyBuf(b)) return ZEROSTR;
   // avoids slicing Buffer (normalize8) to get hex
   if (b instanceof Buffer) return b.toString("hex");
   const ab = normalize8(b);
@@ -46,7 +47,7 @@ export function hex(b) {
 }
 
 /**
- * @param { Buffer | Uint8Array | ArrayBuffer | null } b
+ * @param { Buffer | Uint8Array | ArrayBuffer } b
  * @returns {number}
  */
 export function len(b) {
@@ -125,7 +126,7 @@ export function raw(b) {
 // normalize8 returns the underlying buffer if any, as Uint8Array
 // b is either an ArrayBuffer, a TypedArray, or a node:Buffer
 export function normalize8(b) {
-  if (emptyBuf(b)) return null;
+  if (emptyBuf(b)) return ZERO;
 
   let underlyingBuffer = null;
   // ... has byteLength property, b must be of type ArrayBuffer;
@@ -142,11 +143,11 @@ export function normalize8(b) {
 
 /**
  * @param {Uint8Array|Buffer} buf
- * @returns {ArrayBuffer?}
+ * @returns {ArrayBuffer}
  */
 export function arrayBufferOf(buf) {
   // buf is either TypedArray or node:Buffer
-  if (emptyBuf(buf)) return null;
+  if (emptyBuf(buf)) return ZEROAB;
 
   const offset = buf.byteOffset;
   const len = buf.byteLength;
@@ -162,7 +163,7 @@ export function arrayBufferOf(buf) {
 
 // stackoverflow.com/a/17064149
 export function bufferOf(arrayBuf) {
-  if (emptyBuf(arrayBuf)) return null;
+  if (emptyBuf(arrayBuf)) return ZERO;
   if (arrayBuf instanceof Uint8Array) return arrayBuf;
 
   return Buffer.from(new Uint8Array(arrayBuf));

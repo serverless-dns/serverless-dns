@@ -54,7 +54,7 @@ export function mkQ(qid, qs) {
 
 export function servfail(qid, qs) {
   // qid == 0 is valid; in fact qid is set to 0 by most doh clients
-  if (qid == null || qid < 0 || util.emptyArray(qs)) return null;
+  if (qid == null || qid < 0 || util.emptyArray(qs)) return bufutil.ZEROAB;
 
   return encode({
     id: qid,
@@ -65,13 +65,13 @@ export function servfail(qid, qs) {
 }
 
 export function servfailQ(q) {
-  if (bufutil.emptyBuf(q)) return null;
+  if (bufutil.emptyBuf(q)) return bufutil.ZEROAB;
 
   try {
     const p = decode(q);
     return servfail(p.id, p.questions);
   } catch (e) {
-    return null;
+    return bufutil.ZEROAB;
   }
 }
 
