@@ -34,8 +34,8 @@ on:
         options:
         - dev
         - prod
-        - mach
-        - b1
+        - onebox
+        - flytls
       deployment-strat:
         description: "Deploy strategy"
         required: true
@@ -63,13 +63,12 @@ env:
   # local-only, remote-only (default)
   FLY_BUILDER_TYPE: ${{ github.event.inputs.builder }}
   # default fly app to deploy to (typically, dev)
-  FLY_APP: ${{ secrets.FLY_APP_NAME }}
-  FLY_PROD_APP: ${{ secrets.FLY_APP_NAME_LIVE }}
-  FLY_B1_APP: ${{ secrets.FLY_APP_NAME_B1 }}
-  FLY_MACHINES_APP: "udns"
+  FLY_APP: "rdns-dev"
+  FLY_TLS_APP: "rdns-b1"
+  FLY_PROD_ONEBOX_APP: "rdns"
+  FLY_PROD_APP: "udns"
   FLY_CFG: "fly.toml"
-  FLY_B1_CFG: "fly.tls.toml"
-  FLY_MACHINES_CFG: "fly.machines.toml"
+  FLY_TLS_CFG: "fly.tls.toml"
   FLY_DEPLOY_WAIT_SEC: "300"
 
 jobs:
@@ -91,13 +90,13 @@ jobs:
           echo "FLY_BUILDER_TYPE=${FLY_BUILDER_TYPE:-remote-only}" >> $GITHUB_ENV
         shell: bash
 
-      - name: 🔐👨‍🚒 B1 via dispatch?
+      - name: 🔐👨‍🚒 FlyTLS via dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.deployment-type == 'b1' }}
+          github.event.inputs.deployment-type == 'flytls' }}
         run: |
-          echo "FLY_APP=${FLY_B1_APP}" >> $GITHUB_ENV
-          echo "FLY_TOML=${FLY_B1_CFG}" >> $GITHUB_ENV
-          echo "::notice::Deploying B1 / ${GIT_REF} @ ${COMMIT_SHA}"
+          echo "FLY_APP=${FLY_TLS_APP}" >> $GITHUB_ENV
+          echo "FLY_TOML=${FLY_TLS_CFG}" >> $GITHUB_ENV
+          echo "::notice::Deploying FLYTLS / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -122,13 +121,12 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
 
-      - name: 🚜👨‍🚒 Machines via dispatch?
+      - name: 🚜👨‍🚒 Onebox via dispatch?
         if: ${{ github.event_name == 'workflow_dispatch' &&
-          github.event.inputs.deployment-type == 'mach' }}
+          github.event.inputs.deployment-type == 'onebox' }}
         run: |
-          echo "FLY_APP=${FLY_MACHINES_APP}" >> $GITHUB_ENV
-          echo "FLY_TOML=${FLY_MACHINES_CFG}" >> $GITHUB_ENV
-          echo "::notice::Deploying MACH / ${GIT_REF} @ ${COMMIT_SHA}"
+          echo "FLY_APP=${FLY_PROD_ONEBOX_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying 1BOX / ${GIT_REF} @ ${COMMIT_SHA}"
         shell: bash
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -154,5 +152,5 @@ jobs:
       - name: 📕 Registry
         if: success()
         run: |
-          echo "::notice::Image @ registry.fly.io/<fly-app-name>:${{ env.GIT_HEAD }}"
+          echo "::notice::Image @ registry.fly.io/${{ env.FLY_APP }}:${{ env.GIT_HEAD }}"
         shell: bash
