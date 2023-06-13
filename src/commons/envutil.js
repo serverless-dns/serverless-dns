@@ -14,20 +14,6 @@ export function onFly() {
   return envManager.get("CLOUD_PLATFORM") === "fly";
 }
 
-export function machinesTimeoutMillis() {
-  if (!envManager) return -1;
-
-  return envManager.get("MACHINES_TIMEOUT_SEC") * 1000;
-}
-
-// only valid on Fly Machines
-export function httpCheck() {
-  if (!envManager) return false;
-  if (!onFly()) return false;
-
-  return envManager.get("MACHINES_TIMEOUT_SEC") > 0;
-}
-
 export function onDenoDeploy() {
   if (!envManager) return false;
 

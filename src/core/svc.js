@@ -23,8 +23,6 @@ import * as util from "../commons/util.js";
 // proc up since
 let readytime = 0;
 let endtimer = null;
-// unix timestamp of the latest recorded heartbeat
-let latestHeartbeat = 0;
 
 export const services = {
   /** @type {Boolean} ready */
@@ -97,28 +95,6 @@ export function stopAfter(ms = 0) {
   } else {
     log.d("stopAfter", ms);
   }
-  const now = Date.now();
-  // 30% of the upcoming wait-time
-  const p30 = (ms * 0.3) | 0;
-  const when = now - latestHeartbeat;
-  // was the previous heartbeat recent enough?
-  const recent = when <= p30;
-  // is the incoming wait (ms) 2x the pending wait?
-  const pending = when - ms;
-  const nearer = pending > 2 * ms;
-  // if pending wait not too high and the prev heartbeat too recent
-  if (!nearer && recent) {
-    log.d("skip heartbeat; prev heartbeat was", when, "ms ago; lt", p30);
-    return;
-  }
-  clearEndTimer();
+  if (!util.emptyObj(endtimer)) clearTimeout(endtimer);
   endtimer = util.timeout(ms, stopProc);
-  log.d("n?", nearer, "r?", recent, "pending", pending, "extend ttl", ms);
-  latestHeartbeat = now;
-}
-
-function clearEndTimer() {
-  if (util.emptyObj(endtimer)) return false;
-  clearTimeout(endtimer);
-  return true;
 }

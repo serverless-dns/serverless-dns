@@ -13,11 +13,6 @@ kill_timeout = "15s"
   DENO_ENV = "production"
   LOG_LEVEL = "info"
   NODE_ENV = "production"
-  # fly can't start vms that scale down super quickly
-  # community.fly.io/t/6091/12
-  # node proc shuts itself after this threshold
-  # MACHINES_TIMEOUT_SEC = "100"
-  # for now, using auto_start_machines / auto_stop_machines
 
 # DNS over HTTPS
 [[services]]

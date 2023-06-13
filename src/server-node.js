@@ -333,16 +333,14 @@ function systemUp() {
       });
   }
 
-  if (envutil.httpCheck()) {
-    const portcheck = envutil.httpCheckPort();
-    const hcheck = h2c.createServer(serve200).listen(portcheck, () => {
-      up("http-check", hcheck.address());
-      trapServerEvents(hcheck);
-    });
-  }
+  const portcheck = envutil.httpCheckPort();
+  const hcheck = h2c.createServer(serve200).listen(portcheck, () => {
+    up("http-check", hcheck.address());
+    trapServerEvents(hcheck);
+  });
 
   // if (envutil.measureHeap()) heapdiff = new memwatch.HeapDiff();
-  machinesHeartbeat();
+  heartbeat();
 }
 
 /**
@@ -829,7 +827,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
  * @param {String} flag
  */
 async function handleTCPQuery(q, socket, host, flag) {
-  machinesHeartbeat();
+  heartbeat();
 
   let ok = true;
   if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return;
@@ -967,7 +965,7 @@ async function serveHTTPS(req, res) {
  * @param {Http2ServerResponse} res
  */
 async function handleHTTPRequest(b, req, res) {
-  machinesHeartbeat();
+  heartbeat();
 
   const rxid = util.xid();
   const t = log.startTime("handle-http-req-" + rxid);
@@ -1050,7 +1048,7 @@ function trapRequestResponseEvents(req, res) {
   });
 }
 
-function machinesHeartbeat() {
+function heartbeat() {
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
   const measureHeap = envutil.measureHeap();
@@ -1070,14 +1068,6 @@ function machinesHeartbeat() {
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
-
-  // nothing to do, if not on fly
-  if (!envutil.onFly()) return;
-  // if a fly machine app, figure out ttl
-  const t = envutil.machinesTimeoutMillis();
-  log.d("mach: extend-machines-ttl by", t);
-  if (t >= 0) stopAfter(t);
-  // else: not on machines
 }
 
 function adjustMaxConns(n) {
