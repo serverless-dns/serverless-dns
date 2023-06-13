@@ -13,6 +13,7 @@ import * as envutil from "../commons/envutil.js";
 import * as pres from "./plugin-response.js";
 import * as trie from "@serverless-dns/trie/stamp.js";
 import { BlocklistFilter } from "./rethinkdns/filter.js";
+import { DnsCacheData } from "./cache-util.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
@@ -72,7 +73,7 @@ export function isLogQuery(p) {
 // userBlInfo -> user-selected blocklist-stamp
 //               {userBlocklistFlagUint, userServiceListUint}
 // dnBlInfo   -> obj of blocklists stamps for dn and all its subdomains
-//               {string(sub/domain-name) : string(blocklist-stamp) }
+//               {string(sub/domain-name) : u16(blocklist-stamp) }
 // FIXME: return block-dnspacket depending on altsvc/https/svcb or cname/a/aaaa
 export function doBlock(dn, userBlInfo, dnBlInfo) {
   const blockSubdomains = envutil.blockSubdomains();
@@ -116,6 +117,10 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
   );
 }
 
+/**
+ * @param {DnsCacheData} cr
+ * @returns {pres.BStamp|boolean}
+ */
 export function blockstampFromCache(cr) {
   const p = cr.dnsPacket;
   const m = cr.metadata;
@@ -128,7 +133,7 @@ export function blockstampFromCache(cr) {
 /**
  * @param {*} dnsPacket
  * @param {BlocklistFilter} blocklistFilter
- * @returns {any|boolean}
+ * @returns {pres.BStamp|boolean}
  */
 export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
   if (util.emptyObj(dnsPacket)) return false;

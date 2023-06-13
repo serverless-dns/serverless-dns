@@ -9,6 +9,7 @@ import * as cfg from "../core/cfg.js";
 import * as util from "../commons/util.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
+import { RespData, BStamp } from "./plugin-response.js";
 
 const minTtlSec = 30; // 30s
 const maxTtlSec = 180; // 3m
@@ -43,6 +44,11 @@ function determineCacheExpiry(packet) {
   return expiry;
 }
 
+/**
+ * @param {any} dnsPacket
+ * @param {BStamp} stamps
+ * @returns {DnsCacheMetadata}
+ */
 function makeCacheMetadata(dnsPacket, stamps) {
   // {
   //   "expiry": 1642874536022,
@@ -59,7 +65,7 @@ export class DnsCacheMetadata {
   constructor(expiry, stamps) {
     /** @type {number} */
     this.expiry = expiry;
-    /** @type {Object} */
+    /** @type {BStamp} */
     this.stamps = stamps;
   }
 }
@@ -77,7 +83,7 @@ export class DnsCacheData {
 
 /**
  * @param {any} packet
- * @param {ArrayBuffer} raw
+ * @param {ArrayBuffer?} raw
  * @param {DnsCacheMetadata} metadata
  * @returns {DnsCacheData}
  */
@@ -86,10 +92,16 @@ export function makeCacheValue(packet, raw, metadata) {
   return new DnsCacheData(packet, raw, metadata);
 }
 
+/**
+ * @param {RespData} rdnsResponse
+ * @returns {DnsCacheData}
+ */
 export function cacheValueOf(rdnsResponse) {
   const stamps = rdnsResponse.stamps;
-  const packet = rdnsResponse.dnsPacket;
-  const raw = rdnsResponse.dnsBuffer;
+  // do not cache OPT records
+  // github.com/bluejekyll/trust-dns/blob/a614257fb0/crates/proto/src/rr/rdata/opt.rs#L46-L52
+  const [packet, modified] = dnsutil.dropOPT(rdnsResponse.dnsPacket);
+  const raw = modified ? dnsutil.encode(packet) : rdnsResponse.dnsBuffer;
 
   const metadata = makeCacheMetadata(packet, stamps);
   return makeCacheValue(packet, raw, metadata);

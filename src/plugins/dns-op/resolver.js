@@ -164,7 +164,7 @@ export default class DNSResolver {
    * @param {Object} ctx.userBlocklistInfo
    * @param {String} ctx.userDnsResolverUrl
    * @param {string} ctx.userBlockstamp
-   * @param {any} ctx.domainBlockstamp
+   * @param {pres.BStamp?} ctx.domainBlockstamp
    * @param {function(function):void} ctx.dispatcher
    * @returns {Promise<pres.RResp>}
    */
@@ -301,7 +301,7 @@ export default class DNSResolver {
    * @param {string} rxid
    * @param {ArrayBuffer} raw
    * @param {BlocklistFilter} blf
-   * @param {any} stamps
+   * @param {pres.BStamp?} stamps
    * @returns
    */
   async makeRdnsResponse(rxid, raw, blf, stamps = null) {

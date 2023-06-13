@@ -32,10 +32,14 @@ export class RespData {
     this.dnsPacket = packet || null;
     /** @type {ArrayBuffer} */
     this.dnsBuffer = raw || null;
-    /** @type {Object?} */
+    /** @type {BStamp?} */
     this.stamps = stamps || {};
   }
 }
+
+/**
+ * @typedef {Object.<string, Uint16Array>} BStamp
+ */
 
 /** @returns {RResp} */
 export function emptyResponse() {
@@ -57,7 +61,7 @@ export function errResponse(id, err) {
 /**
  * @param {Object} packet
  * @param {ArrayBuffer} raw
- * @param {Object?} stamps
+ * @param {BStamp?} stamps
  * @returns {RespData}
  */
 export function dnsResponse(packet = null, raw = null, stamps = null) {

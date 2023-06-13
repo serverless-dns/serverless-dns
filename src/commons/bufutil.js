@@ -140,7 +140,10 @@ export function normalize8(b) {
   return new Uint8Array(underlyingBuffer);
 }
 
-// stackoverflow.com/a/31394257
+/**
+ * @param {Uint8Array|Buffer} buf
+ * @returns {ArrayBuffer?}
+ */
 export function arrayBufferOf(buf) {
   // buf is either TypedArray or node:Buffer
   if (emptyBuf(buf)) return null;
@@ -153,6 +156,7 @@ export function arrayBufferOf(buf) {
   // ref: nodejs.org/api/buffer.html#buffers-and-typedarrays.
   // what we want to return is an array-buffer after copying
   // the relevant contents from the the underlying-buffer.
+  // stackoverflow.com/a/31394257
   return buf.buffer.slice(offset, offset + len);
 }
 

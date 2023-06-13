@@ -130,6 +130,42 @@ export function hasDnssecOk(packet) {
   return false;
 }
 
+/**
+ * @param {any} packet
+ * @returns {[any, boolean]}
+ */
+export function dropOPT(packet) {
+  let rmv = false;
+  if (util.emptyObj(packet)) return [packet, rmv];
+  if (util.emptyArray(packet.additionals)) return [packet, rmv];
+  /*
+    additionals: [{
+      name: '.', // same question as root
+      type: 'OPT',
+      udpPayloadSize: 4096,
+      extendedRcode: 0,
+      ednsVersion: 0,
+      flags: 32768,
+      flag_do: true, // dnssec ok
+      options: [
+        {}, {}, {} ...
+      ],
+    }, ... ]
+  */
+  const filtered = [];
+  for (const a of packet.additionals) {
+    if (optAnswer(a)) {
+      rmv = true;
+      continue;
+    }
+    filtered.push(a);
+  }
+  if (rmv) {
+    packet.additionals = filtered;
+  }
+  return [packet, rmv];
+}
+
 export function dropECS(packet) {
   let rmv = false;
   if (util.emptyObj(packet)) return [packet, rmv];
