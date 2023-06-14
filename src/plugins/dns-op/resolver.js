@@ -343,6 +343,7 @@ export default class DNSResolver {
   }
 
   ofMax(blockstamp) {
+    if (util.emptyString(this.maxDoh)) return "";
     if (util.emptyString(blockstamp)) return this.maxDoh;
     else return this.maxDoh + blockstamp;
   }
