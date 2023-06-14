@@ -29,14 +29,19 @@ kill_timeout = "15s"
 
   [services.concurrency]
     type = "connections"
-    hard_limit = 575
-    soft_limit = 500
+    hard_limit = 775
+    soft_limit = 700
 
   [[services.tcp_checks]]
-    interval = "30s"
-    timeout = "3s"
+    # super aggressive interval and timeout because
+    # health-check routing is handled by fly-proxy
+    # and it is cross-region
+    # community.fly.io/t/12997
+    interval = "5s"
+    timeout = "1s"
     grace_period = "15s"
-    restart_limit = 3
+    # restart_limit not used on appsv2
+    restart_limit = 0
 
 # DNS over TLS
 [[services]]
@@ -53,14 +58,19 @@ kill_timeout = "15s"
 
   [services.concurrency]
     type = "connections"
-    hard_limit = 575
-    soft_limit = 500
+    hard_limit = 775
+    soft_limit = 700
 
   [[services.tcp_checks]]
-    interval = "30s"
-    timeout = "3s"
+    # super aggressive interval and timeout because
+    # health-check routing is handled by fly-proxy
+    # and it is cross-region
+    # community.fly.io/t/12997
+    interval = "5s"
+    timeout = "1s"
     grace_period = "15s"
-    restart_limit = 3
+    # restart_limit is unused in appsv2
+    restart_limit = 0
 
 # community.fly.io/t/5490/3
 [checks]
@@ -71,5 +81,5 @@ kill_timeout = "15s"
     method = "get"
     path = "/check"
     port = 8888
-    timeout = "3s"
+    timeout = "2s"
     type = "http"

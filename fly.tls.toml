@@ -25,8 +25,8 @@ auto_rollback = true
   auto_start_machines = true
 
   [services.concurrency]
-  hard_limit = 575
-  soft_limit = 500
+  hard_limit = 775
+  soft_limit = 700
   type = "connections"
 
   [[services.ports]]
@@ -40,10 +40,15 @@ auto_rollback = true
   port = 8055
 
   [[services.tcp_checks]]
-    interval = "30s"
-    timeout = "3s"
+    # super aggressive interval and timeout because
+    # health-check routing is handled by fly-proxy
+    # and it is cross-region
+    # community.fly.io/t/12997
+    interval = "5s"
+    timeout = "1s"
     grace_period = "15s"
-    restart_limit = 3
+    # restart_limit is unused in appsv2
+    restart_limit = 0
 
 # DNS over TCP/TLS
 [[services]]
@@ -53,8 +58,8 @@ auto_rollback = true
   auto_start_machines = true
 
   [services.concurrency]
-  hard_limit = 575
-  soft_limit = 500
+  hard_limit = 775
+  soft_limit = 700
   type = "connections"
 
   [[services.ports]]
@@ -68,10 +73,15 @@ auto_rollback = true
   port = 10555
 
   [[services.tcp_checks]]
-    interval = "30s"
-    timeout = "3s"
+    # super aggressive interval and timeout because
+    # health-check routing is handled by fly-proxy
+    # and it is cross-region
+    # community.fly.io/t/12997
+    interval = "5s"
+    timeout = "1s"
     grace_period = "15s"
-    restart_limit = 3
+    # restart_limit is unused in appsv2
+    restart_limit = 0
 
 # community.fly.io/t/5490/3
 [checks]
@@ -82,6 +92,6 @@ auto_rollback = true
     method = "get"
     path = "/check"
     port = 8888
-    timeout = "3s"
+    timeout = "2s"
     type = "http"
 
