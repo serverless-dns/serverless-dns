@@ -1074,6 +1074,7 @@ function heartbeat() {
 function adjustMaxConns(n) {
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
+  const adjsPerSec = 60 / adjPeriodSec;
 
   // caveats:
   // linux-magazine.com/content/download/62593/485442/version/1/file/Load_Average.pdf
@@ -1086,7 +1087,7 @@ function adjustMaxConns(n) {
 
   let adj = stats.bp[3] || 0;
   // increase in load
-  if (avg5 > 100) {
+  if (avg5 > 90) {
     adj += 3;
   } else if (avg1 > 100) {
     adj += 2;
@@ -1105,8 +1106,8 @@ function adjustMaxConns(n) {
     } else if (avg1 > 70) {
       n = Math.max((n * 0.6) | 0, minc);
     } else {
-      // reset; n reverting back to maxconns
-      adj = 0;
+      // reclaim adjs 25% at a time as n approaches maxconns
+      adj = Math.min(0, adj * 0.75) | 0;
     }
   } else {
     // clamp n based on a preset
@@ -1117,8 +1118,8 @@ function adjustMaxConns(n) {
   }
 
   // adjustMaxConns is called every adjPeriodSec
-  const breakpoint = 15 * (60 / adjPeriodSec); // 15 mins
-  const stresspoint = 10 * (60 / adjPeriodSec); // 10 mins
+  const breakpoint = 15 * adjsPerSec; // 15 mins
+  const stresspoint = 10 * adjsPerSec; // 10 mins
   if (adj > breakpoint) {
     log.w("load: stopping; n:", n, "adjs:", adj);
     stopAfter(0);
