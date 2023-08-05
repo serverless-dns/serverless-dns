@@ -24,6 +24,7 @@ type = "ESModule"
 globs = ["**/*.js"]
 
 [vars]
+CF_DNS_RESOLVER_URL = "https://dns.nextdns.io/75a58e"
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
@@ -55,6 +56,8 @@ CLOUD_PLATFORM = "cloudflare"
 ##################
 #------ONE-------#
 ##################
+[placement]
+mode = "smart"
 [env.one]
 name = "dns-one"
 logpush = true
