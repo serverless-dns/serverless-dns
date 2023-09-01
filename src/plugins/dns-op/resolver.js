@@ -459,11 +459,13 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
   if (!k) throw new Error("resolver: no cache-key");
 
   const cr = await this.cache.get(k);
-  const hasAns = cr && dnsutil.isAnswer(cr.dnsPacket);
-  const freshAns = hasAns && cacheutil.isAnswerFresh(cr.metadata);
-  this.log.d(rxid, "cache ans", k.href, "ans?", hasAns, "fresh?", freshAns);
+  const isAns = cr && dnsutil.isAnswer(cr.dnsPacket);
+  const hasAns = isAns && dnsutil.hasAnswers(cr.dnsPacket);
+  // if cr has answers, use probablistic expiry; otherwise prefer actual ttl
+  const fresh = isAns && cacheutil.isAnswerFresh(cr.metadata, hasAns ? 0 : 6);
+  this.log.d(rxid, "cache ans", k.href, "ans?", isAns, "fresh?", fresh);
 
-  if (!hasAns || !freshAns) {
+  if (!isAns || !fresh) {
     return Promise.reject(new Error("resolver: cache miss"));
   }
 
