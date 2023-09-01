@@ -13,6 +13,8 @@ import * as pres from "./plugin-response.js";
 
 const minTtlSec = 30; // 30s
 const maxTtlSec = 180; // 3m
+const expiresImmediately = 0; // 0s
+const someVeryHighTtl = 1 << 30; // 2^30s
 const cheader = "x-rdnscache-metadata";
 const _cacheurl = "https://caches.rethinkdns.com/";
 
@@ -21,9 +23,6 @@ const _cacheHeaderHitValue = "hit";
 const _cacheHeaders = { [_cacheHeaderKey]: _cacheHeaderHitValue };
 
 function determineCacheExpiry(packet) {
-  const expiresImmediately = 0;
-  const someVeryHighTtl = 1 << 30;
-
   // TODO: do not cache :: / 0.0.0.0 upstream answers?
   // expiresImmediately => packet is not an ans but a question
   if (!dnsutil.isAnswer(packet)) return expiresImmediately;
@@ -38,10 +37,11 @@ function determineCacheExpiry(packet) {
   // if no answers, set min-ttl
   if (ttl === someVeryHighTtl) ttl = minTtlSec;
 
+  // see also: isAnswerFresh
   ttl += envutil.cacheTtl();
   const expiry = Date.now() + ttl * 1000;
 
-  return expiry;
+  return expiry; // in millis
 }
 
 /**
