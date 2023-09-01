@@ -107,7 +107,7 @@ export function cacheValueOf(rdnsResponse) {
   return makeCacheValue(packet, raw, metadata);
 }
 
-export function updateTtl(packet, end) {
+function updateTtl(packet, end) {
   const now = Date.now();
   const actualttl = Math.floor((end - now) / 1000) - envutil.cacheTtl();
   // jitter between min/max to prevent uniform expiry across clients
@@ -199,7 +199,7 @@ export function hasCacheHeader(h) {
   return h.get(_cacheHeaderKey) === _cacheHeaderHitValue;
 }
 
-export function updateQueryId(decodedDnsPacket, queryId) {
+function updateQueryId(decodedDnsPacket, queryId) {
   if (queryId === decodedDnsPacket.id) return false; // no change
   decodedDnsPacket.id = queryId;
   return true;
@@ -223,11 +223,20 @@ export function hasMetadata(m) {
   return !util.emptyObj(m);
 }
 
+/**
+ * @param {DnsCacheData} v
+ * @returns {boolean}
+ */
 export function hasAnswer(v) {
   if (!hasMetadata(v.metadata)) return false;
   return isAnswerFresh(v.metadata, /* no roll*/ 6);
 }
 
+/**
+ * @param {DnsCacheMetadata} m
+ * @param {number} n
+ * @returns {boolean}
+ */
 export function isAnswerFresh(m, n = 0) {
   // when expiry is 0, c.dnsPacket is a question and not an ans
   // ref: determineCacheExpiry
