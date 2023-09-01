@@ -1107,7 +1107,9 @@ function adjustMaxConns(n) {
       n = Math.max((n * 0.6) | 0, minc);
     } else {
       // reclaim adjs 25% at a time as n approaches maxconns
-      adj = Math.min(0, adj * 0.75) | 0;
+      // ex: if adj is 100, then the decay would be,
+      // [75, 56, 42, 31, 23, 17, 12, 9, 6, 4, 3, 2, 1, 0]
+      adj = Math.max(0, adj * 0.75) | 0;
     }
   } else {
     // clamp n based on a preset
