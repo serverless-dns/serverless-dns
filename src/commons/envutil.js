@@ -193,7 +193,7 @@ export function isCleartext() {
 export function tcpBacklog() {
   if (!envManager) return 100;
 
-  return envManager.get("TCP_BACKLOG") || 100;
+  return envManager.get("TCP_BACKLOG") || 200;
 }
 
 // don't forget to update the fly.toml too
