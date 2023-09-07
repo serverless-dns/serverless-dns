@@ -4,7 +4,6 @@ kill_signal = "SIGINT"
 kill_timeout = "15s"
 swap_size_mb = 152
 
-
 [build]
   dockerfile = "node.Dockerfile"
 
@@ -12,8 +11,10 @@ swap_size_mb = 152
   # offload TLS on to fly-proxy;
   # tls-tls_options for [[services]] must be set
   TLS_OFFLOAD = "true"
-  NODE_ENV = "production"
   CLOUD_PLATFORM = "fly"
+  BUN_ENV = "production"
+  DENO_ENV = "production"
+  NODE_ENV = "production"
   LOG_LEVEL = "info"
 
 [experimental]

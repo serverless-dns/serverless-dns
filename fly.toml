@@ -12,9 +12,10 @@ swap_size_mb = 152
 
 [env]
   CLOUD_PLATFORM = "fly"
+  BUN_ENV = "production"
   DENO_ENV = "production"
-  LOG_LEVEL = "info"
   NODE_ENV = "production"
+  LOG_LEVEL = "info"
 
 # DNS over HTTPS
 [[services]]

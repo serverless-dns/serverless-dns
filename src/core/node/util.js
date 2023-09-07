@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { Http2ServerRequest, Http2ServerResponse } from "http2";
+import { Http2ServerRequest, Http2ServerResponse } from "node:http2";
 
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and

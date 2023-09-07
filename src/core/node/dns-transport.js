@@ -5,8 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import net from "net";
-import dgram from "dgram";
+import net from "node:net";
+import dgram from "node:dgram";
 import * as util from "../../commons/util.js";
 import { TcpConnPool, UdpConnPool } from "../dns/conns.js";
 import { TcpTx, UdpTx } from "../dns/transact.js";

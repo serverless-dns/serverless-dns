@@ -54,6 +54,12 @@ export function hasHttpCache() {
   return isWorkers();
 }
 
+export function isBun() {
+  if (!envManager) return false;
+
+  return envManager.r() === "bun";
+}
+
 export function isWorkers() {
   if (!envManager) return false;
 

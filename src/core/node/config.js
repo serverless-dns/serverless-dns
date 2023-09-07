@@ -11,7 +11,7 @@
  * TODO: Remove all side-effects and use a constructor?
  * This module has side effects, sequentially setting up the environment.
  */
-import { atob, btoa } from "buffer";
+import { atob, btoa } from "node:buffer";
 import process from "node:process";
 import * as util from "./util.js";
 import * as blocklists from "./blocklists.js";

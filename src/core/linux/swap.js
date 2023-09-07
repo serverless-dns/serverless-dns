@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { spawnSync } from "child_process";
+import { spawnSync } from "node:child_process";
 
 const swapfile = "swap__";
 const swapsize = "152M";

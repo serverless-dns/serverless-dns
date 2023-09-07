@@ -6,12 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import net, { isIPv6 } from "net";
-import * as tls from "tls";
-import http2 from "http2";
+import net, { isIPv6 } from "node:net";
+import * as tls from "node:tls";
+import http2 from "node:http2";
 import * as h2c from "httpx-server";
-import * as os from "os";
-import v8 from "v8";
+import * as os from "node:os";
+import v8 from "node:v8";
 import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as system from "./system.js";
 import { handleRequest } from "./core/doh.js";
@@ -22,7 +22,7 @@ import * as envutil from "./commons/envutil.js";
 import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
 import "./core/node/config.js";
-import { finished } from "stream";
+import { finished } from "node:stream";
 import * as nodecrypto from "./commons/crypto.js";
 // webpack can't handle node-bindings, a dependency of node-memwatch
 // github.com/webpack/webpack/issues/16029
@@ -1083,6 +1083,7 @@ function heartbeat() {
 }
 
 function adjustMaxConns(n) {
+  const isNode = envutil.isNode();
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
   const adjsPerSec = 60 / adjPeriodSec;
@@ -1147,9 +1148,9 @@ function adjustMaxConns(n) {
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
   if (adj > 0) {
-    v8.setFlagsFromString("--trace-gc");
+    if (isNode) v8.setFlagsFromString("--trace-gc");
   } else {
-    v8.setFlagsFromString("--notrace-gc");
+    if (isNode) v8.setFlagsFromString("--notrace-gc");
   }
 
   stats.bp = [avg1, avg5, avg15, adj, n];

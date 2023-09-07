@@ -8,7 +8,7 @@
 
 /* For development environment use only */
 
-import * as fs from "fs";
+import * as fs from "node:fs";
 
 /**
  * @param {String} TLS_KEY_PATH

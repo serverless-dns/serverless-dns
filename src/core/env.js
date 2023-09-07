@@ -257,6 +257,10 @@ function _determineRuntime() {
     return "deno";
   }
 
+  if (typeof Bun !== "undefined") {
+    return "bun"; // bun.sh/guides/util/detect-bun
+  }
+
   if (globalThis.wenv) return "worker";
 
   if (typeof process !== "undefined") {
@@ -291,6 +295,7 @@ export default class EnvManager {
 
   determineEnvStage() {
     if (this.runtime === "node") return this.get("NODE_ENV");
+    if (this.runtime === "bun") return this.get("BUN_ENV");
     if (this.runtime === "worker") return this.get("WORKER_ENV");
     if (this.runtime === "deno") return this.get("DENO_ENV");
     if (this.runtime === "fastly") return this.get("FASTLY_ENV");
@@ -313,8 +318,9 @@ export default class EnvManager {
     if (hasWorkersUa) return "cloudflare";
     // if dev, then whatever is running is likely local
     if (isDev) return "local";
-    // if prod, then node is likely running on fly
+    // if prod, then node/bun is likely running on fly
     if (this.runtime === "node") return "fly";
+    if (this.runtime === "bun") return "fly";
     // if prod, then deno is likely running on deno-deploy
     if (this.runtime === "deno") return "deno-deploy";
     // if prod, then worker is likely running on cloudflare
@@ -364,6 +370,9 @@ export default class EnvManager {
     let v = null;
     if (this.runtime === "node") {
       v = process.env[k];
+    } else if (this.runtime === "bun") {
+      // bun.sh/guides/runtime/read-env
+      v = Bun.env[k];
     } else if (this.runtime === "deno") {
       v = Deno.env.get(k);
     } else if (this.runtime === "fastly") {
