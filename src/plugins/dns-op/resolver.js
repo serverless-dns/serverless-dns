@@ -61,7 +61,7 @@ export default class DNSResolver {
     const isnode = envutil.isNode();
     const plainOldDnsIp = dnsutil.dnsaddr();
     if (isnode && !this.http2) {
-      this.http2 = await import("http2");
+      this.http2 = await import("node:http2");
       this.log.i("imported custom http2 client");
     }
     if (isnode && !this.nodeutil) {
