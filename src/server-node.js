@@ -48,6 +48,7 @@ class Stats {
     this.tlserr = 0;
     this.nofdrops = 0;
     this.nofconns = 0;
+    this.openconns = 0;
     this.noftimeouts = 0;
     // avg1, avg5, avg15, adj, maxconns
     this.bp = [0, 0, 0, 0, 0];
@@ -56,7 +57,7 @@ class Stats {
   str() {
     return (
       `reqs=${this.noreqs} checks=${this.nofchecks} ` +
-      `drops=${this.nofdrops}/tot=${this.nofconns} ` +
+      `drops=${this.nofdrops}/tot=${this.nofconns}/open=${this.openconns} ` +
       `timeouts=${this.noftimeouts}/tlserr=${this.tlserr} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
       `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]}`
@@ -355,6 +356,7 @@ function trapServerEvents(s) {
 
   s.on("connection", (/** @type {Socket} */ socket) => {
     stats.nofconns += 1;
+    stats.openconns += 1;
 
     const id = tracker.trackConn(s, socket);
     if (!tracker.valid(id)) {
@@ -377,6 +379,10 @@ function trapServerEvents(s) {
     socket.on("end", () => {
       // TODO: is this needed? this is the default anyway
       socket.end();
+    });
+
+    socket.on("close", () => {
+      stats.openconns -= 1;
     });
   });
 
@@ -405,6 +411,7 @@ function trapSecureServerEvents(s) {
   // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
   s.on("secureConnection", (socket) => {
     stats.nofconns += 1;
+    stats.openconns += 1;
 
     const id = tracker.trackConn(s, socket);
     if (!tracker.valid(id)) {
@@ -430,6 +437,10 @@ function trapSecureServerEvents(s) {
       // client gone, socket half-open at this point
       // close this end of the socket, too
       socket.end();
+    });
+
+    socket.on("close", () => {
+      stats.openconns -= 1;
     });
   });
 
@@ -1122,15 +1133,16 @@ function adjustMaxConns(n) {
   // adjustMaxConns is called every adjPeriodSec
   const breakpoint = 10 * adjsPerSec; // 10 mins
   const stresspoint = 5 * adjsPerSec; // 5 mins
+  const nstr = stats.openconns + "/" + n;
   if (adj > breakpoint) {
-    log.w("load: stopping; n:", n, "adjs:", adj);
+    log.w("load: stopping; n:", nstr, "adjs:", adj);
     stopAfter(0);
     return;
   } else if (adj > stresspoint) {
-    log.w("load: stress; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    log.w("load: stress; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
     n = (minc / 2) | 0;
   } else if (adj > 0) {
-    log.d("load: high; n:", n, "adjs:", adj, "avgs:", avg1, avg5, avg15);
+    log.d("load: high; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
