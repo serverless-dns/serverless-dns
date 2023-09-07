@@ -96,7 +96,9 @@ async function prep() {
         envManager.get("TLS_CRT_PATH")
       );
       setTlsVars(tlsKey, tlsCrt);
-      log.i("dev (local) tls setup from tls_key_path");
+      const l1 = tlsKey.byteLength;
+      const l2 = tlsCrt.byteLength;
+      log.i("dev (local) tls setup from tls_key_path", l1, l2);
     } catch (ex) {
       // this can happen when running server in BLOCKLIST_DOWNLOAD_ONLY mode
       log.w("Skipping TLS: test TLS crt/key missing; enable TLS offload");
