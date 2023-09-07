@@ -2,6 +2,8 @@ app = ""
 
 kill_signal = "SIGINT"
 kill_timeout = "15s"
+swap_size_mb = "152"
+
 
 [build]
   dockerfile = "node.Dockerfile"

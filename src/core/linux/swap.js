@@ -13,7 +13,7 @@ const swapsize = "152M";
 // linuxize.com/post/create-a-linux-swap-file
 export function mkswap() {
   return (
-    !hasswap() &&
+    !hasanyswap() &&
     sh("fallocate", ["-l", swapsize, swapfile]) &&
     sh("chmod", ["600", swapfile]) &&
     sh("mkswap", [swapfile]) &&
@@ -26,12 +26,29 @@ export function rmswap() {
   return hasswap() && sh("swapoff", ["-v", swapfile]) && sh("rm", [swapfile]);
 }
 
+function hasanyswap() {
+  // cat /proc/swaps
+  // Filename    Type    Size      Used    Priority
+  // /swap__     file    155644    99968   -2
+  const pswaps = shout("cat", ["/proc/swaps"]);
+  const lines = pswaps && pswaps.split("\n");
+  return lines && lines.length > 1;
+}
+
 // stackoverflow.com/a/53222213
 function hasswap() {
   return sh("test", ["-e", swapfile]);
 }
 
+function shout(cmd, args) {
+  return shx(cmd, args, true);
+}
+
 function sh(cmd, args) {
+  return shx(cmd, args) === 0;
+}
+
+function shx(cmd, args, out = false) {
   if (!cmd) return false;
   args = args || [];
   const opts = {
@@ -44,5 +61,5 @@ function sh(cmd, args) {
   if (proc.error) log.i(cmd, args, opts, "error", proc.error);
   if (proc.stderr) log.e(cmd, args, opts, proc.stderr);
   if (proc.stdout) log.l(proc.stdout);
-  return proc.status === 0;
+  return !out ? proc.status : proc.stdout;
 }
