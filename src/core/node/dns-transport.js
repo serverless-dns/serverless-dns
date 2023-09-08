@@ -11,7 +11,7 @@ import * as util from "../../commons/util.js";
 import { TcpConnPool, UdpConnPool } from "../dns/conns.js";
 import { TcpTx, UdpTx } from "../dns/transact.js";
 
-export function makeTransport(host, port, opts = {}) {
+export function makeTransport(host, port = 53, opts = {}) {
   return new Transport(host, port, opts);
 }
 
