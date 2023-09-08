@@ -329,6 +329,7 @@ export function blockSubdomains() {
 }
 
 // recurisve resolver on Fly
+// see: node/config.js#prep
 export function recursive() {
   return onFly();
 }

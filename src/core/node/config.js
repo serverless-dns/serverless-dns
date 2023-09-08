@@ -21,6 +21,7 @@ import * as system from "../../system.js";
 import { services, stopAfter } from "../svc.js";
 import EnvManager from "../env.js";
 import * as swap from "../linux/swap.js";
+import * as dnst from "../../core/node/dns-transport.js";
 
 // some of the cjs node globals aren't available in esm
 // nodejs.org/docs/latest/api/globals.html
@@ -116,16 +117,22 @@ async function prep() {
     log.i("no atob/btoa polyfill required");
   }
 
-  /** Swap on Fly */
-  if (onFly) {
+  // TODO: move dns* related settings to env
+  // flydns is always ipv6 (fdaa::53)
+  const plainOldDnsIp = onFly ? "fdaa::3" : "1.1.1.2";
+  let dns53 = null;
+  /** swap space and recursive resolver on Fly */
+  if (onFly || true) {
     const ok = swap.mkswap();
     log.i("mkswap done?", ok);
+    dns53 = dnst.makeTransport(plainOldDnsIp);
+    log.i("imported udp/tcp dns transport", plainOldDnsIp);
   } else {
     log.i("no swap required");
   }
 
   /** signal ready */
-  system.pub("ready");
+  system.pub("ready", [dns53]);
 }
 
 function setTlsVars(tlsKey, tlsCrt) {

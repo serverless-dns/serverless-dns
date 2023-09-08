@@ -19,14 +19,17 @@ export default class DNSResolver {
   /**
    * @param {import("../rethinkdns/main.js").BlocklistWrapper} blocklistWrapper
    * @param {import("./cache.js").DnsCache} cache
+   * @param {any} dns53
    */
-  constructor(blocklistWrapper, cache) {
+  constructor(blocklistWrapper, cache, dns53) {
     /** @type {import("./cache.js").DnsCache} */
     this.cache = cache;
     this.blocker = new DnsBlocker();
     /** @type {import("../rethinkdns/main.js").BlocklistWrapper} */
     this.bw = blocklistWrapper;
-    this.transport = null;
+    // deno bundler not happy with typedef as it imports node:dgram
+    // @type {import("../../core/node/dns-transport.js").Transport}
+    this.transport = dns53 || null;
     this.log = log.withTags("DnsResolver");
 
     this.measurements = [];
@@ -49,28 +52,11 @@ export default class DNSResolver {
     if (this.profileResolve) {
       this.log.w("profiling", this.determineDohResolvers());
       this.log.w("doh?", this.forceDoh);
+    } else {
+      const cok = this.cache != null;
+      const dok = this.transport != null;
+      this.log.i("init: cache?", cok, "dns53?", dok, "doh?", this.forceDoh);
     }
-  }
-
-  async lazyInit() {
-    if (!envutil.hasDynamicImports()) return;
-
-    // NOTE:
-    // plain old transport disabled on nodejs for now; using built-in fetch
-    // const isnode = envutil.isNode();
-    // const plainOldDnsIp = dnsutil.dnsaddr();
-    // if (isnode && !this.transport) {
-    // awaiting on dns-transport may take more than 1 micro tick;
-    // and so, multiple concurrent awaits on lazyInit() ends up
-    // initializing multiple transports (ex, when 100+
-    // requests arrive at once). Hence the need to check if
-    // the transport is already set / not null.
-    // const dnst = await import("../../core/node/dns-transport.js");
-    // if (this.transport == null) {
-    //   this.transport = dnst.makeTransport(plainOldDnsIp);
-    //   this.log.i("imported udp/tcp dns transport", plainOldDnsIp);
-    // }
-    // }
   }
 
   async close() {
@@ -91,7 +77,6 @@ export default class DNSResolver {
    * @returns {Promise<pres.RResp>}
    */
   async exec(ctx) {
-    await this.lazyInit();
     let response = pres.emptyResponse();
 
     try {

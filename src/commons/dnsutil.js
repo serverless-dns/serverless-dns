@@ -18,19 +18,10 @@ export const dnsPacketHeaderSize = 12;
 export const minDNSPacketSize = dnsPacketHeaderSize + 5;
 export const maxDNSPacketSize = 4096;
 
-// TODO: move _dns* related settings to env
-const _dnsCloudflareSec4 = "1.1.1.2";
-const _dnsFly6 = "fdaa::3";
 const _dnsCacheSize = 30000;
 
 const _minRequestTimeout = 4000; // 4s
 const _maxRequestTimeout = 30000; // 30s
-
-export function dnsaddr() {
-  // flydns is always ipv6 (fdaa::53)
-  if (envutil.recursive()) return _dnsFly6;
-  return _dnsCloudflareSec4;
-}
 
 export function cacheSize() {
   return _dnsCacheSize;
