@@ -24,8 +24,9 @@ export function makeTransport(host, port, opts = {}) {
 // and return non-null dns-answers, if recieved on-time and without errors.
 export class Transport {
   constructor(host, port, opts = {}) {
+    if (util.emptyString(host)) throw new Error("invalid host" + host);
     this.host = host;
-    this.port = port;
+    this.port = port || 53;
     this.connectTimeout = opts.connectTimeout || 3000; // 3s
     this.ioTimeout = opts.ioTimeout || 10000; // 10s
     this.ipproto = net.isIP(host); // 4, 6, or 0

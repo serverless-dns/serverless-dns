@@ -57,6 +57,7 @@ export default class DNSResolver {
     if (!envutil.hasDynamicImports()) return;
 
     const isnode = envutil.isNode();
+    const plainOldDnsIp = dnsutil.dnsaddr();
     if (isnode && !this.nodeutil) {
       this.nodeutil = await import("../../core/node/util.js");
       this.log.i("imported node-util");
