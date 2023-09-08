@@ -1,8 +1,9 @@
 {
   "imports": {
-    "buffer": "https://deno.land/std@0.171.0/node/buffer.ts",
-    "os" : "https://deno.land/std@0.171.0/node/os.ts",
-    "process": "https://deno.land/std@0.171.0/node/process.ts",
+    "buffer": "https://deno.land/std@0.177.0/node/buffer.ts",
+    "node:buffer": "https://deno.land/std@0.177.0/node/buffer.ts",
+    "os" : "https://deno.land/std@0.177.0/node/os.ts",
+    "process": "https://deno.land/std@0.177.0/node/process.ts",
     "@serverless-dns/dns-parser": "https://github.com/serverless-dns/dns-parser/raw/v2.1.2/index.js",
     "@serverless-dns/lfu-cache": "https://github.com/serverless-dns/lfu-cache/raw/v3.4.1/lfu.js",
     "@serverless-dns/trie/": "https://github.com/serverless-dns/trie/raw/v0.0.13/src/"
