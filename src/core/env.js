@@ -181,11 +181,6 @@ const defaults = new Map(
       // default: "localhost|1e84b3c687,rethinkdns.localhost|c9de656fd9",
       default: "", // no auth when empty
     },
-    // avoid using the (slow) fetch polyfill if on nodejs
-    NODE_AVOID_FETCH: {
-      type: "boolean",
-      default: false,
-    },
     // use only doh upstream on nodejs (udp/tcp is the default on nodejs)
     NODE_DOH_ONLY: {
       type: "boolean",

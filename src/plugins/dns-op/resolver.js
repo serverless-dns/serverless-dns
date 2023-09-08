@@ -26,7 +26,6 @@ export default class DNSResolver {
     this.blocker = new DnsBlocker();
     /** @type {import("../rethinkdns/main.js").BlocklistWrapper} */
     this.bw = blocklistWrapper;
-    this.http2 = null;
     this.nodeutil = null;
     this.transport = null;
     this.log = log.withTags("DnsResolver");
@@ -35,7 +34,6 @@ export default class DNSResolver {
     this.profileResolve = envutil.profileDnsResolves();
     // only valid on nodejs
     this.forceDoh = envutil.forceDoh();
-    this.avoidFetch = envutil.avoidFetch();
 
     // only valid on workers
     // bg-bw-init results in higher io-wait, not lower
@@ -51,7 +49,7 @@ export default class DNSResolver {
 
     if (this.profileResolve) {
       this.log.w("profiling", this.determineDohResolvers());
-      this.log.w("doh?", this.forceDoh, "fetch?", this.avoidFetch);
+      this.log.w("doh?", this.forceDoh);
     }
   }
 
@@ -59,11 +57,6 @@ export default class DNSResolver {
     if (!envutil.hasDynamicImports()) return;
 
     const isnode = envutil.isNode();
-    const plainOldDnsIp = dnsutil.dnsaddr();
-    if (isnode && !this.http2) {
-      this.http2 = await import("node:http2");
-      this.log.i("imported custom http2 client");
-    }
     if (isnode && !this.nodeutil) {
       this.nodeutil = await import("../../core/node/util.js");
       this.log.i("imported node-util");
@@ -441,9 +434,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
         throw new Error("get/post only");
       }
       this.log.d(rxid, "upstream doh2/fetch", u.href);
-      promisedPromises.push(
-        this.avoidFetch ? this.doh2(rxid, dnsreq) : fetch(dnsreq)
-      );
+      promisedPromises.push(fetch(dnsreq));
     }
   } catch (e) {
     this.log.e(rxid, "err doh2/fetch upstream", e.stack);
@@ -474,78 +465,4 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, packet) {
   const r = new Response(b, { headers: cacheutil.cacheHeaders() });
 
   return Promise.resolve(r);
-};
-
-/**
- * Resolve DNS request using HTTP/2 API of Node.js
- * @param {String} rxid - request id
- * @param {Request} request - Request object
- * @returns {Promise<Response>}
- */
-DNSResolver.prototype.doh2 = async function (rxid, request) {
-  if (!this.http2 || !this.nodeutil) {
-    throw new Error("h2 / node-util not setup, bailing");
-  }
-
-  this.log.d(rxid, "upstream with doh2");
-  const http2 = this.http2;
-
-  const u = new URL(request.url); // doh.tld/dns-query/?dns=b64
-  const verb = request.method; // GET or POST
-  const path = util.isGetRequest(request)
-    ? u.pathname + u.search // /dns-query/?dns=b64
-    : u.pathname; // /dns-query
-  const qab = await request.arrayBuffer(); // empty for GET
-  const upstreamQuery = bufutil.bufferOf(qab);
-  const headers = util.copyHeaders(request);
-
-  return new Promise((resolve, reject) => {
-    // TODO: h2 conn re-use: archive.is/XXKwn
-    // TODO: h2 conn pool
-    if (!util.isGetRequest(request) && !util.isPostRequest(request)) {
-      reject(new Error("Only GET/POST requests allowed"));
-    }
-
-    const c = http2.connect(u.origin);
-
-    c.on("error", (err) => {
-      this.log.e(rxid, "conn fail", err.message);
-      reject(err.message);
-    });
-
-    const req = c.request({
-      [http2.constants.HTTP2_HEADER_METHOD]: verb,
-      [http2.constants.HTTP2_HEADER_PATH]: path,
-      ...headers,
-    });
-
-    req.on("response", (headers) => {
-      const b = [];
-      req.on("data", (chunk) => {
-        b.push(chunk);
-      });
-      req.on("end", () => {
-        const rb = bufutil.concatBuf(b);
-        const h = this.nodeutil.transformPseudoHeaders(headers);
-        c.close();
-        resolve(new Response(rb, h));
-      });
-    });
-    // nodejs' async err events go unhandled when the handler
-    // is not registered, which ends up killing the process
-    req.on("error", (err) => {
-      this.log.e(rxid, "send/recv fail", err.message);
-      reject(err.message);
-    });
-
-    // req.end writes query to upstream over http2.
-    // do this only after the event-handlers (response,
-    // on, end, error etc) have been registered (above),
-    // and not before. Those events aren't resent by
-    // nodejs; while they may in fact happen immediately
-    // post a req.write / req.end (for ex: an error if it
-    // happens pronto, before an event-handler could be
-    // registered, then the err would simply go unhandled)
-    req.end(upstreamQuery);
-  });
 };

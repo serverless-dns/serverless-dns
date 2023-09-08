@@ -308,16 +308,6 @@ export function forceDoh() {
   return envManager.get("NODE_DOH_ONLY") || false;
 }
 
-export function avoidFetch() {
-  if (!envManager) return false;
-
-  // on other runtimes, continue using fetch
-  if (!isNode()) return false;
-
-  // on node, default to avoiding fetch
-  return envManager.get("NODE_AVOID_FETCH") || false;
-}
-
 export function disableDnsCache() {
   // disable when profiling dns resolutions
   return profileDnsResolves();
