@@ -26,7 +26,6 @@ export default class DNSResolver {
     this.blocker = new DnsBlocker();
     /** @type {import("../rethinkdns/main.js").BlocklistWrapper} */
     this.bw = blocklistWrapper;
-    this.nodeutil = null;
     this.transport = null;
     this.log = log.withTags("DnsResolver");
 
@@ -56,24 +55,22 @@ export default class DNSResolver {
   async lazyInit() {
     if (!envutil.hasDynamicImports()) return;
 
-    const isnode = envutil.isNode();
-    const plainOldDnsIp = dnsutil.dnsaddr();
-    if (isnode && !this.nodeutil) {
-      this.nodeutil = await import("../../core/node/util.js");
-      this.log.i("imported node-util");
-    }
-    if (isnode && !this.transport) {
-      // awaiting on dns-transport may take more than 1 micro tick;
-      // and so, multiple concurrent awaits on lazyInit() ends up
-      // initializing multiple transports (ex, when 100+
-      // requests arrive at once). Hence the need to check if
-      // the transport is already set / not null.
-      const dnst = await import("../../core/node/dns-transport.js");
-      if (this.transport == null) {
-        this.transport = dnst.makeTransport(plainOldDnsIp, 53);
-        this.log.i("imported udp/tcp dns transport", plainOldDnsIp);
-      }
-    }
+    // NOTE:
+    // plain old transport disabled on nodejs for now; using built-in fetch
+    // const isnode = envutil.isNode();
+    // const plainOldDnsIp = dnsutil.dnsaddr();
+    // if (isnode && !this.transport) {
+    // awaiting on dns-transport may take more than 1 micro tick;
+    // and so, multiple concurrent awaits on lazyInit() ends up
+    // initializing multiple transports (ex, when 100+
+    // requests arrive at once). Hence the need to check if
+    // the transport is already set / not null.
+    // const dnst = await import("../../core/node/dns-transport.js");
+    // if (this.transport == null) {
+    //   this.transport = dnst.makeTransport(plainOldDnsIp);
+    //   this.log.i("imported udp/tcp dns transport", plainOldDnsIp);
+    // }
+    // }
   }
 
   async close() {
@@ -370,6 +367,10 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
 
   // if no doh upstreams set, resolve over plain-old dns
   if (util.emptyArray(resolverUrls)) {
+    if (this.transport == null) {
+      this.log.e(rxid, "plain dns transport not set");
+      return Promise.reject(new Error("plain dns transport not set"));
+    }
     // do not let exceptions passthrough to the caller
     try {
       const q = bufutil.bufferOf(query);
