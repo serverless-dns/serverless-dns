@@ -39,6 +39,7 @@ For help or assistance, feel free to [open an issue](https://github.com/celzero/
 ---
 
 ### Development
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/serverless-dns/serverless-dns/badge)](https://securityscorecards.dev/viewer/?uri=github.com/serverless-dns/serverless-dns)
 
 #### Setup
 
