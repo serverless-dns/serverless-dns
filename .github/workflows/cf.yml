@@ -1,5 +1,9 @@
 name: ⛅ CF
 on:
+  # github.com/serverless-dns/blocklists/blob/6021f80f/.github/workflows/createUploadBlocklistFilter.yml#L4-L6
+  schedule:
+    # at 7:53 on 3rd, 10th, 18th, 26th of every month
+    - cron: '53 7 3,10,18,26 * *'
   # docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
   # docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows#workflow_dispatch
   # docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
@@ -57,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Checkout
+      - name: 🛒 Checkout
         uses: actions/checkout@v3.3.0
         with:
           ref: ${{ env.GIT_REF }}
@@ -86,20 +90,31 @@ jobs:
           WENV: 'prod'
           COMMIT_SHA: ${{ github.sha }}
 
+      - name: 🌽 Cron?
+        if: github.event.schedule == '53 7 3,10,18,26 * *'
+        run: |
+          echo "WORKERS_ENV=${WENV}" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
+        shell: bash
+        env:
+          # cron deploys always deploy to prod
+          WENV: 'prod'
+          COMMIT_SHA: ${{ github.sha }}
+
         # npm (and node16) are installed by wrangler-action in a pre-job setup
       - name: 🏗 Get dependencies
         run: npm i
 
       - name: 📚 Wrangler publish
         # github.com/cloudflare/wrangler-action
-        uses: cloudflare/wrangler-action@2.0.0
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           # input overrides env-defaults, regardless
           environment: ${{ env.WORKERS_ENV }}
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          GIT_COMMIT_ID: ${{ env.GIT_REF }}
+          GIT_COMMIT_ID: ${{ env.COMMIT_SHA }}
 
       - name: 🎤 Notice
         run: |

@@ -1,6 +1,10 @@
 name: 🪂 Fly
 
 on:
+  # github.com/serverless-dns/blocklists/blob/6021f80f/.github/workflows/createUploadBlocklistFilter.yml#L4-L6
+  schedule:
+    # at 7:53 on 2nd, 9th, 17th, 25th of every month
+    - cron: '53 7 2,9,17,25 * *'
   push:
     branches:
       - "main"
@@ -114,6 +118,15 @@ jobs:
       - name: 🚨🛺 Prod via tag?
         # docs.github.com/en/actions/learn-github-actions/contexts#github-context
         if: ${{ github.event_name != 'workflow_dispatch' && github.ref_type == 'tag' }}
+        run: |
+          echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
+          echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+
+      - name: 🚨🌽 Prod via cron?
+        if: github.event.schedule == '53 7 2,9,17,25 * *'
         run: |
           echo "FLY_APP=${FLY_PROD_APP}" >> $GITHUB_ENV
           echo "::notice::Deploying PROD / ${GIT_REF} @ ${COMMIT_SHA}"
