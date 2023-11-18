@@ -1132,8 +1132,8 @@ function adjustMaxConns(n) {
   }
 
   // adjustMaxConns is called every adjPeriodSec
-  const breakpoint = 10 * adjsPerSec; // 10 mins
-  const stresspoint = 5 * adjsPerSec; // 5 mins
+  const breakpoint = 6 * adjsPerSec; // 6 mins
+  const stresspoint = 4 * adjsPerSec; // 4 mins
   const nstr = stats.openconns + "/" + n;
   if (adj > breakpoint) {
     log.w("load: stopping; n:", nstr, "adjs:", adj);
