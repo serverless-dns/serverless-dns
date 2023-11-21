@@ -1,9 +1,9 @@
 name: ⛅ CF
 on:
   # github.com/serverless-dns/blocklists/blob/6021f80f/.github/workflows/createUploadBlocklistFilter.yml#L4-L6
-  schedule:
+  # schedule:
     # at 7:53 on 3rd, 10th, 18th, 26th of every month
-    - cron: '53 7 3,10,18,26 * *'
+    # - cron: '53 7 3,10,18,26 * *'
   # docs.github.com/en/actions/managing-workflow-runs/manually-running-a-workflow
   # docs.github.com/en/actions/learn-github-actions/events-that-trigger-workflows#workflow_dispatch
   # docs.github.com/en/actions/learn-github-actions/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
