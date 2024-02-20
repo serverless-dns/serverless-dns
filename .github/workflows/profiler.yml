@@ -40,8 +40,8 @@ env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
-  NODE_VER: '19.x'
-  DENO_VER: '1.29.3'
+  NODE_VER: '21.x'
+  DENO_VER: '1.40.x'
   MODE: 'p1'
   QDOH: 'q'
 
@@ -89,6 +89,7 @@ jobs:
       - name: 🥝 Deno deps
         if: env.JS_RUNTIME == 'deno'
         run: |
+          deno task prepare
           deno cache ./src/server-deno.ts
 
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
