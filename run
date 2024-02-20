@@ -40,7 +40,7 @@ cleanup() {
   jobs -p > jobfile
   j=$(cat jobfile)
   echo "kill... $j"
-  kill -INT $j
+  kill -INT $j || true
   # does not work... jobs -p | xargs -r kill -9
   rm jobfile
 }
