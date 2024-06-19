@@ -52,7 +52,7 @@
     "prettier": "2.5.1",
     "webpack": "^5.65.0",
     "webpack-cli": "^4.10.0",
-    "wrangler": "^2.1.15"
+    "wrangler": "^3.0.0"
   },
   "lint-staged": {
     "*.?(m|c)js": "eslint --cache --fix",

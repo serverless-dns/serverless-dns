@@ -52,6 +52,7 @@ on:
 
 env:
   GIT_REF: ${{ github.event.inputs.commit || github.ref }}
+  WRANGLER_VER: '3.56.0'
   # default is 'dev' which is really empty/no env
   WORKERS_ENV: ''
 
@@ -112,6 +113,7 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           # input overrides env-defaults, regardless
           environment: ${{ env.WORKERS_ENV }}
+          wranglerVersion: ${{ env.WRANGLER_VER }}
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           GIT_COMMIT_ID: ${{ env.COMMIT_SHA }}
