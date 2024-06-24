@@ -13,7 +13,8 @@ RUN npm i
 RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./src/server-node.js
 
 # stage 2
-FROM node:alpine AS runner
+# pin to node22 for native deps (mmap-io)
+FROM node:22-alpine AS runner
 
 # env vals persist even at run-time: archive.is/QpXp2
 # and overrides fly.toml env values
