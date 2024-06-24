@@ -7,8 +7,9 @@
  */
 /* eslint-disabled */
 // eslint, no import-assert: github.com/eslint/eslint/discussions/15305
-import u6cfg from "../u6-basicconfig.json" assert { type: 'json' };
-import u6filetag from "../u6-filetag.json" assert { type: 'json' };
+import u6cfg from "../u6-basicconfig.json" with { type: 'json' };
+import u6filetag from "../u6-filetag.json" with { type: 'json' };
+// nodejs.org/docs/latest-v22.x/api/esm.html#json-modules
 
 export function timestamp() {
     return u6cfg.timestamp;
@@ -17,7 +18,7 @@ export function timestamp() {
 export function tdNodeCount() {
     return u6cfg.nodecount;
 }
-  
+
 export function tdParts() {
   return u6cfg.tdparts;
 }
@@ -25,7 +26,7 @@ export function tdParts() {
 export function tdCodec6() {
   return u6cfg.useCodec6;
 }
-  
+
 export function orig() {
   return u6cfg;
 }
