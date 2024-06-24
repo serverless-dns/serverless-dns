@@ -5,10 +5,12 @@ WORKDIR /node-dir
 COPY . .
 # get deps, build, bundle
 RUN npm i
-RUN npm run build:fly
+# our webpack config yet cannot bundle native modules (mmap-utils)
+# RUN npm run build:fly
 # or RUN npx webpack --config webpack.fly.cjs
 # download blocklists and bake them in the img
-RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.mjs
+# RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.mjs
+RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./src/server-node.js
 
 # stage 2
 FROM node:alpine AS runner
@@ -19,10 +21,11 @@ ENV NODE_ENV production
 ENV NODE_OPTIONS="--max-old-space-size=320 --heapsnapshot-signal=SIGUSR2"
 # get working dir in order
 WORKDIR /app
-COPY --from=setup /node-dir/dist ./
-COPY --from=setup /node-dir/blocklists__ ./blocklists__
-COPY --from=setup /node-dir/dbip__ ./dbip__
+# COPY --from=setup /node-dir/dist ./
+# COPY --from=setup /node-dir/blocklists__ ./blocklists__
+# COPY --from=setup /node-dir/dbip__ ./dbip__
+COPY --from=setup . .
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)
-CMD ["node", "./fly.mjs"]
+CMD ["node", "./src/server-node.js"]
