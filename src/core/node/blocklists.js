@@ -10,7 +10,7 @@ import * as path from "node:path";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as cfg from "../../core/cfg.js";
-import mmap from "mmap-utils";
+import mmap from "@riaskov/mmap-io";
 
 const blocklistsDir = "./blocklists__";
 const tdFile = "td.txt";
