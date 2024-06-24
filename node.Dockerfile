@@ -1,7 +1,7 @@
 FROM node:22 as setup
 # git is required if any of the npm packages are git[hub] packages
 RUN apt-get update && apt-get install git -yq --no-install-suggests --no-install-recommends
-WORKDIR /node-dir
+WORKDIR /app
 COPY . .
 # get deps, build, bundle
 RUN npm i
@@ -22,10 +22,10 @@ ENV NODE_ENV production
 ENV NODE_OPTIONS="--max-old-space-size=320 --heapsnapshot-signal=SIGUSR2"
 # get working dir in order
 WORKDIR /app
-# COPY --from=setup /node-dir/dist ./
-# COPY --from=setup /node-dir/blocklists__ ./blocklists__
-# COPY --from=setup /node-dir/dbip__ ./dbip__
-COPY --from=setup . .
+# COPY --from=setup /app/dist ./
+# COPY --from=setup /app/blocklists__ ./blocklists__
+# COPY --from=setup /app/dbip__ ./dbip__
+COPY --from=setup /app .
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)

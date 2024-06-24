@@ -17,6 +17,10 @@ module.exports = {
     }),
   ],
 
+  module: {
+    rules: [{ test: /\.node$/, loader: "node-loader" }],
+  },
+
   optimization: {
     usedExports: true,
     minimize: false,
