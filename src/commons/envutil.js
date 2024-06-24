@@ -45,6 +45,11 @@ export function hasDisk() {
   return onFly() || onLocal();
 }
 
+export function useMmap() {
+  // got disk on fly and local deploys
+  return onFly() || onLocal();
+}
+
 export function hasDynamicImports() {
   if (onDenoDeploy() || onCloudflare() || onFastly()) return false;
   return true;
