@@ -64,7 +64,7 @@ jobs:
       contents: read
     steps:
       - name: 🚚 Fetch code
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.git-ref || github.ref }}
           fetch-depth: 0
@@ -85,10 +85,10 @@ jobs:
           git reset
           git merge origin/${BUILD_BRANCH} || :
 
-      - name: 🦕 Install Deno @1.29
+      - name: 🦕 Install Deno @1.44
         uses: denoland/setup-deno@main
         with:
-          deno-version: 1.29.3
+          deno-version: 1.44.4
 
       - name: 📦 Bundle up
         if: ${{ env.DEPLOY_MODE == 'action' }}
@@ -103,7 +103,7 @@ jobs:
       - name: 🤸🏼 Deploy to deno.com
         id: dd
         if: ${{ env.DEPLOY_MODE == 'action' }}
-        uses: denoland/deployctl@1.4.0
+        uses: denoland/deployctl@1.20.0
         with:
           project: ${{ env.PROJECT_NAME }}
           entrypoint: ${{ env.OUT_FILE }}
