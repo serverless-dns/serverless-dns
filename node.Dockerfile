@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install git -yq --no-install-suggests --no-install
 WORKDIR /app
 COPY . .
 # get deps, build, bundle
-RUN npm i
+RUN npm i --omit=dev
 # our webpack config yet cannot bundle native modules (mmap-utils)
 # RUN npm run build:fly
 # or RUN npx webpack --config webpack.fly.cjs
