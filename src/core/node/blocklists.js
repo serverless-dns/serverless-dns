@@ -15,7 +15,6 @@ import mmap from "@riaskov/mmap-io";
 const blocklistsDir = "./blocklists__";
 const tdFile = "td.txt";
 const rdFile = "rd.txt";
-const useMmap = true;
 
 export async function setup(bw) {
   if (!bw || !envutil.hasDisk()) return false;
