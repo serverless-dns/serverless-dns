@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install git -yq --no-install-suggests --no-install
 WORKDIR /app
 COPY . .
 # get deps, build, bundle
-RUN npm i --omit=dev
+RUN npm i
 # webpack externalizes native modules (@riaskov/mmap-io)
 RUN npm run build:fly
 # or RUN npx webpack --config webpack.fly.cjs
