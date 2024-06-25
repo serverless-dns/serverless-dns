@@ -2,7 +2,7 @@ const webpack = require("webpack");
 
 module.exports = {
   entry: "./src/server-node.js",
-  target: ["node", "es2022"],
+  target: ["node22", "es2022"],
   mode: "production",
   // enable devtool in development
   // devtool: 'eval-cheap-module-source-map',
