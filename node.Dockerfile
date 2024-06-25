@@ -32,4 +32,4 @@ COPY --from=setup /app/dbip__ ./dbip__
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)
-CMD ["node", "./dist/fly.mjs"]
+CMD ["node", "./fly.mjs"]
