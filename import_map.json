@@ -6,6 +6,7 @@
     "process": "https://deno.land/std@0.177.0/node/process.ts",
     "@serverless-dns/dns-parser": "https://github.com/serverless-dns/dns-parser/raw/v2.1.2/index.js",
     "@serverless-dns/lfu-cache": "https://github.com/serverless-dns/lfu-cache/raw/v3.4.1/lfu.js",
-    "@serverless-dns/trie/": "https://github.com/serverless-dns/trie/raw/v0.0.13/src/"
+    "@serverless-dns/trie/": "https://github.com/serverless-dns/trie/raw/v0.0.13/src/",
+    "@riaskov/mmap-io": "https://github.com/ARyaskov/mmap-io/raw/v1.4.3/src"
   }
 }
