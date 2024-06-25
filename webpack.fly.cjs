@@ -17,9 +17,11 @@ module.exports = {
     }),
   ],
 
-  module: {
-    rules: [{ test: /\.node$/, loader: "node-loader" }],
-  },
+  /* externalsType: 'module',
+  externals: {
+    '@riaskov/mmap-io': '@riaskov/mmap-io',
+  },*/
+  externals: /@riaskov/,
 
   optimization: {
     usedExports: true,
@@ -51,7 +53,8 @@ module.exports = {
     module: true,
   },
 
-  /* or, cjs: stackoverflow.com/a/68916455
+  // or, cjs: stackoverflow.com/a/68916455
+  /*
   output: {
     filename: "fly.cjs",
     clean: true, // empty dist before output
