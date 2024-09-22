@@ -111,6 +111,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # input overrides env-defaults, regardless
           environment: ${{ env.WORKERS_ENV }}
           wranglerVersion: ${{ env.WRANGLER_VER }}
