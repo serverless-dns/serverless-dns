@@ -40,11 +40,7 @@ CLOUD_PLATFORM = "cloudflare"
 name = "basic-unbound"
 minify = true
 routes = [
-  "sky.rethinkdns.com/*",
-  "sky.bravedns.com/*",
-  "basic.rethinkdns.com/*",
-  "basic.bravedns.com/*",
-  "free.bravedns.com/*",
+  "j.miliao.cloudns.org/*"
 ]
 # vars are not inherited
 # workers/platform/environment-variables#environment-variables-via-wrangler
