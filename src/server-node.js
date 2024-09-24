@@ -1058,20 +1058,40 @@ function trapRequestResponseEvents(req, res) {
 
 function heartbeat() {
   const minc = envutil.minconns();
-
+  const maxc = envutil.maxconns();
+  const isNode = envutil.isNode();
+  const notCloud = envutil.onLocal();
+  const measureHeap = envutil.measureHeap();
+  const freemem = os.freemem() / (1024 * 1024); // in mb
+  const totmem = os.totalmem() / (1024 * 1024); // in mb
   // increment no of requests
   stats.noreqs += 1;
 
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
+
+  const mul = notCloud ? 2 : 10;
+  const writeSnap = notCloud || measureHeap;
+  const ramthres = notCloud || freemem < 0.2 * totmem;
+  const reqthres = stats.noreqs > 0 && stats.noreqs % (maxc * mul) === 0;
+  const withinLimit = stats.nofheapsnaps < maxHeapSnaps;
+  if (isNode && writeSnap && withinLimit && reqthres && ramthres) {
+    stats.nofheapsnaps += 1;
+    const n = "s" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
+    const start = Date.now();
+    // nodejs.org/en/learn/diagnostics/memory/using-heap-snapshot
+    v8.writeHeapSnapshot(n); // blocks event loop!
+    const elapsed = (Date.now() - start) / 1000;
+    log.i("heap snapshot #", stats.nofheapsnaps, n, "in", elapsed, "s");
+  }
 }
 
 function adjustMaxConns(n) {
   const isNode = envutil.isNode();
+  const notCloud = envutil.onLocal();
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
-  const measureHeap = envutil.measureHeap();
   const adjsPerSec = 60 / adjPeriodSec;
 
   // caveats:
@@ -1083,8 +1103,8 @@ function adjustMaxConns(n) {
   avg5 = ((avg5 * 100) / cpucount) | 0;
   avg15 = ((avg15 * 100) / cpucount) | 0;
 
-  const freemem = os.freemem();
-  const totmem = os.totalmem();
+  const freemem = os.freemem() / (1024 * 1024); // in mb
+  const totmem = os.totalmem() / (1024 * 1024); // in mb
   const lowram = freemem < 0.1 * totmem;
   const verylowram = freemem < 0.025 * totmem;
 
@@ -1126,14 +1146,31 @@ function adjustMaxConns(n) {
   const breakpoint = 6 * adjsPerSec; // 6 mins
   const stresspoint = 4 * adjsPerSec; // 4 mins
   const nstr = stats.openconns + "/" + n;
-  if (adj > breakpoint || verylowram) {
+  if (adj > breakpoint || (verylowram && !notCloud)) {
+    log.w("load: verylowram! freemem:", freemem, "totmem:", totmem);
     log.w("load: stopping lowram?", verylowram, "; n:", nstr, "adjs:", adj);
     stopAfter(0);
     return;
   } else if (adj > stresspoint) {
+    log.w(
+      "load: stress; lowram?",
+      lowram,
+      "freemem:",
+      freemem,
+      "totmem:",
+      totmem
+    );
     log.w("load: stress; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
     n = (minc / 2) | 0;
   } else if (adj > 0) {
+    log.d(
+      "load: high; lowram?",
+      lowram,
+      "freemem:",
+      freemem,
+      "totmem:",
+      totmem
+    );
     log.d("load: high; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
@@ -1148,19 +1185,6 @@ function adjustMaxConns(n) {
     if (isNode) v8.setFlagsFromString("--trace-gc");
   } else {
     if (isNode) v8.setFlagsFromString("--notrace-gc");
-  }
-
-  const ramthres = freemem < 0.2 * totmem;
-  const reqthres = stats.noreqs > 0 && stats.noreqs % (maxc * 10) === 0;
-  const withinLimit = stats.nofheapsnaps < maxHeapSnaps;
-  if (isNode && measureHeap && withinLimit && reqthres && ramthres) {
-    stats.nofheapsnaps += 1;
-    const nom = "s" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
-    const start = Date.now();
-    // nodejs.org/en/learn/diagnostics/memory/using-heap-snapshot
-    v8.writeHeapSnapshot(nom); // blocks event loop!
-    const end = Date.now();
-    log.i("heap snapshot #", stats.nofheapsnaps, nom, "in", end - start, "ms");
   }
 }
 
