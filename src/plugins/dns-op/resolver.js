@@ -232,6 +232,7 @@ export default class DNSResolver {
     }
 
     // developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled#return_value
+    /** @type{Response} */
     const res = promisedTasks[1].value;
 
     if (fromMax) {
@@ -251,8 +252,8 @@ export default class DNSResolver {
 
     if (!res.ok) {
       const txt = res.text && (await res.text());
-      this.log.d(rxid, "!OK", res.status, txt);
-      throw new Error(txt + " http err: " + res);
+      this.log.w(rxid, "!OK", res.status, txt);
+      throw new Error(txt + " http err: " + res.status + " " + res.statusText);
     }
 
     const ans = await res.arrayBuffer();
