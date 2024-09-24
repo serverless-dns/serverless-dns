@@ -142,6 +142,7 @@ export function timedOp(op, ms, cleanup = () => {}) {
         }
       });
     } catch (e) {
+      clearTimeout(tid);
       if (!timedout) reject(e);
     }
   });
@@ -180,6 +181,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
         }
       })
       .catch((ignored) => {
+        clearTimeout(tid);
         if (!timedout) deferredOp();
         // else: handled by timeout
       });
