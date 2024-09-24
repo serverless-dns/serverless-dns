@@ -24,9 +24,6 @@ import * as util from "./commons/util.js";
 import "./core/node/config.js";
 import { finished } from "node:stream";
 import * as nodecrypto from "./commons/crypto.js";
-// webpack can't handle node-bindings, a dependency of node-memwatch
-// github.com/webpack/webpack/issues/16029
-// import * as memwatch from "@airbnb/node-memwatch";
 
 /**
  * @typedef {net.Socket} Socket
@@ -50,6 +47,7 @@ class Stats {
     this.nofconns = 0;
     this.openconns = 0;
     this.noftimeouts = 0;
+    this.nofheapsnaps = 0;
     // avg1, avg5, avg15, adj, maxconns
     this.bp = [0, 0, 0, 0, 0];
   }
@@ -169,9 +167,8 @@ const tracker = new Tracker();
 const stats = new Stats();
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
+const maxHeapSnaps = 10;
 let adjTimer = null;
-/** @type {memwatch.HeapDiff} */
-let heapdiff = null;
 
 ((main) => {
   // listen for "go" and start the server
@@ -340,7 +337,6 @@ function systemUp() {
     trapServerEvents(hcheck);
   });
 
-  // if (envutil.measureHeap()) heapdiff = new memwatch.HeapDiff();
   heartbeat();
 }
 
@@ -1061,6 +1057,7 @@ function trapRequestResponseEvents(req, res) {
 }
 
 function heartbeat() {
+  const isNode = envutil.isNode();
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
   const measureHeap = envutil.measureHeap();
@@ -1068,17 +1065,18 @@ function heartbeat() {
   // increment no of requests
   stats.noreqs += 1;
 
-  if (!measureHeap) {
-    endHeapDiffIfNeeded(heapdiff);
-    heapdiff = null;
-  } else if (heapdiff == null) {
-    // heapdiff = new memwatch.HeapDiff();
-  } else if (stats.noreqs % (maxc * 10) === 0) {
-    endHeapDiffIfNeeded(heapdiff);
-    // heapdiff = new memwatch.HeapDiff();
-  }
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
+  }
+
+  if (measureHeap && stats.noreqs !== 0 && stats.noreqs % (maxc * 10) === 0) {
+    if (isNode && stats.nofheapsnaps < maxHeapSnaps) {
+      stats.nofheapsnaps += 1;
+      const nom =
+        "snap" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
+      log.i("heap snapshot #", stats.nofheapsnaps, nom);
+      v8.writeHeapSnapshot(nom);
+    }
   }
 }
 
@@ -1160,27 +1158,13 @@ function adjustMaxConns(n) {
   }
 }
 
-/**
- * @param {memwatch.HeapDiff} h
- * @returns void
- */
-function endHeapDiffIfNeeded(h) {
-  // disabled; memwatch is not bundled due to a webpack bug
-  if (!h || true) return;
-  try {
-    const diff = h.end();
-    log.i("heap before", diff.before);
-    log.i("heap after", diff.after);
-    log.i("heap details", diff.change.details);
-  } catch (ex) {
-    log.w("heap-diff err", ex.message);
-  }
-}
-
 function bye() {
   // in some cases, node stops listening but the process doesn't exit because
   // of other unreleased resources (see: svc.js#systemStop); and so exit with
   // success (exit code 0) regardless; ref: community.fly.io/t/4547/6
   console.warn("W game over");
+
+  if (envutil.isNode()) v8.writeHeapSnapshot("snap.end.heapsnapshot");
+
   process.exit(0);
 }
