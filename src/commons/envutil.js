@@ -227,12 +227,10 @@ export function shutdownTimeoutMs() {
 }
 
 export function measureHeap() {
-  // disable; webpack can't bundle memwatch; see: server-node.js
-  return false;
   if (!envManager) return false;
   const reg = region();
   if (
-    reg === "maa" ||
+    reg === "bom" ||
     reg === "sin" ||
     reg === "fra" ||
     reg === "ams" ||
