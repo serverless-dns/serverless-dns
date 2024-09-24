@@ -1156,9 +1156,11 @@ function adjustMaxConns(n) {
   if (isNode && measureHeap && withinLimit && reqthres && ramthres) {
     stats.nofheapsnaps += 1;
     const nom = "s" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
-    log.i("heap snapshot #", stats.nofheapsnaps, nom);
+    const start = Date.now();
     // nodejs.org/en/learn/diagnostics/memory/using-heap-snapshot
     v8.writeHeapSnapshot(nom); // blocks event loop!
+    const end = Date.now();
+    log.i("heap snapshot #", stats.nofheapsnaps, nom, "in", end - start, "ms");
   }
 }
 
