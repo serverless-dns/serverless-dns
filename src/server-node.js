@@ -1057,10 +1057,7 @@ function trapRequestResponseEvents(req, res) {
 }
 
 function heartbeat() {
-  const isNode = envutil.isNode();
-  const maxc = envutil.maxconns();
   const minc = envutil.minconns();
-  const measureHeap = envutil.measureHeap();
 
   // increment no of requests
   stats.noreqs += 1;
@@ -1068,22 +1065,13 @@ function heartbeat() {
   if (stats.noreqs % (minc * 2) === 0) {
     log.i(stats.str(), "in", (uptime() / 60000) | 0, "mins");
   }
-
-  if (measureHeap && stats.noreqs !== 0 && stats.noreqs % (maxc * 10) === 0) {
-    if (isNode && stats.nofheapsnaps < maxHeapSnaps) {
-      stats.nofheapsnaps += 1;
-      const nom =
-        "snap" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
-      log.i("heap snapshot #", stats.nofheapsnaps, nom);
-      v8.writeHeapSnapshot(nom);
-    }
-  }
 }
 
 function adjustMaxConns(n) {
   const isNode = envutil.isNode();
   const maxc = envutil.maxconns();
   const minc = envutil.minconns();
+  const measureHeap = envutil.measureHeap();
   const adjsPerSec = 60 / adjPeriodSec;
 
   // caveats:
@@ -1094,6 +1082,11 @@ function adjustMaxConns(n) {
   avg1 = ((avg1 * 100) / cpucount) | 0;
   avg5 = ((avg5 * 100) / cpucount) | 0;
   avg15 = ((avg15 * 100) / cpucount) | 0;
+
+  const freemem = os.freemem();
+  const totmem = os.totalmem();
+  const lowram = freemem < 0.1 * totmem;
+  const verylowram = freemem < 0.025 * totmem;
 
   let adj = stats.bp[3] || 0;
   // increase in load
@@ -1109,7 +1102,7 @@ function adjustMaxConns(n) {
     n = maxc;
     if (avg1 > 100) {
       n = minc;
-    } else if (avg1 > 90 || avg5 > 80) {
+    } else if (avg1 > 90 || avg5 > 80 || lowram) {
       n = Math.max((n * 0.2) | 0, minc);
     } else if (avg1 > 80 || avg5 > 75) {
       n = Math.max((n * 0.4) | 0, minc);
@@ -1133,8 +1126,8 @@ function adjustMaxConns(n) {
   const breakpoint = 6 * adjsPerSec; // 6 mins
   const stresspoint = 4 * adjsPerSec; // 4 mins
   const nstr = stats.openconns + "/" + n;
-  if (adj > breakpoint) {
-    log.w("load: stopping; n:", nstr, "adjs:", adj);
+  if (adj > breakpoint || verylowram) {
+    log.w("load: stopping lowram?", verylowram, "; n:", nstr, "adjs:", adj);
     stopAfter(0);
     return;
   } else if (adj > stresspoint) {
@@ -1144,6 +1137,12 @@ function adjustMaxConns(n) {
     log.d("load: high; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
+  stats.bp = [avg1, avg5, avg15, adj, n];
+  for (const s of tracker.servers()) {
+    if (!s || !s.listening) continue;
+    s.maxConnections = n;
+  }
+
   // nodejs.org/en/docs/guides/diagnostics/memory/using-gc-traces
   if (adj > 0) {
     if (isNode) v8.setFlagsFromString("--trace-gc");
@@ -1151,10 +1150,15 @@ function adjustMaxConns(n) {
     if (isNode) v8.setFlagsFromString("--notrace-gc");
   }
 
-  stats.bp = [avg1, avg5, avg15, adj, n];
-  for (const s of tracker.servers()) {
-    if (!s || !s.listening) continue;
-    s.maxConnections = n;
+  const ramthres = freemem < 0.2 * totmem;
+  const reqthres = stats.noreqs > 0 && stats.noreqs % (maxc * 10) === 0;
+  const withinLimit = stats.nofheapsnaps < maxHeapSnaps;
+  if (isNode && measureHeap && withinLimit && reqthres && ramthres) {
+    stats.nofheapsnaps += 1;
+    const nom = "s" + stats.nofheapsnaps + "." + stats.noreqs + ".heapsnapshot";
+    log.i("heap snapshot #", stats.nofheapsnaps, nom);
+    // nodejs.org/en/learn/diagnostics/memory/using-heap-snapshot
+    v8.writeHeapSnapshot(nom); // blocks event loop!
   }
 }
 
