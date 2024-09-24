@@ -167,7 +167,7 @@ const tracker = new Tracker();
 const stats = new Stats();
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
-const maxHeapSnaps = 10;
+const maxHeapSnaps = 20;
 let adjTimer = null;
 
 ((main) => {
