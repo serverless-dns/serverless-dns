@@ -1152,25 +1152,11 @@ function adjustMaxConns(n) {
     stopAfter(0);
     return;
   } else if (adj > stresspoint) {
-    log.w(
-      "load: stress; lowram?",
-      lowram,
-      "freemem:",
-      freemem,
-      "totmem:",
-      totmem
-    );
+    log.w("load: stress; lowram?", lowram, "mem:", freemem, " / ", totmem);
     log.w("load: stress; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
     n = (minc / 2) | 0;
   } else if (adj > 0) {
-    log.d(
-      "load: high; lowram?",
-      lowram,
-      "freemem:",
-      freemem,
-      "totmem:",
-      totmem
-    );
+    log.d("load: high; lowram?", lowram, "mem:", freemem, " / ", totmem);
     log.d("load: high; n:", nstr, "adjs:", adj, "avgs:", avg1, avg5, avg15);
   }
 
