@@ -82,9 +82,6 @@ export default class Log {
   _resetLevel() {
     this.d = stub();
     this.debug = stub();
-    this.lapTime = stub();
-    this.startTime = stubr("");
-    this.endTime = stubr(false);
     this.i = stub();
     this.info = stub();
     this.w = stub();
@@ -96,24 +93,6 @@ export default class Log {
   withTags(...tags) {
     const that = this;
     return {
-      lapTime: (n, ...r) => {
-        // returns void
-        return that.lapTime(n, ...tags, ...r);
-      },
-      startTime: (n, ...r) => {
-        const tid = that.startTime(n);
-        that.d(that.now() + " T", ...tags, "create", tid, ...r);
-        const tim = setTimeout(() => {
-          that.endTime(tid);
-        }, /* 2mins*/ 2 * 60 * 1000);
-        if (typeof tim.unref === "function") tim.unref();
-        return tid;
-      },
-      endTime: (n, ...r) => {
-        if (that.endTime(n)) {
-          that.d(that.now() + " T", ...tags, "end", n, ...r);
-        } // else: already ended or invalid timer
-      },
       d: (...args) => {
         that.d(that.now() + " D", ...tags, ...args);
       },
@@ -169,21 +148,7 @@ export default class Log {
         this.d = console.debug;
         this.debug = console.debug;
       case "timer":
-        // stub() for Fastly as it does not support console timers.
-        this.lapTime = console.timeLog || stub();
-        this.startTime = function (name) {
-          name = uid(name);
-          if (console.time) console.time(name);
-          return name;
-        };
-        // stub() for Fastly as it does not support console timers.
-        this.endTime = function (uid) {
-          try {
-            if (console.timeEnd) console.timeEnd(uid);
-            return true;
-          } catch (ignore) {}
-          return false;
-        };
+      // deprecated; fallthrough
       case "info":
         this.i = console.info;
         this.info = console.info;

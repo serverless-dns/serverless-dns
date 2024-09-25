@@ -841,7 +841,6 @@ async function handleTCPQuery(q, socket, host, flag) {
   if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return;
 
   const rxid = util.xid();
-  const t = log.startTime("handle-tcp-query-" + rxid);
   try {
     const r = await resolveQuery(rxid, q, host, flag);
     if (bufutil.emptyBuf(r)) {
@@ -856,7 +855,6 @@ async function handleTCPQuery(q, socket, host, flag) {
     ok = false;
     log.w(rxid, "tcp: send fail, err", e);
   }
-  log.endTime(t);
 
   // close socket when !ok
   if (!ok) {
@@ -941,8 +939,6 @@ async function serveHTTPS(req, res) {
 
   const buffers = [];
 
-  const t = log.startTime("recv-https");
-
   // if using for await loop, then it must be wrapped in a
   // try-catch block: stackoverflow.com/questions/69169226
   // if not, errors from reading req escapes unhandled.
@@ -953,8 +949,6 @@ async function serveHTTPS(req, res) {
   req.on("end", () => {
     const b = bufutil.concatBuf(buffers);
     const bLen = b.byteLength;
-
-    log.endTime(t);
 
     if (util.isPostRequest(req) && !dnsutil.validResponseSize(b)) {
       res.writeHead(dnsutil.dohStatusCode(b), util.corsHeadersIfNeeded(ua));
@@ -976,7 +970,6 @@ async function handleHTTPRequest(b, req, res) {
   heartbeat();
 
   const rxid = util.xid();
-  const t = log.startTime("handle-http-req-" + rxid);
   try {
     let host = req.headers.host || req.headers[":authority"];
     if (isIPv6(host)) host = `[${host}]`;
@@ -995,11 +988,7 @@ async function handleHTTPRequest(b, req, res) {
       body: req.method === "POST" ? b : null,
     });
 
-    log.lapTime(t, "upstream-start");
-
     const fRes = await handleRequest(util.mkFetchEvent(fReq));
-
-    log.lapTime(t, "upstream-end");
 
     if (!resOkay(res)) {
       throw new Error("res not writable 1");
@@ -1007,13 +996,9 @@ async function handleHTTPRequest(b, req, res) {
 
     res.writeHead(fRes.status, util.copyHeaders(fRes));
 
-    log.lapTime(t, "send-head");
-
     // ans may be null on non-2xx responses, such as redirects (3xx) by cc.js
     // or 4xx responses on timeouts or 5xx on invalid http method
     const ans = await fRes.arrayBuffer();
-
-    log.lapTime(t, "recv-ans");
 
     if (!resOkay(res)) {
       throw new Error("res not writable 2");
@@ -1030,8 +1015,6 @@ async function handleHTTPRequest(b, req, res) {
     if (!ok) resClose(res);
     log.w(e);
   }
-
-  log.endTime(t);
 }
 
 /**

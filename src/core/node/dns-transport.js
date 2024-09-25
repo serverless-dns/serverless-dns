@@ -49,22 +49,15 @@ export class Transport {
     let sock = this.udpconns.take();
     this.log.d(rxid, "udp pooled?", sock !== null);
 
-    const t = this.log.startTime("udp-query");
     let ans = null;
     try {
       sock = sock || (await this.makeConn("udp"));
-      this.log.lapTime(t, rxid, "make-conn");
-
       ans = await UdpTx.begin(sock).exchange(rxid, q, this.ioTimeout);
-      this.log.lapTime(t, rxid, "get-ans");
-
       this.parkConn(sock, "udp");
     } catch (ex) {
       this.closeUdp(sock);
       this.log.e(rxid, ex);
     }
-    this.log.endTime(t);
-
     return ans;
   }
 
@@ -72,21 +65,15 @@ export class Transport {
     let sock = this.tcpconns.take();
     this.log.d(rxid, "tcp pooled?", sock !== null);
 
-    const t = this.log.startTime("tcp-query");
     let ans = null;
     try {
       sock = sock || (await this.makeConn("tcp"));
-      log.lapTime(t, rxid, "make-conn");
-
       ans = await TcpTx.begin(sock).exchange(rxid, q, this.ioTimeout);
-      log.lapTime(t, rxid, "get-ans");
-
       this.parkConn(sock, "tcp");
     } catch (ex) {
       this.closeTcp(sock);
       this.log.e(rxid, ex);
     }
-    this.log.endTime(t);
 
     return ans;
   }
