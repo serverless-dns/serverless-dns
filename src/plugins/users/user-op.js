@@ -49,7 +49,7 @@ export class UserOp {
   }
 
   /**
-   * @param {{request: Request, isDnsMsg: Boolean, rxid: string}} ctx
+   * @param {{request: Request, requestDecodedDnsPacket: any, isDnsMsg: Boolean, rxid: string}} ctx
    * @returns {pres.RResp}
    */
   loadUser(ctx) {
@@ -61,6 +61,7 @@ export class UserOp {
     }
 
     try {
+      const dnsPacket = ctx.requestDecodedDnsPacket;
       const domains = dnsutil.extractDomains(dnsPacket);
       for (const d of domains) {
         if (delegated.has(d)) {
