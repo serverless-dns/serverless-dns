@@ -142,10 +142,8 @@ export default class RethinkPlugin {
 
   async execute() {
     const io = this.io;
-    const rxid = this.ctx.get("rxid");
-
-    const t = this.log.startTime("exec-plugin-" + rxid);
-
+    // const rxid = this.ctx.get("rxid");
+    // const t = this.log.startTime("exec-plugin-" + rxid);
     for (const p of this.plugin) {
       if (io.stopProcessing && !p.continueOnStopProcess) {
         continue;
@@ -154,19 +152,16 @@ export default class RethinkPlugin {
         continue;
       }
 
-      this.log.lapTime(t, rxid, p.name, "send-io");
-
+      // this.log.lapTime(t, rxid, p.name, "send-io");
       const res = await p.module.exec(makectx(this.ctx, p.pctx));
-
-      this.log.lapTime(t, rxid, p.name, "got-res");
+      // this.log.lapTime(t, rxid, p.name, "got-res");
 
       if (typeof p.callback === "function") {
         await p.callback.call(this, res, io);
       }
-
-      this.log.lapTime(t, rxid, p.name, "post-callback");
+      // this.log.lapTime(t, rxid, p.name, "post-callback");
     }
-    this.log.endTime(t);
+    // this.log.endTime(t);
   }
 
   /**
