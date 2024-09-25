@@ -53,7 +53,7 @@ export default class RethinkPlugin {
     this.registerPlugin(
       "userOp",
       services.userOp,
-      ["rxid", "request", "isDnsMsg"],
+      ["rxid", "request", "requestDecodedDnsPacket", "isDnsMsg"],
       this.userOpCallback
     );
 

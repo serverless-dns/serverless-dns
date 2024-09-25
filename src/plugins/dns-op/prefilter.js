@@ -197,7 +197,8 @@ export class DNSPrefilter {
       const subdomains = d.split(".");
       do {
         if (util.emptyArray(subdomains)) break;
-        if (undelegated.has(subdomains.join("."))) {
+        const fqdn = subdomains.join(".");
+        if (undelegated.has(fqdn)) {
           return block;
         }
       } while (subdomains.shift() != null);

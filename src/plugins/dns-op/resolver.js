@@ -151,6 +151,7 @@ export default class DNSResolver {
     const rawpacket = ctx.requestBodyBuffer;
     const decodedpacket = ctx.requestDecodedDnsPacket;
     const userDns = ctx.userDnsResolverUrl;
+    const forceUserDns = this.forceDoh || !util.emptyString(userDns);
     const dispatcher = ctx.dispatcher;
     const userBlockstamp = ctx.userBlockstamp;
     // may be null or empty-obj (stamp then needs to be got from blf)
@@ -212,7 +213,7 @@ export default class DNSResolver {
         this.resolveDnsUpstream(
           rxid,
           req,
-          this.determineDohResolvers(userDns),
+          this.determineDohResolvers(userDns, forceUserDns),
           rawpacket,
           decodedpacket
         ),
