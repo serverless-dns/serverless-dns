@@ -2,7 +2,9 @@ app = ""
 
 kill_signal = "SIGINT"
 kill_timeout = "15s"
-swap_size_mb = 152
+# swap cannot be used with "suspend"
+# community.fly.io/t/20672
+# swap_size_mb = 152
 
 [build]
   dockerfile = "node.Dockerfile"
@@ -21,7 +23,7 @@ swap_size_mb = 152
 [[services]]
   protocol = "tcp"
   internal_port = 8080
-  auto_stop_machines = true
+  auto_stop_machines = "suspend"
   auto_start_machines = true
 
   [[services.ports]]
@@ -50,7 +52,7 @@ swap_size_mb = 152
 [[services]]
   protocol = "tcp"
   internal_port = 10000
-  auto_stop_machines = true
+  auto_stop_machines = "suspend"
   auto_start_machines = true
 
   [[services.ports]]

@@ -24,7 +24,8 @@ auto_rollback = true
 [[services]]
   internal_port = 8055
   protocol = "tcp"
-  auto_stop_machines = true
+  # community.fly.io/t/20672
+  auto_stop_machines = "suspend"
   auto_start_machines = true
 
   [services.concurrency]
@@ -57,7 +58,7 @@ auto_rollback = true
 [[services]]
   internal_port = 10555
   protocol = "tcp"
-  auto_stop_machines = true
+  auto_stop_machines = "suspend"
   auto_start_machines = true
 
   [services.concurrency]
