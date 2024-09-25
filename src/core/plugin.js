@@ -182,7 +182,7 @@ export default class RethinkPlugin {
   /**
    * Adds "userBlocklistInfo", "userBlocklistInfo",  and "dnsResolverUrl"
    * to RethinkPlugin ctx.
-   * @param {RResp} response - Contains data: userBlocklistInfo / userBlockstamp
+   * @param {RResp} response
    * @param {IOState} io
    */
   async userOpCallback(response, io) {

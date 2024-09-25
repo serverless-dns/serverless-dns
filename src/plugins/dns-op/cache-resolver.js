@@ -48,6 +48,12 @@ export class DNSCacheResponder {
     return response;
   }
 
+  /**
+   * @param {string} rxid
+   * @param {any} packet
+   * @param {pres.BStamp} blockInfo
+   * @returns {Promise<pres.RespData>}
+   */
   async resolveFromCache(rxid, packet, blockInfo) {
     const noAnswer = pres.rdnsNoBlockResponse();
     // if blocklist-filter is setup, then there's no need to query http-cache
@@ -101,6 +107,12 @@ export class DNSCacheResponder {
     return pres.dnsResponse(res.dnsPacket, reencoded, res.stamps);
   }
 
+  /**
+   * @param {string} rxid
+   * @param {pres.RespData} r
+   * @param {pres.BStamp} blockInfo
+   * @returns {pres.RespData}
+   */
   makeCacheResponse(rxid, r, blockInfo) {
     // check incoming dns request against blocklists in cache-metadata
     this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo);

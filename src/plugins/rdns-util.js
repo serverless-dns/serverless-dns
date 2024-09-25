@@ -27,11 +27,6 @@ const emptystr = "";
 // delim, version, blockstamp (flag), accesskey
 const emptystamp = [emptystr, emptystr, emptystr, emptystr];
 
-// deprecated: all lists are trreated as wildcards
-const _wildcardUint16 = new Uint16Array([
-  64544, 18431, 8191, 65535, 64640, 1, 128, 16320,
-]);
-
 // pec: parental control, rec: recommended, sec: security
 const recBlockstamps = new Map();
 // oisd, 1hosts:mini, cpbl:light, anudeep, yhosts, tiuxo, adguard
@@ -57,28 +52,46 @@ recBlockstamps.set("pr", "1:eMYB-ACgAQAgARAwIABhUgCA");
 // pec, sec
 recBlockstamps.set("ps", "1:GNwB-ACgeQKr7cg3YXoAgA==");
 
+/**
+ * @param {BlocklistFilter} blf
+ * @returns {boolean}
+ */
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
 }
 
+/**
+ * @param {string} p
+ * @returns {boolean}
+ */
 export function isStampQuery(p) {
   return stampPrefix.test(p);
 }
 
+/**
+ * @param {string} p
+ * @returns {boolean}
+ */
 export function isLogQuery(p) {
   return logPrefix.test(p);
 }
 
-// dn         -> domain name, ex: you.and.i.example.com
-// userBlInfo -> user-selected blocklist-stamp
-//               {userBlocklistFlagUint, userServiceListUint}
-// dnBlInfo   -> obj of blocklists stamps for dn and all its subdomains
-//               {string(sub/domain-name) : u16(blocklist-stamp) }
-// FIXME: return block-dnspacket depending on altsvc/https/svcb or cname/a/aaaa
+/**
+ * dn         -> domain name, ex: you.and.i.example.com
+ * userBlInfo -> user-selected blocklist-stamp
+ *              {BlockstampInfo}
+ * dnBlInfo   -> obj of blocklists stamps for dn and all its subdomains
+ *              {string(sub/domain-name) : u16(blocklist-stamp) }
+ * FIXME: return block-dnspacket depending on altsvc/https/svcb or cname/a/aaaa
+ * @param {string} dn domain name
+ * @param {pres.BlockstampInfo} userBlInfo user blocklist info
+ * @param {pres.BStamp} dnBlInfo domain blockstamp map
+ */
 export function doBlock(dn, userBlInfo, dnBlInfo) {
   const blockSubdomains = envutil.blockSubdomains();
   const version = userBlInfo.flagVersion;
   const noblock = pres.rdnsNoBlockResponse();
+  const userUint = userBlInfo.userBlocklistFlagUint;
   if (
     util.emptyString(dn) ||
     util.emptyObj(dnBlInfo) ||
@@ -89,32 +102,14 @@ export function doBlock(dn, userBlInfo, dnBlInfo) {
 
   // treat every blocklist as a wildcard blocklist
   if (blockSubdomains) {
-    return applyWildcardBlocklists(
-      userBlInfo.userBlocklistFlagUint,
-      version,
-      dnBlInfo,
-      dn
-    );
+    return applyWildcardBlocklists(dn, version, userUint, dnBlInfo);
   }
 
-  const dnUint = new Uint16Array(dnBlInfo[dn]);
+  const dnUint = dnBlInfo[dn];
   // if the domain isn't in block-info, we're done
   if (util.emptyArray(dnUint)) return noblock;
   // else, determine if user selected blocklist intersect with the domain's
-  const r = applyBlocklists(userBlInfo.userBlocklistFlagUint, dnUint, version);
-
-  // if response is blocked, we're done
-  if (r.isBlocked) return r;
-  // if user-blockstamp doesn't contain any wildcard blocklists, we're done
-  if (util.emptyArray(userBlInfo.userServiceListUint)) return r;
-
-  // check if any subdomain is in blocklists that is also in user-blockstamp
-  return applyWildcardBlocklists(
-    userBlInfo.userServiceListUint,
-    version,
-    dnBlInfo,
-    dn
-  );
+  return applyBlocklists(version, userUint, dnUint);
 }
 
 /**
@@ -131,7 +126,7 @@ export function blockstampFromCache(cr) {
 }
 
 /**
- * @param {*} dnsPacket
+ * @param {any} dnsPacket
  * @param {BlocklistFilter} blocklistFilter
  * @returns {pres.BStamp|boolean}
  */
@@ -156,7 +151,14 @@ export function blockstampFromBlocklistFilter(dnsPacket, blocklistFilter) {
   return util.emptyMap(m) ? false : util.objOf(m);
 }
 
-function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
+/**
+ * @param {string} dn domain name
+ * @param {Uint16Array} usrUint user blocklist flags
+ * @param {string} flagVersion mosty 0 or 1
+ * @param {pres.BStamp} dnBlInfo subdomain blocklist flag group
+ * @returns {pres.RespData}
+ */
+function applyWildcardBlocklists(dn, flagVersion, usrUint, dnBlInfo) {
   const dnSplit = dn.split(".");
 
   // iterate through all subdomains one by one, for ex: a.b.c.ex.com:
@@ -170,7 +172,7 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
     // the subdomain isn't present in any current blocklists
     if (util.emptyArray(subdomainUint)) continue;
 
-    const response = applyBlocklists(uint1, subdomainUint, flagVersion);
+    const response = applyBlocklists(flagVersion, usrUint, subdomainUint);
 
     // if any subdomain is in any blocklist, block the current request
     if (!util.emptyObj(response) && response.isBlocked) {
@@ -181,7 +183,13 @@ function applyWildcardBlocklists(uint1, flagVersion, dnBlInfo, dn) {
   return pres.rdnsNoBlockResponse();
 }
 
-function applyBlocklists(uint1, uint2, flagVersion) {
+/**
+ * @param {string} flagVersion
+ * @param {Uint16Array} uint1
+ * @param {Uint16Array} uint2
+ * @returns {pres.RespData}
+ */
+function applyBlocklists(flagVersion, uint1, uint2) {
   // uint1 -> user blocklists; uint2 -> blocklists including sub/domains
   const blockedUint = intersect(uint1, uint2);
 
@@ -194,6 +202,11 @@ function applyBlocklists(uint1, uint2, flagVersion) {
   }
 }
 
+/**
+ * @param {Uint16Array} flag1
+ * @param {Uint16Array} flag2
+ * @returns {Uint16Array|null}
+ */
 function intersect(flag1, flag2) {
   if (util.emptyArray(flag1) || util.emptyArray(flag2)) return null;
 
@@ -253,6 +266,11 @@ function intersect(flag1, flag2) {
   return Uint16Array.of(commonHeader, ...commonBody.reverse());
 }
 
+/**
+ * @param {int} uint
+ * @param {int} pos
+ * @returns
+ */
 function clearbit(uint, pos) {
   return uint & ~(1 << pos);
 }
@@ -326,7 +344,7 @@ export function recBlockstampFrom(url) {
 
 /**
  * @param {string} u - Request URL string
- * @returns {Array<string>} s - delim, version, blockstamp (flag), accesskey
+ * @returns {string[]} s - delim, version, blockstamp (flag), accesskey
  */
 export function extractStamps(u) {
   const url = new URL(u);
@@ -373,6 +391,10 @@ export function extractStamps(u) {
   return emptystamp;
 }
 
+/**
+ * @param {string} b64Flag
+ * @returns {Uint16Array}
+ */
 export function base64ToUintV0(b64Flag) {
   // TODO: v0 not in use, remove all occurences
   // FIXME: Impl not accurate
@@ -381,32 +403,45 @@ export function base64ToUintV0(b64Flag) {
   return bufutil.base64ToUint16(f);
 }
 
+/**
+ * @param {string} b64Flag
+ * @returns {Uint16Array}
+ */
 export function base64ToUintV1(b64Flag) {
   // TODO: check for empty b64Flag
   return bufutil.base64ToUint16(b64Flag);
 }
 
+/**
+ * @param {string} b64Flag
+ * @returns {Uint16Array}
+ */
 export function base32ToUintV1(flag) {
   // TODO: check for empty flag
   const b32 = decodeURI(flag);
   return bufutil.decodeFromBinaryArray(rbase32(b32));
 }
 
+/**
+ * @param {string} s
+ * @returns {string[]} [delim, ver, blockstamp, accesskey]
+ */
 function splitBlockstamp(s) {
-  // delim, version, blockstamp, accesskey
-
   if (util.emptyString(s)) return emptystamp;
   if (!isStampQuery(s)) return emptystamp;
 
   if (isB32Stamp(s)) {
+    // delim, version, blockstamp, accesskey
     return [_b32delim, ...s.split(_b32delim)];
   } else {
     return [_b64delim, ...s.split(_b64delim)];
   }
-
-  return out;
 }
 
+/**
+ * @param {string} s
+ * @returns {boolean}
+ */
 export function isB32Stamp(s) {
   const idx32 = s.indexOf(_b32delim);
   const idx64 = s.indexOf(_b64delim);
@@ -416,21 +451,27 @@ export function isB32Stamp(s) {
   else return idx32 < idx64;
 }
 
-// s[0] is version field, if it doesn't exist
-// then treat it as if version 0.
+/**
+ *
+ * @param {string[]} s
+ * @returns {string}
+ */
 export function stampVersion(s) {
+  // s[0] is version field, if it doesn't exist
+  // then treat it as if version 0.
   if (!util.emptyArray(s)) return s[0];
   else return "0";
 }
 
 // TODO: The logic to parse stamps must be kept in sync with:
 // github.com/celzero/website-dns/blob/8e6056bb/src/js/flag.js#L260-L425
+/**
+ *
+ * @param {string} flag
+ * @returns {pres.BlockstampInfo}
+ */
 export function unstamp(flag) {
-  const r = {
-    userBlocklistFlagUint: null,
-    flagVersion: "0",
-    userServiceListUint: null,
-  };
+  const r = new pres.BlockstampInfo();
 
   if (util.emptyString(flag)) return r;
 
@@ -440,29 +481,26 @@ export function unstamp(flag) {
   const isFlagB32 = isB32Stamp(flag);
   // "v:b64" or "v-b32" or "uriencoded(b64)", where v is uint version
   const s = flag.split(isFlagB32 ? _b32delim : _b64delim);
-  let convertor = (x) => ""; // empty convertor
-  let f = ""; // stamp flag
   const v = stampVersion(s);
 
+  r.flagVersion = v;
   if (v === "0") {
-    // version 0
-    convertor = base64ToUintV0;
-    f = s[0];
+    const f = s[0];
+    r.userBlocklistFlagUint = base64ToUintV0(f) || null;
   } else if (v === "1") {
-    convertor = isFlagB32 ? base32ToUintV1 : base64ToUintV1;
-    f = s[1];
+    const convertor = isFlagB32 ? base32ToUintV1 : base64ToUintV1;
+    const f = s[1];
+    r.userBlocklistFlagUint = convertor(f) || null;
   } else {
     log.w("Rdns:unstamp", "unknown blocklist stamp version in " + s);
-    return r;
   }
-
-  r.flagVersion = v;
-  r.userBlocklistFlagUint = convertor(f) || null;
-  r.userServiceListUint = intersect(r.userBlocklistFlagUint, _wildcardUint16);
-
   return r;
 }
 
+/**
+ * @param {pres.BlockstampInfo} blockInfo
+ * @returns {boolean}
+ */
 export function hasBlockstamp(blockInfo) {
   return (
     !util.emptyObj(blockInfo) &&
@@ -470,13 +508,21 @@ export function hasBlockstamp(blockInfo) {
   );
 }
 
-// returns true if tstamp is of form yyyy/epochMs
+/**
+ * returns true if tstamp is of form yyyy/epochMs
+ * @param {string} tstamp
+ * @returns {boolean}
+ */
 function isValidFullTimestamp(tstamp) {
   if (typeof tstamp !== "string") return false;
   return tstamp.indexOf("/") === 4;
 }
 
-// from: github.com/celzero/downloads/blob/main/src/timestamp.js
+/**
+ * from: github.com/celzero/downloads/blob/main/src/timestamp.js
+ * @param {string} tstamp
+ * @returns {int} epoch
+ */
 export function bareTimestampFrom(tstamp) {
   // strip out "/" if tstamp is of form yyyy/epochMs
   if (isValidFullTimestamp(tstamp)) {
@@ -490,6 +536,10 @@ export function bareTimestampFrom(tstamp) {
   return t;
 }
 
+/**
+ * @param {string} strflag
+ * @returns {string[]} blocklist names
+ */
 export function blocklists(strflag) {
   const { userBlocklistFlagUint, flagVersion } = unstamp(strflag);
   const blocklists = [];

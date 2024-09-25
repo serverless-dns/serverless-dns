@@ -377,9 +377,14 @@ export function isAnswerQuad0(packet) {
   return isAnswerBlocked(packet.answers);
 }
 
+/**
+ * @param {any} dnsPacket
+ * @returns {string[]}
+ */
 export function extractDomains(dnsPacket) {
   if (!hasSingleQuestion(dnsPacket)) return [];
 
+  /** @type {string} */
   const names = new Set();
   const answers = dnsPacket.answers;
 
@@ -535,6 +540,10 @@ export function getQueryType(packet) {
   return util.emptyString(qt) ? false : qt;
 }
 
+/**
+ * @param {string?} n
+ * @returns {string}
+ */
 export function normalizeName(n) {
   if (util.emptyString(n)) return n;
 

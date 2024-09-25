@@ -137,7 +137,7 @@ export default class DNSResolver {
    * @param {Request} ctx.request
    * @param {ArrayBuffer} ctx.requestBodyBuffer
    * @param {Object} ctx.requestDecodedDnsPacket
-   * @param {Object} ctx.userBlocklistInfo
+   * @param {pres.BlockstampInfo} ctx.userBlocklistInfo
    * @param {String} ctx.userDnsResolverUrl
    * @param {string} ctx.userBlockstamp
    * @param {pres.BStamp?} ctx.domainBlockstamp
