@@ -22,7 +22,7 @@ kill_timeout = "15s"
 # community.fly.io/t/19180
 # fly.io/docs/machines/guides-examples/machine-restart-policy
 [[restart]]
-  policy = "on-fail"
+  policy = "on-failure"
   retries = 3
 
 # DNS over HTTPS
