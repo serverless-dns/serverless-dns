@@ -48,7 +48,7 @@ export class UserOp {
    * @returns {pres.RResp}
    */
   loadUser(ctx) {
-    let response = pres.emptyResponse();
+    const response = pres.emptyResponse();
 
     if (!ctx.isDnsMsg) {
       this.log.w(ctx.rxid, "not a dns-msg, ignore");
@@ -84,7 +84,8 @@ export class UserOp {
       response.data.dnsResolverUrl = null;
     } catch (e) {
       this.log.e(ctx.rxid, "loadUser", e);
-      response = pres.errResponse("UserOp:loadUser", e);
+      // avoid erroring out on invalid blocklist info & flag
+      // response = pres.errResponse("UserOp:loadUser", e);
     }
 
     return response;
