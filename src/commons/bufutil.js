@@ -169,11 +169,19 @@ export function bufferOf(arrayBuf) {
   return Buffer.from(new Uint8Array(arrayBuf));
 }
 
+/**
+ * @param {Buffer} b
+ * @returns {int}
+ */
 export function recycleBuffer(b) {
   b.fill(0);
   return 0;
 }
 
+/**
+ * @param {int} size
+ * @returns {Buffer}
+ */
 export function createBuffer(size) {
   return Buffer.allocUnsafe(size);
 }

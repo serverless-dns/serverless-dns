@@ -117,7 +117,13 @@ export function objOf(map) {
   return map.entries ? Object.fromEntries(map) : {};
 }
 
-export function timedOp(op, ms, cleanup = () => {}) {
+/**
+ * @param {(function((out, err) => void))} op
+ * @param {int} ms
+ * @param {function(any)} cleanup
+ * @returns {Promise}
+ */
+export function timedOp(op, ms, cleanup = (x) => {}) {
   return new Promise((resolve, reject) => {
     let timedout = false;
     const tid = timeout(ms, () => {

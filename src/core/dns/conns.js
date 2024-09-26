@@ -13,20 +13,36 @@ import * as util from "../../commons/util.js";
  */
 
 export class TcpConnPool {
+  /**
+   * @param {int} size
+   * @param {int} ttl
+   */
   constructor(size, ttl) {
+    /** @type {int} */
     this.size = size;
-    // max sweeps per give/take
+    /**
+     * max sweeps per give/take
+     * @type {int}
+     */
     this.maxsweep = Math.max((size / 4) | 0, 20);
+    /** @type {int} */
     this.ttl = ttl; // ms
     const quarterttl = (ttl / 4) | 0;
+    /** @type {int} */
     this.keepalive = Math.min(/* 60s*/ 60000, quarterttl); // ms
+    /** @type {int} */
     this.lastSweep = 0;
+    /** @type {int} */
     this.sweepGapMs = Math.max(/* 10s*/ 10000, quarterttl); // ms
     /** @type {Map<import("net").Socket, Report>} */
     this.pool = new Map();
     log.d("tcp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
   }
 
+  /**
+   * @param {AnySock} socket
+   * @returns {boolean}
+   */
   give(socket) {
     if (socket.pending) return false;
     if (!socket.writable) return false;
@@ -40,6 +56,9 @@ export class TcpConnPool {
     return this.checkin(socket);
   }
 
+  /**
+   * @returns {AnySock?}
+   */
   take() {
     const thres = this.maxsweep / 2;
     let out = null;
@@ -68,9 +87,9 @@ export class TcpConnPool {
   }
 
   /**
-   * @param {import("net").Socket} sock
+   * @param {AnySock} sock
    * @param {Report} report
-   * @returns {import("net").Socket}
+   * @returns {AnySock}
    */
   checkout(sock, report) {
     log.d(report.id, "checkout, size:", this.pool.size);
@@ -88,6 +107,10 @@ export class TcpConnPool {
     return sock;
   }
 
+  /**
+   * @param {AnySock} socket
+   * @returns {boolean}
+   */
   checkin(sock) {
     const report = this.mkreport();
 
@@ -102,6 +125,10 @@ export class TcpConnPool {
     return true;
   }
 
+  /**
+   * @param {boolean} clear
+   * @returns {boolean}
+   */
   sweep(clear = false) {
     const sz = this.pool.size;
     if (sz <= 0) return false;
@@ -122,11 +149,21 @@ export class TcpConnPool {
     return sz > this.pool.size; // size decreased post-sweep?
   }
 
+  /**
+   * @param {AnySock?} socket
+   * @returns {boolean}
+   */
   ready(sock) {
-    return sock.readyState === "open";
+    return sock && sock.readyState === "open";
   }
 
+  /**
+   * @param {AnySock?} sock
+   * @param {Report} report
+   * @returns {boolean}
+   */
   healthy(sock, report) {
+    if (!sock) return false;
     const destroyed = !sock.writable;
     const open = this.ready(sock);
     const fresh = report.fresh(this.ttl);
@@ -136,10 +173,18 @@ export class TcpConnPool {
     return fresh; // healthy if not expired
   }
 
+  /**
+   * @param {AnySock} sock
+   * @param {Report} report
+   * @returns {boolean}
+   */
   dead(sock, report) {
     return !this.healthy(sock, report);
   }
 
+  /**
+   * @param {AnySock?} sock
+   */
   evict(sock) {
     this.pool.delete(sock);
 
@@ -148,6 +193,7 @@ export class TcpConnPool {
     } catch (ignore) {}
   }
 
+  /** @return {Report} */
   mkreport() {
     return new Report(util.uid("tcp"));
   }
@@ -164,24 +210,39 @@ class Report {
     this.lastuse = Date.now();
   }
 
+  /** @param {number} since */
   fresh(since) {
     return this.lastuse + since >= Date.now();
   }
 }
 
 export class UdpConnPool {
+  /**
+   * @param {int} size
+   * @param {int} ttl
+   */
   constructor(size, ttl) {
+    /** @type {int} */
     this.size = size;
+    /** @type {int} */
     this.maxsweep = Math.max((size / 4) | 0, 20);
+    /** @type {int} */
     this.ttl = Math.max(/* 60s*/ 60000, ttl); // no more than 60s
+    /** @type {int} */
     this.lastSweep = 0;
+    /** @type {int} */
     this.sweepGapMs = Math.max(/* 10s*/ 10000, (ttl / 2) | 0); // ms
     /** @type {Map<import("dgram").Socket, Report>} */
     this.pool = new Map();
     log.d("udp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
   }
 
+  /**
+   * @param {AnySock?} socket
+   * @returns {boolean}
+   */
   give(socket) {
+    if (!socket) return false;
     if (this.pool.has(socket)) return true;
 
     const free = this.pool.size < this.size || this.sweep();
@@ -190,6 +251,9 @@ export class UdpConnPool {
     return this.checkin(socket);
   }
 
+  /**
+   * @returns {AnySock?}
+   */
   take() {
     const thres = this.maxsweep / 2;
     let out = null;
@@ -217,9 +281,9 @@ export class UdpConnPool {
   }
 
   /**
-   * @param {import("dgram").Socket} sock
+   * @param {AnySock} sock
    * @param {Report} report
-   * @returns {import("dgram").Socket}
+   * @returns {AnySock}
    */
   checkout(sock, report) {
     log.d(report.id, "checkout, size:", this.pool.size);
@@ -231,6 +295,10 @@ export class UdpConnPool {
     return sock;
   }
 
+  /**
+   * @param {AnySock} socket
+   * @returns {boolean}
+   */
   checkin(sock) {
     const report = this.mkreport();
 
@@ -243,6 +311,10 @@ export class UdpConnPool {
     return true;
   }
 
+  /**
+   * @param {boolean} clear
+   * @returns {boolean}
+   */
   sweep(clear = false) {
     const sz = this.pool.size;
     if (sz <= 0) return false;
@@ -263,6 +335,10 @@ export class UdpConnPool {
     return sz > this.pool.size; // size decreased post-sweep?
   }
 
+  /**
+   * @param {Report} report
+   * @returns {boolean}
+   */
   healthy(report) {
     const fresh = report.fresh(this.ttl);
     const id = report.id;
@@ -270,10 +346,17 @@ export class UdpConnPool {
     return fresh; // healthy if not expired
   }
 
+  /**
+   * @param {Report} report
+   * @returns {boolean}
+   */
   dead(report) {
     return !this.healthy(report);
   }
 
+  /**
+   * @param {AnySock?} sock
+   */
   evict(sock) {
     if (!sock) return;
     this.pool.delete(sock);
@@ -282,6 +365,7 @@ export class UdpConnPool {
     sock.close();
   }
 
+  /** @return {Report} */
   mkreport() {
     return new Report(util.uid("udp"));
   }
