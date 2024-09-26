@@ -356,7 +356,7 @@ function trapServerEvents(s) {
 
     const id = tracker.trackConn(s, socket);
     if (!tracker.valid(id)) {
-      log.i("tcp: not tracking; server shutting down?");
+      log.i("tcp: not tracking; server shutting down?", id);
       close(socket);
       return;
     }
@@ -368,7 +368,7 @@ function trapServerEvents(s) {
     });
 
     socket.on("error", (err) => {
-      log.d("tcp: incoming conn closed with err; " + err.message);
+      log.d("tcp: incoming conn", id, "closed:", err.message);
       close(socket);
     });
 
@@ -411,7 +411,7 @@ function trapSecureServerEvents(s) {
 
     const id = tracker.trackConn(s, socket);
     if (!tracker.valid(id)) {
-      log.i("tls: not tracking; server shutting down?");
+      log.i("tls: not tracking; server shutting down?", id);
       close(socket);
       return;
     }
@@ -458,9 +458,21 @@ function trapSecureServerEvents(s) {
   s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
     stats.tlserr += 1;
     // fly tcp healthchecks also trigger tlsClientErrors
-    log.d("tls: client err; " + err.message);
+    log.d("tls: client err;", err.message, addrstr(tlsSocket));
     close(tlsSocket);
   });
+}
+
+/**
+ * @param {TLSSocket|Socket} sock
+ */
+function addrstr(sock) {
+  if (!sock) return "";
+  return (
+    `[${sock.localAddress}]:${sock.localPort}` +
+    "->" +
+    `[${sock.remoteAddress}]:${sock.remotePort}`
+  );
 }
 
 /**
