@@ -9,25 +9,44 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 
+/**
+ * @typedef {import("net").Socket} TcpSock
+ * @typedef {import("dgram").Socket} UdpSock
+ * @typedef {import("net").AddressInfo} AddrInfo
+ */
+
 // TcpTx implements a single DNS question-answer exchange over TCP. It doesn't
 // multiplex multiple DNS questions over the same socket. It doesn't take the
 // ownership of the socket, but requires exclusive use of it. The socket may
 // close itself on errors, however.
 export class TcpTx {
+  /** @param {TcpSock} socket */
   constructor(socket) {
+    /** @type {TcpSock} */
     this.sock = socket;
-    // only one transaction allowed
-    // then done gates all other requests
-    this.done = false;
+    /** @type {boolean} */
+    this.done = false || socket == null; // done gates all other requests
+    /** @type {ScratchBuffer} */
     // reads from the socket is buffered into scratch
     this.readBuffer = this.makeReadBuffer();
+    /** @type {function(Buffer)} */
+    this.resolve = null;
+    /** @type {function(string?)} */
+    this.reject = null;
     this.log = log.withTags("TcpTx");
   }
 
+  /** @param {TcpSock} sock */
   static begin(sock) {
     return new TcpTx(sock);
   }
 
+  /**
+   * @param {string} rxid
+   * @param {Buffer} query
+   * @param {int} timeout
+   * @returns {Promise<Buffer>|null}
+   */
   async exchange(rxid, query, timeout) {
     if (this.done) {
       this.log.w(rxid, "no exchange, tx is done");
@@ -200,19 +219,32 @@ export class TcpTx {
 // ownership of the socket, but requires exclusive access to it. The socket
 // may close itself on errors, however.
 export class UdpTx {
+  /** @param {UdpSock} socket */
   constructor(socket) {
+    /** @type {UdpSock} */
     this.sock = socket;
-    // only one transaction allowed
-    this.done = false;
-    // ticks socket io timeout
-    this.timeoutTimerId = null;
+    /** @type {boolean} */
+    this.done = false || socket == null; // only one transaction allowed
+    /** @type {NodeJS.Timeout|-1} */
+    this.timeoutTimerId = null; // ticks socket io timeout
+    /** @type {function(Buffer)} */
+    this.resolve = null;
+    /** @type {function(string)} */
+    this.reject = null;
     this.log = log.withTags("UdpTx");
   }
 
+  /** @param {UdpSock} sock */
   static begin(sock) {
     return new UdpTx(sock);
   }
 
+  /**
+   * @param {string} rxid
+   * @param {Buffer} query
+   * @param {int} timeout
+   * @returns {Promise<Buffer>|null}
+   */
   async exchange(rxid, query, timeout) {
     if (this.done) {
       this.log.w(rxid, "no exchange, tx is done");
