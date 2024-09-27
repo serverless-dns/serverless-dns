@@ -468,6 +468,7 @@ function trapSecureServerEvents(s) {
  */
 function addrstr(sock) {
   if (!sock) return "";
+  if (sock.localAddress == null || sock.remoteAddress == null) return "";
   return (
     `[${sock.localAddress}]:${sock.localPort}` +
     "->" +
