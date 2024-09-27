@@ -526,13 +526,6 @@ export function stub(...args) {
   };
 }
 
-export function stubr(r, ...args) {
-  return (...args) => {
-    /* no-op */
-    return r;
-  };
-}
-
 export function stubAsync(...args) {
   return async (...args) => {
     /* no-op */

@@ -9,7 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { uid, stub, stubr } from "../commons/util.js";
+import { uid, stub } from "../commons/util.js";
 
 /**
  * @typedef {'error'|'logpush'|'warn'|'info'|'timer'|'debug'} LogLevels

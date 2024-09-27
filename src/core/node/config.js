@@ -127,7 +127,7 @@ async function prep() {
     log.i("imported udp/tcp dns transport", plainOldDnsIp);
   }
 
-  /** signal ready */
+  // signal ready
   system.pub("ready", [dns53]);
 }
 

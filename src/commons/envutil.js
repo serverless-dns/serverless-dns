@@ -8,6 +8,12 @@
 
 // musn't import /depend on anything.
 
+export function isProd() {
+  if (!envManager) return false;
+
+  return envManager.determineEnvStage() === "production";
+}
+
 export function onFly() {
   if (!envManager) return false;
 

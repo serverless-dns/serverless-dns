@@ -8,22 +8,36 @@
 
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
+import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
 
 export default class IOState {
   constructor() {
+    /** @type {string} */
     this.flag = "";
+    /** @type {any} */
     this.decodedDnsPacket = this.emptyDecodedDnsPacket();
-    /** @type {Response} */
-    this.httpResponse = undefined;
+    /** @type {Response?} */
+    this.httpResponse = null;
+    /** @type {boolean} */
+    this.isProd = envutil.isProd();
+    /** @type {boolean} */
     this.isException = false;
-    this.exceptionStack = undefined;
+    /** @type {string} */
+    this.exceptionStack = null;
+    /** @type {string} */
     this.exceptionFrom = "";
+    /** @type {boolean} */
     this.isDnsBlock = false;
+    /** @type {boolean} */
     this.alwaysGatewayAnswer = false;
+    /** @type {string} */
     this.gwip4 = "";
+    /** @type {string} */
     this.gwip6 = "";
+    /** @type {string} */
     this.region = "";
+    /** @type {boolean} */
     this.stopProcessing = false;
     this.log = log.withTags("IOState");
   }
@@ -84,7 +98,7 @@ export default class IOState {
     this.httpResponse = new Response(servfail, {
       headers: util.concatHeaders(
         this.headers(servfail),
-        this.additionalHeader(JSON.stringify(ex))
+        this.debugHeaders(JSON.stringify(ex))
       ),
       status: servfail ? 200 : 408, // rfc8484 section-4.2.1
     });
@@ -148,7 +162,7 @@ export default class IOState {
       this.httpResponse = new Response(null, {
         headers: util.concatHeaders(
           this.headers(),
-          this.additionalHeader(JSON.stringify(this.exceptionStack))
+          this.debugHeaders(JSON.stringify(this.exceptionStack))
         ),
         status: 503,
       });
@@ -174,7 +188,7 @@ export default class IOState {
       this.httpResponse = new Response(null, {
         headers: util.concatHeaders(
           this.headers(),
-          this.additionalHeader(JSON.stringify(this.exceptionStack))
+          this.debugHeaders(JSON.stringify(this.exceptionStack))
         ),
         status: 503,
       });
@@ -201,7 +215,8 @@ export default class IOState {
     );
   }
 
-  additionalHeader(json) {
+  debugHeaders(json) {
+    if (this.isProd) return null;
     if (!json) return null;
 
     return {
