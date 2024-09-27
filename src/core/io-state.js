@@ -182,8 +182,11 @@ export default class IOState {
   }
 
   headers(b = null) {
-    const xNileFlags = this.isDnsBlock ? { "x-nile-flags": this.flag } : null;
-    const xNileFlagsOk = !xNileFlags ? { "x-nile-flags-dn": this.flag } : null;
+    const hasBlockFlag = !util.emptyString(this.flag);
+    const isBlocked = hasBlockFlag && this.isDnsBlock;
+    const couldBlock = hasBlockFlag && !this.isDnsBlock;
+    const xNileFlags = isBlocked ? { "x-nile-flags": this.flag } : null;
+    const xNileFlagsOk = couldBlock ? { "x-nile-flags-dn": this.flag } : null;
     const xNileRegion = !util.emptyString(this.region)
       ? { "x-nile-region": this.region }
       : null;
