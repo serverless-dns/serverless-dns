@@ -13,7 +13,8 @@
 // musn't import any non-std modules
 
 export function fromBrowser(ua) {
-  return ua && ua.startsWith("Mozilla/5.0");
+  if (emptyString(ua)) return false;
+  return ua.startsWith("Mozilla/5.0") || ua.startsWith("dohjs/");
 }
 
 export function jsonHeaders() {

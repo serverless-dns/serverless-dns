@@ -61,11 +61,20 @@ function optionsRequest(request) {
   return request.method === "OPTIONS";
 }
 
+/**
+ * @param {IOState} io
+ * @param {Error} err
+ */
 function errorResponse(io, err = null) {
   const eres = pres.errResponse("doh.js", err);
   io.dnsExceptionResponse(eres);
 }
 
+/**
+ * @param {IOState} io
+ * @param {string} ua
+ * @returns {Response}
+ */
 function withCors(io, ua) {
   if (util.fromBrowser(ua)) io.setCorsHeadersIfNeeded();
   return io.httpResponse;
