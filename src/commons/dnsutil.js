@@ -377,6 +377,11 @@ export function isAnswerQuad0(packet) {
   return isAnswerBlocked(packet.answers);
 }
 
+export function ttl(packet) {
+  if (!hasAnswers(packet)) return 0;
+  return packet.answers[0].ttl || 0;
+}
+
 /**
  * @param {any} dnsPacket
  * @returns {string[]}

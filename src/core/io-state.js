@@ -191,6 +191,7 @@ export default class IOState {
     return util.concatHeaders(
       util.dnsHeaders(),
       util.contentLengthHeader(b),
+      this.cacheHeaders(),
       xNileRegion,
       xNileFlags,
       xNileFlagsOk
@@ -213,6 +214,16 @@ export default class IOState {
     for (const [k, v] of Object.entries(util.corsHeaders())) {
       this.httpResponse.headers.set(k, v);
     }
+  }
+
+  // set cache from ttl in decoded-dns-packet
+  cacheHeaders() {
+    const ttl = dnsutil.ttl(this.decodedDnsPacket);
+    if (ttl <= 0) return null;
+
+    return {
+      "cache-control": "public, max-age=" + ttl,
+    };
   }
 
   assignBlockResponse() {
