@@ -63,7 +63,7 @@ export class TcpTx {
       this.onTimeout(rxid);
     };
     const onError = (err) => {
-      this.onError(rxid);
+      this.onError(rxid, err);
     };
 
     try {
@@ -93,15 +93,16 @@ export class TcpTx {
    * @returns
    */
   onData(rxid, chunk) {
+    const cl = bufutil.len(chunk);
+
     // TODO: Same code as in server.js, merge them
     if (this.done) {
-      this.log.w(rxid, "on reads, tx is closed for business");
+      this.log.w(rxid, "on reads, tx closed; discard", cl);
       return chunk;
     }
 
     const sb = this.readBuffer;
 
-    const cl = chunk.byteLength;
     if (cl <= 0) return;
 
     // read header first which contains length(dns-query)
@@ -154,18 +155,18 @@ export class TcpTx {
     } // continue reading from socket
   }
 
-  onClose(err) {
+  onClose(rxid, err) {
     if (this.done) return; // no-op
-    return err ? this.no("error") : this.no("close");
+    return err ? this.no(err.message) : this.no("close");
   }
 
-  onError(err) {
+  onError(rxid, err) {
     if (this.done) return; // no-op
     this.log.e(rxid, "udp err", err.message);
     this.no(err.message);
   }
 
-  onTimeout() {
+  onTimeout(rxid) {
     if (this.done) return; // no-op
     this.no("timeout");
   }
@@ -184,20 +185,22 @@ export class TcpTx {
    * @param {Buffer} query
    */
   write(rxid, query) {
+    const qlen = bufutil.len(query);
+    const hlen = bufutil.len(header);
     if (this.done) {
-      this.log.w(rxid, "no writes, tx is done working");
+      this.log.w(rxid, "no writes, tx is done; discard", qlen);
       return query;
     }
 
     const header = bufutil.createBuffer(dnsutil.dnsHeaderSize);
     bufutil.recycleBuffer(header);
-    header.writeUInt16BE(query.byteLength);
+    header.writeUInt16BE(qlen);
 
     this.sock.write(header, () => {
-      this.log.d(rxid, "len(header):", header.byteLength);
+      this.log.d(rxid, "tcp write hdr:", hlen);
     });
     this.sock.write(query, () => {
-      this.log.d(rxid, "len(query):", query.byteLength);
+      this.log.d(rxid, "tcp write q:", qlen);
     });
   }
 
@@ -210,7 +213,7 @@ export class TcpTx {
   }
 
   /**
-   * @param {string?} reason
+   * @param {string?|Error} reason
    */
   no(reason) {
     this.done = true;
@@ -307,7 +310,7 @@ export class UdpTx {
    */
   write(rxid, query) {
     if (this.done) return; // discard
-    this.log.d(rxid, "udp write");
+    this.log.d(rxid, "udp write", bufutil.len(query));
     this.sock.send(query); // err-on-write handled by onError
   }
 
@@ -319,7 +322,7 @@ export class UdpTx {
    */
   onMessage(rxid, b, addrinfo) {
     if (this.done) return; // discard
-    this.log.d(rxid, "udp read");
+    this.log.d(rxid, "udp read", bufutil.len(b));
     this.yes(b);
   }
 
@@ -361,7 +364,7 @@ export class UdpTx {
     this.resolve(val);
   }
 
-  /** @param {string} reason */
+  /** @param {string|Error} reason */
   no(reason) {
     if (this.done) return;
 
