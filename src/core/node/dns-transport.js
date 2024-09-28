@@ -94,7 +94,7 @@ export class Transport {
    */
   async tcpquery(rxid, q) {
     let sock = this.tcpconns.take();
-    this.log.d(rxid, "tcp pooled?", sock !== null);
+    this.log.d(rxid, "tcp pooled?", sock != null);
 
     /** @type {Buffer?} */
     let ans = null;

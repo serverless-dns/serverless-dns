@@ -119,12 +119,11 @@ async function prep() {
   // TODO: move dns* related settings to env
   // flydns is always ipv6 (fdaa::53)
   const plainOldDnsIp = onFly ? "fdaa::3" : "1.1.1.2";
-  let dns53 = null;
+  const dns53 = dnst.makeTransport(plainOldDnsIp);
+  log.i("imported udp/tcp dns transport", plainOldDnsIp);
   if (onFly) {
     // recursive resolver on Fly
     // swapon won't work on fly: community.fly.io/t/19196/13
-    dns53 = dnst.makeTransport(plainOldDnsIp);
-    log.i("imported udp/tcp dns transport", plainOldDnsIp);
   }
 
   // signal ready
