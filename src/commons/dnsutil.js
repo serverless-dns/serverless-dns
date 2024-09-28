@@ -426,7 +426,7 @@ export function extractDomains(dnsPacket) {
 
 export function getInterestingAnswerData(packet, maxlen = 80, delim = "|") {
   if (!hasAnswers(packet)) {
-    return !util.emptyObj(packet) ? packet.rcode || "WTF" : "WTF";
+    return !util.emptyObj(packet) ? packet.rcode || "WTF1" : "WTF2";
   }
 
   // set to true if at least one ip has been captured from ans
