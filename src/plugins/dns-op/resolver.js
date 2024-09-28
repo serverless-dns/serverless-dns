@@ -265,7 +265,7 @@ export default class DNSResolver {
     // check outgoing cached dns-packet against blocklists
     this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
     const fromCache = cacheutil.hasCacheHeader(res.headers);
-    this.log.d(rxid, "ans block?", r.isBlocked, "from cache?", fromCache);
+    this.log.d(rxid, "ansblock?", r.isBlocked, "fromcache?", fromCache);
 
     // if res was got from caches or if res was got from max doh (ie, blf
     // wasn't used to retrieve stamps), then skip hydrating the cache
@@ -311,7 +311,7 @@ export default class DNSResolver {
     this.log.d(rxid, "primeCache: block?", blocked, "k", k.href);
 
     if (!k) {
-      this.log.d(rxid, "no cache-key, url/query missing?", k, r.stamps);
+      this.log.d(rxid, "primeCache: no key, url/query missing?", k, r.stamps);
       return;
     }
 

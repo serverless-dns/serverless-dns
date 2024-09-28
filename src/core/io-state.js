@@ -145,12 +145,13 @@ export default class IOState {
   }
 
   logDnsPkt() {
+    if (this.isProd) return;
     this.log.d(
       "domains",
       dnsutil.extractDomains(this.decodedDnsPacket),
+      dnsutil.getQueryType(this.decodedDnsPacket) || "",
       "data",
       dnsutil.getInterestingAnswerData(this.decodedDnsPacket),
-      "ttl",
       dnsutil.ttl(this.decodedDnsPacket)
     );
   }
