@@ -2,7 +2,8 @@ app = ""
 
 kill_signal = "SIGINT"
 kill_timeout = "15s"
-swap_size_mb = 152
+# swap must be disabled when using "suspend"
+# swap_size_mb = 152
 
 [build]
   dockerfile = "node.Dockerfile"
