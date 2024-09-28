@@ -186,13 +186,13 @@ export class TcpTx {
    */
   write(rxid, query) {
     const qlen = bufutil.len(query);
-    const hlen = bufutil.len(header);
     if (this.done) {
       this.log.w(rxid, "no writes, tx is done; discard", qlen);
       return query;
     }
 
     const header = bufutil.createBuffer(dnsutil.dnsHeaderSize);
+    const hlen = bufutil.len(header);
     bufutil.recycleBuffer(header);
     header.writeUInt16BE(qlen);
 
