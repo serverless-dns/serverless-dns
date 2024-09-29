@@ -95,6 +95,9 @@ export function isDeno() {
   return envManager.r() === "deno";
 }
 
+/**
+ * in milliseconds
+ */
 export function workersTimeout(missing = 0) {
   if (!envManager) return missing;
   return envManager.get("WORKER_TIMEOUT") || missing;
