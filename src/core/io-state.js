@@ -94,6 +94,7 @@ export default class IOState {
       exceptionFrom: this.exceptionFrom,
       exceptionStack: this.exceptionStack,
     };
+    this.decodedDnsPacket = dnsutil.decode(servfail);
 
     this.logDnsPkt();
     this.httpResponse = new Response(servfail, {
