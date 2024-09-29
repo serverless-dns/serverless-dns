@@ -118,7 +118,7 @@ function updateTtl(packet, end) {
   }
 }
 
-function makeId(packet) {
+export function makeId(packet) {
   // multiple questions are kind of an undefined behaviour
   // stackoverflow.com/a/55093896
   if (!dnsutil.hasSingleQuestion(packet)) return null;

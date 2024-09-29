@@ -33,6 +33,9 @@ const events = new Set([
   "stop",
 ]);
 
+/** @type {Set<string>} */
+const ephemeralEvents = new Set();
+
 /** @type {Map<string, Set<listenfn>>} */
 const listeners = new Map();
 /** @type {Map<string, Set<listenfn>>} */
@@ -54,10 +57,13 @@ const waitGroup = new Map();
  * Fires event.
  * @param {string} event
  * @param {parcel} parcel
+ * @returns {int}
  */
-export function pub(event, parcel = undefined) {
-  awaiters(event, parcel);
-  callbacks(event, parcel);
+export function pub(event, parcel = null) {
+  if (util.emptyString(event)) return;
+
+  const tot = awaiters(event, parcel);
+  return tot + callbacks(event, parcel);
 }
 
 /**
@@ -68,17 +74,21 @@ export function pub(event, parcel = undefined) {
  * @returns {boolean}
  */
 export function sub(event, cb, timeout = 0) {
+  if (util.emptyString(event)) return;
+  if (typeof cb !== "function") return;
+
   const eventCallbacks = listeners.get(event);
 
-  // if such even callbacks don't exist
   if (!eventCallbacks) {
-    // but event is sticky, fire off the listener at once
+    // event is sticky, fire off the listener at once
     if (stickyEvents.has(event)) {
       const parcel = stickyParcels.get(event); // may be null
       microtaskBox(cb, parcel);
       return true;
     }
-    // but event doesn't exist, then there's nothing to do
+    // event doesn't exist so make it ephemeral
+    ephemeralEvents.add(event);
+    listeners.set(event, new Set());
     return false;
   }
 
@@ -102,6 +112,10 @@ export function sub(event, cb, timeout = 0) {
  * @returns {Promise<parcel>}
  */
 export function when(event, timeout = 0) {
+  if (util.emptyString(event)) {
+    return Promise.reject(new Error("empty event"));
+  }
+
   const wg = waitGroup.get(event);
 
   if (!wg) {
@@ -110,15 +124,17 @@ export function when(event, timeout = 0) {
       const parcel = stickyParcels.get(event); // may be null
       return Promise.resolve(parcel);
     }
-    // no such event
-    return Promise.reject(new Error(event + " missing"));
+    // no such event so make it ephemeral
+    ephemeralEvents.add(event);
+    waitGroup.set(event, new Set());
+    return Promise.reject(new Error(event + " missing event"));
   }
 
   return new Promise((accept, reject) => {
     const tid =
       timeout > 0
         ? util.timeout(timeout, () => {
-            reject(new Error(event + " elapsed " + timeout));
+            reject(new Error(event + " event elapsed " + timeout));
           })
         : -2;
     /** @type {listenfn} */
@@ -133,34 +149,47 @@ export function when(event, timeout = 0) {
 /**
  * @param {string} event
  * @param {parcel} parcel
+ * @returns {int}
  */
 function awaiters(event, parcel = null) {
-  const g = waitGroup.get(event);
+  if (util.emptyString(event)) return 0;
+  const wg = waitGroup.get(event);
 
-  if (!g) return;
+  if (!wg) return 0;
 
-  // listeners valid just the once for stickyEvents
+  // listeners valid just the once for stickyEvents & ephemeralEvents
   if (stickyEvents.has(event)) {
     waitGroup.delete(event);
     stickyParcels.set(event, parcel);
+  } else if (ephemeralEvents.has(event)) {
+    // log.d("sys: wg ephemeralEvents", event, parcel);
+    waitGroup.delete(event);
+    ephemeralEvents.delete(event);
   }
 
-  safeBox(g, parcel);
+  safeBox(wg, parcel);
+  return wg.size;
 }
 
 /**
  * @param {string} event
  * @param {parcel} parcel
+ * @returns {int}
  */
 function callbacks(event, parcel = null) {
+  if (util.emptyString(event)) return 0;
   const cbs = listeners.get(event);
 
-  if (!cbs) return;
+  if (!cbs) return 0;
 
-  // listeners valid just the once for stickyEvents
+  // listeners valid just the once for stickyEvents & ephemeralEvents
   if (stickyEvents.has(event)) {
     listeners.delete(event);
     stickyParcels.set(event, parcel);
+  } else if (ephemeralEvents.has(event)) {
+    // log.d("sys: cb ephemeralEvents", event, parcel);
+    listeners.delete(event);
+    ephemeralEvents.delete(event);
   }
 
   // callbacks are queued async and don't block the caller. On Workers,
@@ -169,6 +198,7 @@ function callbacks(event, parcel = null) {
   // incoming request (through the fetch event handler), such callbacks
   // may not even fire. Instead use: awaiters and not callbacks.
   microtaskBox(cbs, parcel);
+  return cbs.size;
 }
 
 /**
@@ -226,6 +256,7 @@ function safeBox(fns, arg) {
     try {
       r.push(f(arg));
     } catch (ignore) {
+      // log.e("sys: safeBox err", ignore);
       r.push(null);
     }
   }
