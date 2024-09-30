@@ -62,8 +62,10 @@ const waitGroup = new Map();
 export function pub(event, parcel = null) {
   if (util.emptyString(event)) return;
 
-  const tot = awaiters(event, parcel);
-  return tot + callbacks(event, parcel);
+  const hadEphemeralEvent = ephemeralEvents.delete(event);
+
+  const tot = awaiters(event, parcel, hadEphemeralEvent);
+  return tot + callbacks(event, parcel, hadEphemeralEvent);
 }
 
 /**
@@ -89,6 +91,7 @@ export function sub(event, cb, timeout = 0) {
     // event doesn't exist so make it ephemeral
     ephemeralEvents.add(event);
     listeners.set(event, new Set());
+    waitGroup.set(event, new Set());
     return false;
   }
 
@@ -126,6 +129,7 @@ export function when(event, timeout = 0) {
     }
     // no such event so make it ephemeral
     ephemeralEvents.add(event);
+    listeners.set(event, new Set());
     waitGroup.set(event, new Set());
     return Promise.reject(new Error(event + " missing event"));
   }
@@ -149,9 +153,10 @@ export function when(event, timeout = 0) {
 /**
  * @param {string} event
  * @param {parcel} parcel
+ * @param {boolean} ephemeralEvent
  * @returns {int}
  */
-function awaiters(event, parcel = null) {
+function awaiters(event, parcel = null, ephemeralEvent = false) {
   if (util.emptyString(event)) return 0;
   const wg = waitGroup.get(event);
 
@@ -161,11 +166,12 @@ function awaiters(event, parcel = null) {
   if (stickyEvents.has(event)) {
     waitGroup.delete(event);
     stickyParcels.set(event, parcel);
-  } else if (ephemeralEvents.has(event)) {
-    // log.d("sys: wg ephemeralEvents", event, parcel);
+  } else if (ephemeralEvent) {
+    // log.d("sys: wg ephemeralEvent", event, parcel);
     waitGroup.delete(event);
-    ephemeralEvents.delete(event);
   }
+
+  if (wg.size === 0) return 0;
 
   safeBox(wg, parcel);
   return wg.size;
@@ -174,9 +180,10 @@ function awaiters(event, parcel = null) {
 /**
  * @param {string} event
  * @param {parcel} parcel
+ * @param {boolean} ephemeralEvent
  * @returns {int}
  */
-function callbacks(event, parcel = null) {
+function callbacks(event, parcel = null, ephemeralEvent = false) {
   if (util.emptyString(event)) return 0;
   const cbs = listeners.get(event);
 
@@ -186,12 +193,12 @@ function callbacks(event, parcel = null) {
   if (stickyEvents.has(event)) {
     listeners.delete(event);
     stickyParcels.set(event, parcel);
-  } else if (ephemeralEvents.has(event)) {
-    // log.d("sys: cb ephemeralEvents", event, parcel);
+  } else if (ephemeralEvent) {
+    // log.d("sys: cb ephemeralEvent", event, parcel);
     listeners.delete(event);
-    ephemeralEvents.delete(event);
   }
 
+  if (cbs.size === 0) return 0;
   // callbacks are queued async and don't block the caller. On Workers,
   // where IOs or timers require event-context aka network-context,
   // which is only available when fns are invoked in response to an
