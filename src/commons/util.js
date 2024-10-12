@@ -210,6 +210,12 @@ export function repeat(ms, fn) {
   return timer;
 }
 
+export function next(...fns) {
+  for (const fn of fns) {
+    if (typeof fn === "function") setImmediate(fn);
+  }
+}
+
 // min inclusive, max exclusive
 export function rand(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;

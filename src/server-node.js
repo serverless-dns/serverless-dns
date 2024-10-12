@@ -6,24 +6,27 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import net, { isIPv6 } from "node:net";
-import * as tls from "node:tls";
-import http2 from "node:http2";
+// should always be the first import
+// import whyIsNodeRunning from "why-is-node-running";
+
 import * as h2c from "httpx-server";
+import http2 from "node:http2";
+import net, { isIPv6 } from "node:net";
 import * as os from "node:os";
+import { finished } from "node:stream";
+import * as tls from "node:tls";
 import v8 from "node:v8";
 import { V2ProxyProtocol } from "proxy-protocol-js";
-import * as system from "./system.js";
-import { handleRequest } from "./core/doh.js";
-import { stopAfter, uptime } from "./core/svc.js";
 import * as bufutil from "./commons/bufutil.js";
+import * as nodecrypto from "./commons/crypto.js";
 import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
-import * as nodeutil from "./core/node/util.js";
 import * as util from "./commons/util.js";
+import { handleRequest } from "./core/doh.js";
 import "./core/node/config.js";
-import { finished } from "node:stream";
-import * as nodecrypto from "./commons/crypto.js";
+import * as nodeutil from "./core/node/util.js";
+import { stopAfter, uptime } from "./core/svc.js";
+import * as system from "./system.js";
 
 /**
  * @typedef {net.Socket} Socket
@@ -101,17 +104,21 @@ class Tracker {
     else return sock.remoteAddress + "|" + sock.remotePort;
   }
 
-  trackServer(s) {
+  trackServer(id, s) {
     if (!s) return this.zeroid;
     const mapid = this.sid(s);
 
-    if (!this.valid(mapid)) return this.zeroid;
+    if (!this.valid(mapid)) {
+      log.w("trackServer: server not tracked", id, mapid);
+      return this.zeroid;
+    }
 
     const cmap = this.connmap[mapid];
     if (cmap) {
-      log.w("trackServer: server already tracked?", sid);
+      log.w("trackServer: server already tracked?", id, mapid);
       return mapid;
     }
+    log.i("trackServer: new server", id, mapid);
     this.connmap[mapid] = new Map();
     this.srvs.push(s);
   }
@@ -216,7 +223,8 @@ async function systemDown() {
     s.unref();
   }
 
-  bye();
+  // test: util.next(whyIsNodeRunning, bye);
+  util.next(bye);
 }
 
 function systemUp() {
@@ -271,7 +279,7 @@ function systemUp() {
       .createServer(serverOpts, serveTCP)
       .listen(portdot, zero6, tcpbacklog, () => {
         up("DoT Cleartext", dotct.address());
-        trapServerEvents(dotct);
+        trapServerEvents("dotct", dotct);
       });
 
     // DNS over HTTPS Cleartext
@@ -287,7 +295,7 @@ function systemUp() {
       .createServer(serverOpts, serveHTTPS)
       .listen(portdoh, zero6, tcpbacklog, () => {
         up("DoH Cleartext", dohct.address());
-        trapServerEvents(dohct);
+        trapServerEvents("dohct", dohct);
       });
   } else {
     // terminate tls ourselves
@@ -307,7 +315,7 @@ function systemUp() {
       .createServer(secOpts, serveTLS)
       .listen(portdot1, zero6, tcpbacklog, () => {
         up("DoT", dot1.address());
-        trapSecureServerEvents(dot1);
+        trapSecureServerEvents("dot1", dot1);
       });
 
     // DNS over TLS w ProxyProto
@@ -318,7 +326,7 @@ function systemUp() {
         .createServer(serverOpts, serveDoTProxyProto)
         .listen(portdot2, zero6, tcpbacklog, () => {
           up("DoT ProxyProto", dot2.address());
-          trapServerEvents(dot2);
+          trapServerEvents("dot2", dot2);
         });
 
     // DNS over HTTPS
@@ -327,28 +335,29 @@ function systemUp() {
       .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
       .listen(portdoh, zero6, tcpbacklog, () => {
         up("DoH", doh.address());
-        trapSecureServerEvents(doh);
+        trapSecureServerEvents("doh", doh);
       });
   }
 
   const portcheck = envutil.httpCheckPort();
   const hcheck = h2c.createServer(serve200).listen(portcheck, () => {
     up("http-check", hcheck.address());
-    trapServerEvents(hcheck);
+    trapServerEvents("hcheck", hcheck);
   });
 
   heartbeat();
 }
 
 /**
+ * @param {string} id
  * @param  {... import("http2").Http2Server | net.Server} s
  */
-function trapServerEvents(s) {
+function trapServerEvents(id, s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
 
   if (!s) return;
 
-  tracker.trackServer(s);
+  tracker.trackServer(id, s);
 
   s.on("connection", (/** @type {Socket} */ socket) => {
     stats.nofconns += 1;
@@ -395,14 +404,15 @@ function trapServerEvents(s) {
 }
 
 /**
+ * @param {string} id
  * @param  {http2.Http2SecureServer | tls.Server} s
  */
-function trapSecureServerEvents(s) {
+function trapSecureServerEvents(id, s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
 
   if (!s) return;
 
-  tracker.trackServer(s);
+  tracker.trackServer(id, s);
 
   // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
   s.on("secureConnection", (socket) => {
