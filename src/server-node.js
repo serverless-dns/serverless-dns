@@ -440,7 +440,7 @@ function trapSecureServerEvents(s) {
     });
   });
 
-  util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
+  const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
 
   s.on("error", (err) => {
     log.e("tls: stop! server error; " + err.message, err);
