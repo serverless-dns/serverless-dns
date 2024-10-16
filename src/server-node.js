@@ -105,6 +105,11 @@ class Tracker {
     else return sock.remoteAddress + "|" + sock.remotePort;
   }
 
+  /**
+   * @param {string} id
+   * @param {net.Server} s
+   * @returns {string} sid
+   */
   trackServer(id, s) {
     if (!s) return this.zeroid;
     const mapid = this.sid(s);
@@ -117,11 +122,13 @@ class Tracker {
     const cmap = this.connmap[mapid];
     if (cmap) {
       log.w("trackServer: server already tracked?", id, mapid);
-      return mapid;
+      return this.zeroid;
     }
+
     log.i("trackServer: new server", id, mapid);
     this.connmap[mapid] = new Map();
     this.srvs.push(s);
+    return mapid;
   }
 
   *servers() {
@@ -372,7 +379,12 @@ function trapServerEvents(id, s) {
 
   if (!s) return;
 
-  tracker.trackServer(id, s);
+  const sid = tracker.trackServer(id, s);
+
+  if (sid === tracker.zeroid) {
+    log.w("tcp: may be already tracking server", id);
+    return;
+  }
 
   s.on("connection", (/** @type {Socket} */ socket) => {
     stats.nofconns += 1;
@@ -424,9 +436,15 @@ function trapServerEvents(id, s) {
  */
 function trapSecureServerEvents(id, s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
+
   if (!s) return;
 
-  tracker.trackServer(id, s);
+  const sid = tracker.trackServer(id, s);
+
+  if (sid === tracker.zeroid) {
+    log.w("tls: may be already tracking server", id);
+    return;
+  }
 
   // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
   s.on("secureConnection", (/** @type {TLSSocket} */ socket) => {
