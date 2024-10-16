@@ -11,6 +11,7 @@
 
 import * as h2c from "httpx-server";
 import http2 from "node:http2";
+import https from "node:https";
 import net, { isIPv6 } from "node:net";
 import * as os from "node:os";
 import { finished } from "node:stream";
@@ -234,10 +235,13 @@ function systemUp() {
   const downloadmode = envutil.blocklistDownloadOnly();
   const profilermode = envutil.profileDnsResolves();
   const tlsoffload = envutil.isCleartext();
+  // todo: tcp backlog for doh/dot servers not supported on bun 1.1
   const tcpbacklog = envutil.tcpBacklog();
   const maxconns = envutil.maxconns();
   // see also: dns-transport.js:ioTimeout
   const ioTimeoutMs = envutil.ioTimeoutMs();
+  const isNode = envutil.isNode();
+  const isBun = envutil.isBun();
 
   if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
@@ -277,7 +281,7 @@ function systemUp() {
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
       .createServer(serverOpts, serveTCP)
-      .listen(portdot, zero6, tcpbacklog, () => {
+      .listen(portdot, zero6, () => {
         up("DoT Cleartext", dotct.address());
         trapServerEvents("dotct", dotct);
       });
@@ -293,7 +297,7 @@ function systemUp() {
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
-      .listen(portdoh, zero6, tcpbacklog, () => {
+      .listen(portdoh, zero6, () => {
         up("DoH Cleartext", dohct.address());
         trapServerEvents("dohct", dohct);
       });
@@ -313,7 +317,7 @@ function systemUp() {
     const dot1 = tls
       // serveTLS must eventually invoke machines-heartbeat
       .createServer(secOpts, serveTLS)
-      .listen(portdot1, zero6, tcpbacklog, () => {
+      .listen(portdot1, zero6, () => {
         up("DoT", dot1.address());
         trapSecureServerEvents("dot1", dot1);
       });
@@ -324,19 +328,30 @@ function systemUp() {
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serverOpts, serveDoTProxyProto)
-        .listen(portdot2, zero6, tcpbacklog, () => {
+        .listen(portdot2, zero6, () => {
           up("DoT ProxyProto", dot2.address());
           trapServerEvents("dot2", dot2);
         });
 
     // DNS over HTTPS
-    const doh = http2
-      // serveHTTPS must eventually invoke machines-heartbeat
-      .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
-      .listen(portdoh, zero6, tcpbacklog, () => {
-        up("DoH", doh.address());
-        trapSecureServerEvents("doh", doh);
-      });
+    if (isNode) {
+      const doh = http2
+        // serveHTTPS must eventually invoke machines-heartbeat
+        .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
+        .listen(portdoh, zero6, () => {
+          up("DoH2", doh.address());
+          trapSecureServerEvents("doh2", doh);
+        });
+    } else if (isBun) {
+      const doh = https
+        .createServer(secOpts, serveHTTPS)
+        .listen(portdoh, zero6, () => {
+          up("DoH1", doh.address());
+          trapSecureServerEvents("doh1", doh);
+        });
+    } else {
+      console.log("unsupported runtime for doh");
+    }
   }
 
   const portcheck = envutil.httpCheckPort();
@@ -427,7 +442,7 @@ function trapSecureServerEvents(id, s) {
 
     // blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
     // 1369 - (1500 - 1280) = 1149
-    socket.setMaxSendFragment(4096); // DoT errors out at 1149.
+    socket.setMaxSendFragment(1149);
 
     socket.setTimeout(ioTimeoutMs, () => {
       stats.noftimeouts += 1;
