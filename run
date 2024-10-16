@@ -99,20 +99,21 @@ if [ $runtime = "help" ] || [ $runtime = "h" ]; then
 fi
 
 if [ $runtime = "bun" ] || [ $runtime = "b" ]; then
-  echo "note: deno v1.1+ required";
+  echo "note: bun v1+ required";
   echo "using `which bun`";
   start="bun run src/server-node.js";
 elif [ $runtime = "deno" ] || [ $runtime = "d" ]; then
-  echo "note: deno v1.17+ required";
+  echo "note: deno v2+ required";
   echo "using `which deno`";
   start="deno run --unstable \
+           --allow-import \
            --allow-env \
            --allow-net \
            --allow-read \
            --allow-write \
            src/server-deno.ts";
 elif [ $runtime = "workers" ] || [ $runtime = "w" ]; then
-  echo "note: wrangler v1.16+ required";
+  echo "note: wrangler v1.40+ required";
   echo "using `which wrangler`";
   start="npx wrangler dev --local";
 elif [ $runtime = "fastly" ] || [ $runtime = "f" ]; then
@@ -125,7 +126,7 @@ elif [ $runtime = "fly" ] || [ $runtime = "ff" ]; then
   export NODE_OPTIONS="--trace-warnings --max-old-space-size=320 --heapsnapshot-signal=SIGUSR2 --heapsnapshot-near-heap-limit=2"
   start="node ./dist/fly.mjs"
 else
-  echo "note: nodejs v19+ required";
+  echo "note: nodejs v22+ required";
   echo "using `which node`";
   # verbose: NODE_DEBUG=http2,http,tls,net... ref: stackoverflow.com/a/46858827
   export NODE_OPTIONS="--trace-warnings --max-old-space-size=320 --heapsnapshot-signal=SIGUSR2 --heapsnapshot-near-heap-limit=2"
