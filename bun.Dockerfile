@@ -4,7 +4,7 @@ COPY . .
 RUN bun build ./src/server-node.js --target node --outdir ./dist --entry-naming bun.mjs --format esm
 RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/bun.mjs
 
-FROM oven/bun AS runner
+FROM oven/bun:alpine AS runner
 # env vals persist even at run-time: archive.is/QpXp2
 # and overrides fly.toml env values
 # get working dir in order
