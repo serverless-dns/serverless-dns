@@ -53,7 +53,7 @@ export function hasDisk() {
 
 export function useMmap() {
   // got disk on fly and local deploys
-  return onFly() || onLocal();
+  return (onFly() || onLocal()) && (isNode() || isBun());
 }
 
 export function hasDynamicImports() {
