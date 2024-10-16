@@ -493,6 +493,7 @@ function addrstr(sock) {
  * @returns {void}
  */
 function rotateTkt(s) {
+  if (envutil.isBun()) return;
   if (!s || !s.listening) return;
 
   let seed = bufutil.fromB64(envutil.secretb64());
@@ -508,7 +509,7 @@ function rotateTkt(s) {
 
   nodecrypto
     .tkt48(seed, ctx)
-    .then((k) => s.setTicketKeys(k))
+    .then((k) => s.setTicketKeys(k)) // not supported on bun
     .catch((err) => log.e("tls: ticket rotation failed:", err));
 }
 
