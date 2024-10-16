@@ -282,13 +282,17 @@ function systemUp() {
     // fly.io terminated tls?
     const portdoh = envutil.dohCleartextBackendPort();
     const portdot = envutil.dotCleartextBackendPort();
+    /** @type {net.ListenOptions} */
+    const dohOpts = { port: portdoh, host: zero6, backlog: tcpbacklog };
+    /** @type {net.ListenOptions} */
+    const dotOpts = { port: portdot, host: zero6, backlog: tcpbacklog };
 
     // TODO: ProxyProtoV2 with TLS ClientHello (unsupported by Fly.io, rn)
     // DNS over TLS Cleartext
     const dotct = net
       // serveTCP must eventually call machines-heartbeat
       .createServer(serverOpts, serveTCP)
-      .listen(portdot, zero6, () => {
+      .listen(dotOpts, () => {
         up("DoT Cleartext", dotct.address());
         trapServerEvents("dotct", dotct);
       });
@@ -304,7 +308,7 @@ function systemUp() {
     const dohct = h2c
       // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
-      .listen(portdoh, zero6, () => {
+      .listen(dohOpts, () => {
         up("DoH Cleartext", dohct.address());
         trapServerEvents("dohct", dohct);
       });
@@ -319,12 +323,17 @@ function systemUp() {
     const portdot1 = envutil.dotBackendPort();
     const portdot2 = envutil.dotProxyProtoBackendPort();
     const portdoh = envutil.dohBackendPort();
-
+    /** @type {net.ListenOptions} */
+    const dohOpts = { port: portdoh, host: zero6, backlog: tcpbacklog };
+    /** @type {net.ListenOptions} */
+    const dot1Opts = { port: portdot1, host: zero6, backlog: tcpbacklog };
+    /** @type {net.ListenOptions} */
+    const dot2Opts = { port: portdot2, host: zero6, backlog: tcpbacklog };
     // DNS over TLS
     const dot1 = tls
       // serveTLS must eventually invoke machines-heartbeat
       .createServer(secOpts, serveTLS)
-      .listen(portdot1, zero6, () => {
+      .listen(dot1Opts, () => {
         up("DoT", dot1.address());
         trapSecureServerEvents("dot1", dot1);
       });
@@ -335,7 +344,7 @@ function systemUp() {
       net
         // serveDoTProxyProto must evenually invoke machines-heartbeat
         .createServer(serverOpts, serveDoTProxyProto)
-        .listen(portdot2, zero6, () => {
+        .listen(dot2Opts, () => {
           up("DoT ProxyProto", dot2.address());
           trapServerEvents("dot2", dot2);
         });
@@ -345,14 +354,14 @@ function systemUp() {
       const doh = http2
         // serveHTTPS must eventually invoke machines-heartbeat
         .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
-        .listen(portdoh, zero6, () => {
+        .listen(dohOpts, () => {
           up("DoH2", doh.address());
           trapSecureServerEvents("doh2", doh);
         });
     } else if (isBun) {
       const doh = https
         .createServer(secOpts, serveHTTPS)
-        .listen(portdoh, zero6, () => {
+        .listen(dohOpts, () => {
           up("DoH1", doh.address());
           trapSecureServerEvents("doh1", doh);
         });
