@@ -409,13 +409,12 @@ function trapServerEvents(id, s) {
  */
 function trapSecureServerEvents(id, s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
-
   if (!s) return;
 
   tracker.trackServer(id, s);
 
   // github.com/grpc/grpc-node/blob/e6ea6f517epackages/grpc-js/src/server.ts#L392
-  s.on("secureConnection", (socket) => {
+  s.on("secureConnection", (/** @type {TLSSocket} */ socket) => {
     stats.nofconns += 1;
     stats.openconns += 1;
 
@@ -425,6 +424,9 @@ function trapSecureServerEvents(id, s) {
       close(socket);
       return;
     }
+
+    // blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
+    socket.setMaxSendFragment(1149); // 1369 - (1500 - 1280)
 
     socket.setTimeout(ioTimeoutMs, () => {
       stats.noftimeouts += 1;

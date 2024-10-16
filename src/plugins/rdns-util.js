@@ -5,15 +5,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
+import * as trie from "@serverless-dns/trie/stamp.js";
 import { rbase32 } from "../commons/b32.js";
-import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
-import * as pres from "./plugin-response.js";
-import * as trie from "@serverless-dns/trie/stamp.js";
-import { BlocklistFilter } from "./rethinkdns/filter.js";
+import * as util from "../commons/util.js";
 import { DnsCacheData } from "./cache-util.js";
+import * as pres from "./plugin-response.js";
+import { BlocklistFilter } from "./rethinkdns/filter.js";
 
 // doh uses b64url encoded blockstamp, while dot uses lowercase b32.
 const _b64delim = ":";
