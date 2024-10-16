@@ -94,11 +94,15 @@ greqs() {
 
 if [ $runtime = "help" ] || [ $runtime = "h" ]; then
   echo "note: make sure node / deno / wrangler are in path";
-  echo "usage: $0 [node|deno|workers] [[p1|p2] [waitsec]]";
+  echo "usage: $0 [node|bun|deno|workers|fly] [[p1|p2|p3] [waitsec]]";
   exit 0;
 fi
 
-if [ $runtime = "deno" ] || [ $runtime = "d" ]; then
+if [ $runtime = "bun" ] || [ $runtime = "b" ]; then
+  echo "note: deno v1.1+ required";
+  echo "using `which bun`";
+  start="bun run src/server-node.js";
+elif [ $runtime = "deno" ] || [ $runtime = "d" ]; then
   echo "note: deno v1.17+ required";
   echo "using `which deno`";
   start="deno run --unstable \
@@ -208,8 +212,8 @@ elif [ $profiler = "profile3" ] || [ $profiler = "p3" ]; then
     echo "Specify env QDOH path"
     exit 1
   fi
-  if [ $runtime != "node" ] && [ $runtime != "n" ]; then
-    echo "Profile3 only valid on Node"
+  if [ $runtime != "node" ] && [ $runtime != "n" ] && [ $runtime != "bun" ] && [ $runtime != "b" ]; then
+    echo "Profile3 only valid on Node & Bun"
     exit 1
   fi
 
