@@ -15,13 +15,14 @@ on:
         default: 'main'
       # docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onworkflow_dispatchinputs
       js-runtime:
-        description: "proc: deno/node"
+        description: "proc: deno/node/bun"
         required: false
         default: 'node'
         type: choice
         options:
         - node
         - deno
+        - bun
       mode:
         description: "p1 (fetch) / p2 (http2) / p3 (udp/tcp)"
         required: false
@@ -40,8 +41,9 @@ env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
-  NODE_VER: '21.x'
-  DENO_VER: '1.40.x'
+  NODE_VER: '22.x'
+  DENO_VER: '2.x'
+  BUN_VER: '1.x'
   MODE: 'p1'
   QDOH: 'q'
 
@@ -52,7 +54,7 @@ jobs:
 
     steps:
       - name: 🍌 Checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.GIT_REF }}
           fetch-depth: 0
@@ -66,9 +68,9 @@ jobs:
           JSR: ${{ github.event.inputs.js-runtime || env.JS_RUNTIME }}
 
       # docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs-or-python
-      - name: 🐎 Setup Node @v19
+      - name: 🐎 Setup Node @v22
         if: env.JS_RUNTIME == 'node'
-        uses: actions/setup-node@v3.6.0
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VER }}
 
@@ -80,7 +82,7 @@ jobs:
           npm run build --if-present
 
       # deno.com/blog/deploy-static-files#example-a-statically-generated-site
-      - name: 🦕 Setup Deno @1.29.3
+      - name: 🦕 Setup Deno @2.x
         if: env.JS_RUNTIME == 'deno'
         uses: denoland/setup-deno@main
         with:
@@ -91,6 +93,19 @@ jobs:
         run: |
           deno task prepare
           deno cache ./src/server-deno.ts
+
+      # bun.sh/docs/cli/install#ci-cd
+      - name: 🐇 Setup Bun @ latest
+        if: env.JS_RUNTIME == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # github.com/oven-sh/setup-bun
+      - name: 🥕 Bun deps
+        if: env.JS_RUNTIME == 'bun'
+        run: |
+          bun i
 
       # if non-interactive, prefer apt-get: unix.stackexchange.com/a/590703
       # github.com/natesales/repo
