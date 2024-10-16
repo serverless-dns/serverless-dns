@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🚚 Get latest code
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4
         with:
           # Checkout base (target) repo
           ref: ${{ env.GH_REF }}

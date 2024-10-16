@@ -63,7 +63,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: 🛒 Checkout
-        uses: actions/checkout@v3.3.0
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.GIT_REF }}
           fetch-depth: 0
