@@ -426,7 +426,8 @@ function trapSecureServerEvents(id, s) {
     }
 
     // blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
-    socket.setMaxSendFragment(1149); // 1369 - (1500 - 1280)
+    // 1369 - (1500 - 1280) = 1149
+    socket.setMaxSendFragment(4096); // DoT errors out at 1149.
 
     socket.setTimeout(ioTimeoutMs, () => {
       stats.noftimeouts += 1;
