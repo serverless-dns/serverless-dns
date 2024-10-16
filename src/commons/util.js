@@ -204,15 +204,21 @@ export function timeout(ms, fn) {
 
 export function repeat(ms, fn) {
   if (typeof fn !== "function") return -1;
-  setImmediate(fn);
+
+  next(fn);
+
   const timer = setInterval(fn, ms);
   if (typeof timer.unref === "function") timer.unref();
+
   return timer;
 }
 
 export function next(...fns) {
   for (const fn of fns) {
-    if (typeof fn === "function") setImmediate(fn);
+    if (typeof fn === "function") {
+      if (typeof setImmediate === "function") setImmediate(fn);
+      else timeout(0, fn);
+    }
   }
 }
 
