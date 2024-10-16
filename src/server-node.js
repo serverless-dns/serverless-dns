@@ -267,8 +267,28 @@ function systemUp() {
     keepAlive: true,
     noDelay: true,
   };
+  // default cipher suites
+  // nodejs.org/api/tls.html#modifying-the-default-tls-cipher-suite
+  let defaultTlsCiphers = "";
+  if (!util.emptyString(tls.DEFAULT_CIPHERS)) {
+    // nodejs.org/api/tls.html#tlsdefault_ciphers
+    defaultTlsCiphers = tls.DEFAULT_CIPHERS;
+  } else {
+    // nodejs.org/api/tls.html#tlsgetciphers
+    defaultTlsCiphers = tls
+      .getCiphers()
+      .map((c) => c.toUpperCase())
+      .join(":");
+  }
+  // aes128 is a 'cipher string' for tls1.2 and below
+  // docs.openssl.org/1.1.1/man1/ciphers/#cipher-strings
+  const preferAes128 =
+    "AES128:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256:TLS_AES_128_GCM_SHA256";
   // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
+  /** @type {tls.SecureContextOptions} */
   const tlsOpts = {
+    ciphers: preferAes128 + ":" + defaultTlsCiphers,
+    honorCipherOrder: true,
     handshakeTimeout: Math.max((ioTimeoutMs / 2) | 0, 3 * 1000), // 3s in ms
     // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
     sessionTimeout: 60 * 60 * 24 * 7, // 7d in secs
