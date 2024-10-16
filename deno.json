@@ -3,7 +3,7 @@
     "allowJs": true
   },
   "importMap": "import_map.json",
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
   "lint": {
     "files": {
       "exclude": ["**/**"]
