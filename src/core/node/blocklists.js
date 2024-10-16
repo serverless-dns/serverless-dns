@@ -74,8 +74,7 @@ async function fmmap(fp) {
 
   if (dynimports && isNode) {
     try {
-      // const mmap = await import("@riaskov/mmap-io");
-      const mmap = null;
+      const mmap = (await import("@riaskov/mmap-io")).default;
       const fd = fs.openSync(fp, "r+");
       const fsize = fs.fstatSync(fd).size;
       const rxprot = mmap.PROT_READ; // protection
