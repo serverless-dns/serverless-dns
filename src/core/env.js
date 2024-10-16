@@ -46,6 +46,11 @@ const defaults = new Map(
       type: "string",
       default: "development",
     },
+    // the env stage bun is running in
+    BUN_ENV: {
+      type: "string",
+      default: "development",
+    },
     // the cloud-platform code is deployed on (cloudflare, fly, deno-deploy, fastly)
     CLOUD_PLATFORM: {
       type: "string",
