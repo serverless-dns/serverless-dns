@@ -8,7 +8,9 @@
 
 // should always be the first import
 // import whyIsNodeRunning from "why-is-node-running";
+import "./core/node/config.js";
 
+import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as h2c from "httpx-server";
 import http2 from "node:http2";
 import https from "node:https";
@@ -24,7 +26,6 @@ import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
 import * as util from "./commons/util.js";
 import { handleRequest } from "./core/doh.js";
-import "./core/node/config.js";
 import * as nodeutil from "./core/node/util.js";
 import { stopAfter, uptime } from "./core/svc.js";
 import * as system from "./system.js";
@@ -47,6 +48,9 @@ class Stats {
     this.noreqs = -1;
     this.nofchecks = 0;
     this.tlserr = 0;
+    this.fasttls = 0;
+    this.totfasttls = 0;
+    this.fasttlssize = 0;
     this.nofdrops = 0;
     this.nofconns = 0;
     this.openconns = 0;
@@ -401,7 +405,7 @@ function systemUp() {
 
 /**
  * @param {string} id
- * @param  {... import("http2").Http2Server | net.Server} s
+ * @param  {... http2.Http2Server | net.Server} s
  */
 function trapServerEvents(id, s) {
   const ioTimeoutMs = envutil.ioTimeoutMs();
@@ -516,13 +520,36 @@ function trapSecureServerEvents(id, s) {
   });
 
   const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
+  s.on("close", () => clearInterval(rottm));
 
   s.on("error", (err) => {
     log.e("tls: stop! server error; " + err.message, err);
     stopAfter(0);
   });
 
-  s.on("close", () => clearInterval(rottm));
+  // bajtos.net/posts/2013-08-07-improve-the-performance-of-the-node-js-https-server
+  // session tickets take precedence over session ids; -no_ticket is needed
+  // openssl s_client -connect :10000 -reconnect -tls1_2 -no_ticket
+  // on bun, since session tickets cannot be set by programs (though may be vended
+  // by the runtime itself), session ids may come in handy.
+  s.on("newSession", (id, data, next) => {
+    const hid = bufutil.hex(id);
+    tlsSessions.put(hid, data);
+    // log.d("tls: new session;", hid);
+    next();
+  });
+
+  s.on("resumeSession", (id, next) => {
+    const hid = bufutil.hex(id);
+
+    const data = tlsSessions.get(hid) || null;
+    // log.d("tls: resume;", hid, "ok?", data != null);
+    if (data) stats.fasttls += 1;
+    else stats.totfasttls += 1;
+    stats.fasttlssize += bufutil.len(data);
+
+    next(/* err*/ null, null);
+  });
 
   // emitted when the req is discarded due to maxConnections
   s.on("drop", (data) => {
@@ -570,6 +597,8 @@ function rotateTkt(s) {
     ctx = cur + ctx;
   }
 
+  // tls session resumption with tickets (or ids) reduce the 3.5kb to 6.5kb
+  // overhead associated with tls handshake: netsekure.org/2010/03/tls-overhead
   nodecrypto
     .tkt48(seed, ctx)
     .then((k) => s.setTicketKeys(k)) // not supported on bun
@@ -1010,7 +1039,7 @@ async function resolveQuery(rxid, q, host, flag) {
   }
 }
 
-async function serve200(req, res) {
+function serve200(req, res) {
   log.d("-------------> http-check req", req.method, req.url);
   stats.nofchecks += 1;
   res.writeHead(200);
@@ -1022,10 +1051,9 @@ async function serve200(req, res) {
  * @param {Http2ServerRequest} req
  * @param {Http2ServerResponse} res
  */
-async function serveHTTPS(req, res) {
+function serveHTTPS(req, res) {
   trapRequestResponseEvents(req, res);
   const ua = req.headers["user-agent"];
-
   const buffers = [];
 
   // if using for await loop, then it must be wrapped in a
