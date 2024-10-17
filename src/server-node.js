@@ -897,9 +897,8 @@ function serveTLS(socket) {
   const sb = new ScratchBuffer();
 
   log.d("----> dot request", host, flag);
-  socket.on("data", (data) => {
-    const len = handleTCPData(socket, data, sb, host, flag);
-
+  socket.on("data", async (data) => {
+    const len = await handleTCPData(socket, data, sb, host, flag);
     adjustTLSFragAfterWrites(socket, len);
   });
 }
@@ -927,9 +926,9 @@ function serveTCP(socket) {
  * @param {ScratchBuffer} sb - Scratch buffer
  * @param {String} host - Hostname
  * @param {String} flag - Blocklist Flag
- * @returns {int} n - bytes sent
+ * @returns {Promise<number>} n - bytes sent
  */
-function handleTCPData(socket, chunk, sb, host, flag) {
+async function handleTCPData(socket, chunk, sb, host, flag) {
   const cl = chunk.byteLength;
   if (cl <= 0) return 0;
 
@@ -975,7 +974,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   if (sb.qBufOffset === qlen) {
     // extract out the query and reset the scratch-buffer
     const b = sb.reset();
-    n += handleTCPQuery(b, socket, host, flag);
+    n += await handleTCPQuery(b, socket, host, flag);
 
     // if there is any out of band data, handle it
     if (!bufutil.emptyBuf(oob)) {
@@ -991,7 +990,7 @@ function handleTCPData(socket, chunk, sb, host, flag) {
  * @param {TLSSocket} socket
  * @param {String} host
  * @param {String} flag
- * @returns {int} n - bytes sent
+ * @returns {Promise<number>} n - bytes sent
  */
 async function handleTCPQuery(q, socket, host, flag) {
   heartbeat();
@@ -1245,7 +1244,7 @@ function heartbeat() {
  * @param {int} sz
  */
 function adjustTLSFragAfterWrites(socket, sz, rep = tracker.sorep(socket)) {
-  if (sz <= 0) return; // also skip lastsnd
+  if (typeof sz !== "number" || sz <= 0) return; // also skip lastsnd
   if (socket == null) return;
   if (rep == null) return;
 
