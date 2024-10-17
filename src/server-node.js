@@ -297,7 +297,7 @@ function systemUp() {
   const maxconns = envutil.maxconns();
   // see also: dns-transport.js:ioTimeout
   const ioTimeoutMs = envutil.ioTimeoutMs();
-  const isNode = envutil.isNode();
+  const supportsHttp2 = envutil.isNode() || envutil.isDeno();
   const isBun = envutil.isBun();
 
   if (downloadmode) {
@@ -411,7 +411,7 @@ function systemUp() {
       });
 
     // DNS over HTTPS
-    if (isNode) {
+    if (supportsHttp2) {
       const doh = http2
         .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
         .listen(dohOpts, () => {
