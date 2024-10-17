@@ -9,7 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { uid, stub } from "../commons/util.js";
+import { stub } from "../commons/util.js";
 
 /**
  * @typedef {'error'|'logpush'|'warn'|'info'|'timer'|'debug'} LogLevels
@@ -91,30 +91,29 @@ export default class Log {
   }
 
   withTags(...tags) {
-    const that = this;
     return {
       d: (...args) => {
-        that.d(that.now() + " D", ...tags, ...args);
+        this.d(this.now() + " D", ...tags, ...args);
       },
       i: (...args) => {
-        that.i(that.now() + " I", ...tags, ...args);
+        this.i(this.now() + " I", ...tags, ...args);
       },
       w: (...args) => {
-        that.w(that.now() + " W", ...tags, ...args);
+        this.w(this.now() + " W", ...tags, ...args);
       },
       e: (...args) => {
-        that.e(that.now() + " E", ...tags, ...args);
+        this.e(this.now() + " E", ...tags, ...args);
       },
       q: (...args) => {
-        that.l(that.now() + " Q", ...tags, ...args);
+        this.l(this.now() + " Q", ...tags, ...args);
       },
       qStart: (...args) => {
-        that.l(that.now() + " Q", ...tags, that.border());
-        that.l(that.now() + " Q", ...tags, ...args);
+        this.l(this.now() + " Q", ...tags, this.border());
+        this.l(this.now() + " Q", ...tags, ...args);
       },
       qEnd: (...args) => {
-        that.l(that.now() + " Q", ...tags, ...args);
-        that.l(that.now() + " Q", ...tags, that.border());
+        this.l(this.now() + " Q", ...tags, ...args);
+        this.l(this.now() + " Q", ...tags, this.border());
       },
       tag: (t) => {
         tags.push(t);
