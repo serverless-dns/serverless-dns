@@ -30,7 +30,7 @@ import * as util from "./util.js";
 // globalThis.__filename = fileURLToPath(import.meta.url);
 // globalThis.__dirname = path.dirname(__filename);
 
-(async (main) => {
+((main) => {
   system.when("prepare").then(prep);
   system.when("steady").then(up);
 })();

@@ -12,5 +12,6 @@
   ],
   "cSpell.enableFiletypes": [
     "env"
-  ]
+  ],
+  "deno.enable": true
 }

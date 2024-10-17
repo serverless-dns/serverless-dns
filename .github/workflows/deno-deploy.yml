@@ -85,7 +85,7 @@ jobs:
           git reset
           git merge origin/${BUILD_BRANCH} || :
 
-      - name: 🦕 Install Deno @1.44
+      - name: 🦕 Install Deno@2.x
         uses: denoland/setup-deno@main
         with:
           deno-version: 2.x
@@ -95,7 +95,7 @@ jobs:
         run: |
           echo "::notice::do not forget to set DENO_PROJECT_NAME via github secrets!"
           deno task prepare
-          deno bundle ${IN_FILE} ${OUT_FILE}
+          # todo: deno bundle ${IN_FILE} ${OUT_FILE}
         shell: bash
 
       # github.com/denoland/deployctl/blob/febd898/action.yml
@@ -106,13 +106,15 @@ jobs:
         uses: denoland/deployctl@1.12.0
         with:
           project: ${{ env.PROJECT_NAME }}
-          entrypoint: ${{ env.OUT_FILE }}
+          # todo: if bundling, replace IN_FILE w/ OUT_FILE
+          entrypoint: ${{ env.IN_FILE }}
 
       - name: 🚢 Merge latest code into deploy-branch
         if: ${{ env.DEPLOY_MODE == 'auto' }}
         run: |
           git config --local user.name 'github-actions[bot]'
           git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+          # todo: deno bundle has been deprecated
           git add ${OUT_FILE}
           git commit -m "Update bundle for ${GITHUB_SHA}" && \
             echo "::notice::Pushing to ${BUILD_BRANCH}" || \

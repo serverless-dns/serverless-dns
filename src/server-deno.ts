@@ -11,7 +11,6 @@
 import "./core/deno/config.ts";
 import { handleRequest } from "./core/doh.js";
 import { stopAfter, uptime } from "./core/svc.js";
-import { serve, serveTls } from "https://deno.land/std@0.171.0/http/server.ts";
 import * as system from "./system.js";
 import * as util from "./commons/util.js";
 import * as bufutil from "./commons/bufutil.js";
@@ -69,16 +68,25 @@ function systemUp() {
 
   const abortctl = new AbortController();
   const onDenoDeploy = envutil.onDenoDeploy() as boolean;
+  const isCleartext = envutil.isCleartext() as boolean;
   const dohConnOpts = { port: envutil.dohBackendPort() };
   const dotConnOpts = { port: envutil.dotBackendPort() };
   const sigOpts = {
     signal: abortctl.signal,
     onListen: undefined,
   };
-  const tlsOpts = {
-    certFile: envutil.tlsCrtPath() as string,
-    keyFile: envutil.tlsKeyPath() as string,
-  };
+
+  const crtpath = envutil.tlsCrtPath() as string;
+  const keypath = envutil.tlsKeyPath() as string;
+  const dotls = !onDenoDeploy && !isCleartext;
+
+  const tlsOpts = dotls
+    ? {
+        // docs.deno.com/runtime/reference/migration_guide/
+        cert: Deno.readTextFileSync(crtpath),
+        key: Deno.readTextFileSync(keypath),
+      }
+    : { cert: "", key: "" };
   // deno.land/manual@v1.18.0/runtime/http_server_apis_low_level
   const httpOpts = {
     alpnProtocols: ["h2", "http/1.1"],
@@ -87,19 +95,21 @@ function systemUp() {
   startDoh();
   startDotIfPossible();
 
-  // deno.land/manual@v1.29.1/runtime/http_server_apis
-  async function startDoh() {
+  // docs.deno.com/runtime/fundamentals/http_server
+  // docs.deno.com/api/deno/~/Deno.serve
+  function startDoh() {
     if (terminateTls()) {
-      // deno.land/std@0.170.0/http/server.ts?s=serveTls
-      serveTls(serveDoh, {
-        ...dohConnOpts,
-        ...tlsOpts,
-        ...httpOpts,
-        ...sigOpts,
-      });
+      Deno.serve(
+        {
+          ...dohConnOpts,
+          ...tlsOpts,
+          ...httpOpts,
+          ...sigOpts,
+        },
+        serveDoh
+      );
     } else {
-      // deno.land/std@0.171.0/http/server.ts?s=serve
-      serve(serveDoh, { ...dohConnOpts, ...sigOpts });
+      Deno.serve({ ...dohConnOpts, ...sigOpts }, serveDoh);
     }
 
     up("DoH", abortctl, dohConnOpts);
@@ -134,14 +144,14 @@ function systemUp() {
 
   function terminateTls() {
     if (onDenoDeploy) return false;
-    if (util.emptyString(tlsOpts.keyFile)) return false;
-    if (envutil.isCleartext()) return false;
-    if (util.emptyString(tlsOpts.certFile)) return false;
+    if (envutil.isCleartext() as boolean) return false;
+    if (util.emptyString(tlsOpts.key)) return false;
+    if (util.emptyString(tlsOpts.cert)) return false;
     return true;
   }
 }
 
-async function serveDoh(req: Request) {
+function serveDoh(req: Request) {
   try {
     // doc.deno.land/deno/stable/~/Deno.RequestEvent
     // deno.land/manual/runtime/http_server_apis#http-requests-and-responses

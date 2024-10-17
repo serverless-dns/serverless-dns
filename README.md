@@ -57,7 +57,7 @@ cd ./serverless-dns
 
 Node:
 ```bash
-# install node v19+ via nvm, if required
+# install node v22+ via nvm, if required
 # https://github.com/nvm-sh/nvm#installing-and-updating
 wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 nvm install --lts
@@ -77,7 +77,7 @@ npm update
 
 Deno:
 ```bash
-# install deno.land v1.22+
+# install deno.land v2+
 # https://github.com/denoland/deno/#install
 curl -fsSL https://deno.land/install.sh | sh
 
@@ -87,7 +87,7 @@ curl -fsSL https://deno.land/install.sh | sh
 
 Fastly:
 ```bash
-# install node v18+ via nvm, if required
+# install node v22+ via nvm, if required
 # install the Fastly CLI
 # https://developer.fastly.com/learning/tools/cli
 

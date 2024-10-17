@@ -71,6 +71,7 @@ async function fmmap(fp) {
   const dynimports = envutil.hasDynamicImports();
   const isNode = envutil.isNode();
   const isBun = envutil.isBun();
+  const isDeno = envutil.isDeno();
 
   if (dynimports && isNode) {
     try {
@@ -90,6 +91,8 @@ async function fmmap(fp) {
   } else if (isBun) {
     log.i("mmap f:", fp, "on bun");
     return Bun.mmap(fp);
+  } else if (isDeno) {
+    log.i("mmap f:", fp, "unavailable on deno");
   }
   return null;
 }
