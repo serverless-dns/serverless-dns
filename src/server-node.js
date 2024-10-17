@@ -313,6 +313,7 @@ function systemUp() {
   }
 
   // nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
+  /** @type {net.ServerOpts} */
   const serverOpts = {
     keepAlive: true,
     noDelay: true,
@@ -359,13 +360,10 @@ function systemUp() {
 
     // TODO: ProxyProtoV2 with TLS ClientHello (unsupported by Fly.io, rn)
     // DNS over TLS Cleartext
-    const dotct = net
-      // serveTCP must eventually call machines-heartbeat
-      .createServer(serverOpts, serveTCP)
-      .listen(dotOpts, () => {
-        up("DoT Cleartext", dotct.address());
-        trapServerEvents("dotct", dotct);
-      });
+    const dotct = net.createServer(serverOpts, serveTCP).listen(dotOpts, () => {
+      up("DoT Cleartext", dotct.address());
+      trapServerEvents("dotct", dotct);
+    });
 
     // DNS over HTTPS Cleartext
     // Same port for http1.1/h2 does not work on node without tls, that is,
@@ -376,7 +374,6 @@ function systemUp() {
     // Ref (for clients): github.com/nodejs/node/issues/31759
     // Impl: stackoverflow.com/a/42019773
     const dohct = h2c
-      // serveHTTPS must eventually invoke machines-heartbeat
       .createServer(serverOpts, serveHTTPS)
       .listen(dohOpts, () => {
         up("DoH Cleartext", dohct.address());
@@ -400,29 +397,22 @@ function systemUp() {
     /** @type {net.ListenOptions} */
     const dot2Opts = { port: portdot2, host: zero6, backlog: tcpbacklog };
     // DNS over TLS
-    const dot1 = tls
-      // serveTLS must eventually invoke machines-heartbeat
-      .createServer(secOpts, serveTLS)
-      .listen(dot1Opts, () => {
-        up("DoT", dot1.address());
-        trapSecureServerEvents("dot1", dot1);
-      });
+    const dot1 = tls.createServer(secOpts, serveTLS).listen(dot1Opts, () => {
+      up("DoT", dot1.address());
+      trapSecureServerEvents("dot1", dot1);
+    });
 
     // DNS over TLS w ProxyProto
     const dot2 =
       envutil.isDotOverProxyProto() &&
-      net
-        // serveDoTProxyProto must evenually invoke machines-heartbeat
-        .createServer(serverOpts, serveDoTProxyProto)
-        .listen(dot2Opts, () => {
-          up("DoT ProxyProto", dot2.address());
-          trapServerEvents("dot2", dot2);
-        });
+      net.createServer(serverOpts, serveDoTProxyProto).listen(dot2Opts, () => {
+        up("DoT ProxyProto", dot2.address());
+        trapServerEvents("dot2", dot2);
+      });
 
     // DNS over HTTPS
     if (isNode) {
       const doh = http2
-        // serveHTTPS must eventually invoke machines-heartbeat
         .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
         .listen(dohOpts, () => {
           up("DoH2", doh.address());
