@@ -50,7 +50,7 @@ class Stats {
     this.tlserr = 0;
     this.fasttls = 0;
     this.totfasttls = 0;
-    this.fasttlssize = 0;
+    this.noftlsadjs = 0;
     this.nofdrops = 0;
     this.nofconns = 0;
     this.openconns = 0;
@@ -62,20 +62,41 @@ class Stats {
 
   str() {
     return (
-      `reqs=${this.noreqs} checks=${this.nofchecks} ` +
+      `reqs=${this.noreqs} c=${this.nofchecks} ` +
       `drops=${this.nofdrops}/tot=${this.nofconns}/open=${this.openconns} ` +
-      `timeouts=${this.noftimeouts}/tlserr=${this.tlserr} ` +
+      `to=${this.noftimeouts}/tlserr=${this.tlserr} ` +
+      `tls0=${this.fasttls}/tls0miss=${this.totfasttls}/tlsadjs=${this.noftlsadjs} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
       `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]}`
     );
   }
 }
 
+class SoReport {
+  constructor() {
+    /** @type {int} total bytes transferred in preceding 1sec */
+    this.tx = 0;
+    /** @type {int} unix timestamp in millis */
+    this.lastsnd = 0;
+  }
+}
+
+class ConnW {
+  /**
+   * @param {Socket|TLSSocket} socket
+   */
+  constructor(socket) {
+    this.socket = socket;
+    this.rep = new SoReport();
+  }
+}
+
 class Tracker {
   constructor() {
     this.zeroid = "";
-    /** @type {Array<Map<string, Socket>>} */
+    /** @type {Array<Map<string, ConnW>>} */
     this.connmap = [];
+    this.reports = [];
     /** @type {Array<net.Server>} */
     this.srvs = [];
   }
@@ -101,7 +122,7 @@ class Tracker {
   }
 
   /**
-   * @param {Socket} sock
+   * @param {Socket?} sock
    * @returns {string}
    */
   cid(sock) {
@@ -161,16 +182,36 @@ class Tracker {
     const connid = this.cid(sock);
     const cmap = this.connmap[mapid];
     if (!this.valid(mapid) || !this.valid(connid) || !cmap) {
-      log.w("trackConn: server/socket not tracked?", mapid, connid);
+      log.d("trackConn: server/socket not tracked?", mapid, connid);
       return this.zeroid;
     }
 
-    cmap.set(connid, sock);
+    cmap.set(connid, new ConnW(sock));
     sock.on("close", (haderr) => cmap.delete(connid));
 
     return connid;
   }
 
+  /**
+   *
+   * @param {Socket|TLSSocket|null} sock
+   * @returns {SoReport?} rep
+   */
+  sorep(sock) {
+    const connid = this.cid(sock);
+    if (!this.valid(connid)) return null; // unlikely
+
+    for (const cmap of this.connmap) {
+      if (!cmap) continue;
+      const connw = cmap.get(connid);
+      if (connw != null) return connw.rep;
+    }
+    return null; // sock not tracked!
+  }
+
+  /**
+   * @returns {[Array<net.Server>, Array<Map<string, ConnW>>]}
+   */
   end() {
     const srvs = this.srvs;
     const cmap = this.connmap;
@@ -184,6 +225,11 @@ class Tracker {
 const zero6 = "::";
 const tracker = new Tracker();
 const stats = new Stats();
+// blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
+// 1369 - (1500 - 1280) = 1149
+const tlsStartFragmentSize = 1149; // bytes
+const tlsMaxFragmentSize = 16 << 10; // 16kb
+const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
 const maxHeapSnaps = 20;
@@ -198,7 +244,7 @@ let adjTimer = null;
   system.pub("prepare");
 })();
 
-async function systemDown() {
+function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
   const upmins = (uptime() / 60000) | 0;
@@ -220,8 +266,8 @@ async function systemDown() {
   for (const m of cmap) {
     if (!m) continue;
     console.warn("W closing...", m.size, "connections");
-    for (const sock of m.values()) {
-      close(sock);
+    for (const v of m.values()) {
+      close(v.socket);
     }
   }
 
@@ -491,9 +537,8 @@ function trapSecureServerEvents(id, s) {
       return;
     }
 
-    // blog.cloudflare.com/optimizing-tls-over-tcp-to-reduce-latency
-    // 1369 - (1500 - 1280) = 1149
-    socket.setMaxSendFragment(1149);
+    // github.com/nodejs/node-v0.x-archive/issues/6889
+    socket.setMaxSendFragment(tlsStartFragmentSize);
 
     socket.setTimeout(ioTimeoutMs, () => {
       stats.noftimeouts += 1;
@@ -546,7 +591,6 @@ function trapSecureServerEvents(id, s) {
     // log.d("tls: resume;", hid, "ok?", data != null);
     if (data) stats.fasttls += 1;
     else stats.totfasttls += 1;
-    stats.fasttlssize += bufutil.len(data);
 
     next(/* err*/ null, null);
   });
@@ -864,7 +908,9 @@ function serveTLS(socket) {
 
   log.d("----> dot request", host, flag);
   socket.on("data", (data) => {
-    handleTCPData(socket, data, sb, host, flag);
+    const len = handleTCPData(socket, data, sb, host, flag);
+
+    adjustTLSFragAfterWrites(socket, len);
   });
 }
 
@@ -891,10 +937,11 @@ function serveTCP(socket) {
  * @param {ScratchBuffer} sb - Scratch buffer
  * @param {String} host - Hostname
  * @param {String} flag - Blocklist Flag
+ * @returns {int} n - bytes sent
  */
 function handleTCPData(socket, chunk, sb, host, flag) {
   const cl = chunk.byteLength;
-  if (cl <= 0) return;
+  if (cl <= 0) return 0;
 
   // read header first which contains length(dns-query)
   const rem = dnsutil.dnsHeaderSize - sb.qlenBufOffset;
@@ -907,18 +954,18 @@ function handleTCPData(socket, chunk, sb, host, flag) {
 
   // header has not been read fully, yet; expect more data
   // www.rfc-editor.org/rfc/rfc7766#section-8
-  if (sb.qlenBufOffset !== dnsutil.dnsHeaderSize) return;
+  if (sb.qlenBufOffset !== dnsutil.dnsHeaderSize) return 0;
 
   const qlen = sb.qlenBuf.readUInt16BE();
   if (!dnsutil.validateSize(qlen)) {
     log.w(`tcp: query size err: ql:${qlen} cl:${cl} rem:${rem}`);
     close(socket);
-    return;
+    return 0;
   }
 
   // rem bytes already read, is any more left in chunk?
   const size = cl - rem;
-  if (size <= 0) return;
+  if (size <= 0) return 0;
   // gobble up at most qlen bytes from chunk starting rem-th byte
   const qlimit = rem + Math.min(qlen - sb.qBufOffset, size);
   // hopefully fast github.com/nodejs/node/issues/20130#issuecomment-382417255
@@ -933,17 +980,20 @@ function handleTCPData(socket, chunk, sb, host, flag) {
   sb.qBufOffset += data.byteLength;
 
   log.d(`tcp: q: ${qlen}, sb.q: ${sb.qBufOffset}, cl: ${cl}, sz: ${size}`);
+  let n = 0;
   // exactly qlen bytes read till now, handle the dns query
   if (sb.qBufOffset === qlen) {
     // extract out the query and reset the scratch-buffer
     const b = sb.reset();
-    handleTCPQuery(b, socket, host, flag);
+    n += handleTCPQuery(b, socket, host, flag);
+
     // if there is any out of band data, handle it
     if (!bufutil.emptyBuf(oob)) {
       log.d(`tcp: pipelined, handle oob: ${oob.byteLength}`);
-      handleTCPData(socket, oob, sb, host, flag);
+      n += handleTCPData(socket, oob, sb, host, flag);
     }
   } // continue reading from socket
+  return n;
 }
 
 /**
@@ -951,23 +1001,27 @@ function handleTCPData(socket, chunk, sb, host, flag) {
  * @param {TLSSocket} socket
  * @param {String} host
  * @param {String} flag
+ * @returns {int} n - bytes sent
  */
 async function handleTCPQuery(q, socket, host, flag) {
   heartbeat();
 
+  let n = 0;
   let ok = true;
-  if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return;
+  if (bufutil.emptyBuf(q) || !tcpOkay(socket)) return 0;
 
+  /** @type {Uint8Array?} */
+  let r = null;
   const rxid = util.xid();
   try {
-    const r = await resolveQuery(rxid, q, host, flag);
+    r = await resolveQuery(rxid, q, host, flag);
     if (bufutil.emptyBuf(r)) {
       log.w(rxid, "tcp: empty ans from resolver");
       ok = false;
     } else {
       const rlBuf = bufutil.encodeUint8ArrayBE(r.byteLength, 2);
       const data = new Uint8Array([...rlBuf, ...r]);
-      measuredWrite(rxid, socket, data);
+      n = measuredWrite(rxid, socket, data);
     }
   } catch (e) {
     ok = false;
@@ -978,12 +1032,15 @@ async function handleTCPQuery(q, socket, host, flag) {
   if (!ok) {
     close(socket);
   } // else: expect pipelined queries on the same socket
+
+  return n;
 }
 
 /**
  * @param {string} rxid
  * @param {Socket} socket
  * @param {Uint8Array} data
+ * @param {int} n - bytes written to socket
  */
 function measuredWrite(rxid, socket, data) {
   let ok = tcpOkay(socket);
@@ -991,7 +1048,7 @@ function measuredWrite(rxid, socket, data) {
   if (!ok) {
     log.w(rxid, "tcp: send fail, socket not writable", bufutil.len(data));
     close(socket);
-    return;
+    return 0;
   }
   // nodejs.org/en/docs/guides/backpressuring-in-streams
   // stackoverflow.com/a/18933853
@@ -1004,6 +1061,7 @@ function measuredWrite(rxid, socket, data) {
       socket.resume();
     });
   }
+  return bufutil.len(data);
 }
 /**
  * @param {String} rxid
@@ -1116,11 +1174,13 @@ async function handleHTTPRequest(b, req, res) {
     // ans may be null on non-2xx responses, such as redirects (3xx) by cc.js
     // or 4xx responses on timeouts or 5xx on invalid http method
     const ans = await fRes.arrayBuffer();
+    const sz = bufutil.len(ans);
 
     if (!resOkay(res)) {
       throw new Error("res not writable 2");
-    } else if (!bufutil.emptyBuf(ans)) {
+    } else if (sz > 0) {
       res.end(bufutil.normalize8(ans));
+      adjustTLSFragAfterWrites(res.socket, sz);
     } else {
       // expect fRes.status to be set to non 2xx above
       res.end();
@@ -1185,6 +1245,34 @@ function heartbeat() {
     const elapsed = (Date.now() - start) / 1000;
     log.i("heap snapshot #", stats.nofheapsnaps, n, "in", elapsed, "s");
   }
+}
+
+/**
+ * github.com/nodejs/node-v0.x-archive/issues/6889
+ * github.com/golang/go/blob/ef3e1dae2f/src/crypto/tls/conn.go#L895
+ * @param {TLSSocket?} socket
+ * @param {SoReport?} rep
+ * @param {int} sz
+ */
+function adjustTLSFragAfterWrites(socket, sz, rep = tracker.sorep(socket)) {
+  if (sz <= 0) return; // also skip lastsnd
+  if (socket == null) return;
+  if (rep == null) return;
+
+  const now = Date.now();
+  if (now - rep.lastsnd > 1000) {
+    // reset tx time threshold: 1s
+    socket.setMaxSendFragment(tlsStartFragmentSize);
+    rep.tx = sz;
+  } else if (rep.tx > tlsStartFragmentSize * 1000) {
+    stats.noftlsadjs += 1;
+
+    // boost upto max thres: 1139 * 1000 = ~128kb or ~1000 frags
+    socket.setMaxSendFragment(tlsMaxFragmentSize);
+  } // else: adaptively set to (sz * est fragments rcvd so far)
+  rep.lastsnd = now;
+  rep.tx += sz;
+  // socket.setMaxSendFragment(sz * sb.tx/tlsStartFragmentSize)
 }
 
 function adjustMaxConns(n) {
