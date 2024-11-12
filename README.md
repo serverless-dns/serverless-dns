@@ -15,6 +15,12 @@ RethinkDNS runs `serverless-dns` in production at these endpoints:
 
 Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-to-end latency (varies across regions and networks) is between 10ms to 30ms (median).
 
+[<img src="https://fossunited.org/files/fossunited-white.svg"
+     alt="FOSS United"
+     height="40">](https://fossunited.org/grants)&emsp;
+
+The *Rethink DNS* resolver on Fly.io is sponsored by [FOSS United](https://fossunited.org/grants).
+
 ### Self-host
 
 Cloudflare Workers is the easiest platform to setup `serverless-dns`:
