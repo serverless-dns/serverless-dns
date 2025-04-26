@@ -76,7 +76,7 @@ do
     # TODO: check if the timestamp within the json file is more recent
     # file/symlink exists? stackoverflow.com/a/44679975
     if [ -f "${out}" ] || [ -L "${out}" ]; then
-        echo "=x== pre.sh: no op"
+        echo "=x== pre.sh: no op ${out}"
         exit 0
     else
         wget $wgetopts -q "${burl}/${yyyy}/${dir}/${mm}-${wk}/${codec}/${f}" -O "${out}"
