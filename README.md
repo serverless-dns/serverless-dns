@@ -15,7 +15,7 @@ RethinkDNS runs `serverless-dns` in production at these endpoints:
 
 Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-to-end latency (varies across regions and networks) is between 10ms to 30ms (median).
 
-[<img src="https://fossunited.org/files/fossunited-white.svg"
+[<img src="https://raw.githubusercontent.com/fossunited/Branding/main/asset/FOSS%20United%20Logo/Extra/Extra%20Logo%20white%20on%20black.jpg"
      alt="FOSS United"
      height="40">](https://fossunited.org/grants)&emsp;
 
