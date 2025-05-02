@@ -54,10 +54,19 @@ recBlockstamps.set("ps", "1:GNwB-ACgeQKr7cg3YXoAgA==");
 
 /**
  * @param {BlocklistFilter} blf
- * @returns {boolean}
+ * @returns {boolean} true if blf is setup
  */
 export function isBlocklistFilterSetup(blf) {
   return blf && !util.emptyObj(blf.ftrie);
+}
+
+/**
+ * alias for util#bareTimestampFrom
+ * @type {string} tstamp is of form epochMs ("1740866164283") or yyyy/epochMs ("2025/1740866164283")
+ * @returns {int} blocklist create time (unix epoch) in millis (-1 on errors)
+ */
+export function bareTimestampFrom(tstamp) {
+  return util.bareTimestampFrom(tstamp);
 }
 
 /**
@@ -509,34 +518,6 @@ export function hasBlockstamp(blockInfo) {
 }
 
 /**
- * returns true if tstamp is of form yyyy/epochMs
- * @param {string} tstamp
- * @returns {boolean}
- */
-function isValidFullTimestamp(tstamp) {
-  if (typeof tstamp !== "string") return false;
-  return tstamp.indexOf("/") === 4;
-}
-
-/**
- * from: github.com/celzero/downloads/blob/main/src/timestamp.js
- * @param {string} tstamp
- * @returns {int} epoch
- */
-export function bareTimestampFrom(tstamp) {
-  // strip out "/" if tstamp is of form yyyy/epochMs
-  if (isValidFullTimestamp(tstamp)) {
-    tstamp = tstamp.split("/")[1];
-  }
-  const t = parseInt(tstamp);
-  if (isNaN(t)) {
-    log.w("Rdns bareTstamp: NaN", tstamp);
-    return 0;
-  }
-  return t;
-}
-
-/**
  * @param {string} strflag
  * @returns {string[]} blocklist names
  */
@@ -545,8 +526,6 @@ export function blocklists(strflag) {
   const blocklists = [];
   if (flagVersion === "1") {
     return trie.flagsToTags(userBlocklistFlagUint);
-  } else {
-    throw new Error("unknown blocklist version: " + flagVersion);
-  }
+  } // unknown blocklist version
   return blocklists;
 }
