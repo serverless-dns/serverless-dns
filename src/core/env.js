@@ -150,6 +150,11 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
+    // auto renew blocklists if they are older than these many weeks
+    AUTO_RENEW_BLOCKLISTS_OLDER_THAN: {
+      type: "number",
+      default: -1, // in weeks; negative or 0 means, never auto-renew
+    },
     // courtesy db-ip.com/db/download/ip-to-country-lite
     GEOIP_URL: {
       type: "string",

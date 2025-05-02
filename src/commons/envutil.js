@@ -260,6 +260,12 @@ export function blocklistDownloadOnly() {
   return envManager.get("BLOCKLIST_DOWNLOAD_ONLY");
 }
 
+export function renewBlocklistsThresholdInWeeks() {
+  if (!envManager) return false;
+
+  return envManager.get("AUTO_RENEW_BLOCKLISTS_OLDER_THAN") || -1;
+}
+
 // Ports which the services are exposed on. Corresponds to fly.toml ports.
 export function dohBackendPort() {
   return 8080;
