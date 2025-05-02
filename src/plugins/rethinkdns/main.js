@@ -7,26 +7,39 @@
  */
 
 import { createTrie } from "@serverless-dns/trie/ftrie.js";
+import * as bufutil from "../../commons/bufutil.js";
+import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
+import * as cfg from "../../core/cfg.js";
+import * as pres from "../plugin-response.js";
+import * as rdnsutil from "../rdns-util.js";
 import { BlocklistFilter } from "./filter.js";
 import { withDefaults } from "./trie-config.js";
-import * as pres from "../plugin-response.js";
-import * as cfg from "../../core/cfg.js";
-import * as bufutil from "../../commons/bufutil.js";
-import * as util from "../../commons/util.js";
-import * as envutil from "../../commons/envutil.js";
-import * as rdnsutil from "../rdns-util.js";
 
 // number of range fetches for trie.txt; -1 to disable
 const maxrangefetches = 2;
 
+const basicconfigDir = "bc";
+const bcFilename = "basicconfig.json";
+const ftFilename = "filetag.json";
+const defaultCodec = "u6";
+const maxRenewAttempts = 5;
+
 export class BlocklistWrapper {
   constructor() {
+    /** @type {BlocklistFilter} */
     this.blocklistFilter = new BlocklistFilter();
+    /** @type {number} */
     this.startTime = Date.now(); // blocklist download timestamp
+    /** @type {boolean} */
     this.isBlocklistUnderConstruction = false;
+    /** @type {string} */
     this.exceptionFrom = "";
+    /** @type {string} */
     this.exceptionStack = "";
+    /** @type {boolean} */
     this.noop = envutil.disableBlocklists();
+    /** @type {boolean} */
     this.nowait = envutil.bgDownloadBlocklistWrapper();
 
     this.log = log.withTags("BlocklistWrapper");
@@ -50,11 +63,7 @@ export class BlocklistWrapper {
         now - this.startTime > envutil.downloadTimeout() * 2
       ) {
         this.log.i(rxid, "download blocklists", now, this.startTime);
-        const url = envutil.blocklistUrl() + cfg.timestamp() + "/";
-        const nc = cfg.tdNodeCount();
-        const parts = cfg.tdParts();
-        const u6 = cfg.tdCodec6();
-        return this.initBlocklistConstruction(rxid, now, url, nc, parts, u6);
+        return this.initBlocklistConstruction(rxid, now);
       } else if (this.nowait && !forceget) {
         // blocklist-construction is in progress, but we don't have to
         // wait for it to finish. So, return an empty response.
@@ -109,6 +118,13 @@ export class BlocklistWrapper {
     return response;
   }
 
+  /**
+   *
+   * @param {ArrayBufferLike} td
+   * @param {ArrayBufferLike} rd
+   * @param {Object} ftags
+   * @param {Object} bconfig
+   */
   buildBlocklistFilter(td, rd, ftags, bconfig) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = Date.now();
@@ -124,28 +140,44 @@ export class BlocklistWrapper {
     return createTrie(tdbuf, rdbuf, bconfig);
   }
 
-  async initBlocklistConstruction(
-    rxid,
-    when,
-    url,
-    tdNodecount,
-    tdParts,
-    tdCodec6
-  ) {
+  /**
+   * @param {string} rxid
+   * @param {int} when
+   * @returns {Promise<pres.RResp>}
+   */
+  async initBlocklistConstruction(rxid, when) {
     this.isBlocklistUnderConstruction = true;
     this.startTime = when;
 
+    const baseurl = envutil.blocklistUrl();
+
+    let bconfig = withDefaults(cfg.orig());
+    let ft = cfg.filetag();
+    // if bconfig.timestamp is older than AUTO_RENEW_BLOCKLISTS_OLDER_THAN
+    // then download the latest filetag (ft) and basicconfig (bconfig).
+    if (!envutil.disableBlocklists()) {
+      const blocklistAgeThresWeeks = envutil.renewBlocklistsThresholdInWeeks();
+      const bltimestamp = util.bareTimestampFrom(cfg.timestamp());
+      if (isPast(bltimestamp, blocklistAgeThresWeeks)) {
+        const [renewedBconfig, renewedFt] = await renew(baseurl);
+
+        if (renewedBconfig != null && renewedFt != null) {
+          log.i("renewed:", bconfig.timestamp, "=>", renewedBconfig.timestamp);
+          bconfig = withDefaults(renewedBconfig);
+          ft = renewedFt;
+        } else {
+          log.w("renew failed; got: ", renewedBconfig);
+        }
+      } else {
+        log.d("renew not needed for:", bltimestamp);
+      }
+    }
+
     let response = pres.emptyResponse();
     try {
-      await this.downloadAndBuildBlocklistFilter(
-        rxid,
-        url,
-        tdNodecount,
-        tdParts,
-        tdCodec6
-      );
+      await this.downloadAndBuildBlocklistFilter(rxid, bconfig, ft);
 
-      this.log.i(rxid, "blocklist-filter setup; u6?", tdCodec6);
+      this.log.i(rxid, "blocklist-filter setup; u6?", bconfig.useCodec6);
       if (false) {
         // test
         const result = this.blocklistFilter.blockstamp("google.com");
@@ -165,21 +197,15 @@ export class BlocklistWrapper {
     return response;
   }
 
-  async downloadAndBuildBlocklistFilter(rxid, url, tdNodecount, tdParts, u6) {
+  async downloadAndBuildBlocklistFilter(rxid, bconfig, ft) {
+    const tdNodecount = bconfig.nodecount; // or: cfg.tdNodeCount();
+    const tdParts = bconfig.tdparts; // or: cfg.tdParts();
+    const u6 = bconfig.useCodec6; // or: cfg.tdCodec6();
+
+    let url = envutil.blocklistUrl() + bconfig.timestamp + "/";
+    url += u6 ? "u6/" : "u8/";
+
     !tdNodecount && this.log.e(rxid, "tdNodecount zero or missing!");
-
-    const bconfig = withDefaults(cfg.orig());
-    const ft = cfg.filetag();
-
-    if (
-      bconfig.useCodec6 !== u6 ||
-      bconfig.nodecount !== tdNodecount ||
-      bconfig.tdparts !== tdParts
-    ) {
-      throw new Error(bconfig + "<=cfg; in=>" + u6 + " " + tdNodecount);
-    }
-
-    url += bconfig.useCodec6 ? "u6/" : "u8/";
 
     this.log.d(rxid, url, tdNodecount, tdParts);
     const buf0 = fileFetch(url + "rd.txt", "buffer");
@@ -195,11 +221,12 @@ export class BlocklistWrapper {
     const ftrie = this.makeTrie(td, rd, bconfig);
 
     this.blocklistFilter.load(ftrie, ft);
-
-    return;
   }
 
   triedata() {
+    if (!rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+      throw new Error("no triedata: blocklistFilter not loaded");
+    }
     const blf = this.blocklistFilter;
     const ftrie = blf.ftrie;
     const rdir = ftrie.directory;
@@ -208,11 +235,60 @@ export class BlocklistWrapper {
   }
 
   rankdata() {
+    if (!rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+      throw new Error("no rankdata: blocklistFilter not loaded");
+    }
     const blf = this.blocklistFilter;
     const ftrie = blf.ftrie;
     const rdir = ftrie.directory;
     const d = rdir.directory;
     return bufutil.raw(d.bytes);
+  }
+
+  filetag() {
+    if (!rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+      throw new Error("no filetag: blocklistFilter not loaded");
+    }
+    const blf = this.blocklistFilter;
+    return blf.filetag;
+  }
+
+  basicconfig() {
+    if (!rdnsutil.isBlocklistFilterSetup(this.blocklistFilter)) {
+      throw new Error("no basicconfig: blocklistFilter not loaded");
+    }
+    const blf = this.blocklistFilter;
+    const ftrie = blf.ftrie;
+    const rdir = ftrie.directory;
+    return rdir.config;
+  }
+
+  /**
+   * Returns the timestamp of the blocklist (epochMillis or yyyy/epochMillis)
+   * @param {string} defaultTimestamp
+   * @returns {string} timestamp
+   * @throws {Error} if timestamp could not be determined and defaultTimestamp is empty.
+   */
+  timestamp(defaultTimestamp = "") {
+    try {
+      const bc = this.basicconfig();
+      if (bc == null) {
+        throw new Error("missing basicconfig");
+      }
+      if (util.emptyString(bc.timestamp)) {
+        throw new Error("basicconfig missing timestamp");
+      }
+    } catch (ex) {
+      if (util.emptyString(defaultTimestamp)) {
+        throw ex;
+      }
+    }
+    return defaultTimestamp;
+  }
+
+  codec() {
+    const tdcodec6 = this.basicconfig().useCodec6;
+    return tdcodec6 ? "u6" : "u8";
   }
 }
 
@@ -310,4 +386,108 @@ async function makeTd(baseurl, n) {
   log.i("tds downloaded");
 
   return bufutil.concat(tds);
+}
+
+/**
+ * @typedef {Object} DateInfo
+ * @property {number} day
+ * @property {number} week
+ * @property {number} month
+ * @property {number} year
+ * @property {number} timestamp
+ */
+
+/**
+ * @returns {DateInfo}
+ */
+function todayAsDateInfo() {
+  const date = new Date();
+  const day = date.getUTCDate();
+  const week = Math.ceil(day / 7);
+  const month = date.getUTCMonth() + 1;
+  const year = date.getUTCFullYear();
+  const timestamp = date.getTime();
+  return { day, week, month, year, timestamp };
+}
+
+/**
+ * Main function to prefetch files based on week, month, and year.
+ * @param {string} baseurl
+ */
+async function renew(baseurl) {
+  let { week: wk, month: mm, year: yyyy, timestamp: now } = todayAsDateInfo();
+
+  for (let i = 0; i <= maxRenewAttempts; i++) {
+    const configUrl = `${baseurl}${yyyy}/${basicconfigDir}/${mm}-${wk}/${defaultCodec}/${bcFilename}`;
+    log.i(`attempt ${i}: fetching ${configUrl} at ${now}`);
+
+    try {
+      // {
+      //   "version":1,
+      //   "nodecount":81551789,
+      //   "inspect":false,
+      //   "debug":false,
+      //   "selectsearch":true,
+      //   "useCodec6":true,
+      //   "optflags":true,
+      //   "tdpartsmaxmb":0,
+      //   "timestamp":"2025/1740866164283",
+      //   "tdparts":-1,
+      //   "tdmd5":"000ed9638e8e0f12e450050997e84365",
+      //   "rdmd5":"75e5eebc71be02d8bef47b93ea58c213",
+      //   "ftmd5":"8c56effb0f3d73232f7090416bb2e7c1",
+      //   "ftlmd5":"54b323eb653451ba8940acb00d20382a"
+      // }
+      const bconfig = await fileFetch(configUrl, "json");
+
+      if (bconfig) {
+        const fullTimestamp = bconfig.timestamp;
+        if (fullTimestamp) {
+          const codec = bconfig.useCodec6 ? "u6" : "u8";
+          const tagUrl = `${baseurl}${fullTimestamp}/${codec}/${ftFilename}`;
+          log.i(`attempt ${i}: fetching ${configUrl} at ${now}`);
+
+          const ft = await fileFetch(tagUrl, "json");
+
+          if (ft) return [bconfig, ft];
+          else log.w(`failed to fetch ${tagUrl}`);
+        }
+      }
+    } catch (ex) {
+      // ex: 4xx, 5xx
+      log.w(`renew #${i} err; retrying...`, ex);
+    }
+
+    // decr week, month, year; try again
+    wk--;
+    if (wk <= 0) {
+      wk = 5;
+      mm--;
+    }
+    if (mm <= 0) {
+      mm = 12;
+      yyyy--;
+    }
+  }
+
+  log.e("no new filetag or basicconfig: exceeded max retries");
+  return [null, null];
+}
+
+/**
+ * @param {int} tsms (in unix millis)
+ * @param {int} wk (in weeks > 0)
+ * @returns {bool}
+ */
+function isPast(tsms, wk) {
+  if (tsms <= 0 || wk <= 0) return false;
+
+  const since = Date.now() - tsms;
+  const sinceWeeks = Math.floor(since / (1000 * 60 * 60 * 24 * 7));
+
+  const y = sinceWeeks > wk;
+  if (y) {
+    log.w("blocklist is old:", sinceWeeks, ">", wk);
+  }
+  return y;
 }

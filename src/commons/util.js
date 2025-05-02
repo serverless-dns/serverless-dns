@@ -259,6 +259,11 @@ export function rolldice(sides = 6) {
   return rand(1, sides + 1);
 }
 
+export function yyyymm() {
+  const d = new Date();
+  return d.getUTCFullYear() + "/" + (d.getUTCMonth() + 1);
+}
+
 // stackoverflow.com/a/8084248
 export function uid(prefix = "") {
   // ex: ".ww8ja208it"

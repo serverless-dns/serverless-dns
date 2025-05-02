@@ -5,21 +5,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import * as cfg from "../../core/cfg.js";
-import * as util from "../../commons/util.js";
-import * as rdnsutil from "../rdns-util.js";
-import * as dnsutil from "../../commons/dnsutil.js";
-import * as pres from "../plugin-response.js";
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
-import * as token from "../users/auth-token.js";
-import { BlocklistFilter } from "../rethinkdns/filter.js";
-import { LogPusher } from "../observability/log-pusher.js";
-import { BlocklistWrapper } from "../rethinkdns/main.js";
+import * as dnsutil from "../../commons/dnsutil.js";
+import * as util from "../../commons/util.js";
 import { DNSResolver } from "../dns-op/dns-op.js";
+import { LogPusher } from "../observability/log-pusher.js";
+import * as pres from "../plugin-response.js";
+import * as rdnsutil from "../rdns-util.js";
+import { BlocklistFilter } from "../rethinkdns/filter.js";
+import { BlocklistWrapper } from "../rethinkdns/main.js";
+import * as token from "../users/auth-token.js";
 
 export class CommandControl {
   constructor(blocklistWrapper, resolver, logPusher) {
-    this.latestTimestamp = rdnsutil.bareTimestampFrom(cfg.timestamp());
     this.log = log.withTags("CommandControl");
     /** @type {BlocklistWrapper} */
     this.bw = blocklistWrapper;
@@ -125,9 +123,11 @@ export class CommandControl {
       // blocklistFilter may not have been setup, so set it up
       await this.bw.init(rxid, /* force-wait */ true);
       const blf = this.bw.getBlocklistFilter();
+      const cfg = this.bw.basicconfig();
       const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
 
       if (!isBlfSetup) throw new Error("no blocklist-filter");
+      if (!cfg) throw new Error("no basic-config");
 
       if (command === "listtob64") {
         // convert blocklists (tags) to blockstamp (b64)
@@ -143,7 +143,7 @@ export class CommandControl {
           req,
           queryString,
           blf,
-          this.latestTimestamp
+          rdnsutil.bareTimestampFrom(cfg.timestamp)
         );
       } else if (command === "dntouint") {
         // convert names to flags
@@ -177,7 +177,7 @@ export class CommandControl {
         response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
-          this.latestTimestamp,
+          rdnsutil.bareTimestampFrom(cfg.timestamp),
           !isDnsCmd
         );
       } else {

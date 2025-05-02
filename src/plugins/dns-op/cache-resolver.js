@@ -6,12 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { DnsBlocker } from "./blocker.js";
-import * as cacheutil from "../cache-util.js";
-import * as rdnsutil from "../rdns-util.js";
-import * as pres from "../plugin-response.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
+import * as cacheutil from "../cache-util.js";
+import * as pres from "../plugin-response.js";
+import * as rdnsutil from "../rdns-util.js";
+import { DnsBlocker } from "./blocker.js";
 
 export class DNSCacheResponder {
   constructor(blocklistWrapper, cache) {
@@ -69,8 +69,9 @@ export class DNSCacheResponder {
     const blf = this.bw.getBlocklistFilter();
     const onlyLocal =
       this.bw.disabled() || rdnsutil.isBlocklistFilterSetup(blf);
+    const timestamp = this.bw.timestamp(util.yyyymm());
 
-    const k = cacheutil.makeHttpCacheKey(packet);
+    const k = cacheutil.makeHttpCacheKey(packet, timestamp);
     if (!k) return noAnswer;
 
     const cr = await this.cache.get(k, onlyLocal);

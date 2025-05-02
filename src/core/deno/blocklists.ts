@@ -13,56 +13,58 @@ import { BlocklistWrapper } from "../../plugins/rethinkdns/main.js";
 const blocklistsDir = "blocklists__";
 const tdFile = "td.txt";
 const rdFile = "rd.txt";
+const bcFile = "basicconfig.json";
+const ftFile = "filetag.json";
 
-export async function setup(bw: any) {
+export async function setup(bw: BlocklistWrapper) {
   if (!bw || !envutil.hasDisk()) return false;
 
-  const now = Date.now();
-  const timestamp = cfg.timestamp() as string;
-  const url = envutil.blocklistUrl() + timestamp + "/";
-  const nodecount = cfg.tdNodeCount() as number;
-  const tdparts = cfg.tdParts() as number;
-  const tdcodec6 = cfg.tdCodec6() as boolean;
-  const codec = tdcodec6 ? "u6" : "u8";
-
-  const ok = setupLocally(bw, timestamp, codec);
+  const ok = setupLocally(bw);
   if (ok) {
-    console.info("bl setup locally tstamp/nc", timestamp, nodecount);
     return true;
   }
 
-  console.info("dowloading bl url/codec?", url, codec);
-  await bw.initBlocklistConstruction(
-    /* rxid*/ "bl-download",
-    now,
-    url,
-    nodecount,
-    tdparts,
-    tdcodec6
-  );
+  console.info("dowloading blocklists");
+  await bw.init(/* rxid*/ "bl-download", /* wait */ true);
 
-  save(bw, timestamp, codec);
+  return save(bw);
 }
 
-function save(bw: BlocklistWrapper, timestamp: string, codec: string) {
+function save(bw: BlocklistWrapper) {
   if (!bw.isBlocklistFilterSetup()) return false;
+
+  const timestamp = bw.timestamp();
+  const codec = bw.codec();
 
   mkdirsIfNeeded(timestamp, codec);
 
-  const [tdfp, rdfp] = getFilePaths(timestamp, codec);
+  const [tdfp, rdfp, bcfp, ftfp] = getFilePaths(timestamp, codec);
 
   const td = bw.triedata();
   const rd = bw.rankdata();
+  const bc = bw.basicconfig();
+  const ft = bw.filetag();
   // Deno only writes uint8arrays to disk, never raw arraybuffers
   Deno.writeFileSync(tdfp, new Uint8Array(td));
   Deno.writeFileSync(rdfp, new Uint8Array(rd));
+  // write the basic config and file tag as json; may overwrite existing
+  Deno.writeTextFileSync(bcfp, JSON.stringify(bc));
+  Deno.writeTextFileSync(ftfp, JSON.stringify(ft));
 
-  console.info("blocklists written to disk");
+  console.info("blocklist files written to disk", tdfp, rdfp, bcfp, ftfp);
 
   return true;
 }
 
-function setupLocally(bw: any, ts: string, codec: string) {
+/**
+ * Loads the blocklist files & configuration from disk, if any.
+ * TODO: return false if blocklists age > AUTO_RENEW_BLOCKLISTS_OLDER_THAN
+ */
+function setupLocally(bw: BlocklistWrapper) {
+  const ts = cfg.timestamp() as string;
+  const tdcodec6 = cfg.tdCodec6() as boolean;
+  const codec = tdcodec6 ? "u6" : "u8";
+
   if (!hasBlocklistFiles(ts, codec)) return false;
 
   const [td, rd] = getFilePaths(ts, codec);
@@ -102,18 +104,26 @@ function hasBlocklistFiles(timestamp: string, codec: string) {
     const rdinfo = Deno.statSync(rd);
 
     return tdinfo.isFile && rdinfo.isFile;
-  } catch (ignored) {}
+  } catch (_) {
+    /* no-op */
+  }
 
   return false;
 }
 
-function getFilePaths(t: string, c: string) {
+/**
+ * Returns the file paths for the blocklists.
+ * @returns {string[]} [td, rd, bc, ft]
+ */
+function getFilePaths(t: string, c: string): string[] {
   const cwd = Deno.cwd();
 
   const td = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + tdFile;
   const rd = cwd + "/" + blocklistsDir + "/" + t + "/" + c + "/" + rdFile;
+  const bc = cwd + "/" + c + "-" + bcFile;
+  const ft = cwd + "/" + c + "-" + ftFile;
 
-  return [td, rd];
+  return [td, rd, bc, ft];
 }
 
 function getDirPaths(t: string, c: string) {
@@ -138,7 +148,9 @@ function mkdirsIfNeeded(timestamp: string, codec: string) {
     dinfo1 = Deno.statSync(dir1);
     dinfo2 = Deno.statSync(dir2);
     dinfo3 = Deno.statSync(dir3);
-  } catch (ignored) {}
+  } catch (_) {
+    /* no-op */
+  }
 
   if (!dinfo1 || !dinfo1.isDirectory) {
     console.info("creating dir", dir1);
