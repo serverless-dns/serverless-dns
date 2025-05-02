@@ -28,6 +28,7 @@ globs = ["**/*.js"]
 LOG_LEVEL = "debug"
 WORKER_ENV = "development"
 CLOUD_PLATFORM = "cloudflare"
+AUTO_RENEW_BLOCKLISTS_OLDER_THAN = "42" # weeks
 
 ##################
 #------PROD------#
@@ -52,6 +53,7 @@ routes = [
 LOG_LEVEL = "info"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
+AUTO_RENEW_BLOCKLISTS_OLDER_THAN = "42" # weeks
 
 ##################
 #------ONE-------#
@@ -75,6 +77,7 @@ LOG_LEVEL = "logpush"
 WORKER_ENV = "production"
 CLOUD_PLATFORM = "cloudflare"
 CF_LOGPUSH_R2_PATH = "qlog/"
+AUTO_RENEW_BLOCKLISTS_OLDER_THAN = "42" # weeks
 
 ##################
 #-----SECRETS----#

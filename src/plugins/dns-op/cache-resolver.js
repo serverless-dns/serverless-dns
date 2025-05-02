@@ -67,17 +67,19 @@ export class DNSCacheResponder {
     // on Cloudflare, which not only has "free" egress, but also different
     // runtime (faster hw and sw) and deployment model (v8 isolates).
     const blf = this.bw.getBlocklistFilter();
-    const onlyLocal =
-      this.bw.disabled() || rdnsutil.isBlocklistFilterSetup(blf);
-    const timestamp = this.bw.timestamp(util.yyyymm());
+    const hasblf = rdnsutil.isBlocklistFilterSetup(blf);
+    const onlyLocal = this.bw.disabled() || hasblf;
+    const ts = hasblf ? this.bw.timestamp(util.yyyymm()) : util.yyyymm();
 
-    const k = cacheutil.makeHttpCacheKey(packet, timestamp);
+    const k = cacheutil.makeHttpCacheKey(packet, ts);
     if (!k) return noAnswer;
 
     const cr = await this.cache.get(k, onlyLocal);
-    this.log.d(rxid, onlyLocal, "cache k/m", k.href, cr && cr.metadata);
+    const hascr = !util.emptyObj(cr);
+    const hasm = hascr && cr.metadata != null;
+    this.log.d(rxid, "l/b?", onlyLocal, hasblf, "cache k/m", k.href, hasm);
 
-    if (util.emptyObj(cr)) return noAnswer;
+    if (!hascr) return noAnswer;
 
     // note: stamps in cr may be out-of-date; for ex, consider a
     // scenario where v6.example.com AAAA to fda3:: today,
@@ -117,7 +119,7 @@ export class DNSCacheResponder {
   makeCacheResponse(rxid, r, blockInfo) {
     // check incoming dns request against blocklists in cache-metadata
     this.blocker.blockQuestion(rxid, /* out*/ r, blockInfo);
-    this.log.d(rxid, blockInfo, "question blocked?", r.isBlocked);
+    this.log.d(rxid, blockInfo, "q block?", r.isBlocked);
     if (r.isBlocked) {
       return r;
     }
@@ -130,7 +132,7 @@ export class DNSCacheResponder {
 
     // check outgoing cached dns-packet against blocklists
     this.blocker.blockAnswer(rxid, /* out*/ r, blockInfo);
-    this.log.d(rxid, "answer block?", r.isBlocked);
+    this.log.d(rxid, "a block?", r.isBlocked);
 
     return r;
   }

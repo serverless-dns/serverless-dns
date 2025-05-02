@@ -171,7 +171,7 @@ export default class DNSResolver {
     const q = this.makeRdnsResponse(rxid, rawpacket, blf, stamps);
 
     this.blocker.blockQuestion(rxid, /* out*/ q, blInfo);
-    this.log.d(rxid, "q block?", q.isBlocked, "blf?", isBlfSetup);
+    this.log.d(rxid, "q block?", q.isBlocked, "blf?", isBlfSetup, "ts?", ts);
 
     if (q.isBlocked) {
       this.primeCache(rxid, ts, q, dispatcher);
@@ -271,7 +271,7 @@ export default class DNSResolver {
     // check outgoing cached dns-packet against blocklists
     this.blocker.blockAnswer(rxid, /* out*/ r, blInfo);
     const fromCache = cacheutil.hasCacheHeader(res.headers);
-    this.log.d(rxid, "ansblock?", r.isBlocked, "fromcache?", fromCache);
+    this.log.d(rxid, "a block?", r.isBlocked, "c?", fromCache, "max?", fromMax);
 
     // if res was got from caches or if res was got from max doh (ie, blf
     // wasn't used to retrieve stamps), then skip hydrating the cache
@@ -478,7 +478,7 @@ DNSResolver.prototype.resolveDnsFromCache = async function (rxid, ts, packet) {
   if (!k) throw new Error("resolver: no cache-key");
 
   const cr = await this.cache.get(k);
-  const isAns = cr && dnsutil.isAnswer(cr.dnsPacket);
+  const isAns = cr != null && dnsutil.isAnswer(cr.dnsPacket);
   const hasAns = isAns && dnsutil.hasAnswers(cr.dnsPacket);
   // if cr has answers, use probablistic expiry; otherwise prefer actual ttl
   const fresh = isAns && cacheutil.isAnswerFresh(cr.metadata, hasAns ? 0 : 6);

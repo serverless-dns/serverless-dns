@@ -71,7 +71,7 @@ export class BlocklistWrapper {
         return pres.emptyResponse();
       } else {
         // someone's constructing... wait till finished
-        return this.waitUntilDone();
+        return this.waitUntilDone(rxid);
       }
     } catch (e) {
       this.log.e(rxid, "main", e.stack);
@@ -91,7 +91,7 @@ export class BlocklistWrapper {
     return rdnsutil.isBlocklistFilterSetup(this.blocklistFilter);
   }
 
-  async waitUntilDone() {
+  async waitUntilDone(rxid) {
     // res.arrayBuffer() is the most expensive op, taking anywhere
     // between 700ms to 1.2s for trie. But: We don't want all incoming
     // reqs to wait until the trie becomes available. 400ms is 1/3rd of
@@ -105,6 +105,7 @@ export class BlocklistWrapper {
     const response = pres.emptyResponse();
     while (totalWaitms < envutil.downloadTimeout()) {
       if (this.isBlocklistFilterSetup()) {
+        this.log.i(rxid, "blocklistWrapper: download done:", totalWaitms);
         response.data.blocklistFilter = this.blocklistFilter;
         return response;
       }
@@ -112,6 +113,7 @@ export class BlocklistWrapper {
       totalWaitms += waitms;
     }
 
+    this.log.e(rxid, "blocklistWrapper", "download timed out:", totalWaitms);
     response.isException = true;
     response.exceptionStack = this.exceptionStack || "download timeout";
     response.exceptionFrom = this.exceptionFrom || "blocklistWrapper.js";
@@ -159,17 +161,17 @@ export class BlocklistWrapper {
       const blocklistAgeThresWeeks = envutil.renewBlocklistsThresholdInWeeks();
       const bltimestamp = util.bareTimestampFrom(cfg.timestamp());
       if (isPast(bltimestamp, blocklistAgeThresWeeks)) {
-        const [renewedBconfig, renewedFt] = await renew(baseurl);
+        const [renewCfg, renewedFt] = await renew(baseurl);
 
-        if (renewedBconfig != null && renewedFt != null) {
-          log.i("renewed:", bconfig.timestamp, "=>", renewedBconfig.timestamp);
-          bconfig = withDefaults(renewedBconfig);
+        if (renewCfg != null && renewedFt != null) {
+          this.log.i(rxid, "r:", bconfig.timestamp, "=>", renewCfg.timestamp);
+          bconfig = withDefaults(renewCfg);
           ft = renewedFt;
         } else {
-          log.w("renew failed; got: ", renewedBconfig);
+          this.log.w(rxid, "r: failed; got:", renewCfg);
         }
       } else {
-        log.d("renew not needed for:", bltimestamp);
+        this.log.d(rxid, "r: not needed for:", bltimestamp);
       }
     }
 
@@ -278,7 +280,9 @@ export class BlocklistWrapper {
       if (util.emptyString(bc.timestamp)) {
         throw new Error("basicconfig missing timestamp");
       }
+      return bc.timestamp;
     } catch (ex) {
+      // debug: this.log.d("blocklistWrapper: get timestamp", ex);
       if (util.emptyString(defaultTimestamp)) {
         throw ex;
       }
