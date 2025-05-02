@@ -112,11 +112,19 @@ export function decodeFromBinaryArray(b) {
   return decodeFromBinary(b, u8);
 }
 
+/**
+ * @param {ArrayBufferLike} b
+ * @returns {boolean}
+ */
 export function emptyBuf(b) {
   return !b || b.byteLength <= 0;
 }
 
-// returns underlying buffer prop when b is TypedArray or node:Buffer
+/**
+ * Returns underlying buffer prop when b is TypedArray or node:Buffer
+ * @param {Uint8Array|Buffer} b
+ * @returns {ArrayBufferLike}
+ */
 export function raw(b) {
   if (!b || b.buffer == null) b = ZERO;
 
