@@ -17,7 +17,7 @@ import https from "node:https";
 import net, { isIPv6 } from "node:net";
 import os from "node:os";
 import { finished } from "node:stream";
-import tls from "node:tls";
+import tls, { TLSSocket } from "node:tls";
 import v8 from "node:v8";
 import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as bufutil from "./commons/bufutil.js";
@@ -32,7 +32,6 @@ import * as system from "./system.js";
 
 /**
  * @typedef {net.Socket} Socket
- * @typedef {tls.TLSSocket} TLSSocket
  * @typedef {http2.Http2ServerRequest} Http2ServerRequest
  * @typedef {http2.Http2ServerResponse} Http2ServerResponse
  */
@@ -1168,8 +1167,8 @@ async function handleHTTPRequest(b, req, res) {
     if (!resOkay(res)) {
       throw new Error("res not writable 2");
     } else if (sz > 0) {
-      res.end(bufutil.normalize8(ans));
       adjustTLSFragAfterWrites(res.socket, sz);
+      res.end(bufutil.normalize8(ans));
     } else {
       // expect fRes.status to be set to non 2xx above
       res.end();
@@ -1245,7 +1244,7 @@ function heartbeat() {
  */
 function adjustTLSFragAfterWrites(socket, sz, rep = tracker.sorep(socket)) {
   if (typeof sz !== "number" || sz <= 0) return; // also skip lastsnd
-  if (socket == null) return;
+  if (socket == null || !(socket instanceof TLSSocket)) return;
   if (rep == null) return;
 
   const now = Date.now();
