@@ -114,8 +114,9 @@ jobs:
           # input overrides env-defaults, regardless
           environment: ${{ env.WORKERS_ENV }}
           wranglerVersion: ${{ env.WRANGLER_VER }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          # setting CLOUDFLARE_ACCOUNT_ID no longer works
           GIT_COMMIT_ID: ${{ env.COMMIT_SHA }}
 
       - name: 🎤 Notice
