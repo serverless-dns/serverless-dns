@@ -286,7 +286,8 @@ export default class DNSResolver {
    * @param {ArrayBuffer} raw
    * @param {BlocklistFilter} blf
    * @param {pres.BStamp?} stamps
-   * @returns
+   * @returns {pres.RespData}
+   * @throws if raw is a malformed dns packet or not a dns packet.
    */
   makeRdnsResponse(rxid, raw, blf, stamps = null) {
     if (!raw) throw new Error(rxid + " mk-res no upstream result");
