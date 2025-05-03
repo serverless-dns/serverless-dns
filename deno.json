@@ -4,6 +4,7 @@
   },
   "importMap": "import_map.json",
   "nodeModulesDir": "auto",
+  "lock": false,
   "lint": {
     "files": {
       "exclude": ["**/**"]
