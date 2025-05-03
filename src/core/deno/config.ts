@@ -25,7 +25,7 @@ function prep() {
   // if this file execs... assume we're on deno.
   if (!Deno) throw new Error("failed loading deno-specific config");
 
-  const isProd = Deno.env.get("DENO_ENV") === "production";
+  const isProd = Deno.env.get("DENO_ENV_DOMAIN") === "production";
   const onDenoDeploy = Deno.env.get("CLOUD_PLATFORM") === "deno-deploy";
   const profiling = Deno.env.get("PROFILE_DNS_RESOLVES") === "true";
 
