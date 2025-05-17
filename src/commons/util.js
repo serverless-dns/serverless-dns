@@ -185,6 +185,13 @@ export function timedOp(op, ms, cleanup = (x) => {}) {
 
 // TODO: Use AbortSignal.timeout (supported on Node and Deno, too)?
 // developers.cloudflare.com/workers/platform/changelog#2021-12-10
+/**
+ *
+ * @param {(...args: any[]) => Promise<*>} promisedOp
+ * @param {number} ms
+ * @param {(...args: any[]) => Promise<*>} defaultOp
+ * @returns
+ */
 export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   // aggregating promises is a valid use-case for the otherwise
   // "deferred promise anti-pattern". That is, using promise
@@ -215,7 +222,7 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
           resolve(out);
         }
       })
-      .catch((ignored) => {
+      .catch((_) => {
         clearTimeout(tid);
         if (!timedout) deferredOp();
         // else: handled by timeout
@@ -223,6 +230,12 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
   });
 }
 
+/**
+ *
+ * @param {number} ms
+ * @param {(...args: any[]) => void} fn
+ * @returns
+ */
 export function timeout(ms, fn) {
   if (typeof fn !== "function") return -1;
   const timer = setTimeout(fn, ms);
