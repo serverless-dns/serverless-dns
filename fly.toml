@@ -18,6 +18,8 @@ kill_timeout = "15s"
   DENO_ENV = "production"
   NODE_ENV = "production"
   LOG_LEVEL = "info"
+  # in weeks
+  AUTO_RENEW_BLOCKLISTS_OLDER_THAN = "2"
 
 # community.fly.io/t/19180
 # fly.io/docs/machines/guides-examples/machine-restart-policy
