@@ -220,12 +220,12 @@ export function optAnswer(a) {
   return a.type.toUpperCase() === "OPT";
 }
 
-export function decode(arrayBuffer) {
-  if (!validResponseSize(arrayBuffer)) {
-    throw new Error("failed decoding an invalid dns-packet");
+export function decode(arrbuf) {
+  if (!validResponseSize(arrbuf)) {
+    throw new Error("decoding oversized dns-packet: " + bufutil.len(arrbuf));
   }
 
-  const b = bufutil.bufferOf(arrayBuffer);
+  const b = bufutil.bufferOf(arrbuf);
   return dnslib.decode(b);
 }
 
