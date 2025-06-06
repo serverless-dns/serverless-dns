@@ -335,7 +335,7 @@ export default class DNSResolver {
  * @param {String} rxid
  * @param {String} ts
  * @param {Request} request
- * @param {Array} resolverUrls
+ * @param {String[]} resolverUrls
  * @param {ArrayBuffer} query
  * @param {any} packet
  * @returns {Promise<Response|Error>}
@@ -423,7 +423,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
     // upstream to resolvers
     for (const rurl of resolverUrls) {
       if (util.emptyString(rurl)) {
-        this.log.w(rxid, "missing resolver url", rurl);
+        this.log.w(rxid, "missing resolver url", rurl, "among", resolverUrls);
         continue;
       }
 
