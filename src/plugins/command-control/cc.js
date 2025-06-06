@@ -123,11 +123,8 @@ export class CommandControl {
       // blocklistFilter may not have been setup, so set it up
       await this.bw.init(rxid, /* force-wait */ true);
       const blf = this.bw.getBlocklistFilter();
-      const cfg = this.bw.basicconfig();
-      const isBlfSetup = rdnsutil.isBlocklistFilterSetup(blf);
-
-      if (!isBlfSetup) throw new Error("no blocklist-filter");
-      if (!cfg) throw new Error("no basic-config");
+      if (!rdnsutil.isBlocklistFilterSetup(blf)) throw new Error("no blf");
+      const blfts = this.bw.timestamp(); // throws err if basicconfig is not set
 
       if (command === "listtob64") {
         // convert blocklists (tags) to blockstamp (b64)
@@ -140,10 +137,10 @@ export class CommandControl {
         response.data.httpResponse = await domainNameToList(
           rxid,
           this.resolver,
+          blfts,
           req,
           queryString,
-          blf,
-          rdnsutil.bareTimestampFrom(cfg.timestamp)
+          blf
         );
       } else if (command === "dntouint") {
         // convert names to flags
@@ -177,7 +174,7 @@ export class CommandControl {
         response.data.httpResponse = configRedirect(
           b64UserFlag,
           reqUrl.origin,
-          rdnsutil.bareTimestampFrom(cfg.timestamp),
+          rdnsutil.bareTimestampFrom(blfts),
           !isDnsCmd
         );
       } else {
@@ -282,21 +279,22 @@ async function analytics(lp, reqUrl, auth, lid) {
 /**
  * @param {string} rxid
  * @param {DNSResolver} resolver
+ * @param {string} ts
  * @param {Request} req
  * @param {string} queryString
  * @param {BlocklistFilter} blocklistFilter
- * @param {number} latestTimestamp
  * @returns {Promise<Response>}
  */
 async function domainNameToList(
   rxid,
   resolver,
+  ts,
   req,
   queryString,
-  blocklistFilter,
-  latestTimestamp
+  blocklistFilter
 ) {
   const domainName = queryString.get("dn") || "";
+  const latestTimestamp = util.bareTimestampFrom(ts);
   const r = {
     domainName: domainName,
     version: latestTimestamp,
@@ -318,6 +316,7 @@ async function domainNameToList(
   const rmax = resolver.determineDohResolvers(resolver.ofMax(), forcedoh);
   const res = await resolver.resolveDnsUpstream(
     rxid,
+    ts,
     req,
     rmax,
     query,
