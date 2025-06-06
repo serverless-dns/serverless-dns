@@ -97,7 +97,7 @@ function isValidFullTimestamp(tstamp) {
 
 /**
  * from: github.com/celzero/downloads/blob/main/src/timestamp.js
- * @type {string} tstamp is of form epochMs ("1740866164283") or yyyy/epochMs ("2025/1740866164283")
+ * @param {string} tstamp is of form epochMs ("1740866164283") or yyyy/epochMs ("2025/1740866164283")
  * @returns {int} blocklist create time (unix epoch) in millis (-1 on errors)
  */
 export function bareTimestampFrom(tstamp) {
