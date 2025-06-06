@@ -52,7 +52,7 @@ export function hex(b) {
  */
 export function len(b) {
   if (emptyBuf(b)) return 0;
-  return b.byteLength;
+  return b.byteLength || 0;
 }
 
 export function bytesToBase64Url(b) {
