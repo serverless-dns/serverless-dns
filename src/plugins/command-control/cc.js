@@ -323,7 +323,13 @@ async function domainNameToList(
     querypacket
   );
   const ans = await res.arrayBuffer();
-  const anspacket = dnsutil.decode(ans);
+  let anspacket;
+  try {
+    anspacket = dnsutil.decode(ans);
+  } catch (e) {
+    log.w(rxid, "malformed dns response in command-control:", e.message);
+    return r; // empty response
+  }
   const ansdomains = dnsutil.extractDomains(anspacket);
 
   for (const d of ansdomains) {

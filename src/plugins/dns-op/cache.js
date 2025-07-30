@@ -7,12 +7,12 @@
  */
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
-import { CacheApi } from "./cache-api.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as cacheutil from "../cache-util.js";
+import { CacheApi } from "./cache-api.js";
 
 export class DnsCache {
   constructor(size) {
@@ -136,7 +136,13 @@ export class DnsCache {
     if (util.emptyObj(res)) return null;
 
     const b = res.dnsBuffer;
-    const p = dnsutil.decode(b);
+    let p;
+    try {
+      p = dnsutil.decode(b);
+    } catch (e) {
+      this.log.w("malformed dns packet in local cache:", e.message);
+      return null; // return null to indicate cache miss
+    }
     const m = res.metadata;
 
     const cr = cacheutil.makeCacheValue(p, b, m);
@@ -173,7 +179,13 @@ export class DnsCache {
     // 'b' shouldn't be null; but a dns question or a dns answer
     const b = await response.arrayBuffer();
     // when 'b' is less than dns-packet header-size, decode errs out
-    const p = dnsutil.decode(b);
+    let p;
+    try {
+      p = dnsutil.decode(b);
+    } catch (e) {
+      this.log.w("malformed dns packet in http cache:", e.message);
+      return null; // return null to indicate cache miss
+    }
     // though 'm' is never empty
     const m = metadata;
 
