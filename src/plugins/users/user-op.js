@@ -5,13 +5,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import { UserCache } from "./user-cache.js";
-import * as pres from "../plugin-response.js";
-import * as util from "../../commons/util.js";
+import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
+import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import * as token from "./auth-token.js";
-import * as dnsutil from "../../commons/dnsutil.js";
+import { UserCache } from "./user-cache.js";
 
 // TODO: determine an approp cache-size
 const cacheSize = 20000;

@@ -98,13 +98,21 @@ export function base64ToBytes(b64uri) {
 }
 
 export function decodeFromBinary(b, u8) {
-  // if b is a u8 array, simply u16 it
-  if (u8) return new Uint16Array(raw(b));
-
   // if b is a binary-string, convert it to u8
-  const bytes = binaryStringToBytes(b);
-  // ...and then to u16
-  return new Uint16Array(raw(bytes));
+  const conv = u8 ? b : binaryStringToBytes(b);
+
+  // Ensure the byte array has even length for Uint16Array
+  // Uint16Array requires byte length to be a multiple of 2
+  const ab = raw(conv);
+  if (ab.byteLength % 2 !== 0) {
+    // Pad with an extra zero byte if odd length
+    const padded = new Uint8Array(ab.byteLength + 1);
+    padded.set(new Uint8Array(ab));
+    padded[ab.byteLength] = 0;
+    return new Uint16Array(padded.buffer);
+  }
+
+  return new Uint16Array(ab);
 }
 
 export function decodeFromBinaryArray(b) {
