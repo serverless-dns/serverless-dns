@@ -70,7 +70,9 @@ export default class IOState {
   initDecodedDnsPacketIfNeeded() {
     if (!this.decodedDnsPacket) {
       this.decodedDnsPacket = this.emptyDecodedDnsPacket();
+      return true;
     }
+    return false;
   }
 
   dnsExceptionResponse(res) {
@@ -87,23 +89,47 @@ export default class IOState {
       this.exceptionFrom = res.exceptionFrom || "no-origin";
     }
 
-    const qid = this.decodedDnsPacket.id;
-    const questions = this.decodedDnsPacket.questions;
-    const servfail = dnsutil.servfail(qid, questions);
-    const ex = {
-      exceptionFrom: this.exceptionFrom,
-      exceptionStack: this.exceptionStack,
-    };
-    this.decodedDnsPacket = dnsutil.decode(servfail);
+    try {
+      const qid = this.decodedDnsPacket.id; // may be null
+      const questions = this.decodedDnsPacket.questions; // may be null
+      const servfail = dnsutil.servfail(qid, questions); // may be empty
+      const hasServfail = !bufutil.emptyBuf(servfail);
+      const ex = {
+        exceptionFrom: this.exceptionFrom,
+        exceptionStack: this.exceptionStack,
+      };
 
-    this.logDnsPkt();
-    this.httpResponse = new Response(servfail, {
-      headers: util.concatHeaders(
-        this.headers(servfail),
-        this.debugHeaders(JSON.stringify(ex))
-      ),
-      status: servfail ? 200 : 408, // rfc8484 section-4.2.1
-    });
+      if (hasServfail) {
+        // TODO: try-catch as decode may throw?
+        this.decodedDnsPacket = dnsutil.decode(servfail);
+      }
+
+      this.logDnsPkt();
+      this.httpResponse = new Response(servfail, {
+        headers: util.concatHeaders(
+          this.headers(servfail),
+          this.debugHeaders(JSON.stringify(ex))
+        ),
+        status: hasServfail ? 200 : 408, // rfc8484 section-4.2.1
+      });
+    } catch (e) {
+      const pktjson = JSON.stringify(this.decodedDnsPacket || {});
+      this.log.e("dnsExceptionResponse", pktjson, e.stack);
+      if (
+        this.exceptionStack === "no-res" ||
+        this.exceptionStack === "no-stack"
+      ) {
+        this.exceptionStack = e.stack;
+        this.exceptionFrom = "IOState:errorResponse";
+      }
+      this.httpResponse = new Response(null, {
+        headers: util.concatHeaders(
+          this.headers(),
+          this.debugHeaders(JSON.stringify(this.exceptionStack))
+        ),
+        status: 503,
+      });
+    }
   }
 
   hResponse(r) {
@@ -158,14 +184,14 @@ export default class IOState {
   }
 
   dnsBlockResponse(blockflag) {
-    this.initDecodedDnsPacketIfNeeded();
+    this.initDecodedDnsPacketIfNeeded(); // initializes to empty obj
     this.stopProcessing = true;
     this.isDnsBlock = true;
     this.flag = blockflag;
 
     try {
       this.assignBlockResponse();
-      const b = dnsutil.encode(this.decodedDnsPacket);
+      const b = dnsutil.encode(this.decodedDnsPacket); // may throw if empty or malformed
       this.httpResponse = new Response(b, {
         headers: this.headers(b),
       });

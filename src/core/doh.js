@@ -62,6 +62,7 @@ function optionsRequest(request) {
 }
 
 /**
+ * Must not throw!
  * @param {IOState} io
  * @param {Error} err
  */
