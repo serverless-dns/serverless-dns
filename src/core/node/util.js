@@ -6,13 +6,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { X509Certificate } from "node:crypto";
 import { Http2ServerRequest, Http2ServerResponse } from "node:http2";
+import * as bufutil from "../../commons/bufutil.js";
+import {
+  decryptAesGcm,
+  hkdfaes,
+  hkdfalgkeysz,
+  sha512,
+} from "../../commons/crypto.js";
+import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
+
+const ctx = bufutil.fromStr("encryptcrossservice");
 
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and
  * certificate files seprated by a newline (\n) and described by `KEY=` and
  * `CRT=` respectively. Ex: `TLS_="KEY=encoded_string\nCRT=encoded_string"`
- * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
+ * @return {[BufferSource, BufferSource]} [TLS_KEY, TLS_CRT]
  */
 export function getCertKeyFromEnv(TLS_CRT_KEY) {
   if (TLS_CRT_KEY == null) throw new Error("TLS cert / key not found");
@@ -30,6 +42,161 @@ export function getCertKeyFromEnv(TLS_CRT_KEY) {
   } else {
     throw new Error("TLS cert / key malformed");
   }
+}
+
+/**
+ * @param {X509Certificate} replacing - The X509Certificate to replace the existing one
+ * @returns {Promise<[BufferSource, BufferSource]>} - The key and certificate as ArrayBuffers
+ */
+export async function fetchKeyCert(replacing) {
+  if (replacing == null) return [null, null];
+  if (
+    replacing.subject.indexOf("rethinkdns.com") < 0 ||
+    replacing.subjectAltName.indexOf("rethinkdns.com") < 0
+  ) {
+    return [null, null];
+  }
+
+  try {
+    const r = await fetch("https://redir.nile.workers.dev/x/crt");
+    const crthex = await r.text();
+    if (util.emptyString(crthex)) {
+      log.e("certfile: empty response");
+      return [null, null];
+    }
+
+    const crtkey = await decryptText(crthex);
+    if (util.emptyString(crtkey)) {
+      log.e("certfile: empty enc(crtkey)");
+      return [null, null];
+    }
+    const [key, cert] = getCertKeyFromEnv(crtkey);
+    if (bufutil.emptyBuf(key) || bufutil.emptyBuf(cert)) {
+      log.e("certfile: key/cert empty");
+      return [null, null];
+    }
+
+    const latest = new X509Certificate(cert);
+    if (
+      latest.subject.indexOf("rethinkdns.com") < 0 ||
+      latest.subjectAltName.indexOf("rethinkdns.com") < 0
+    ) {
+      log.e("certfile: latest cert subject mismatch", latest.subject);
+      return [null, null];
+    }
+
+    if (latest.serialNumber === replacing.serialNumber) {
+      log.d("certfile: latest cert same as replacing", latest.serialNumber);
+      return [null, null];
+    }
+
+    const latestUntil = new Date(latest.validTo);
+    const replacingUntil = new Date(replacing.validTo);
+    if (
+      latestUntil.getTime() < Date.now() ||
+      latestUntil.getTime() <= replacingUntil.getTime()
+    ) {
+      log.d(
+        "certfile: err latestUntil < replacingUntil",
+        latestUntil,
+        replacingUntil,
+        "now",
+        Date.now()
+      );
+      return [null, null];
+    }
+
+    log.i("certfile: latest cert", latest.serialNumber, "until", latestUntil);
+
+    return [key, cert];
+  } catch (err) {
+    log.e("certfile: failed to get cert", err);
+  }
+  return [null, null];
+}
+
+/**
+ * @param {string} ivciphertaghex - The cipher text as hex to decrypt as utf8
+ * @returns {Promise<Uint8Array|null>} - Encrypted hex string with iv (96 bits) prepended and tag appended; or null on failure
+ */
+export async function decryptText(ivciphertaghex) {
+  const now = new Date();
+
+  const ivciphertag = bufutil.hex2buf(ivciphertaghex);
+  if (bufutil.emptyBuf(ivciphertag)) {
+    log.e("decrypt: ivciphertag empty");
+    return null;
+  }
+
+  try {
+    const iv = ivciphertag.slice(0, 12); // first 12 bytes are iv
+    const ciphertag = ivciphertag.slice(12); // rest is cipher text + tag
+    // 1 Aug 2025 => "5/7/2025" => Friday, 7th month (0-indexed), 2025
+    const aadstr =
+      now.getUTCDay() + "/" + now.getUTCMonth() + "/" + now.getUTCFullYear();
+    const aad = bufutil.fromStr(aadstr);
+
+    log.d("decrypt: ivciphertag", ivciphertaghex.length, ivciphertag.length);
+    log.d("decrypt: iv", iv.length);
+    log.d("decrypt: ciphertag", ciphertag.length);
+    log.d("decrypt: aad", aadstr, aad.length);
+
+    const aeskey = await key();
+    if (!aeskey) {
+      log.e("decrypt: key missing");
+      return null;
+    }
+
+    const plain = await decryptAesGcm(aeskey, iv, ciphertag, aad);
+    if (bufutil.emptyBuf(plain)) {
+      log.e("decrypt: failed to decrypt", ivciphertaghex.length);
+      return null;
+    }
+    return bufutil.toStr(plain);
+  } catch (err) {
+    log.e("decrypt: failed", err);
+    return null;
+  }
+}
+
+/**
+ * @returns {Promise<CryptoKey|null>} - Returns a CryptoKey or null if the key is missing or invalid
+ */
+async function key() {
+  if (bufutil.emptyBuf(ctx)) {
+    log.e("key: ctx missing");
+    return null;
+  }
+
+  const skhex = envutil.kdfSvcSecretHex();
+  if (util.emptyString(skhex)) {
+    log.e("key: KDF_SVC missing");
+    return null;
+  }
+
+  const sk = bufutil.hex2buf(skhex);
+  if (bufutil.emptyBuf(sk)) {
+    log.e("key: kdf seed conv empty");
+    return null;
+  }
+
+  if (sk.length < hkdfalgkeysz) {
+    log.e("keygen: seed too short", sk.length, hkdfalgkeysz);
+    return null;
+  }
+
+  try {
+    const sk256 = sk.slice(0, hkdfalgkeysz);
+    // info must always of a fixed size for ALL KDF calls
+    const info512 = await sha512(ctx);
+    // exportable: crypto.subtle.exportKey("raw", key);
+    // log.d("key fingerprint", bufutil.hex(await sha512(bufutil.concat(sk, info512)));
+
+    return hkdfaes(sk256, info512);
+  } catch (ignore) {
+    log.d("keygen: err", ignore);
+  }
+  return null;
 }
 
 /**

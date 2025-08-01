@@ -12,13 +12,15 @@ import "./core/node/config.js";
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as h2c from "httpx-server";
+import { X509Certificate } from "node:crypto";
 import http2 from "node:http2";
 import https from "node:https";
 import net, { isIPv6 } from "node:net";
-import os from "node:os";
 import { finished } from "node:stream";
 import tls, { TLSSocket } from "node:tls";
 import v8 from "node:v8";
+import os from "os";
+import process from "process";
 import { V2ProxyProtocol } from "proxy-protocol-js";
 import * as bufutil from "./commons/bufutil.js";
 import * as nodecrypto from "./commons/crypto.js";
