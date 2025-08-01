@@ -47,6 +47,15 @@ export function hex(b) {
 }
 
 /**
+ * @param {string} h
+ * @returns {Uint8Array}
+ */
+export function hex2buf(h) {
+  if (util.emptyString(h)) return ZERO;
+  return new Uint8Array(h.match(/.{1,2}/g).map((w) => parseInt(w, 16)));
+}
+
+/**
  * @param { Buffer | Uint8Array | ArrayBuffer } b
  * @returns {number}
  */
