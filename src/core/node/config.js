@@ -126,7 +126,7 @@ async function prep() {
   system.pub("ready", [dns53]);
 }
 
-function setTlsVars(tlsKey, tlsCrt) {
+export function setTlsVars(tlsKey, tlsCrt) {
   envManager.set("TLS_KEY", tlsKey);
   envManager.set("TLS_CRT", tlsCrt);
 }
