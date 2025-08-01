@@ -978,7 +978,7 @@ async function handleTCPData(socket, chunk, sb, host, flag) {
     // if there is any out of band data, handle it
     if (!bufutil.emptyBuf(oob)) {
       log.d(`tcp: pipelined, handle oob: ${oob.byteLength}`);
-      n += handleTCPData(socket, oob, sb, host, flag);
+      n += await handleTCPData(socket, oob, sb, host, flag);
     }
   } // continue reading from socket
   return n;
