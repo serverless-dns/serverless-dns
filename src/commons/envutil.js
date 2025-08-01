@@ -184,6 +184,11 @@ export function tlsKey() {
   return envManager.get("TLS_KEY") || null;
 }
 
+export function kdfSvcSecretHex() {
+  if (!envManager) return null;
+  return envManager.get("KDF_SVC") || null;
+}
+
 export function cacheTtl() {
   if (!envManager) return 0;
   return envManager.get("CACHE_TTL");
