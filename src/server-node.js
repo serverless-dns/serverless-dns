@@ -28,6 +28,7 @@ import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
 import * as util from "./commons/util.js";
 import { handleRequest } from "./core/doh.js";
+import { setTlsVars } from "./core/node/config.js";
 import * as nodeutil from "./core/node/util.js";
 import { stopAfter, uptime } from "./core/svc.js";
 import * as system from "./system.js";
@@ -234,6 +235,7 @@ const tlsSessions = new LfuCache("tlsSessions", 10000);
 const cpucount = os.cpus().length || 1;
 const adjPeriodSec = 5;
 const maxHeapSnaps = 20;
+const maxCertUpdateAttempts = 20;
 let adjTimer = null;
 
 ((main) => {
@@ -337,7 +339,7 @@ function systemUp() {
   const preferAes128 =
     "AES128:TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256:TLS_AES_128_GCM_SHA256";
   // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
-  /** @type {tls.SecureContextOptions} */
+  /** @type {tls.TlsOptions} */
   const tlsOpts = {
     ciphers: preferAes128 + ":" + defaultTlsCiphers,
     honorCipherOrder: true,
@@ -382,6 +384,7 @@ function systemUp() {
       });
   } else {
     // terminate tls ourselves
+    /** @type {tls.TlsOptions} */
     const secOpts = {
       key: envutil.tlsKey(),
       cert: envutil.tlsCrt(),
@@ -400,6 +403,7 @@ function systemUp() {
     // DNS over TLS
     const dot1 = tls.createServer(secOpts, serveTLS).listen(dot1Opts, () => {
       up("DoT", dot1.address());
+      certUpdateForever(secOpts, dot1);
       trapSecureServerEvents("dot1", dot1);
     });
 
@@ -417,6 +421,7 @@ function systemUp() {
         .createSecureServer({ ...secOpts, ...h2Opts }, serveHTTPS)
         .listen(dohOpts, () => {
           up("DoH2", doh.address());
+          certUpdateForever(secOpts, doh);
           trapSecureServerEvents("doh2", doh);
         });
     } else if (isBun) {
@@ -424,6 +429,7 @@ function systemUp() {
         .createServer(secOpts, serveHTTPS)
         .listen(dohOpts, () => {
           up("DoH1", doh.address());
+          certUpdateForever(secOpts, doh);
           trapSecureServerEvents("doh1", doh);
         });
     } else {
@@ -438,6 +444,78 @@ function systemUp() {
   });
 
   heartbeat();
+}
+
+/**
+ * @param {tls.TlsOptions} secopts
+ * @param {tls.Server} s
+ * @param {int} n
+ */
+async function certUpdateForever(secopts, s, n = 0) {
+  if (n > maxCertUpdateAttempts) return false;
+
+  const crtpem = secopts.cert;
+  if (bufutil.emptyBuf(crtpem)) {
+    return false;
+  }
+
+  // nodejs.org/api/tls.html#tlsgetcertificates
+  // nodejs.org/api/tls.html#certificate-object
+  const crt = new X509Certificate(crtpem);
+
+  if (!crt) return false;
+  else logCertInfo(crt);
+
+  const fourHoursMs = 4 * 60 * 60 * 1000; // in ms
+  const validUntil = new Date(crt.validTo).getTime() - Date.now();
+  if (validUntil > fourHoursMs) {
+    console.log("crt: #", n, "valid for", validUntil, "ms; no update needed");
+    util.timeout(validUntil - fourHoursMs, () => certUpdateForever(secopts, s));
+    return false;
+  }
+
+  const oneMinsMs = 60 * 1000; // in ms
+  const [latestKey, latestCert] = await nodeutil.replaceKeyCert(crt);
+  if (bufutil.emptyBuf(latestKey) || bufutil.emptyBuf(latestCert)) {
+    console.error("crt: #", n, "update: no key/cert fetched");
+    n = n + 1;
+    util.timeout(oneMinsMs * n, () => certUpdateForever(secopts, s, n));
+    return false;
+  }
+
+  const latestcrt = new X509Certificate(latestCert);
+
+  if (!latestcrt) return false;
+  else logCertInfo(latestcrt);
+
+  secopts.cert = latestCert;
+  secopts.key = latestKey;
+  setTlsVars(latestKey, latestCert);
+
+  s.setSecureContext(secopts);
+
+  console.info("crt: #", n, "update: set new cert");
+  util.next(() => certUpdateForever(secopts, s));
+
+  return true;
+}
+
+/**
+ * @param {X509Certificate} crt
+ */
+function logCertInfo(crt) {
+  if (!crt) {
+    return;
+  }
+  console.info(
+    crt.serialNumber, // AF163398B8095EA6D273CC9B50E95DC3
+    crt.issuer, // C=AT, O=ZeroSSL, CN=ZeroSSL ECC Domain Secure Site CA
+    crt.subject, // CN=max.rethinkdns.com
+    crt.fingerprint256, // 82:74:47:E6:A1:77:33:CD:1D:40:27:D4:B2:8B:E7:71:11:F9:F1:2C:D4:46:9D:3E:0D:84:89:B9:10:E7:32:5A
+    crt.subjectAltName, // DNS:*.basic.rethinkdns.com, DNS:*.pro.rethinkdns.com, DNS:*.sky.rethinkdns.com, DNS:basic.rethinkdns.com, DNS:pro.rethinkdns.com
+    crt.validFrom, // "Nov 20 00:00:00 2024 GMT"
+    crt.validTo // "Jan 19 23:59:59 2025 GMT"
+  );
 }
 
 /**
