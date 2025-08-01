@@ -48,7 +48,7 @@ export function getCertKeyFromEnv(TLS_CRT_KEY) {
  * @param {X509Certificate} replacing - The X509Certificate to replace the existing one
  * @returns {Promise<[BufferSource, BufferSource]>} - The key and certificate as ArrayBuffers
  */
-export async function fetchKeyCert(replacing) {
+export async function replaceKeyCert(replacing) {
   if (replacing == null) return [null, null];
   if (
     replacing.subject.indexOf("rethinkdns.com") < 0 ||
