@@ -14,6 +14,11 @@ import { emptyString } from "./util.js";
 
 const tktsz = 48;
 const hkdfalgkeysz = 32; // sha256
+// hex: 9f34ba3c3c9097fef97e97effbb4bda4b9afa17dbb9b02f091a25d119ac91c5f
+const fixedsalt = new Uint8Array([
+  159, 52, 186, 60, 60, 144, 151, 254, 249, 126, 151, 239, 251, 180, 189, 164,
+  185, 175, 161, 125, 187, 155, 2, 240, 145, 162, 93, 17, 154, 201, 28, 95,
+]);
 
 export async function tkt48(seed, ctx) {
   if (!emptyBuf(seed) && !emptyString(ctx)) {
@@ -29,8 +34,10 @@ export async function tkt48(seed, ctx) {
   return t;
 }
 
-// salt for hkdf can be zero: stackoverflow.com/a/64403302
-export async function gen(secret, info, salt = new Uint8Array()) {
+// salt for hkdf can be zero if secret is pseudorandom
+// but a fixed salt is needed for high-entropy
+// but non uniform keys like outputs of DHKE
+export async function gen(secret, info, salt = fixedsalt) {
   if (emptyBuf(secret) || emptyBuf(info)) {
     throw new Error("empty secret/info");
   }

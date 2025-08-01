@@ -6,18 +6,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { services } from "./svc.js";
 import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
-import * as rdnsutil from "../plugins/rdns-util.js";
 import * as util from "../commons/util.js";
-import IOState from "./io-state.js";
 import { RResp } from "../plugins/plugin-response.js";
+import * as rdnsutil from "../plugins/rdns-util.js";
+import IOState from "./io-state.js";
+import { services } from "./svc.js";
 
 export default class RethinkPlugin {
   /**
-   *
    * @param {{request: Request, waitUntil: Function, respondWith: Function}} event
    */
   constructor(event) {
@@ -161,7 +160,7 @@ export default class RethinkPlugin {
 
   /**
    * @param {RResp} response
-   * @param {IOState} io
+   * @param {Promise<IOState>} io
    */
   async commandControlCallback(response, io) {
     const rxid = this.ctx.get("rxid");
@@ -178,7 +177,7 @@ export default class RethinkPlugin {
    * Adds "userBlocklistInfo", "userBlocklistInfo",  and "dnsResolverUrl"
    * to RethinkPlugin ctx.
    * @param {RResp} response
-   * @param {IOState} io
+   * @param {Promise<IOState>} io
    */
   async userOpCallback(response, io) {
     const rxid = this.ctx.get("rxid");
