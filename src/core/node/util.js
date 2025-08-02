@@ -58,14 +58,17 @@ export async function replaceKeyCert(replacing) {
   }
 
   try {
-    const r = await fetch("https://redir.nile.workers.dev/x/crt");
+    const req = new Request("https://redir.nile.workers.dev/x/crt", {
+      method: "GET",
+    });
+    const r = await fetch(req);
     const crthex = await r.text();
     if (util.emptyString(crthex)) {
       log.e("certfile: empty response");
       return [null, null];
     }
 
-    const crtkey = await decryptText(crthex);
+    const crtkey = await decryptText(req, crthex);
     if (util.emptyString(crtkey)) {
       log.e("certfile: empty enc(crtkey)");
       return [null, null];
@@ -116,12 +119,13 @@ export async function replaceKeyCert(replacing) {
 }
 
 /**
+ * @param {Request} req - The request that got us ivciphertaghex
  * @param {string} ivciphertaghex - The cipher text as hex to decrypt as utf8
  * @returns {Promise<Uint8Array|null>} - Encrypted hex string with iv (96 bits) prepended and tag appended; or null on failure
  */
-export async function decryptText(ivciphertaghex) {
+export async function decryptText(req, ivciphertaghex) {
   const now = new Date();
-
+  const u = new URL(req.url);
   const ivciphertag = bufutil.hex2buf(ivciphertaghex);
   if (bufutil.emptyBuf(ivciphertag)) {
     log.e("decrypt: ivciphertag empty");
@@ -133,13 +137,30 @@ export async function decryptText(ivciphertaghex) {
     const ciphertag = ivciphertag.slice(12); // rest is cipher text + tag
     // 1 Aug 2025 => "5/7/2025" => Friday, 7th month (0-indexed), 2025
     const aadstr =
-      now.getUTCDay() + "/" + now.getUTCMonth() + "/" + now.getUTCFullYear();
+      now.getUTCDay() +
+      "/" +
+      now.getUTCMonth() +
+      "/" +
+      now.getUTCFullYear() +
+      "/" +
+      u.hostname +
+      "/" +
+      u.pathname +
+      "/" +
+      req.method;
     const aad = bufutil.fromStr(aadstr);
 
-    log.d("decrypt: ivciphertag", ivciphertaghex.length, ivciphertag.length);
-    log.d("decrypt: iv", iv.length);
-    log.d("decrypt: ciphertag", ciphertag.length);
-    log.d("decrypt: aad", aadstr, aad.length);
+    log.d(
+      "decrypt: ivciphertag",
+      ivciphertaghex.length,
+      "iv",
+      iv.length,
+      "ciphertag",
+      ciphertag.length,
+      "aad",
+      aadstr,
+      aad.length
+    );
 
     const aeskey = await key();
     if (!aeskey) {
