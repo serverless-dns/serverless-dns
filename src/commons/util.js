@@ -238,6 +238,9 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
  */
 export function timeout(ms, fn) {
   if (typeof fn !== "function") return -1;
+  // stackoverflow.com/a/62003170
+  // max allowed timeout is ~24 days (int as ms)
+  ms = ms > 2147483647 ? 2147483640 : ms;
   const timer = setTimeout(fn, ms);
   if (typeof timer.unref === "function") timer.unref();
   return timer;
