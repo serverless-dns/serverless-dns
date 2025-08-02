@@ -264,13 +264,11 @@ function retainOneAnswer(decodedDnsPacket) {
   // retain only the first answer, drop the rest
   if (
     !dnsutil.hasSingleQuestion(decodedDnsPacket) ||
+    !dnsutil.isQueryAQuadA(decodedDnsPacket) ||
     !dnsutil.hasAnswers(decodedDnsPacket)
   ) {
     return;
   }
-
-  const q = decodedDnsPacket.questions[0];
-  if (!dnsutil.isQueryAQuadA(q)) return;
 
   for (const a of decodedDnsPacket.answers) {
     if (dnsutil.isAnswerA(a) || dnsutil.isAnswerAAAA(a)) {
