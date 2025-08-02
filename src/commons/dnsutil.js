@@ -254,6 +254,13 @@ export function isQtypeHttps(qt) {
   return qt === "HTTPS" || qt === "SVCB";
 }
 
+export function isQueryAQuadA(packet) {
+  if (!hasSingleQuestion(packet)) return false;
+  const q = packet.questions[0];
+  const t = q.type.toUpperCase();
+  return isQtypeA(t) || isQtypeAAAA(t);
+}
+
 export function queryTypeMayResultInIP(t) {
   return isQtypeA(t) || isQtypeAAAA(t) || isQtypeCname(t) || isQtypeHttps(t);
 }

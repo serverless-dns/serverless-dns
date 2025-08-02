@@ -256,5 +256,27 @@ export function isAnswerFresh(m, n = 0) {
 export function updatedAnswer(dnsPacket, qid, expiry) {
   updateQueryId(dnsPacket, qid);
   updateTtl(dnsPacket, expiry);
+  retainOneAnswer(dnsPacket);
   return dnsPacket;
+}
+
+function retainOneAnswer(decodedDnsPacket) {
+  // retain only the first answer, drop the rest
+  if (
+    !dnsutil.hasSingleQuestion(decodedDnsPacket) ||
+    !dnsutil.hasAnswers(decodedDnsPacket)
+  ) {
+    return;
+  }
+
+  const q = decodedDnsPacket.questions[0];
+  if (!dnsutil.isQueryAQuadA(q)) return;
+
+  for (const a of decodedDnsPacket.answers) {
+    if (dnsutil.isAnswerA(a) || dnsutil.isAnswerAAAA(a)) {
+      decodedDnsPacket.answers = [a];
+      break;
+    }
+  }
+  return;
 }
