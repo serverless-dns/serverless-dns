@@ -474,12 +474,12 @@ async function certUpdateForever(secopts, s, n = 0) {
     return false;
   }
 
-  const oneMinsMs = 60 * 1000; // in ms
+  const oneMinMs = 60 * 1000; // in ms
   const [latestKey, latestCert] = await nodeutil.replaceKeyCert(crt);
   if (bufutil.emptyBuf(latestKey) || bufutil.emptyBuf(latestCert)) {
     console.error("crt: #", n, "update: no key/cert fetched");
     n = n + 1;
-    util.timeout(oneMinsMs * n, () => certUpdateForever(secopts, s, n));
+    util.timeout(oneMinMs * n, () => certUpdateForever(secopts, s, n));
     return false;
   }
 
@@ -703,12 +703,9 @@ function rotateTkt(s) {
   if (bufutil.emptyBuf(seed)) {
     seed = envutil.tlsKey();
   }
-  let ctx = envutil.imageRef();
-  if (!util.emptyString(ctx)) {
-    const d = new Date();
-    const cur = d.getUTCFullYear() + " " + d.getUTCMonth(); // 2023 7
-    ctx = cur + ctx;
-  }
+  const d = new Date();
+  const cur = d.getUTCFullYear() + " " + d.getUTCMonth(); // 2023 7
+  const ctx = cur + envutil.imageRef();
 
   // tls session resumption with tickets (or ids) reduce the 3.5kb to 6.5kb
   // overhead associated with tls handshake: netsekure.org/2010/03/tls-overhead
