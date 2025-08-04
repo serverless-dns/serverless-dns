@@ -37,11 +37,7 @@ export async function tkt48(seed, ctx) {
 // salt for hkdf can be zero if secret is pseudorandom
 // but a fixed salt is needed for high-entropy
 // but non uniform keys like outputs of DHKE
-export async function gen(secret, info, salt = fixedsalt) {
-  if (emptyBuf(secret) || emptyBuf(info)) {
-    throw new Error("empty secret/info");
-  }
-
+async function gen(secret, info, salt = fixedsalt) {
   const key = await hkdfhmac(secret, info, salt);
   return crypto.subtle.exportKey("raw", key);
 }
@@ -52,7 +48,7 @@ export async function gen(secret, info, salt = fixedsalt) {
 // cendyne.dev/posts/2023-01-30-how-to-use-hkdf.html
 // info adds entropy to extracted keys, and must be unique:
 // see: soatok.blog/2021/11/17/understanding-hkdf
-async function hkdfhmac(skmac, usectx, salt = new Uint8Array(0)) {
+export async function hkdfhmac(skmac, usectx, salt = new Uint8Array(0)) {
   const dk = await hkdf(skmac);
   return await crypto.subtle.deriveKey(
     hkdf256(salt, usectx),
@@ -108,6 +104,15 @@ export function aesgcm256opts() {
   };
 }
 
+/**
+ *
+ * @param {CryptoKey} aeskey
+ * @param {BufferSource} iv
+ * @param {BufferSource} plaintext
+ * @param {BufferSource?} aad
+ * @returns {Promise<Uint8Array>}
+ * @throws {Error} if encryption fails
+ */
 export async function encryptAesGcm(aeskey, iv, plaintext, aad) {
   if (!aad || emptyBuf(aad)) {
     aad = undefined; // ZEROBUF is not the same as null?
@@ -127,6 +132,14 @@ export async function encryptAesGcm(aeskey, iv, plaintext, aad) {
   return normalize8(taggedciphertext);
 }
 
+/**
+ * @param {CryptoKey} aeskey
+ * @param {BufferSource} iv
+ * @param {BufferSource} taggedciphertext
+ * @param {BufferSource?} aad
+ * @returns {Promise<Uint8Array>} - The decrypted plaintext
+ * @throws {Error} - If decryption fails
+ */
 export async function decryptAesGcm(aeskey, iv, taggedciphertext, aad) {
   if (!aad || emptyBuf(aad)) {
     aad = undefined; // ZEROBUF is not the same as null?
@@ -144,4 +157,25 @@ export async function decryptAesGcm(aeskey, iv, taggedciphertext, aad) {
     taggedciphertext
   );
   return normalize8(plaintext);
+}
+
+/**
+ * @param {CryptoKey} ck - The HMAC key
+ * @param {BufferSource} m - message to sign
+ * @returns {Promise<ArrayBuffer>} - The HMAC signature
+ * @throws {Error} - If the key is not valid or signing fails
+ */
+export function hmacsign(ck, m) {
+  return crypto.subtle.sign("HMAC", ck, m);
+}
+
+/**
+ * @param {CryptoKey} ck - The HMAC key
+ * @param {ArrayBuffer} mac - The HMAC signature to verify
+ * @param {BufferSource} m - The message to verify against
+ * @returns {Promise<boolean>} - True if the signature is valid, false otherwise
+ * @throws {Error} - If the key is not valid or verification fails
+ */
+export function hmacverify(ck, mac, m) {
+  return crypto.subtle.verify("HMAC", ck, mac, m);
 }
