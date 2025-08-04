@@ -309,6 +309,12 @@ export function imageRef() {
   return envManager.get("FLY_IMAGE_REF") || "";
 }
 
+export function hostId() {
+  if (!envManager) return "";
+
+  return envManager.get("HOST_IDENTIFIER") || "";
+}
+
 export function secretb64() {
   if (!envManager) return null;
 

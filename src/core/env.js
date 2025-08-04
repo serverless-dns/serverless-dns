@@ -336,6 +336,16 @@ export default class EnvManager {
     return null;
   }
 
+  // most relevant host id for this env
+  mostRelevantHostId(cloud) {
+    if (cloud === "local") return "localhost";
+    if (cloud === "fly") return this.get("FLY_MACHINE_ID") || "";
+    if (cloud === "deno-deploy") {
+      return this.get("DENO_REGION") + ":" + this.get("DENO_DEPLOYMENT_ID");
+    }
+    return "";
+  }
+
   /**
    * Makes default env values.
    * @return {Map} Runtime environment defaults.
@@ -357,7 +367,9 @@ export default class EnvManager {
       env.set(key, caststr(val, type));
     }
 
-    env.set("CLOUD_PLATFORM", this.mostLikelyCloudPlatform());
+    const cloud = this.mostLikelyCloudPlatform();
+    env.set("CLOUD_PLATFORM", cloud);
+    env.set("HOST_IDENTIFIER", this.mostRelevantHostId(cloud)); // may be empty
 
     return env;
   }

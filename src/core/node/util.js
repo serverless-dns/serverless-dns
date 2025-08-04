@@ -17,6 +17,7 @@ import {
   hmacsign,
   sha512,
 } from "../../commons/crypto.js";
+import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 
 const encctx = bufutil.fromStr("encryptcrossservice");
@@ -71,18 +72,21 @@ export async function replaceKeyCert(replacing) {
     const now = Date.now();
     const u = "https://redir.nile.workers.dev/x/crt/" + now;
     const url = new URL(u);
+    // TODO: bind "who" to msg?
     const msg = bufutil.fromStr(url.pathname);
     const authz = await hmacsign(mackey, msg);
+    const who = envutil.hostId(); // never empty on fly
     const req = new Request(url, {
       method: "GET",
       headers: {
         "x-rethinkdns-xsvc-authz": bufutil.hex(authz),
+        "x-rethinkdns-xsvc-who": who,
       },
     });
     const r = await fetch(req);
 
     if (!r.ok) {
-      log.e("certfile: fetch failed", authz.length, r.status, r.statusText);
+      log.e("certfile: fetch err", who, authz.length, r.status, r.statusText);
       return nokeycert;
     }
 
@@ -150,6 +154,7 @@ export async function replaceKeyCert(replacing) {
 export async function decryptText(req, ivciphertaghex) {
   const now = new Date();
   const u = new URL(req.url);
+  const machineid = req.headers.get("x-rethinkdns-xsvc-who");
   const ivciphertag = bufutil.hex2buf(ivciphertaghex);
   if (bufutil.emptyBuf(ivciphertag)) {
     log.e("decrypt: ivciphertag empty");
@@ -162,6 +167,8 @@ export async function decryptText(req, ivciphertaghex) {
     // crypto.junod.info/posts/recursive-hash/#data-serialization
     // 1 Aug 2025 => "5/7/2025" => Friday, 7th month (0-indexed), 2025
     const aadstr =
+      machineid +
+      "/" +
       now.getUTCDay() +
       "/" +
       now.getUTCMonth() +
