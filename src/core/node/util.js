@@ -154,7 +154,7 @@ export async function replaceKeyCert(replacing) {
 export async function decryptText(req, ivciphertaghex) {
   const now = new Date();
   const u = new URL(req.url);
-  const machineid = req.headers.get("x-rethinkdns-xsvc-who");
+  const authn = req.headers.get("x-rethinkdns-xsvc-who");
   const ivciphertag = bufutil.hex2buf(ivciphertaghex);
   if (bufutil.emptyBuf(ivciphertag)) {
     log.e("decrypt: ivciphertag empty");
@@ -167,7 +167,7 @@ export async function decryptText(req, ivciphertaghex) {
     // crypto.junod.info/posts/recursive-hash/#data-serialization
     // 1 Aug 2025 => "5/7/2025" => Friday, 7th month (0-indexed), 2025
     const aadstr =
-      machineid +
+      authn +
       "/" +
       now.getUTCDay() +
       "/" +
