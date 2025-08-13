@@ -184,6 +184,11 @@ export function tlsKey() {
   return envManager.get("TLS_KEY") || null;
 }
 
+export function allowDomainFronting() {
+  if (!envManager) return false;
+  return envManager.get("TLS_ALLOW_ANY_SNI") || false;
+}
+
 export function kdfSvcSecretHex() {
   if (!envManager) return null;
   return envManager.get("KDF_SVC") || null;
@@ -407,7 +412,7 @@ export function logpushSecretKey() {
   if (!envManager) return "";
 
   const secretkey = envManager.get("CF_LOGPUSH_R2_SECRET_KEY") || "";
-  if (onCloudflare() || onLocal()) return secretkey;
+  if (onCloudflare() || onLocal()) return secretkey || "";
 
   return "";
 }

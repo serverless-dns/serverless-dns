@@ -79,6 +79,12 @@ const defaults = new Map(
       type: "boolean",
       default: false,
     },
+    // if true, do not validate the SNI field in TLS handshake
+    // effectively allowing clients to "fake" SNI
+    TLS_ALLOW_ANY_SNI: {
+      type: "boolean",
+      default: false,
+    },
     // global log level (debug, info, warn, error)
     LOG_LEVEL: {
       type: "string",
