@@ -915,9 +915,13 @@ function getDnRE(socket) {
 /**
  * Gets flag and hostname from the wildcard domain name.
  * @param {String} sni - Wildcard SNI
- * @return {Array<String>} [flag, hostname]
+ * @return {<[String, String]>} [flag, hostname] - may be empty strings
  */
 function getMetadata(sni) {
+  if (util.emptyString(sni)) {
+    const fakesni = envutil.allowDomainFronting();
+    return ["", fakesni ? "nosni.tld" : ""];
+  }
   // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
   // 1-flag.somedomain.tld => ["1-flag", "somedomain", "tld"]
   const s = sni.split(".");
@@ -934,7 +938,7 @@ function getMetadata(sni) {
     return [flag, host];
   } else {
     // sni => max.rethinkdns.com
-    log.d(`flag: "", host: ${host}`);
+    log.d(`flag: "", host: ${sni}`);
     return ["", sni];
   }
 }
@@ -945,23 +949,25 @@ function getMetadata(sni) {
  */
 function serveTLS(socket) {
   const sni = socket.servername;
-  if (!sni) {
-    log.d("no sni, close conn");
-    close(socket);
-    return;
-  }
+  if (!envutil.allowDomainFronting()) {
+    if (!sni) {
+      log.d("no sni, close conn");
+      close(socket);
+      return;
+    }
 
-  if (!OUR_RG_DN_RE || !OUR_WC_DN_RE) {
-    [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
-  }
+    if (!OUR_RG_DN_RE || !OUR_WC_DN_RE) {
+      [OUR_RG_DN_RE, OUR_WC_DN_RE] = getDnRE(socket);
+    }
 
-  const isOurRgDn = OUR_RG_DN_RE.test(sni);
-  const isOurWcDn = OUR_WC_DN_RE.test(sni);
+    const isOurRgDn = OUR_RG_DN_RE.test(sni);
+    const isOurWcDn = OUR_WC_DN_RE.test(sni);
 
-  if (!isOurWcDn && !isOurRgDn) {
-    log.w("unexpected sni, close conn", sni);
-    close(socket);
-    return;
+    if (!isOurWcDn && !isOurRgDn) {
+      log.w("unexpected sni, close conn", sni);
+      close(socket);
+      return;
+    }
   }
 
   if (false) {
