@@ -189,7 +189,7 @@ class Tracker {
     }
 
     cmap.set(connid, new ConnW(sock));
-    sock.on("close", (haderr) => cmap.delete(connid));
+    sock.on("close", (_haderr) => cmap.delete(connid));
 
     return connid;
   }
@@ -238,7 +238,7 @@ const maxHeapSnaps = 20;
 const maxCertUpdateAttempts = 20;
 let adjTimer = null;
 
-((main) => {
+((_main) => {
   // listen for "go" and start the server
   system.sub("go", systemUp);
   // listen for "end" and stop the server
@@ -452,7 +452,10 @@ function systemUp() {
  * @param {int} n
  */
 async function certUpdateForever(secopts, s, n = 0) {
-  if (n > maxCertUpdateAttempts) return false;
+  if (n > maxCertUpdateAttempts) {
+    console.error("crt: max update attempts reached", n);
+    return false;
+  }
 
   const crtpem = secopts.cert;
   if (bufutil.emptyBuf(crtpem)) {
@@ -567,7 +570,7 @@ function trapServerEvents(id, s) {
   });
 
   // emitted when the req is discarded due to maxConnections
-  s.on("drop", (data) => {
+  s.on("drop", (_data) => {
     stats.nofdrops += 1;
     stats.nofconns += 1;
   });
@@ -665,7 +668,7 @@ function trapSecureServerEvents(id, s) {
   });
 
   // emitted when the req is discarded due to maxConnections
-  s.on("drop", (data) => {
+  s.on("drop", (_data) => {
     stats.nofdrops += 1;
     stats.nofconns += 1;
   });
@@ -725,7 +728,7 @@ function up(server, addr) {
 
 /**
  * RST and/or closes tcp socket.
- * @param {Socket | TLSSocket} sock
+ * @param {Socket | TLSSocket | null} sock
  */
 function close(sock) {
   if (!sock || sock.destroyed) return;
@@ -825,7 +828,7 @@ function serveDoTProxyProto(clientSocket) {
     }
   }
 
-  clientSocket.on("error", (e) => {
+  clientSocket.on("error", (_e) => {
     log.w("pp: client err, closing");
     close(clientSocket);
     close(dotSock);
@@ -972,7 +975,7 @@ function serveTLS(socket) {
   const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
   const sb = new ScratchBuffer();
 
-  log.d("----> dot request", host, flag);
+  log.d("----> dot request", flag, host);
   socket.on("data", async (data) => {
     const len = await handleTCPData(socket, data, sb, host, flag);
     adjustTLSFragAfterWrites(socket, len);
@@ -998,7 +1001,7 @@ function serveTCP(socket) {
 /**
  * Handle DNS over TCP/TLS data stream.
  * @param {Socket} socket
- * @param {Buffer} chunk - A TCP data segment
+ * @param {ArrayBuffer} chunk - A TCP data segment
  * @param {ScratchBuffer} sb - Scratch buffer
  * @param {String} host - Hostname
  * @param {String} flag - Blocklist Flag
@@ -1037,7 +1040,7 @@ async function handleTCPData(socket, chunk, sb, host, flag) {
   // chunk out dns-query starting rem-th byte
   const data = chunk.slice(rem, qlimit);
   // out of band data, if any
-  const oob = chunk.slice(qlimit);
+  const oob = qlimit < cl ? chunk.slice(qlimit) : null;
 
   sb.allocOnce(qlen);
 
@@ -1105,7 +1108,7 @@ async function handleTCPQuery(q, socket, host, flag) {
  * @param {string} rxid
  * @param {Socket} socket
  * @param {Uint8Array} data
- * @param {int} n - bytes written to socket
+ * @returns {int} n - bytes written to socket
  */
 function measuredWrite(rxid, socket, data) {
   let ok = tcpOkay(socket);
