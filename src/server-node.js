@@ -676,7 +676,7 @@ function trapSecureServerEvents(id, s) {
   s.on("tlsClientError", (err, /** @type {TLSSocket} */ tlsSocket) => {
     stats.tlserr += 1;
     // fly tcp healthchecks also trigger tlsClientErrors
-    log.d("tls: client err;", err.message, addrstr(tlsSocket));
+    // log.d("tls: client err;", err.message, addrstr(tlsSocket));
     close(tlsSocket);
   });
 }
