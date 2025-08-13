@@ -80,6 +80,7 @@ async function fmmap(fp) {
   const isDeno = envutil.isDeno();
 
   if (dynimports && isNode) {
+    log.i("mmap f:", fp, "on node");
     try {
       const mmap = (await import("@riaskov/mmap-io")).default;
       const fd = fs.openSync(fp, "r+");
