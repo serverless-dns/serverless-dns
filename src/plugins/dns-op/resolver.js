@@ -449,6 +449,7 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
         dnsreq = new Request(u.href, {
           method: "GET",
           headers: util.dnsHeaders(),
+          signal: AbortSignal.timeout(this.timeout),
         });
       } else if (util.isPostRequest(request)) {
         dnsreq = new Request(u.href, {
@@ -458,10 +459,12 @@ DNSResolver.prototype.resolveDnsUpstream = async function (
             util.dnsHeaders()
           ),
           body: query,
+          signal: AbortSignal.timeout(this.timeout),
         });
       } else {
         throw new Error("get/post only");
       }
+
       this.log.d(rxid, "upstream doh2/fetch", u.href);
       promisedPromises.push(fetch(dnsreq));
     }
