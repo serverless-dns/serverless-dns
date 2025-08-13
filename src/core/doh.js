@@ -31,6 +31,7 @@ export function handleRequest(event) {
  */
 async function proxyRequest(event) {
   if (optionsRequest(event.request)) return util.respond204();
+  if (headRequest(event.request)) return util.respond204();
 
   const io = new IOState();
   const ua = event.request.headers.get("User-Agent");
@@ -59,6 +60,10 @@ async function proxyRequest(event) {
 
 function optionsRequest(request) {
   return request.method === "OPTIONS";
+}
+
+function headRequest(request) {
+  return request.method === "HEAD";
 }
 
 /**
