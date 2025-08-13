@@ -682,20 +682,7 @@ function trapSecureServerEvents(id, s) {
 }
 
 /**
- * @param {TLSSocket|Socket} sock
- */
-function addrstr(sock) {
-  if (!sock) return "";
-  if (sock.localAddress == null || sock.remoteAddress == null) return "";
-  return (
-    `[${sock.localAddress}]:${sock.localPort}` +
-    "->" +
-    `[${sock.remoteAddress}]:${sock.remotePort}`
-  );
-}
-
-/**
- * @param {tls.Server} s
+ * @param {tls.Server?} s
  * @returns {void}
  */
 function rotateTkt(s) {
@@ -738,14 +725,14 @@ function close(sock) {
 }
 
 /**
- * @param {Http2ServerResponse} res
+ * @param {Http2ServerResponse?} res
  */
 function resClose(res) {
   if (res && !res.destroy) res.destroy();
 }
 
 /**
- * @param {Http2ServerResponse} res
+ * @param {Http2ServerResponse?} res
  * @returns {Boolean}
  */
 function resOkay(res) {
@@ -754,20 +741,21 @@ function resOkay(res) {
 }
 
 /**
- * @param {Socket} sock
+ * @param {Socket?} sock
  * @returns {Boolean}
  */
 function tcpOkay(sock) {
-  return sock.writable;
+  return sock && sock.writable;
 }
 
 /**
  * Creates a duplex pipe between `a` and `b` sockets.
- * @param {Socket} a
- * @param {Socket} b
+ * @param {Socket?} a
+ * @param {Socket?} b
  * @return {Boolean} - true if pipe created, false if error
  */
 function proxySockets(a, b) {
+  if (!a || !b) return false;
   if (a.destroyed || b.destroyed) return false;
   // handle errors? stackoverflow.com/a/61091744
   a.pipe(b);
@@ -914,12 +902,13 @@ function getDnRE(socket) {
 
 /**
  * Gets flag and hostname from the wildcard domain name.
- * @param {String} sni - Wildcard SNI
+ * @param {String?} sni - Wildcard SNI
  * @return {<[String, String]>} [flag, hostname] - may be empty strings
  */
 function getMetadata(sni) {
+  const fakesni = envutil.allowDomainFronting();
+
   if (util.emptyString(sni)) {
-    const fakesni = envutil.allowDomainFronting();
     return ["", fakesni ? "nosni.tld" : ""];
   }
   // 1-flag.max.rethinkdns.com => ["1-flag", "max", "rethinkdns", "com"]
@@ -978,7 +967,7 @@ function serveTLS(socket) {
     log.d(`(${proto}), reused? ${reused}; ticket: ${tkt}; sess: ${sess}`);
   }
 
-  const [flag, host] = isOurWcDn ? getMetadata(sni) : ["", sni];
+  const [flag, host] = getMetadata(sni);
   const sb = new ScratchBuffer();
 
   log.d("----> dot request", flag, host);
