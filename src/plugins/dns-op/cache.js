@@ -153,7 +153,7 @@ export class DnsCache {
   /**
    * @param {URL} url
    * @param {cacheutil.DnsCacheData} data
-   * @returns
+   * @returns {Promise<any|void>}
    */
   async putHttpCache(url, data) {
     const k = url.href;

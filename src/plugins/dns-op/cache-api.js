@@ -30,7 +30,7 @@ export class CacheApi {
   /**
    * @param {string} href
    * @param {Response} response
-   * @returns
+   * @returns {Promise<any>}
    */
   put(href, response) {
     if (this.noop) return false;
