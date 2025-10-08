@@ -10,8 +10,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
 import * as cfg from "../../core/cfg.js";
-import { BlocklistWrapper } from "../../plugins/rethinkdns/main.js";
+import { BlocklistWrapper, isPast } from "../../plugins/rethinkdns/main.js";
 // import mmap from "@riaskov/mmap-io";
 
 const blocklistsDir = "./blocklists__";
@@ -106,7 +107,6 @@ async function fmmap(fp) {
 
 /**
  * setupLocally loads blocklist files and configurations from disk.
- * TODO: return false if blocklists age > AUTO_RENEW_BLOCKLISTS_OLDER_THAN
  * @param {BlocklistWrapper} bw
  * @returns
  */
@@ -116,6 +116,19 @@ async function setupLocally(bw) {
   const tdcodec6 = cfg.tdCodec6();
   const codec = tdcodec6 ? "u6" : "u8";
   const useMmap = envutil.useMmap();
+
+  if (!timestamp) {
+    log.w("setuplocal: invalid timestamp", timestamp);
+    return false;
+  }
+
+  // force a re-download if blocklists age > AUTO_RENEW_BLOCKLISTS_OLDER_THAN
+  const blocklistDob = util.bareTimestampFrom(timestamp);
+  const ageThresholdInWeeks = envutil.renewBlocklistsThresholdInWeeks();
+  if (isPast(blocklistDob, ageThresholdInWeeks)) {
+    log.w("setuplocal: blocklists old", blocklistDob, ">", ageThresholdInWeeks);
+    return false;
+  }
 
   const ok = hasBlocklistFiles(timestamp, codec);
   log.i(timestamp, codec, "has bl files?", ok);
