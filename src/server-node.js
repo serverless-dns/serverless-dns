@@ -33,7 +33,7 @@ import * as nodeutil from "./core/node/util.js";
 import { stopAfter, uptime } from "./core/svc.js";
 import * as system from "./system.js";
 
-import { startConfigApi } from './core/node/config-api.js';
+import { startConfigApi } from "./core/node/config-api.js";
 startConfigApi();
 
 /**
