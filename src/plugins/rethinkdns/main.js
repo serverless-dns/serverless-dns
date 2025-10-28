@@ -481,11 +481,12 @@ async function renew(baseurl) {
 }
 
 /**
+ * Returns true if the timestamp is older than wk weeks, per Date.now()
  * @param {int} tsms (in unix millis)
  * @param {int} wk (in weeks > 0)
  * @returns {bool}
  */
-function isPast(tsms, wk) {
+export function isPast(tsms, wk) {
   if (tsms <= 0 || wk <= 0) {
     log.w("isPast: bad args ts/wk", tsms, wk);
     return false;
