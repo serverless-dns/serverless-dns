@@ -231,7 +231,8 @@ export function timedSafeAsyncOp(promisedOp, ms, defaultOp) {
 }
 
 /**
- *
+ * Sets a timer which calls a function after ms milliseconds.
+ * Max ms allowed is 2147483647 (~24 days), and min is 0.
  * @param {number} ms
  * @param {(...args: any[]) => void} fn
  * @returns
@@ -241,6 +242,7 @@ export function timeout(ms, fn) {
   // stackoverflow.com/a/62003170
   // max allowed timeout is ~24 days (int as ms)
   ms = ms > 2147483647 ? 2147483640 : ms;
+  ms = ms < 0 ? 0 : ms;
   const timer = setTimeout(fn, ms);
   if (typeof timer.unref === "function") timer.unref();
   return timer;
