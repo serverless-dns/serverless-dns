@@ -472,7 +472,7 @@ async function certUpdateForever(secopts, s, n = 0) {
   const fourHoursMs = 4 * 60 * 60 * 1000; // in ms
   const validUntil = new Date(crt.validTo).getTime() - Date.now();
   if (validUntil > fourHoursMs) {
-    console.log("crt: #", n, "valid for", validUntil, "ms; no update needed");
+    console.log("crt: #", n, "update: valid for", validUntil, "ms; not needed");
     util.timeout(validUntil - fourHoursMs, () => certUpdateForever(secopts, s));
     return false;
   }
