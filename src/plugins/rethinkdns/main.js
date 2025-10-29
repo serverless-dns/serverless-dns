@@ -496,7 +496,7 @@ export function isPast(tsms, wk) {
   const sinceWeeks = Math.floor(since / (1000 * 60 * 60 * 24 * 7));
 
   const y = sinceWeeks > wk;
-  note = y ? log.w : log.i;
+  const note = y ? log.w : log.i;
   note("blocklist old?", y, sinceWeeks, ">", wk, " / s:", since, "ts:", tsms);
   return y;
 }
