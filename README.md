@@ -127,8 +127,12 @@ Pull requests are also checked for code style violations and fixed automatically
 #### Env vars
 
 Configure [`env.js`](src/core/env.js) if you need to tweak the defaults.
+For local development and some platforms, you can use environment variables loaded from a `.env` file. 
+Copy [`.env.example`](.env.example) to `.env` and set the appropriate values.
+
 For Cloudflare Workers, setup env vars in [`wrangler.toml`](wrangler.toml), instead.
 For Fastly Compute@Edge, setup env vars in [`fastly.toml`](fastly.toml), instead.
+For Fly.io, setup env vars in [`fly.toml`](fly.toml), instead.
 
 #### Request flow
 
