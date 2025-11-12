@@ -1,4 +1,15 @@
 FROM node:22 as setup
+
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && \
+    useradd --system --uid 1000 --gid appgroup --no-create-home appuser
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && \
+    useradd --system --uid 1000 --gid appgroup appuser
+
+
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && useradd --system --uid 1000 --gid appgroup appuser
 # git is required if any of the npm packages are git[hub] packages
 RUN apt-get update && apt-get install git -yq --no-install-suggests --no-install-recommends
 WORKDIR /app
@@ -16,6 +27,17 @@ RUN export BLOCKLIST_DOWNLOAD_ONLY=true && node ./dist/fly.mjs
 # pin to node22 for native deps (@ariaskov/mmap-io)
 FROM node:22-alpine AS runner
 
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && \
+    useradd --system --uid 1000 --gid appgroup --no-create-home appuser
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && \
+    useradd --system --uid 1000 --gid appgroup appuser
+
+
+# Create a non-root user to run the application
+RUN groupadd --system --gid 1000 appgroup && useradd --system --uid 1000 --gid appgroup appuser
+
 # env vals persist even at run-time: archive.is/QpXp2
 # and overrides fly.toml env values
 ENV NODE_ENV production
@@ -32,4 +54,7 @@ COPY --from=setup /app/dbip__ ./dbip__
 # print files in work dir, must contain blocklists
 RUN ls -Fla
 # run with the default entrypoint (usually, bash or sh)
+# Switch to the non-root user
+USER appuser
+
 CMD ["node", "./fly.mjs"]
