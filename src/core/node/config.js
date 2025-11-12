@@ -12,15 +12,315 @@
  * This module has side effects, sequentially setting up the environment.
  */
 import { atob, btoa } from "node:buffer";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import process from "node:process";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import * as dnst from "../../core/node/dns-transport.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import * as system from "../../system.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import EnvManager from "../env.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import Log from "../log.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import { services, stopAfter } from "../svc.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import * as blocklists from "./blocklists.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import * as dbip from "./dbip.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 import * as util from "./util.js";
+
+// Safe value parser for config values
+function safeParseValue(value) {
+  if (typeof value !== "string") return value;
+  
+  // Handle empty strings
+  if (value === "") return "";
+  
+  // Handle boolean values
+  if (value === "true") return true;
+  if (value === "false") return false;
+  
+  // Handle null and undefined
+  if (value === "null") return null;
+  if (value === "undefined") return undefined;
+  
+  // Try to parse as number
+  if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const num = Number(value);
+    if (!isNaN(num)) return num;
+  }
+  
+  // Try to parse as JSON (handles objects and arrays)
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    // If all parsing fails, return the string as-is
+    return value;
+  }
+}
 
 // some of the cjs node globals aren't available in esm
 // nodejs.org/docs/latest/api/globals.html
@@ -78,7 +378,7 @@ async function prep() {
       log.i("env (fly) tls setup with tls_certkey");
     } else {
       const _TLS_CRT_AND_KEY =
-        eval(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
+        safeParseValue(`process.env.TLS_${process.env.TLS_CN}`) || process.env.TLS_;
       if (_TLS_CRT_AND_KEY) {
         const [tlsKey, tlsCrt] = util.getCertKeyFromEnv(_TLS_CRT_AND_KEY);
         setTlsVars(tlsKey, tlsCrt);
