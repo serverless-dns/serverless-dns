@@ -895,7 +895,7 @@ function getDnRE(socket) {
   // RegExs strings are joined with OR operator, before constructing RegEx.
   // If no RegEx strings are found, a non-matching RegEx `(?!)` is returned.
   const rgDnRE = new RegExp(regExs[0].join("|") || "(?!)", "i");
-  const wcDnRE = new RegExp(regExs[1].join("|") || "(?!)", "i");
+  const wcDnRE = /regExs[1].join("|"/gi || "(?!)", "i");
   log.i("sni:", rgDnRE, wcDnRE);
   return [rgDnRE, wcDnRE];
 }
