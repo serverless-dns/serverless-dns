@@ -3,11 +3,12 @@ import * as bufutil from "../commons/bufutil.js";
 import { csprng, hkdfalgkeysz, hkdfraw, sha512 } from "../commons/crypto.js";
 import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
+import * as system from "../system.js";
 import { log } from "./log.js";
 
 export const keysize = 64; // bytes
-
-let sessionSecret = csprng(keysize); // start with random secret
+export const serverid = "888811119999";
+let sessionSecret = null; // lazily initialized
 const pskctx = bufutil.fromStr("presharedkeyforclient");
 // hex: 790bb45383670663ce9a39480be2de5426179506c8a6b2be922af055896438dd06dd320e68cd81348a32d679c026f73be64fdbbc46c43bfbc0f98160ffae2452
 export const fixedID64 = new Uint8Array([
@@ -23,6 +24,10 @@ const pskfixedsalt = new Uint8Array([
   149, 87, 52, 215, 105, 90, 147, 151, 102, 175, 37, 134, 20, 235, 241, 100,
   215, 155, 17, 183, 198, 68, 34, 44, 171, 8, 145, 166, 227, 206,
 ]);
+
+((_main) => {
+  system.when("prepare").then(prep);
+})();
 
 export class PskCred {
   /** @type {Uint8Array} client id */
@@ -65,7 +70,19 @@ export class PskCred {
   }
 }
 
-export const staticPskCred = new PskCred(fixedID64, csprng(64));
+// lazily init with "prep()" is due to limitations imposed on Workers.
+// ✘ core:user:serverless-dns: Uncaught Error: Disallowed operation called within global scope.
+// Asynchronous I/O (ex: fetch() or connect()), setting a timeout, and generating random values
+// are not allowed within global scope. To fix this error, perform this operation within a handler.
+// https://developers.cloudflare.com/workers/runtime-apis/handlers/
+function prep() {
+  log.i("psk: prepared");
+  staticPskCred = new PskCred(fixedID64, csprng(keysize));
+  sessionSecret = csprng(keysize);
+}
+
+/** @type {PskCred?} */
+export let staticPskCred = null; // lazily initialized
 export const recentPskCreds = new LfuCache("psk", 1000);
 
 /**
@@ -91,6 +108,11 @@ export async function generateTlsPsk(clientid) {
   // www.rfc-editor.org/rfc/rfc9257.html#section-8
   // www.rfc-editor.org/rfc/rfc9258.html#section-4
   const k256 = await pskSessionKey();
+  if (bufutil.emptyBuf(k256)) {
+    log.e("psk: no session key set yet");
+    return null;
+  }
+
   // www.rfc-editor.org/rfc/rfc9257.html#section-4.2
   const clientpsk = await hkdfraw(k256, clientid);
 
@@ -124,8 +146,8 @@ export async function newSession(seed, newctxstr) {
  */
 async function pskSessionKey() {
   const nokey = null;
-  if (bufutil.emptyBuf(pskctx)) {
-    log.e("key: ctx missing");
+  if (bufutil.emptyBuf(pskctx) || bufutil.emptyBuf(sessionSecret)) {
+    log.e("key: ctx or secret not set");
     return nokey;
   }
 

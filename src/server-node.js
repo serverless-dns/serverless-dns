@@ -53,6 +53,7 @@ class Stats {
     this.tlserr = 0;
     this.tlspsks = 0;
     this.tlspskd = 0;
+    this.tlspskmiss = 0;
     this.tottlspsk = 0;
     this.fasttls = 0;
     this.totfasttls = 0;
@@ -70,7 +71,7 @@ class Stats {
     return (
       `reqs=${this.noreqs} c=${this.nofchecks} ` +
       `drops=${this.nofdrops}/tot=${this.nofconns}/open=${this.openconns} ` +
-      `to=${this.noftimeouts}/tlserr=${this.tlserr} ` +
+      `to=${this.noftimeouts}/tlserr=${this.tlserr}/tlspskmiss=${this.tlspskmiss} ` +
       `tls0=${this.fasttls}/tls0miss=${this.totfasttls}/tlsadjs=${this.noftlsadjs} ` +
       `tlspsks=${this.tlspsks}/tlspskd=${this.tlspskd}/tlspsktot=${this.tottlspsk} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
@@ -374,7 +375,6 @@ function systemUp() {
     sessionTimeout: 60 * 60 * 24 * 7, // 7d in secs
   };
   if (allowTlsPsk) {
-    const idhexhint = psk.staticPskCred.idhexhint;
     // tlsOpts.enableTrace = true;
     /**
      * @param {TLSSocket} _socket - TLS Socket
@@ -384,7 +384,12 @@ function systemUp() {
     tlsOpts.pskCallback = (_socket, idhex) => {
       stats.tottlspsk += 1;
       if (!bufutil.isHex(idhex)) return;
+      if (psk.staticPskCred == null) {
+        stats.tlspskmiss += 1;
+        return null; // unlikely
+      }
 
+      // const idhexhint = psk.staticPskCred.idhexhint;
       // openssl s_client -reconnect -tls1_2 -psk_identity 790bb45383670663ce9a39480be2de5426179506c8a6b2be922af055896438dd06dd320e68cd81348a32d679c026f73be64fdbbc46c43bfbc0f98160ffae2452
       // -psk "$TLS_PSK" -connect dns.rethinkdns.localhost:10000 -debug -cipher "PSK-AES128-GCM-SHA256"
       // TODO: confirm key is compatible with socket.getCipher();
@@ -397,6 +402,7 @@ function systemUp() {
         }
         return psk.staticPskCred.key;
       }
+
       /** @type {psk.PskCred?} */
       const creds = psk.recentPskCreds.get(idhex);
       if (creds && creds.ok()) {
@@ -404,17 +410,19 @@ function systemUp() {
         // log.d("TLS PSK: known client", creds.idhexhint);
         return creds.key;
       }
+
       // async callbacks are not possible yet, and so, generate the
       // missing credentials in the next microtask and fail this one;
       // hopefully, the next time this same idhex connects, we'll have
       // generated the corresponding PSK credentials to serve it.
       psk.generateTlsPsk(bufutil.hex2buf(idhex));
       // log.d("TLS PSK: unknown client id", idhex);
+      stats.tlspskmiss += 1;
       return null;
     };
-    const serverhint = idhexhint;
-    tlsOpts.pskIdentityHint = serverhint;
-    log.i("TLS PSK identity hint", serverhint);
+    tlsOpts.pskIdentityHint =
+      psk.staticPskCred == null ? psk.serverid : psk.staticPskCred.idhexhint;
+    log.i("TLS PSK identity hint", tlsOpts.pskIdentityHint);
   }
   // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
   const h2Opts = {
