@@ -7,9 +7,10 @@ import * as system from "../system.js";
 import { log } from "./log.js";
 
 export const keysize = 64; // bytes
+const pskcachesize = 1000; // entries
 export const serverid = "888811119999";
 let sessionSecret = null; // lazily initialized
-const pskctx = bufutil.fromStr("presharedkeyforclient");
+const pskctx = bufutil.fromStr("tlspresharedkeyforclient");
 // hex: 790bb45383670663ce9a39480be2de5426179506c8a6b2be922af055896438dd06dd320e68cd81348a32d679c026f73be64fdbbc46c43bfbc0f98160ffae2452
 export const fixedID64 = new Uint8Array([
   121, 11, 180, 83, 131, 103, 6, 99, 206, 154, 57, 72, 11, 226, 222, 84, 38, 23,
@@ -76,14 +77,14 @@ export class PskCred {
 // are not allowed within global scope. To fix this error, perform this operation within a handler.
 // https://developers.cloudflare.com/workers/runtime-apis/handlers/
 function prep() {
-  log.i("psk: prepared");
   staticPskCred = new PskCred(fixedID64, csprng(keysize));
   sessionSecret = csprng(keysize);
+  log.i("psk: prepared");
 }
 
 /** @type {PskCred?} */
 export let staticPskCred = null; // lazily initialized
-export const recentPskCreds = new LfuCache("psk", 1000);
+export const recentPskCreds = new LfuCache("psk", pskcachesize);
 
 /**
  * Returns PSK identity (random 32 bytes as hex) and PSK key derived from KDF_SVC secret.

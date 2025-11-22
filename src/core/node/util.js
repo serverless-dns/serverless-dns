@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { Buffer } from "node:buffer";
 import { X509Certificate } from "node:crypto";
 import { Http2ServerRequest, Http2ServerResponse } from "node:http2";
 import * as bufutil from "../../commons/bufutil.js";
