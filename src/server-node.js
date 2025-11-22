@@ -50,6 +50,9 @@ class Stats {
     this.noreqs = -1;
     this.nofchecks = 0;
     this.tlserr = 0;
+    this.tlspsks = 0;
+    this.tlspskd = 0;
+    this.tottlspsk = 0;
     this.fasttls = 0;
     this.totfasttls = 0;
     this.noftlsadjs = 0;
@@ -68,6 +71,7 @@ class Stats {
       `drops=${this.nofdrops}/tot=${this.nofconns}/open=${this.openconns} ` +
       `to=${this.noftimeouts}/tlserr=${this.tlserr} ` +
       `tls0=${this.fasttls}/tls0miss=${this.totfasttls}/tlsadjs=${this.noftlsadjs} ` +
+      `tlspsks=${this.tlspsks}/tlspskd=${this.tlspskd}/tlspsktot=${this.tottlspsk} ` +
       `n=${this.bp[4]}/adj=${this.bp[3]} ` +
       `load=${this.bp[0]}/${this.bp[1]}/${this.bp[2]}`
     );
@@ -377,12 +381,14 @@ function systemUp() {
      * @returns {DataView}
      */
     tlsOpts.pskCallback = (_socket, idhex) => {
+      stats.tottlspsk += 1;
       if (!bufutil.isHex(idhex)) return;
 
       // openssl s_client -reconnect -tls1_2 -psk_identity 790bb45383670663ce9a39480be2de5426179506c8a6b2be922af055896438dd06dd320e68cd81348a32d679c026f73be64fdbbc46c43bfbc0f98160ffae2452
       // -psk "$TLS_PSK" -connect dns.rethinkdns.localhost:10000 -debug -cipher "PSK-AES128-GCM-SHA256"
       // TODO: confirm key is compatible with socket.getCipher();
       if (idhex === psk.staticPskCred.idhex) {
+        stats.tlspsks += 1;
         const customPsk = bufutil.len(tlsPsk) >= psk.keysize;
         // log.d("TLS PSK: static id", idhexhint, "custom key?", customPsk);
         if (customPsk) {
@@ -393,6 +399,7 @@ function systemUp() {
       /** @type {psk.PskCred?} */
       const creds = psk.recentPskCreds.get(idhex);
       if (creds != null && creds.ok()) {
+        stats.tlspskd += 1;
         // log.d("TLS PSK: known client", creds.idhexhint);
         return creds.key;
       }
