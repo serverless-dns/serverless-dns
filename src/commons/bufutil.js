@@ -163,6 +163,7 @@ export function raw(b) {
 // b is either an ArrayBuffer, a TypedArray, or a node:Buffer
 export function normalize8(b) {
   if (emptyBuf(b)) return ZERO;
+  if (b instanceof Uint8Array) return b;
 
   let underlyingBuffer = null;
   // ... has byteLength property, b must be of type ArrayBuffer;

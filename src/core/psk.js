@@ -42,8 +42,8 @@ export class PskCred {
     if (bufutil.len(id) < hkdfalgkeysz || bufutil.len(key) < hkdfalgkeysz) {
       throw new Error("pskcred: invalid id/key size");
     }
-    this.id = id;
-    this.key = key;
+    this.id = bufutil.normalize8(id);
+    this.key = bufutil.normalize8(key);
     this.idhex = bufutil.hex(this.id);
     this.keyhex = bufutil.hex(this.key);
   }
@@ -83,7 +83,7 @@ export async function generateTlsPsk(clientid) {
     // TODO: there's no invalidation even if sessionSecret changes
     const idhex = bufutil.hex(clientid);
     const cachedcred = recentPskCreds.get(idhex);
-    if (cachedcred != null && cachedcred.ok()) {
+    if (cachedcred && cachedcred.ok()) {
       return cachedcred;
     }
   }
@@ -113,7 +113,7 @@ export async function newSession(seed, newctxstr) {
   const ctx = bufutil.fromStr(newctxstr);
   const info512 = await sha512(ctx);
 
-  log.d("psk: new w", bufutil.hex(oldsecret.slice(0, 16)), "+", newctxstr);
+  // log.d("psk: new w", bufutil.hex(oldsecret.slice(0, 16)), "+", newctxstr);
   sessionSecret = await hkdfraw(oldsecret, info512, pskfixedsalt);
   log.i("psk: new session secret", bufutil.len(sessionSecret), "bytes");
 }

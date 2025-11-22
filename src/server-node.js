@@ -398,11 +398,15 @@ function systemUp() {
       }
       /** @type {psk.PskCred?} */
       const creds = psk.recentPskCreds.get(idhex);
-      if (creds != null && creds.ok()) {
+      if (creds && creds.ok()) {
         stats.tlspskd += 1;
         // log.d("TLS PSK: known client", creds.idhexhint);
         return creds.key;
       }
+      // async callbacks are not possible yet, and so, generate the
+      // missing credentials in the next microtask and fail this one;
+      // hopefully, the next time this same idhex connects, we'll have
+      // generated the corresponding PSK credentials to serve it.
       psk.generateTlsPsk(bufutil.hex2buf(idhex));
       // log.d("TLS PSK: unknown client id", idhex);
       return null;
