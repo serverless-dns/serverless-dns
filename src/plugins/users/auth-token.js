@@ -7,9 +7,9 @@
  */
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
-import * as util from "../../commons/util.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
 import * as rdnsutil from "../../plugins/rdns-util.js";
 
 export const info = "sdns-public-auth-info";
@@ -101,6 +101,12 @@ export async function auth(rxid, url) {
   return Outcome.fail();
 }
 
+/**
+ * Generate auth token pair for a given msg+domain.
+ * @param {string} msg
+ * @param {string} domain
+ * @returns {Promise<[string, string]>} hex, domain|hex
+ */
 export async function gen(msg, domain) {
   if (util.emptyString(msg) || util.emptyString(domain)) {
     throw new Error(`args empty [${msg} / ${domain}]`);
@@ -113,27 +119,45 @@ export async function gen(msg, domain) {
 
   const m = msg.toLowerCase();
   const d = domain.toLowerCase();
-  const cat = m + msgkeydelim + d;
+
+  return genInternal(m, d);
+}
+
+/**
+ * @param {string} k1
+ * @param {string} k2
+ * @param {string} msg
+ * @returns {Promise<[string, string]>} hex, k2|hex
+ */
+async function genInternal(k1, k2, msg = msg) {
+  // concat msg1 + delim + msg2
+  const cat = k1 + msgkeydelim + k2;
   // return memoized ans
   const cached = mem.get(cat);
   if (cached) return cached;
 
   const k8 = encoder.encode(cat);
-  const m8 = encoder.encode(info);
+  const m8 = encoder.encode(msg);
   const ab = await proof(k8, m8);
 
   // conv to base16, pad 0 for single digits, 01, 02, 03, ... 0f
   const hex = bufutil.hex(ab);
-  const hexcat = domain + akdelim + hex;
+  const hexcat = k2 + akdelim + hex;
   const toks = [hex, hexcat];
 
   mem.put(cat, toks);
   return toks;
 }
 
-// nb: stuble crypto api on node v19+
-// stackoverflow.com/a/47332317
-async function proof(key, val) {
+/**
+ * Generate HMAC-SHA256 proof of val using key.
+ * nb: stuble crypto api on node v19+
+ * stackoverflow.com/a/47332317
+ * @param {ArrayBuffer} key
+ * @param {ArrayBuffer} val
+ * @returns {Promise<ArrayBuffer>}
+ */
+export async function proof(key, val) {
   const hmac = "HMAC";
   const sha256 = "SHA-256";
 
@@ -158,5 +182,5 @@ async function proof(key, val) {
   );
 
   // hmac sign & verify: stackoverflow.com/a/72765383
-  return await crypto.subtle.sign(hmac, hmackey, val);
+  return crypto.subtle.sign(hmac, hmackey, val);
 }

@@ -6,8 +6,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import * as util from "../commons/util.js";
 import * as bufutil from "../commons/bufutil.js";
+import * as util from "../commons/util.js";
 
 /** @typedef {import("./users/auth-token.js").Outcome} AuthOutcome */
 
@@ -44,6 +44,8 @@ export class RespData {
     this.dnsResolverUrl = "";
     /** @type {string} */
     this.userBlocklistFlag = "";
+    /** @type {Response?} */
+    this.httpResponse = null;
   }
 }
 

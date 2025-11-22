@@ -186,7 +186,19 @@ export function tlsKey() {
 
 export function allowDomainFronting() {
   if (!envManager) return false;
-  return envManager.get("TLS_ALLOW_ANY_SNI") || false;
+  return envManager.get("TLS_ALLOW_ANY_SNI");
+}
+
+export function allowTlsPsk() {
+  if (isBun()) return false;
+  return tlsPskHex() != null;
+}
+
+export function tlsPskHex() {
+  if (!envManager) return null;
+  const pskhex = envManager.get("TLS_PSK");
+  if (pskhex == null || pskhex.length <= 0) return null;
+  return pskhex;
 }
 
 export function kdfSvcSecretHex() {

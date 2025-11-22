@@ -160,7 +160,7 @@ export default class RethinkPlugin {
 
   /**
    * @param {RResp} response
-   * @param {Promise<IOState>} io
+   * @param {IOState} io
    */
   async commandControlCallback(response, io) {
     const rxid = this.ctx.get("rxid");

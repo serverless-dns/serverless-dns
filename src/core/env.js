@@ -80,10 +80,20 @@ const defaults = new Map(
       default: false,
     },
     // if true, do not validate the SNI field in TLS handshake
-    // effectively allowing clients to "fake" SNI
+    // effectively allowing clients to "fake" SNI.
+    // if true, DoT may not contain SNI information,
+    // which disables blocklist checks.
     TLS_ALLOW_ANY_SNI: {
       type: "boolean",
       default: false,
+    },
+    TLS_PSK: {
+      // if non-nil, uses this key for TLS PSK-based Key Exchange for doh/dot.
+      // Using TLS_PSK also disables SNI checks (as if TLS_ALLOW_ANY_SNI is true).
+      // otherwise, if TLS_ALLOW_ANY_SNI is true, uses a per-process session random.
+      // see: psk.js and server-node.js
+      type: "string",
+      default: "", // hex(64bytes)
     },
     // global log level (debug, info, warn, error)
     LOG_LEVEL: {

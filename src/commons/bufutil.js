@@ -36,6 +36,16 @@ export function toB64(buf) {
   return Buffer.of(u8).toString("base64");
 }
 
+/**
+ * Returns true if s is a valid hex string.
+ * @param {string} s
+ * @returns {boolean}
+ */
+export function isHex(s) {
+  if (util.emptyString(s)) return false;
+  return /^[0-9a-fA-F]+$/.test(s);
+}
+
 export function hex(b) {
   if (emptyBuf(b)) return ZEROSTR;
   // avoids slicing Buffer (normalize8) to get hex
@@ -52,6 +62,7 @@ export function hex(b) {
  */
 export function hex2buf(h) {
   if (util.emptyString(h)) return ZERO;
+  if (!isHex(h)) return ZERO;
   return new Uint8Array(h.match(/.{1,2}/g).map((w) => parseInt(w, 16)));
 }
 

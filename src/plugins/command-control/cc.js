@@ -7,7 +7,9 @@
  */
 import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as dnsutil from "../../commons/dnsutil.js";
+import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import * as psk from "../../core/psk.js";
 import { DNSResolver } from "../dns-op/dns-op.js";
 import { LogPusher } from "../observability/log-pusher.js";
 import * as pres from "../plugin-response.js";
@@ -158,6 +160,8 @@ export class CommandControl {
           queryString,
           reqUrl.hostname
         );
+      } else if (command === "gentlspsk") {
+        response.data.httpResponse = await generateTlsPsk();
       } else if (command === "analytics") {
         // redirect to the analytics page
         response.data.httpResponse = await analytics(
@@ -229,6 +233,19 @@ async function generateAccessKey(queryString, hostname) {
   }
 
   return jsonResponse({ accesskey: toks, context: token.info });
+}
+
+/**
+ * Returns PSK identity (random 32 bytes as hex) and PSK key derived from KDF_SVC secret.
+ * @returns {Promise<Response>}
+ */
+async function generateTlsPsk() {
+  if (!envutil.allowTlsPsk()) {
+    return util.respond503();
+  }
+
+  const pskcreds = await psk.generateTlsPsk();
+  return jsonResponse(pskcreds.json());
 }
 
 /**

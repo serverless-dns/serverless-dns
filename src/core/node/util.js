@@ -9,19 +9,9 @@
 import { X509Certificate } from "node:crypto";
 import { Http2ServerRequest, Http2ServerResponse } from "node:http2";
 import * as bufutil from "../../commons/bufutil.js";
-import {
-  decryptAesGcm,
-  hkdfaes,
-  hkdfalgkeysz,
-  hkdfhmac,
-  hmacsign,
-  sha512,
-} from "../../commons/crypto.js";
+import { decryptAesGcm, hmacsign, svckeys } from "../../commons/crypto.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
-
-const encctx = bufutil.fromStr("encryptcrossservice");
-const macctx = bufutil.fromStr("authorizecrossservice");
 
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and
@@ -213,47 +203,10 @@ export async function decryptText(req, ivciphertaghex) {
 }
 
 /**
- * @returns {Promise<[CryptoKey|null]>} - Returns a CryptoKey or null if the key is missing or invalid
+ * @returns {Promise<[CryptoKey|null]>} - Returns CryptoKeys or null if the key is missing or invalid
  */
 async function keys() {
-  const nokeys = [null, null];
-  if (bufutil.emptyBuf(encctx) || bufutil.emptyBuf(macctx)) {
-    log.e("key: ctx missing");
-    return nokeys;
-  }
-
-  const skhex = envutil.kdfSvcSecretHex();
-  if (util.emptyString(skhex)) {
-    log.e("key: KDF_SVC missing");
-    return nokeys;
-  }
-
-  const sk = bufutil.hex2buf(skhex);
-  if (bufutil.emptyBuf(sk)) {
-    log.e("key: kdf seed conv empty");
-    return nokeys;
-  }
-
-  if (sk.length < hkdfalgkeysz) {
-    log.e("keygen: seed too short", sk.length, hkdfalgkeysz);
-    return nokeys;
-  }
-
-  try {
-    const sk256 = sk.slice(0, hkdfalgkeysz);
-    // info must always of a fixed size for ALL KDF calls
-    const info512enc = await sha512(encctx);
-    const info512mac = await sha512(macctx);
-    // exportable: crypto.subtle.exportKey("raw", key);
-    // log.d("key fingerprint", bufutil.hex(await sha512(bufutil.concat(sk, info512)));
-
-    const aeskey = await hkdfaes(sk256, info512enc);
-    const mackey = await hkdfhmac(sk256, info512mac);
-    return [aeskey, mackey];
-  } catch (ignore) {
-    log.d("keygen: err", ignore);
-  }
-  return null;
+  return svckeys();
 }
 
 /**

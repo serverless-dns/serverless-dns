@@ -9,7 +9,8 @@
 // from: github.com/celzero/otp/blob/cddaaa03f12f/src/base/crypto.js#L1
 // nb: stuble crypto api is global on node v19+
 // stackoverflow.com/a/47332317
-import { emptyBuf, fromStr, normalize8 } from "./bufutil.js";
+import { kdfSvcSecretHex } from "../commons/envutil.js";
+import { emptyBuf, fromStr, hex2buf, normalize8 } from "./bufutil.js";
 import { emptyString } from "./util.js";
 
 export const tktsz = 48;
@@ -19,6 +20,9 @@ const fixedsalt = new Uint8Array([
   159, 52, 186, 60, 60, 144, 151, 254, 249, 126, 151, 239, 251, 180, 189, 164,
   185, 175, 161, 125, 187, 155, 2, 240, 145, 162, 93, 17, 154, 201, 28, 95,
 ]);
+
+const encctx = fromStr("encryptcrossservice");
+const macctx = fromStr("authorizecrossservice");
 
 export async function tkt48(seed, ctx) {
   if (!emptyBuf(seed) && !emptyString(ctx)) {
@@ -32,6 +36,17 @@ export async function tkt48(seed, ctx) {
   const t = new Uint8Array(tktsz);
   crypto.getRandomValues(t);
   return t;
+}
+
+/**
+ * Generate secure random bytes of size sz.
+ * @param {number} sz
+ * @returns {Uint8Array}
+ */
+export function csprng(sz) {
+  const b = new Uint8Array(sz);
+  crypto.getRandomValues(b);
+  return b;
 }
 
 // salt for hkdf can be zero if secret is pseudorandom
@@ -70,8 +85,23 @@ export async function hkdfaes(skmac, usectx, salt = new Uint8Array(0)) {
   );
 }
 
+/**
+ * @param {BufferSource} sk
+ * @param {BufferSource} usectx
+ * @param {BufferSource} salt
+ * @returns {Promise<ArrayBuffer>}
+ */
+export async function hkdfraw(sk, usectx, salt = new Uint8Array(0)) {
+  const dk = await hkdf(sk);
+  return crypto.subtle.deriveBits(
+    hkdf256(salt, usectx),
+    dk,
+    hkdfalgkeysz * 8 // length in bits (256 bits)
+  );
+}
+
 async function hkdf(sk) {
-  return await crypto.subtle.importKey(
+  return crypto.subtle.importKey(
     "raw",
     sk,
     "HKDF",
@@ -178,4 +208,49 @@ export function hmacsign(ck, m) {
  */
 export function hmacverify(ck, mac, m) {
   return crypto.subtle.verify("HMAC", ck, mac, m);
+}
+
+/**
+ * @returns {Promise<[CryptoKey?, CryptoKey?, ArrayBuffer?]>} - aeskey, mackey, pskkey
+ */
+export async function svckeys() {
+  const nokeys = [null, null, null];
+  if (emptyBuf(encctx) || emptyBuf(macctx)) {
+    log.e("key: ctx missing");
+    return nokeys;
+  }
+
+  const skhex = kdfSvcSecretHex();
+  if (emptyString(skhex)) {
+    log.e("key: KDF_SVC missing");
+    return nokeys;
+  }
+
+  const sk = hex2buf(skhex);
+  if (emptyBuf(sk)) {
+    log.e("key: kdf seed conv empty");
+    return nokeys;
+  }
+
+  if (sk.length < hkdfalgkeysz) {
+    log.e("keygen: seed too short", sk.length, hkdfalgkeysz);
+    return nokeys;
+  }
+
+  try {
+    const sk256 = sk.slice(0, hkdfalgkeysz);
+    // info must always of a fixed size for ALL KDF calls
+    const info512enc = await sha512(encctx);
+    const info512mac = await sha512(macctx);
+    // exportable: crypto.subtle.exportKey("raw", key);
+    // log.d("key fingerprint", bufutil.hex(await sha512(bufutil.concat(sk, info512)));
+
+    const aeskey = await hkdfaes(sk256, info512enc);
+    const mackey = await hkdfhmac(sk256, info512mac);
+
+    return [aeskey, mackey];
+  } catch (ignore) {
+    log.d("keygen: err", ignore);
+  }
+  return null;
 }
