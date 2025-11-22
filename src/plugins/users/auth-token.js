@@ -130,14 +130,14 @@ export async function gen(msg, domain) {
  * @param {string} msg
  * @returns {Promise<[string, string]>} hex, k2|hex
  */
-async function genInternal(k1, k2, msg = msg) {
-  // concat msg1 + delim + msg2
-  const cat = k1 + msgkeydelim + k2;
+async function genInternal(k1, k2, msg = info) {
+  // concat key1 + delim + key2
+  const kcat = k1 + msgkeydelim + k2;
   // return memoized ans
-  const cached = mem.get(cat);
+  const cached = mem.get(kcat);
   if (cached) return cached;
 
-  const k8 = encoder.encode(cat);
+  const k8 = encoder.encode(kcat);
   const m8 = encoder.encode(msg);
   const ab = await proof(k8, m8);
 
@@ -146,7 +146,7 @@ async function genInternal(k1, k2, msg = msg) {
   const hexcat = k2 + akdelim + hex;
   const toks = [hex, hexcat];
 
-  mem.put(cat, toks);
+  mem.put(kcat, toks);
   return toks;
 }
 
