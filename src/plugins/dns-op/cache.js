@@ -11,6 +11,7 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 import * as cacheutil from "../cache-util.js";
 import { CacheApi } from "./cache-api.js";
 

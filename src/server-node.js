@@ -28,6 +28,7 @@ import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
 import * as util from "./commons/util.js";
 import { handleRequest } from "./core/doh.js";
+import { loggerWithTags } from "./core/log.js";
 import { setTlsVars } from "./core/node/config.js";
 import * as nodeutil from "./core/node/util.js";
 import * as psk from "./core/psk.js";
@@ -293,7 +294,7 @@ function systemDown() {
 }
 
 function systemUp() {
-  log = util.logger("NodeJs");
+  log = loggerWithTags("NodeJs");
   if (!log) throw new Error("logger unavailable on system up");
 
   const downloadmode = envutil.blocklistDownloadOnly();

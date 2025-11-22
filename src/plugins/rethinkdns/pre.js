@@ -5,6 +5,7 @@
 
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 
 const BASE_URL = envutil.blocklistUrl();
 const DIR = "bc";

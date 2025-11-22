@@ -10,6 +10,7 @@ import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 
 const debug = false;
 

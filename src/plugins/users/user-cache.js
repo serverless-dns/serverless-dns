@@ -7,6 +7,7 @@
  */
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
+import { log } from "../../core/log.js";
 
 export class UserCache {
   constructor(size) {

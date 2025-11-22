@@ -5,11 +5,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
-import EnvManager from "../env.js";
-import * as system from "../../system.js";
-import Log from "../log.js";
-import { services } from "../svc.js";
 import { allowDynamicBackends } from "fastly:experimental";
+import * as system from "../../system.js";
+import EnvManager from "../env.js";
+import Log, { hasLogger, log, setLogger } from "../log.js";
+import { services } from "../svc.js";
 
 system.when("prepare").then(prep);
 system.when("steady").then(up);
@@ -30,12 +30,14 @@ function prep() {
 
   const isProd = envManager.get("env") === "production";
 
-  if (!globalThis.log) {
-    globalThis.log = new Log({
-      level: envManager.get("LOG_LEVEL"),
-      levelize: isProd, // levelize only in prod
-      withTimestamps: false, // no need to log ts on fastly
-    });
+  if (!hasLogger()) {
+    setLogger(
+      new Log({
+        level: envManager.get("LOG_LEVEL"),
+        levelize: isProd, // levelize only in prod
+        withTimestamps: false, // no need to log ts on fastly
+      })
+    );
   }
 
   // on Fastly, the network-context isn't available in global-scope

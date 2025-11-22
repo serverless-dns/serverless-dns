@@ -10,6 +10,7 @@ import * as dnsutil from "../commons/dnsutil.js";
 import * as util from "../commons/util.js";
 import * as pres from "../plugins/plugin-response.js";
 import IOState from "./io-state.js";
+import { log } from "./log.js";
 import RethinkPlugin from "./plugin.js";
 
 // TODO: define FetchEventLike

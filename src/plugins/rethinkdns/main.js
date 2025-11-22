@@ -11,6 +11,7 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as cfg from "../../core/cfg.js";
+import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import { BlocklistFilter } from "./filter.js";

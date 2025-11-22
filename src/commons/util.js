@@ -451,12 +451,6 @@ export function respond503() {
   });
 }
 
-export function logger(...tags) {
-  if (!log) return null;
-
-  return log.withTags(...tags);
-}
-
 export function isPostRequest(req) {
   return req && !emptyString(req.method) && req.method.toUpperCase() === "POST";
 }

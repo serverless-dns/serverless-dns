@@ -9,6 +9,7 @@ import * as bufutil from "../../commons/bufutil.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 import * as system from "../../system.js";
 import * as cacheutil from "../cache-util.js";
 import * as pres from "../plugin-response.js";

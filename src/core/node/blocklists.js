@@ -13,6 +13,7 @@ import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import * as cfg from "../../core/cfg.js";
 import { BlocklistWrapper, isPast } from "../../plugins/rethinkdns/main.js";
+import { log } from "../log.js";
 // import mmap from "@riaskov/mmap-io";
 
 const blocklistsDir = "./blocklists__";

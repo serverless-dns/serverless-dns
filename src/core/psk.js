@@ -3,6 +3,7 @@ import * as bufutil from "../commons/bufutil.js";
 import { csprng, hkdfalgkeysz, hkdfraw, sha512 } from "../commons/crypto.js";
 import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
+import { log } from "./log.js";
 
 export const keysize = 64; // bytes
 

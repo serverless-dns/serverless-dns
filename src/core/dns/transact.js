@@ -6,8 +6,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 import * as bufutil from "../../commons/bufutil.js";
-import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
+import * as util from "../../commons/util.js";
+import { log } from "../log.js";
 
 /**
  * @typedef {import("net").Socket} TcpSock

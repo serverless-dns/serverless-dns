@@ -8,6 +8,7 @@
 
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 import * as cacheutil from "../cache-util.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";

@@ -6,19 +6,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { BlocklistWrapper } from "../plugins/rethinkdns/main.js";
+import * as dnsutil from "../commons/dnsutil.js";
+import * as util from "../commons/util.js";
 import { CommandControl } from "../plugins/command-control/cc.js";
-import { UserOp } from "../plugins/users/user-op.js";
 import {
-  DNSPrefilter,
   DNSCacheResponder,
+  DNSPrefilter,
   DNSResolver,
   DnsCache,
 } from "../plugins/dns-op/dns-op.js";
 import { LogPusher } from "../plugins/observability/log-pusher.js";
-import * as dnsutil from "../commons/dnsutil.js";
+import { BlocklistWrapper } from "../plugins/rethinkdns/main.js";
+import { UserOp } from "../plugins/users/user-op.js";
 import * as system from "../system.js";
-import * as util from "../commons/util.js";
+import { log } from "./log.js";
 
 // proc up since
 let readytime = 0;

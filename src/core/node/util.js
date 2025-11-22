@@ -12,6 +12,7 @@ import * as bufutil from "../../commons/bufutil.js";
 import { decryptAesGcm, hmacsign, svckeys } from "../../commons/crypto.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../log.js";
 
 /**
  * @param {String} TLS_CRT_KEY - Contains base64 (no wrap) encoded key and

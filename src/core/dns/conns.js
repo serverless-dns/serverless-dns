@@ -7,6 +7,7 @@
  */
 
 import * as util from "../../commons/util.js";
+import { log } from "../log.js";
 
 /**
  * @typedef {import("net").Socket | import("dgram").Socket} AnySock

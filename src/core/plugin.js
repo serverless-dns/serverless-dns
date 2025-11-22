@@ -13,6 +13,7 @@ import * as util from "../commons/util.js";
 import { RResp } from "../plugins/plugin-response.js";
 import * as rdnsutil from "../plugins/rdns-util.js";
 import IOState from "./io-state.js";
+import { log } from "./log.js";
 import { services } from "./svc.js";
 
 export default class RethinkPlugin {

@@ -9,6 +9,7 @@ import { flagsToTags, tagsToFlags } from "@serverless-dns/trie/stamp.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 import * as psk from "../../core/psk.js";
 import { DNSResolver } from "../dns-op/dns-op.js";
 import { LogPusher } from "../observability/log-pusher.js";

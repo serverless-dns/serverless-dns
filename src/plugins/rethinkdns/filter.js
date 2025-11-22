@@ -8,6 +8,7 @@
 
 import { FrozenTrie } from "@serverless-dns/trie/ftrie.js";
 import * as dnsutil from "../../commons/dnsutil.js";
+import { log } from "../../core/log.js";
 
 export class BlocklistFilter {
   constructor() {

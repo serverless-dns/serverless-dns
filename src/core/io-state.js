@@ -10,6 +10,7 @@ import * as bufutil from "../commons/bufutil.js";
 import * as dnsutil from "../commons/dnsutil.js";
 import * as envutil from "../commons/envutil.js";
 import * as util from "../commons/util.js";
+import { log } from "./log.js";
 
 export default class IOState {
   constructor() {

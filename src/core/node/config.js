@@ -16,7 +16,7 @@ import process from "node:process";
 import * as dnst from "../../core/node/dns-transport.js";
 import * as system from "../../system.js";
 import EnvManager from "../env.js";
-import Log from "../log.js";
+import Log, { log, setLogger } from "../log.js";
 import { services, stopAfter } from "../svc.js";
 import * as blocklists from "./blocklists.js";
 import * as dbip from "./dbip.js";
@@ -45,7 +45,7 @@ async function prep() {
   globalThis.envManager = new EnvManager();
 
   /** Logger */
-  globalThis.log = debugFly
+  const logger = debugFly
     ? new Log({
         level: "debug",
         levelize: profiling, // levelize only if profiling
@@ -56,6 +56,7 @@ async function prep() {
         levelize: isProd || profiling, // levelize if prod or profiling
         withTimestamps: true, // always log timestamps on node
       });
+  setLogger(logger);
 
   // ---- log and envManager available only after this line ---- \\
 

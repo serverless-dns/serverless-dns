@@ -6,10 +6,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import * as util from "../../commons/util.js";
 import * as dnsutil from "../../commons/dnsutil.js";
 import * as envutil from "../../commons/envutil.js";
 import * as txs from "../../commons/lf-transformer.js";
+import * as util from "../../commons/util.js";
+import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
 import { GeoIP } from "./geoip.js";

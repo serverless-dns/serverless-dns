@@ -7,10 +7,11 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as util from "../../commons/util.js";
 import * as bufutil from "../../commons/bufutil.js";
 import * as envutil from "../../commons/envutil.js";
+import * as util from "../../commons/util.js";
 import { LogPusher } from "../../plugins/observability/log-pusher.js";
+import { log } from "../log.js";
 
 const dbipDir = "./dbip__";
 const geo4name = "dbip.v4";

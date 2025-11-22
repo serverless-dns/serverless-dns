@@ -10,6 +10,7 @@
 // nb: stuble crypto api is global on node v19+
 // stackoverflow.com/a/47332317
 import { kdfSvcSecretHex } from "../commons/envutil.js";
+import { log } from "../core/log.js";
 import { emptyBuf, fromStr, hex2buf, normalize8 } from "./bufutil.js";
 import { emptyString } from "./util.js";
 

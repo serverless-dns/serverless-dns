@@ -6,9 +6,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import * as dnsutil from "../../commons/dnsutil.js";
+import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 import * as rdnsutil from "../rdns-util.js";
-import * as dnsutil from "../../commons/dnsutil.js";
 
 export class DnsBlocker {
   constructor() {
