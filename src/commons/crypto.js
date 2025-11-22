@@ -212,10 +212,10 @@ export function hmacverify(ck, mac, m) {
 }
 
 /**
- * @returns {Promise<[CryptoKey?, CryptoKey?, ArrayBuffer?]>} - aeskey, mackey, pskkey
+ * @returns {Promise<[CryptoKey?, CryptoKey?]>} - aeskey, mackey
  */
 export async function svckeys() {
-  const nokeys = [null, null, null];
+  const nokeys = [null, null];
   if (emptyBuf(encctx) || emptyBuf(macctx)) {
     log.e("key: ctx missing");
     return nokeys;
@@ -245,7 +245,6 @@ export async function svckeys() {
     const info512mac = await sha512(macctx);
     // exportable: crypto.subtle.exportKey("raw", key);
     // log.d("key fingerprint", bufutil.hex(await sha512(bufutil.concat(sk, info512)));
-
     const aeskey = await hkdfaes(sk256, info512enc);
     const mackey = await hkdfhmac(sk256, info512mac);
 
@@ -253,5 +252,5 @@ export async function svckeys() {
   } catch (ignore) {
     log.d("keygen: err", ignore);
   }
-  return null;
+  return nokeys;
 }
