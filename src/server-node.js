@@ -463,8 +463,8 @@ function systemUp() {
     // terminate tls ourselves
     /** @type {tls.TlsOptions} */
     const secOpts = {
-      key: envutil.tlsKey(),
-      cert: envutil.tlsCrt(),
+      key: bufutil.fromB64(envutil.tlsKey()),
+      cert: bufutil.fromB64(envutil.tlsCrt()),
       ...tlsOpts,
       ...serverOpts,
     };
@@ -767,18 +767,20 @@ function trapSecureServerEvents(id, s) {
  * @returns {void}
  */
 function rotateTkt(s) {
+  if (envutil.isCleartext()) return; // tls offload
   if (envutil.isBun()) return;
   if (!s || !s.listening) return;
 
   let seed = bufutil.fromB64(envutil.secretb64());
   if (bufutil.emptyBuf(seed)) {
-    seed = envutil.tlsKey();
+    // see: node/config.js:setTlsVars
+    seed = bufutil.fromB64(envutil.tlsKey());
   }
   const d = new Date();
   const cur = d.getUTCFullYear() + " " + d.getUTCMonth(); // 2023 7
-  const ctx = cur + envutil.imageRef();
+  const ctx = cur + envutil.imageRef(); // may be empty str
 
-  log.i("tls: rotating tickets; seed", bufutil.hex(seed), "ctx", ctx);
+  log.i("tls: rotating psk seed & tkts", bufutil.len(seed), "ctx", ctx);
   psk.newSession(seed, ctx);
 
   // tls session resumption with tickets (or ids) reduce the 3.5kb to 6.5kb

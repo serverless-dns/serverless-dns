@@ -26,7 +26,7 @@ export function toStr(b) {
 
 export function fromB64(b64std) {
   if (util.emptyString(b64std)) return ZERO;
-  return Buffer.from(b64std, "base64");
+  return normalize8(Buffer.from(b64std, "base64"));
 }
 
 export function toB64(buf) {

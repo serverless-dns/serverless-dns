@@ -77,6 +77,7 @@ function systemUp() {
     onListen: undefined,
   };
 
+  // TODO: set TLS_KEY and TLS_CRT paths via env vars
   const crtpath = envutil.tlsCrtPath() as string;
   const keypath = envutil.tlsKeyPath() as string;
   const dotls = !onDenoDeploy && !isCleartext;

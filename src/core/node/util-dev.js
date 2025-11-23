@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 /**
  * @param {String} TLS_KEY_PATH
  * @param {String} TLS_CRT_PATH
- * @return {Array<Buffer>} [TLS_KEY, TLS_CRT]
+ * @return {[BufferSource?, BufferSource?]} [TLS_KEY, TLS_CRT]
  */
 export function getTLSfromFile(keyPath, crtPath) {
   return [fs.readFileSync(keyPath), fs.readFileSync(crtPath)];

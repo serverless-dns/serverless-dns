@@ -13,6 +13,7 @@
  */
 import { atob, btoa } from "node:buffer";
 import process from "node:process";
+import * as bufutil from "../../commons/bufutil.js";
 import * as dnst from "../../core/node/dns-transport.js";
 import * as system from "../../system.js";
 import EnvManager from "../env.js";
@@ -127,9 +128,20 @@ async function prep() {
   system.pub("ready", [dns53]);
 }
 
+/**
+ * Sets TLS cert and key with envManager under "TLS_CRT" and "TLS_KEY".
+ * @param {BufferSource?} tlsKey - TLS key
+ * @param {BufferSource?} tlsCrt - TLS cert
+ */
 export function setTlsVars(tlsKey, tlsCrt) {
-  envManager.set("TLS_KEY", tlsKey);
-  envManager.set("TLS_CRT", tlsCrt);
+  if (bufutil.emptyBuf(tlsKey) || bufutil.emptyBuf(tlsCrt)) {
+    log.e("setTlsVars: missing tls key/crt");
+    return;
+  }
+  const tlsKeyB64 = bufutil.toB64(tlsKey);
+  const tlsCrtB64 = bufutil.toB64(tlsCrt);
+  envManager.set("TLS_KEY", tlsKeyB64);
+  envManager.set("TLS_CRT", tlsCrtB64);
 }
 
 async function up() {

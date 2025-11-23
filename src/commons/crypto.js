@@ -11,6 +11,7 @@
 // stackoverflow.com/a/47332317
 import { kdfSvcSecretHex } from "../commons/envutil.js";
 import { log } from "../core/log.js";
+import * as bufutil from "./bufutil.js";
 import { emptyBuf, fromStr, hex2buf, normalize8 } from "./bufutil.js";
 import { emptyString } from "./util.js";
 
@@ -25,15 +26,25 @@ const fixedsalt = new Uint8Array([
 const encctx = fromStr("encryptcrossservice");
 const macctx = fromStr("authorizecrossservice");
 
+/**
+ * Generate 48-byte ticket from seed and context.
+ * @param {Uint8Array} seed
+ * @param {string} ctx
+ * @returns {Promise<Uint8Array>}
+ */
 export async function tkt48(seed, ctx) {
   if (!emptyBuf(seed) && !emptyString(ctx)) {
     try {
-      const sk256 = seed.slice(0, hkdfalgkeysz);
+      const sk512 = await sha512(seed);
       const info512 = await sha512(fromStr(ctx));
-      const dk512 = await gen(sk256, info512);
+      const dk512 = await gen(sk512, info512);
+      log.i("tkt48: new", bufutil.len(seed), bufutil.len(dk512), ctx);
       return new Uint8Array(dk512.slice(0, tktsz));
-    } catch (ignore) {}
+    } catch (ignore) {
+      log.e("tkt48: err", bufutil.len(seed), ctx, ignore);
+    }
   }
+  log.i("tkt48: random");
   const t = new Uint8Array(tktsz);
   crypto.getRandomValues(t);
   return t;
