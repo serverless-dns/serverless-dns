@@ -100,6 +100,20 @@ export async function hkdfraw(sk, usectx, salt = new Uint8Array(0)) {
     hkdfalgkeysz * 8 // length in bits (256 bits)
   );
 }
+/**
+ * Generate HMAC-SHA256 key from raw secret key.
+ * @param {BufferSource} sk
+ * @returns {Promise<CryptoKey>}
+ */
+export async function hmackey(sk) {
+  return crypto.subtle.importKey(
+    "raw",
+    sk,
+    hmac256opts(),
+    false, // export = false
+    ["sign", "verify"]
+  );
+}
 
 async function hkdf(sk) {
   return crypto.subtle.importKey(
@@ -121,6 +135,11 @@ function hkdf256(salt, usectx) {
 
 export async function sha512(buf) {
   const ab = await crypto.subtle.digest("SHA-512", buf);
+  return normalize8(ab);
+}
+
+export async function sha256(buf) {
+  const ab = await crypto.subtle.digest("SHA-256", buf);
   return normalize8(ab);
 }
 
@@ -191,13 +210,15 @@ export async function decryptAesGcm(aeskey, iv, taggedciphertext, aad) {
 }
 
 /**
+ * hmac sign & verify: stackoverflow.com/a/72765383
  * @param {CryptoKey} ck - The HMAC key
  * @param {BufferSource} m - message to sign
- * @returns {Promise<ArrayBuffer>} - The HMAC signature
+ * @returns {Promise<Uint8Array>} - The HMAC signature
  * @throws {Error} - If the key is not valid or signing fails
  */
 export function hmacsign(ck, m) {
-  return crypto.subtle.sign("HMAC", ck, m);
+  const ab = crypto.subtle.sign("HMAC", ck, m);
+  return normalize8(ab);
 }
 
 /**

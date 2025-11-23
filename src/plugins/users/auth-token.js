@@ -8,12 +8,14 @@
 
 import { LfuCache } from "@serverless-dns/lfu-cache";
 import * as bufutil from "../../commons/bufutil.js";
+import { hmackey, hmacsign, sha256 } from "../../commons/crypto.js";
 import * as envutil from "../../commons/envutil.js";
 import * as util from "../../commons/util.js";
 import { log } from "../../core/log.js";
 import * as rdnsutil from "../../plugins/rdns-util.js";
 
 export const info = "sdns-public-auth-info";
+const acachesize = 100;
 
 export class Outcome {
   constructor(s) {
@@ -51,7 +53,7 @@ export class Outcome {
 const akdelim = "|";
 const msgkeydelim = "|";
 const encoder = new TextEncoder();
-const mem = new LfuCache("AuthTokens", 100);
+const mem = new LfuCache("AuthTokens", acachesize);
 
 /**
  * @param {string} rxid
@@ -139,10 +141,10 @@ async function genInternal(k1, k2, msg = info) {
 
   const k8 = encoder.encode(kcat);
   const m8 = encoder.encode(msg);
-  const ab = await proof(k8, m8);
+  const u8 = await proof(k8, m8);
 
   // conv to base16, pad 0 for single digits, 01, 02, 03, ... 0f
-  const hex = bufutil.hex(ab);
+  const hex = bufutil.hex(u8);
   const hexcat = k2 + akdelim + hex;
   const toks = [hex, hexcat];
 
@@ -151,37 +153,24 @@ async function genInternal(k1, k2, msg = info) {
 }
 
 /**
- * Generate HMAC-SHA256 proof of val using key.
+ * Generate HMAC-SHA256 proof of val using key, or SHA256 of key if val is empty.
  * nb: stuble crypto api on node v19+
  * stackoverflow.com/a/47332317
  * @param {ArrayBuffer} key
  * @param {ArrayBuffer} val
- * @returns {Promise<ArrayBuffer>}
+ * @returns {Promise<Uint8Array>}
  */
 export async function proof(key, val) {
-  const hmac = "HMAC";
-  const sha256 = "SHA-256";
-
   if (bufutil.emptyBuf(key)) {
     throw new Error("key array-buffer empty");
   }
 
   // use sha256 instead of hmac if nothing to sign
   if (bufutil.emptyBuf(val)) {
-    return await crypto.subtle.digest(sha256, key);
+    return sha256(key);
   }
 
-  const hmackey = await crypto.subtle.importKey(
-    "raw",
-    key,
-    {
-      name: hmac,
-      hash: { name: sha256 },
-    },
-    false, // export = false
-    ["sign", "verify"]
-  );
+  const ck = await hmackey(key);
 
-  // hmac sign & verify: stackoverflow.com/a/72765383
-  return crypto.subtle.sign(hmac, hmackey, val);
+  return hmacsign(ck, val);
 }
