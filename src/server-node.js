@@ -546,20 +546,26 @@ async function certUpdateForever(secopts, s, n = 0) {
   if (!crt) return false;
   else logCertInfo(crt);
 
-  const fourHoursMs = 4 * 60 * 60 * 1000; // in ms
+  const oneDayMs = 24 * 60 * 60 * 1000; // in ms
   const validUntil = new Date(crt.validTo).getTime() - Date.now();
-  if (validUntil > fourHoursMs) {
+  if (validUntil > oneDayMs) {
     console.log("crt: #", n, "update: valid for", validUntil, "ms; not needed");
-    util.timeout(validUntil - fourHoursMs, () => certUpdateForever(secopts, s));
+    util.timeout(validUntil - oneDayMs, () => certUpdateForever(secopts, s));
     return false;
   }
 
-  const oneMinMs = 60 * 1000; // in ms
+  const oneMinMs = 1 * 60 * 1000; // in ms
+  const sixMinMs = 6 * 60 * 1000; // in ms
   const [latestKey, latestCert] = await nodeutil.replaceKeyCert(crt);
   if (bufutil.emptyBuf(latestKey) || bufutil.emptyBuf(latestCert)) {
-    console.error("crt: #", n, "update: no key/cert fetched");
     n = n + 1;
-    util.timeout(oneMinMs * n, () => certUpdateForever(secopts, s, n));
+    const attemptsLeft = Math.max(1, maxCertUpdateAttempts - n);
+    let when = validUntil <= oneMinMs ? oneMinMs : sixMinMs * attemptsLeft;
+    if (validUntil > oneMinMs && when > validUntil) {
+      when = Math.max(oneMinMs, validUntil - oneMinMs);
+    }
+    console.error("crt: #", n, "update: no key/cert fetched; next", when);
+    util.timeout(when, () => certUpdateForever(secopts, s, n));
     return false;
   }
 
