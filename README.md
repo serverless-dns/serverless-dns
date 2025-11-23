@@ -18,8 +18,11 @@ Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-t
 [<img src="https://raw.githubusercontent.com/fossunited/Branding/main/asset/FOSS%20United%20Logo/Extra/Extra%20Logo%20white%20on%20black.jpg"
      alt="FOSS United"
      height="40">](https://fossunited.org/grants)&emsp;
+[<img src="https://floss.fund/static/badge.svg" alt="FLOSS/fund badge" />
+    alt="FLOSS/fund badge"
+    height="40"](https://floss.fund)
 
-The *Rethink DNS* resolver on Fly.io is sponsored by [FOSS United](https://fossunited.org/grants).
+The *Rethink DNS* resolver on Fly.io is sponsored by [FLOSS/fund](https://floss.fund).
 
 ### Self-host
 
@@ -140,7 +143,7 @@ For Fastly Compute@Edge, setup env vars in [`fastly.toml`](fastly.toml), instead
 serverless-dns supports authentication with an *alpha-numeric* bearer token for both DoH and DoT. For a token, `msg-key` (secret), append the output of `hex(hmac-sha256(msg-key|domain.tld), msg)` to `ACCESS_KEYS` env var in csv format. Note: `msg` is currently fixed to `sdns-public-auth-info`.
 
 1. DoH: place the `msg-key` at the end of the blockstamp, like so:
-`1:1:4AIggAABEGAgAA:<msg-key>` (here, `1` is the version, `1:4AIggAABEGAgAA`
+`1:4AIggAABEGAgAA:<msg-key>` (here, `1` is the version, `1:4AIggAABEGAgAA`
 is the blockstamp, `<msg-key>` is the auth secret, and `:` is the delimiter).
 2. DoT: place the `msg-key` at the end of the SNI (domain-name) containing the blockstamp:
 `1-4abcbaaaaeigaiaa-<msg-key>` (here `1` is the version, `4abcbaaaaeigaiaa`
@@ -222,6 +225,10 @@ _base64_ encoded in env var `TLS_CERTKEY` ([ref](https://github.com/serverless-d
 TLS_OFFLOAD="true"
 # OR: base64 representation of both key (private) and cert (public chain)
 TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
+# OPTIONALLY: use TLS with PSK ciphers (also permits domain fronting)
+TLS_PSK="random-hex-or-base64(64bytes)"
+# OPTIONALLY: set TLS_ALLOW_ANY_SNI to true to permit domain fronting
+TLS_ALLOW_ANY_SNI="true"
 ```
 
 For Deno, `key` and `cert` files are read from paths defined in env vars, `TLS_KEY_PATH` and `TLS_CRT_PATH` ([ref](https://github.com/serverless-dns/serverless-dns/blob/270d1a3c/src/server-deno.ts#L32-L35)).

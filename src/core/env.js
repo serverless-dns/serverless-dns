@@ -199,14 +199,15 @@ const defaults = new Map(
     // Must be a hex string; see: auth-token.js
     ACCESS_KEYS: {
       type: "csv",
-      // for msg/key: 1123213213 and hostname: localhost
+      // for msg/msgsecret/key: 1123213213 and domain: localhost
       // v = localhost|77bd7ed4709cb09bb7d67545218e27cf39346f7b6c36f366d0631d5ee4739a3c
       // For ex, DoH = 1:-J8AEH8Dv73_8______-___z6f9eagBA:1123213213
       // DoT = 1-7cpqaed7ao73377t777777767777h2p7lzvaaqa-1123213213
-      // calc access-key, v = domain.tld|hex(hmac-sha256(key, msg))
-      // where msg = "sdns-public-auth-info"; key="1123213213|localhost"
+      // calc access-key, v = domain.tld|hex(hmac-sha256(key, info))
+      // where info = "sdns-public-auth-info"; key="1123213213|localhost"
       // nb, ACCESS_KEY, v, must be hex and upto 64 chars in length
-      // while, 'msgsecret' must be a valid DNS name (alphanum + hyphen)
+      // while, msg/msgsecret must be a valid DNS name (alphanum + hyphen)
+      // msg/msgsecret must be sent by the client (kept private / secret).
       // ACCESS_KEY, v, could be shorter (12 to 24 to 32 to 64 chars)
       // ACCESS_KEY, v, can be public (better if private / secret)
       // default: "localhost|1e84b3c687,rethinkdns.localhost|c9de656fd9",
