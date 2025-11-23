@@ -18,9 +18,9 @@ Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-t
 [<img src="https://raw.githubusercontent.com/fossunited/Branding/main/asset/FOSS%20United%20Logo/Extra/Extra%20Logo%20white%20on%20black.jpg"
      alt="FOSS United"
      height="40">](https://fossunited.org/grants)&emsp;
-[<img src="https://floss.fund/static/badge.svg" alt="FLOSS/fund badge" />
+[<img src="https://floss.fund/static/badge.svg"
     alt="FLOSS/fund badge"
-    height="40"](https://floss.fund)
+    height="40">](https://floss.fund)
 
 The *Rethink DNS* resolver on Fly.io is sponsored by [FLOSS/fund](https://floss.fund).
 
