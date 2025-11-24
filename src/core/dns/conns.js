@@ -10,7 +10,7 @@ import * as util from "../../commons/util.js";
 import { log } from "../log.js";
 
 /**
- * @typedef {import("net").Socket | import("dgram").Socket} AnySock
+ * @typedef {import("node:net").Socket | import("node:dgram").Socket} AnySock
  */
 
 export class TcpConnPool {
@@ -35,7 +35,7 @@ export class TcpConnPool {
     this.lastSweep = 0;
     /** @type {int} */
     this.sweepGapMs = Math.max(/* 10s*/ 10000, quarterttl); // ms
-    /** @type {Map<import("net").Socket, Report>} */
+    /** @type {Map<import("node:net").Socket, Report>} */
     this.pool = new Map();
     log.d("tcp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
   }
@@ -233,7 +233,7 @@ export class UdpConnPool {
     this.lastSweep = 0;
     /** @type {int} */
     this.sweepGapMs = Math.max(/* 10s*/ 10000, (ttl / 2) | 0); // ms
-    /** @type {Map<import("dgram").Socket, Report>} */
+    /** @type {Map<import("node:dgram").Socket, Report>} */
     this.pool = new Map();
     log.d("udp-pool psz:", size, "msw:", this.maxsweep, "t:", ttl);
   }
