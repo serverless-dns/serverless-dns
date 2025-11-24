@@ -6,6 +6,6 @@
     "@serverless-dns/dns-parser": "https://github.com/serverless-dns/dns-parser/raw/v2.1.2/index.js",
     "@serverless-dns/lfu-cache": "https://github.com/serverless-dns/lfu-cache/raw/v3.5.2/lfu.js",
     "@serverless-dns/trie/": "https://github.com/serverless-dns/trie/raw/v0.0.17/src/",
-    "@riaskov/mmap-io": "https://github.com/ARyaskov/mmap-io/raw/v1.4.3/src/"
+    "@riaskov/mmap-io": "https://github.com/ignoramous/mmap-io/raw/7f0925b989eac749ced440e51e616dfff4873ecd/src/"
   }
 }

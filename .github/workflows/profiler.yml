@@ -41,7 +41,7 @@ env:
   GIT_REF: ${{ github.event.inputs.git-ref || github.ref }}
   JS_RUNTIME: 'node'
   MAXTIME_SEC: '30s'
-  NODE_VER: '22.x'
+  NODE_VER: '25.x'
   DENO_VER: '2.x'
   BUN_VER: '1.x'
   MODE: 'p1'
