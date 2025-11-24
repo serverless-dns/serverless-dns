@@ -97,6 +97,8 @@ const defaults = new Map(
       // {"id":"70bdd894d3...","psk":"c86902ab34..."}
       // see: psk.js and server-node.js
       type: "string",
+      // DO NOT check-in the value; it should ideally be set via a vault or keystore
+      // like flyctl secrets set TLS_PSK="base64orhexstring" in case of fly.io.
       default: "", // hex(64bytes) or base64(48bytes)
     },
     // global log level (debug, info, warn, error)
