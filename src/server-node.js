@@ -308,7 +308,7 @@ function systemUp() {
   const ioTimeoutMs = envutil.ioTimeoutMs();
   const supportsHttp2 = envutil.isNode() || envutil.isDeno();
   const isBun = envutil.isBun();
-  const allowTlsPsk = envutil.allowTlsPsk();
+  let allowTlsPsk = envutil.allowTlsPsk();
 
   if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
@@ -352,28 +352,32 @@ function systemUp() {
     .filter((c) => !c.startsWith("!PSK"))
     .join(":");
   // aes128 is a 'cipher string' for tls1.2 and below
+  // nodejs.org/api/tls.html#modifying-the-default-tls-cipher-suite
   // docs.openssl.org/1.1.1/man1/ciphers/#cipher-strings
   let preferAes128 =
     "TLS_AES_128_CCM_SHA256:TLS_AES_128_CCM_8_SHA256:TLS_AES_128_GCM_SHA256:AES128";
   if (allowTlsPsk) {
-    preferAes128 = preferAes128 + ":aPSK";
-  } else {
-    preferAes128 = preferAes128 + ":!PSK";
+    preferAes128 = preferAes128 + ":aPSK" + ":" + defaultTlsCiphers;
+  } else if (!isBun) {
+    preferAes128 = preferAes128 + ":" + defaultTlsCiphers + ":!PSK";
   }
-  log.d(preferAes128 + ":" + defaultTlsCiphers);
+  log.d(preferAes128);
   // nodejs.org/api/tls.html#tlscreateserveroptions-secureconnectionlistener
   /** @type {tls.TlsOptions} */
   const tlsOpts = {
-    // nodejs.org/api/tls.html#modifying-the-default-tls-cipher-suite
-    ciphers: preferAes128 + ":" + defaultTlsCiphers,
+    // github.com/oven-sh/bun/issues/18865
+    ciphers: isBun ? undefined : preferAes128,
     honorCipherOrder: true,
     handshakeTimeout: Math.max((ioTimeoutMs / 2) | 0, 3 * 1000), // 3s in ms
     // blog.cloudflare.com/tls-session-resumption-full-speed-and-secure
     sessionTimeout: 60 * 60 * 24 * 7, // 7d in secs
   };
+  // Node does not support PSK importers (TLS 0 RTT)
+  // timtaubert.de/blog/2015/11/more-privacy-less-latency-improved-handshakes-in-tls-13
   if (allowTlsPsk) {
     // tlsOpts.enableTrace = true;
     /**
+     * timtaubert.de/blog/2017/02/the-future-of-session-resumption
      * @param {TLSSocket} _socket - TLS Socket
      * @param {string} idhex - Identifier in hex
      * @returns {DataView}
@@ -387,7 +391,7 @@ function systemUp() {
       /** @type {psk.PskCred?} */
       const creds = psk.recentPskCreds.get(idhex);
       if (creds && creds.ok()) {
-        // log.d("TLS PSK: known client", creds.idhexhint);
+        // log.d("TLS1.2 PSK: known client", creds.idhexhint);
         if (idhex === creds.idhex) stats.tlspsks += 1;
         else stats.tlspskd += 1;
         // TODO: confirm creds.key is compatible with socket.getCipher();
@@ -399,12 +403,12 @@ function systemUp() {
       // hopefully, the next time this same idhex connects, we'll have
       // generated the corresponding PSK credentials to serve it.
       psk.generateTlsPsk(bufutil.hex2buf(idhex));
-      // log.d("TLS PSK: unknown client id", idhex);
+      // log.d("TLS1.2 PSK: unknown client id", idhex);
       stats.tlspskmiss += 1;
       return null;
     };
     tlsOpts.pskIdentityHint = psk.serverid;
-    log.i("TLS PSK identity hint", tlsOpts.pskIdentityHint);
+    log.i("TLS1.2 PSK identity hint", tlsOpts.pskIdentityHint);
   }
   // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
   const h2Opts = {
@@ -489,7 +493,7 @@ function systemUp() {
         .listen(dohOpts, () => {
           up("DoH1", doh.address());
           certUpdateForever(secOpts, doh);
-          trapSecureServerEvents("doh1", doh);
+          trapSecureServerEvents("dohb1", doh);
         });
     } else {
       console.log("unsupported runtime for doh");
@@ -709,6 +713,8 @@ function trapSecureServerEvents(id, s) {
     stopAfter(0);
   });
 
+  // timtaubert.de/blog/2017/02/the-future-of-session-resumption
+  // timtaubert.de/blog/2015/11/more-privacy-less-latency-improved-handshakes-in-tls-13
   // bajtos.net/posts/2013-08-07-improve-the-performance-of-the-node-js-https-server
   // session tickets take precedence over session ids; -no_ticket is needed
   // openssl s_client -connect :10000 -reconnect -tls1_2 -no_ticket
