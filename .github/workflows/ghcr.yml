@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: 🔐 Login
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -39,13 +39,13 @@ jobs:
 
       - name: 🏷️ Metadata
         id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        uses: docker/metadata-action@v5.9.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: 🛠 Build 
         id: push
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        uses: docker/build-push-action@v6.18.0
         with:
           context: .
           file: ./node.Dockerfile
@@ -77,7 +77,7 @@ jobs:
           fetch-depth: 0
 
       - name: 🔐 Login
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -85,13 +85,14 @@ jobs:
 
       - name: 🏷️ Metadata
         id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        uses: docker/metadata-action@v5.9.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BUN }}
 
       - name: 🛠 Build
+        # imageid (string), digest (string), metadata (json)
         id: push
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        uses: docker/build-push-action@v6.18.0
         with:
           context: .
           file: ./bun.Dockerfile
