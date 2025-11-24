@@ -101,7 +101,7 @@ fi
 if [ $runtime = "bun" ] || [ $runtime = "b" ]; then
   echo "note: bun v1+ required";
   echo "using `which bun`";
-  start="bun run src/server-node.js";
+  start="bun run src/server-node.js --smol";
 elif [ $runtime = "deno" ] || [ $runtime = "d" ]; then
   echo "note: deno v2+ required";
   echo "using `which deno`";

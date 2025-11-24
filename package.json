@@ -15,6 +15,7 @@
     "build": "npx webpack --config webpack.config.cjs",
     "build:fastly": "npx webpack --config webpack.fastly.cjs && npm run fastly:wasm",
     "build:fly": "npx webpack --config webpack.fly.cjs",
+    "build:flybun": "bun build ./src/server-node.js --production --target node --outdir ./dist --entry-naming bun.mjs --format esm --packages=external",
     "fastly:wasm": "npx js-compute-runtime ./dist/fastly.js ./dist/fastly.wasm"
   },
   "repository": {
