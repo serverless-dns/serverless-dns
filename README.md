@@ -306,13 +306,13 @@ Ref: _[github/workflows](.github/workflows)_.
 
 ### Blocklists
 
-190+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
+200+ blocklists are compressed in a _Succinct Radix Trie_ ([based on Steve Hanov's impl](https://stevehanov.ca/blog/?id=120)) with modifications
 to speed up string search ([`lookup`](https://github.com/serverless-dns/trie/blob/965007a5c/src/ftrie.js#L378-L484)) at the expense of "succintness". The blocklists are versioned
 with unix timestamp (defined in `src/basicconfig.json` downloaded by [`pre.sh`](src/build/pre.sh)), which is generated once every week, but we'd like to generate 'em daily / hourly,
 if possible [see](https://github.com/serverless-dns/blocklists/issues/19)), and hosted on Cloudflare R2 (env var: `CF_BLOCKLIST_URL`).
 
-`serverless-dns` downloads [3 blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
+`serverless-dns` downloads [blocklist files](https://github.com/serverless-dns/serverless-dns/blob/15f62846/src/core/node/blocklists.js#L14-L16)
 required to setup the radix-trie during runtime bring-up or, downloads them [lazily](https://github.com/serverless-dns/serverless-dns/blob/02f9e5bf/src/plugins/dns-op/resolver.js#L167),
 when serving a DNS request.
 
-`serverless-dns` compiles around ~13M entries (as of Jan 2023) from around 190+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
+`serverless-dns` compiles around ~17M entries (as of Nov 2025) from around 200+ blocklists. These are defined in the [serverless-dns/blocklists](https://github.com/serverless-dns/blocklists) repository.
