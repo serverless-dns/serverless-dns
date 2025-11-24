@@ -167,13 +167,13 @@ serverless-dns also supports TLS PSK ciphersuites when env var `TLS_PSK` is set 
 
 The server-hint sent to the TLS 1.2 clients is fixed to [`888811119999`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L11).
 
-*Static PSK*: TLS 1.2 clients must set client-hint as hex string from [`790bb453...ffae2452`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf-sha256(key, id)` where `key` is itself `hkdf-sha256(seed, sha512(ctx), salt)`:
+*Static PSK*: TLS 1.2 clients must set client-hint (`id`) as hex string from [`790bb453...ffae2452`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf-sha256(key, id)` where `key` is itself `hkdf-sha256(seed, sha512(ctx), salt)`:
 - `seed` is env var `TLS_PSK` converted to bytes from base64 or hex.
 - `ctx` is [UTF-8 encoding](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) of string `pskkeyfixedderivationcontext`.
 - `salt` is fixed from [`44f402e7...91a6e3ce`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) converted to bytes.
 - `id` is the static client-hint from above (`790bb453...ffae2452`) converted to bytes.
 
-*Dynamic PSK*: To dynamically generate PSK identity and key (derived from env var `TLS_PSK`), invoke `<my-domain.tld>/gentlspsk`. The returned credentials are valid as long as `TLS_PSK` is unchanged:
+*Dynamic PSK*: For TLS 1.2 clients, to use a dynamically generated PSK identity and key (derived from env var `TLS_PSK`), invoke `<my-domain.tld>/gentlspsk`. The returned credentials are valid as long as `TLS_PSK` is unchanged:
 
 ```js
 {
@@ -183,6 +183,8 @@ The server-hint sent to the TLS 1.2 clients is fixed to [`888811119999`](https:/
     "psk":"ebc9ab07...03629dd4"
 }
 ```
+
+TLS *early data* (0-RTT) for TLS 1.3 (via TLS PSK) is not supported by Node.<sup>([why?](https://github.com/serverless-dns/serverless-dns/issues/30#issuecomment-997167459))</sup>
 
 #### Logs and Analytics
 
