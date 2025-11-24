@@ -22,7 +22,7 @@ Server-side processing takes from 0 milliseconds (ms) to 2ms (median), and end-t
     alt="FLOSS/fund badge"
     height="40">](https://floss.fund)
 
-The *Rethink DNS* resolver on Fly.io is sponsored by [FLOSS/fund](https://floss.fund).
+The *Rethink DNS* resolver on Fly.io is sponsored by [FLOSS/fund](https://floss.fund) and FOSS United.
 
 ### Self-host
 
@@ -48,7 +48,8 @@ For help or assistance, feel free to [open an issue](https://github.com/celzero/
 ---
 
 ### Development
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/serverless-dns/serverless-dns/badge)](https://securityscorecards.dev/viewer/?uri=github.com/serverless-dns/serverless-dns)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/serverless-dns/serverless-dns/badge)](https://securityscorecards.dev/viewer/?uri=github.com/serverless-dns/serverless-dns)&emsp;
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/serverless-dns/serverless-dns)
 
 #### Setup
 
@@ -160,17 +161,17 @@ curl 'https://max.rethinkdns.com/genaccesskey?key='"$msgkey"'&dom='"$domain"
 # {"accesskey":["my-serverless-dns-domain.tld|deadbeefd3adb33fa2bb33fd3eadf084beef3b152beefdead49bbb2b33fdead83d3adbeefdeadb33f"],"context":"sdns-public-auth-info"}
 ```
 
-serverless-dns also support TLS PSK ciphersuites when env var `TLS_PSK` is set to hex or base64 of randomly generated 64 bytes. Works only on cloud deployments that terminate their own TLS (like on Fly.io).
-
 #### TLS PSK
 
-The PSK server-hint sent to the TLS 1.2 clients is [psk.js:serverid (`888811119999`)](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L11).
+serverless-dns also support TLS PSK ciphersuites when env var `TLS_PSK` is set to hex or base64 of randomly generated 64 bytes. Works only on cloud deployments that terminate their own TLS (like on Fly.io).
 
-*Static PSK*: TLS 1.2 clients must set client-hint to [psk.js:fixedID64 (`790bb453...ffae2452`)](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf(key, id)` where `key` is itself `hkdf(seed, ctx, salt)`:
+The server-hint sent to the TLS 1.2 clients is fixed to [`888811119999`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L11).
+
+*Static PSK*: TLS 1.2 clients must set client-hint as hex string from [`790bb453...ffae2452`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf(key, id)` where `key` is itself `hkdf(seed, ctx, salt)`:
 - `seed` is env var `TLS_PSK` converted to bytes from base64 or hex.
-- `ctx` is utf-8 encoding of string `pskkeyfixedderivationcontext`.
-- `salt` is fixed to [`44f402e7...91a6e3ce`](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L21-L27) converted to bytes.
-- `id` is the static client-hint (`790bb453...ffae2452`) converted to bytes.
+- `ctx` is [UTF-8 encoding](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) of string `pskkeyfixedderivationcontext`.
+- `salt` is fixed from [`44f402e7...91a6e3ce`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) converted to bytes.
+- `id` is the static client-hint from above (`790bb453...ffae2452`) converted to bytes.
 
 *Dynamic PSK*: To dynamically generate PSK identity and key (derived from env var `TLS_PSK`), invoke `<my-domain.tld>/gentlspsk`. The returned credentials are valid as long as `TLS_PSK` is unchanged:
 
