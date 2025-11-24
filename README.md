@@ -160,6 +160,29 @@ curl 'https://max.rethinkdns.com/genaccesskey?key='"$msgkey"'&dom='"$domain"
 # {"accesskey":["my-serverless-dns-domain.tld|deadbeefd3adb33fa2bb33fd3eadf084beef3b152beefdead49bbb2b33fdead83d3adbeefdeadb33f"],"context":"sdns-public-auth-info"}
 ```
 
+serverless-dns also support TLS PSK ciphersuites when env var `TLS_PSK` is set to hex or base64 of randomly generated 64 bytes. Works only on cloud deployments that terminate their own TLS (like on Fly.io).
+
+#### TLS PSK
+
+The PSK server-hint sent to the TLS 1.2 clients is [psk.js:serverid (`888811119999`)](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L11).
+
+*Static PSK*: TLS 1.2 clients must set client-hint to [psk.js:fixedID64 (`790bb453...ffae2452`)](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf(key, id)` where `key` is itself `hkdf(seed, ctx, salt)`:
+- `seed` is env var `TLS_PSK` converted to bytes from base64 or hex.
+- `ctx` is utf-8 encoding of string `pskkeyfixedderivationcontext`.
+- `salt` is fixed to [`44f402e7...91a6e3ce`](https://github.com/serverless-dns/serverless-dns/blob/1c75b95c2ab6/src/core/psk.js#L21-L27) converted to bytes.
+- `id` is the static client-hint (`790bb453...ffae2452`) converted to bytes.
+
+*Dynamic PSK*: To dynamically generate PSK identity and key (derived from env var `TLS_PSK`), invoke `<my-domain.tld>/gentlspsk`. The returned credentials are valid as long as `TLS_PSK` is unchanged:
+
+```js
+{
+    // 64 hex chars; id is to be used as-is as the psk client identity.
+    "id":"43dc2df4...6d332545",
+    // 128 hex chars; convert to 64-length byte array to use as psk shared secret.
+    "psk":"ebc9ab07...03629dd4"
+}
+```
+
 #### Logs and Analytics
 
 serverless-dns can be setup to upload logs via Cloudflare *Logpush*.
@@ -226,7 +249,7 @@ TLS_OFFLOAD="true"
 # OR: base64 representation of both key (private) and cert (public chain)
 TLS_CERTKEY="KEY=b64_key_content\nCRT=b64_cert_content"
 # OPTIONALLY: use TLS with PSK ciphers (also permits domain fronting)
-TLS_PSK="random-hex-or-base64(64bytes)"
+TLS_PSK="hex-or-base64(cryptographically-secure-random-64bytes)"
 # OPTIONALLY: set TLS_ALLOW_ANY_SNI to true to permit domain fronting
 TLS_ALLOW_ANY_SNI="true"
 ```
