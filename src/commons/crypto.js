@@ -98,17 +98,23 @@ export async function hkdfaes(skmac, usectx, salt = new Uint8Array(0)) {
 }
 
 /**
+ * Generate raw derived bits using HKDF.
  * @param {BufferSource} sk
  * @param {BufferSource} usectx
  * @param {BufferSource} salt
  * @returns {Promise<ArrayBuffer>}
  */
-export async function hkdfraw(sk, usectx, salt = new Uint8Array(0)) {
+export async function hkdfraw(
+  sk,
+  usectx,
+  salt = new Uint8Array(0),
+  bits = 512
+) {
   const dk = await hkdf(sk);
   return crypto.subtle.deriveBits(
     hkdf256(salt, usectx),
     dk,
-    hkdfalgkeysz * 8 // length in bits (256 bits)
+    bits // length in bits (512 bits)
   );
 }
 /**
@@ -136,10 +142,22 @@ async function hkdf(sk) {
   );
 }
 
-function hmac256opts() {
-  return { name: "HMAC", hash: "SHA-256" }; // length: 512 (bits) default
+/**
+ *
+ * @param {int} len
+ * @returns {HmacKeyGenParams}
+ */
+function hmac256opts(len = 512) {
+  // length: 512 (bits) default for HMAC-SHA-256
+  return { name: "HMAC", hash: "SHA-256", length: len };
 }
 
+/**
+ *
+ * @param {BufferSource} salt
+ * @param {BufferSource} usectx
+ * @returns {HkdfParams}
+ */
 function hkdf256(salt, usectx) {
   return { name: "HKDF", hash: "SHA-256", salt: salt, info: usectx };
 }

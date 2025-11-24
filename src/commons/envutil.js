@@ -355,6 +355,10 @@ function hex2b64IfNeeded(h) {
   return b64;
 }
 
+/**
+ * @param {string} b64
+ * @returns {string}
+ */
 function b64tohexIfNeeded(b64) {
   const ishex = /^[0-9a-fA-F]+$/.test(b64);
   if (ishex) return b64;
