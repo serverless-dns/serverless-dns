@@ -76,9 +76,9 @@ export class PskCred {
 // are not allowed within global scope. To fix this error, perform this operation within a handler.
 // https://developers.cloudflare.com/workers/runtime-apis/handlers/
 async function up() {
-  await resetDynamicSessionSecret(bufutil.fromB64(envutil.secretb64()));
-  generateTlsPsk(fixedID64);
-  log.i("psk: up; dynamic session ready");
+  const ok = await resetSessionSecret(bufutil.fromB64(envutil.secretb64()));
+  const staticpsk = await generateTlsPsk(fixedID64);
+  log.i("psk: up; static/dynamic?", staticpsk != null, ok);
 }
 
 /**
@@ -124,11 +124,12 @@ export async function generateTlsPsk(clientid) {
  * Resets session secret for dynamic PSK Identity & Key derivations and authentications.
  * @param {Uint8Array} seed
  * @param {string?} newctxstr
+ * @returns {Promise<boolean>}
  */
-export async function resetDynamicSessionSecret(seed, newctxstr) {
+export async function resetSessionSecret(seed, newctxstr) {
   if (bufutil.emptyBuf(seed)) {
     log.e("psk: new session missing secret");
-    return;
+    return false;
   }
 
   const ctx = newctxstr ? bufutil.fromStr(newctxstr) : pskfixedctx;
@@ -137,4 +138,5 @@ export async function resetDynamicSessionSecret(seed, newctxstr) {
   // log.d("psk: new w", bufutil.hex(oldsecret.slice(0, 16)), "+", newctxstr);
   sessionSecret = await hkdfraw(seed, info512, pskfixedsalt);
   log.i("psk: new session secret", bufutil.len(sessionSecret), "bytes");
+  return true;
 }
