@@ -169,7 +169,7 @@ async function up() {
 
   process.on("SIGINT", (sig) => stopAfter());
 
-  process.on("warning", (e) => console.warn(e.stack));
+  process.on("warning", (e) => log.w(e.stack));
 
   // signal all system are-a go
   system.pub("go");

@@ -9,11 +9,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-function stub() {
-  return () => {
-    /* no-op */
-  };
-}
+// no imports!
 
 /**
  * @typedef {'error'|'logpush'|'warn'|'info'|'timer'|'debug'} LogLevels
@@ -218,3 +214,9 @@ export const log = new Proxy(
     },
   }
 );
+
+function stub() {
+  return () => {
+    /* no-op */
+  };
+}

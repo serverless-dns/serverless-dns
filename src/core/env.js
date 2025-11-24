@@ -383,7 +383,7 @@ export default class EnvManager {
       const val = mappedKey.default;
 
       if (!type || val == null) {
-        console.debug(key, "incomplete env val:", mappedKey);
+        // console.debug(key, "incomplete env val:", mappedKey);
         continue;
       }
 

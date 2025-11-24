@@ -28,7 +28,7 @@ import * as dnsutil from "./commons/dnsutil.js";
 import * as envutil from "./commons/envutil.js";
 import * as util from "./commons/util.js";
 import { handleRequest } from "./core/doh.js";
-import { loggerWithTags } from "./core/log.js";
+import { log as log2, loggerWithTags } from "./core/log.js";
 import { setTlsVars } from "./core/node/config.js";
 import * as nodeutil from "./core/node/util.js";
 import * as psk from "./core/psk.js";
@@ -257,7 +257,7 @@ function systemDown() {
   // system-down even may arrive even before the process has had the chance
   // to start, in which case globals like env and log may not be available
   const upmins = (uptime() / 60000) | 0;
-  console.warn("W rcv stop; uptime", upmins, "mins", stats.str());
+  log2.w("W rcv stop; uptime", upmins, "mins", stats.str());
 
   const shutdownTimeoutMs = envutil.shutdownTimeoutMs();
   // servers will start rejecting conns when tracker is empty
@@ -274,7 +274,7 @@ function systemDown() {
   // TODO: handle proxy protocol sockets
   for (const m of cmap) {
     if (!m) continue;
-    console.warn("W closing...", m.size, "connections");
+    log2.w("W closing...", m.size, "connections");
     for (const v of m.values()) {
       close(v.socket);
     }
@@ -285,7 +285,7 @@ function systemDown() {
   for (const s of srvs) {
     if (!s || !s.listening) continue;
     const saddr = s.address();
-    console.warn("W stopping...", saddr);
+    log2.w("W stopping...", saddr);
     s.close(() => down(saddr));
     s.unref();
   }
@@ -496,7 +496,7 @@ function systemUp() {
           trapSecureServerEvents("dohb1", doh);
         });
     } else {
-      console.log("unsupported runtime for doh");
+      log2.i("unsupported runtime for doh");
     }
   }
 
@@ -516,7 +516,7 @@ function systemUp() {
  */
 async function certUpdateForever(secopts, s, n = 0) {
   if (n > maxCertUpdateAttempts) {
-    console.error("crt: max update attempts reached", n);
+    log2.e("crt: max update attempts reached", n);
     return false;
   }
 
@@ -535,7 +535,7 @@ async function certUpdateForever(secopts, s, n = 0) {
   const oneDayMs = 24 * 60 * 60 * 1000; // in ms
   const validUntil = new Date(crt.validTo).getTime() - Date.now();
   if (validUntil > oneDayMs) {
-    console.log("crt: #", n, "update: valid for", validUntil, "ms; not needed");
+    log2.i("crt: #", n, "update: valid for", validUntil, "ms; not needed");
     util.timeout(validUntil - oneDayMs, () => certUpdateForever(secopts, s));
     return false;
   }
@@ -550,7 +550,7 @@ async function certUpdateForever(secopts, s, n = 0) {
     if (validUntil > oneMinMs && when > validUntil) {
       when = Math.max(oneMinMs, validUntil - oneMinMs);
     }
-    console.error("crt: #", n, "update: no key/cert fetched; next", when);
+    log2.e("crt: #", n, "update: no key/cert fetched; next", when);
     util.timeout(when, () => certUpdateForever(secopts, s, n));
     return false;
   }
@@ -566,7 +566,7 @@ async function certUpdateForever(secopts, s, n = 0) {
 
   s.setSecureContext(secopts);
 
-  console.info("crt: #", n, "update: set new cert");
+  log2.i("crt: #", n, "update: set new cert");
   util.next(() => certUpdateForever(secopts, s));
 
   return true;
@@ -579,7 +579,7 @@ function logCertInfo(crt) {
   if (!crt) {
     return;
   }
-  console.info(
+  log2.i(
     crt.serialNumber, // AF163398B8095EA6D273CC9B50E95DC3
     crt.issuer, // C=AT, O=ZeroSSL, CN=ZeroSSL ECC Domain Secure Site CA
     crt.subject, // CN=max.rethinkdns.com
@@ -780,7 +780,7 @@ function rotateTkt(id, s) {
 }
 
 function down(addr) {
-  console.warn(`W closed: [${addr.address}]:${addr.port}`);
+  log2.w(`W closed: [${addr.address}]:${addr.port}`);
 }
 
 function up(server, addr) {
@@ -1503,7 +1503,7 @@ function bye() {
   // in some cases, node stops listening but the process doesn't exit because
   // of other unreleased resources (see: svc.js#systemStop); and so exit with
   // success (exit code 0) regardless; ref: community.fly.io/t/4547/6
-  console.warn("W game over");
+  log2.w("W game over");
 
   if (envutil.isNode()) v8.writeHeapSnapshot("snap.end.heapsnapshot");
 
