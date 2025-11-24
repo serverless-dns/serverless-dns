@@ -309,21 +309,6 @@ function systemUp() {
   const supportsHttp2 = envutil.isNode() || envutil.isDeno();
   const isBun = envutil.isBun();
   const allowTlsPsk = envutil.allowTlsPsk();
-  let tlsPsk = null;
-  if (allowTlsPsk) {
-    const pskhex = envutil.tlsPskHex();
-    if (pskhex == null) {
-      log.w(
-        "TLS_PSK not set; using per-process session random",
-        psk.staticPskCred.idhexhint,
-        bufutil.len(psk.staticPskCred.key),
-        "bytes"
-      );
-    } else {
-      tlsPsk = bufutil.hex2buf(pskhex);
-      log.i("TLS PSK configured", bufutil.len(tlsPsk), "bytes");
-    }
-  }
 
   if (downloadmode) {
     log.i("in download mode, not running the dns resolver");
@@ -335,6 +320,18 @@ function systemUp() {
   } else {
     adjTimer = util.repeat(adjPeriodSec * 1000, adjustMaxConns);
     log.i(`cpu ${cpucount}, ip ${zero6}, tcpb ${tcpbacklog}, c ${maxconns}`);
+  }
+
+  /** @type {Uint8Array?} */
+  let tlsPsk = null;
+  if (allowTlsPsk) {
+    const pskhex = envutil.tlsPskHex();
+    tlsPsk = bufutil.hex2buf(pskhex);
+    if (bufutil.len(tlsPsk) < psk.minkeyentropy) {
+      log.e("TLS_PSK disabled; seed not", psk.minkeyentropy, "bytes long");
+      allowTlsPsk = false;
+      if (envManager != null) envManager.set("TLS_PSK", ""); // disable
+    }
   }
 
   // nodejs.org/api/net.html#netcreateserveroptions-connectionlistener
@@ -384,30 +381,16 @@ function systemUp() {
     tlsOpts.pskCallback = (_socket, idhex) => {
       stats.tottlspsk += 1;
       if (!bufutil.isHex(idhex)) return;
-      if (psk.staticPskCred == null) {
-        stats.tlspskmiss += 1;
-        return null; // unlikely
-      }
 
-      // const idhexhint = psk.staticPskCred.idhexhint;
       // openssl s_client -reconnect -tls1_2 -psk_identity 790bb45383670663ce9a39480be2de5426179506c8a6b2be922af055896438dd06dd320e68cd81348a32d679c026f73be64fdbbc46c43bfbc0f98160ffae2452
       // -psk "$TLS_PSK" -connect dns.rethinkdns.localhost:10000 -debug -cipher "PSK-AES128-GCM-SHA256"
-      // TODO: confirm key is compatible with socket.getCipher();
-      if (idhex === psk.staticPskCred.idhex) {
-        stats.tlspsks += 1;
-        const customPsk = bufutil.len(tlsPsk) >= psk.keysize;
-        // log.d("TLS PSK: static id", idhexhint, "custom key?", customPsk);
-        if (customPsk) {
-          return tlsPsk;
-        }
-        return psk.staticPskCred.key;
-      }
-
       /** @type {psk.PskCred?} */
       const creds = psk.recentPskCreds.get(idhex);
       if (creds && creds.ok()) {
-        stats.tlspskd += 1;
         // log.d("TLS PSK: known client", creds.idhexhint);
+        if (idhex === creds.idhex) stats.tlspsks += 1;
+        else stats.tlspskd += 1;
+        // TODO: confirm creds.key is compatible with socket.getCipher();
         return creds.key;
       }
 
@@ -420,8 +403,7 @@ function systemUp() {
       stats.tlspskmiss += 1;
       return null;
     };
-    tlsOpts.pskIdentityHint =
-      psk.staticPskCred == null ? psk.serverid : psk.staticPskCred.idhexhint;
+    tlsOpts.pskIdentityHint = psk.serverid;
     log.i("TLS PSK identity hint", tlsOpts.pskIdentityHint);
   }
   // nodejs.org/api/http2.html#http2createsecureserveroptions-onrequesthandler
