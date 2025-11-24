@@ -163,11 +163,11 @@ curl 'https://max.rethinkdns.com/genaccesskey?key='"$msgkey"'&dom='"$domain"
 
 #### TLS PSK
 
-serverless-dns also support TLS PSK ciphersuites when env var `TLS_PSK` is set to hex or base64 of randomly generated 64 bytes. Works only on cloud deployments that terminate their own TLS (like on Fly.io).
+serverless-dns also supports TLS PSK ciphersuites when env var `TLS_PSK` is set to hex or base64 of randomly generated 64 bytes. Works only on cloud deployments that terminate their own TLS (like on Fly.io).
 
 The server-hint sent to the TLS 1.2 clients is fixed to [`888811119999`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L11).
 
-*Static PSK*: TLS 1.2 clients must set client-hint as hex string from [`790bb453...ffae2452`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf(key, id)` where `key` is itself `hkdf(seed, ctx, salt)`:
+*Static PSK*: TLS 1.2 clients must set client-hint as hex string from [`790bb453...ffae2452`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L14-L20). The static pre-shared key is then derived from `hkdf-sha256(key, id)` where `key` is itself `hkdf-sha256(seed, sha512(ctx), salt)`:
 - `seed` is env var `TLS_PSK` converted to bytes from base64 or hex.
 - `ctx` is [UTF-8 encoding](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) of string `pskkeyfixedderivationcontext`.
 - `salt` is fixed from [`44f402e7...91a6e3ce`](https://github.com/serverless-dns/serverless-dns/blob/42a880666e/src/core/psk.js#L21-L27) converted to bytes.
