@@ -701,11 +701,11 @@ function trapSecureServerEvents(id, s) {
     });
   });
 
-  const rottm = util.repeat(86400000 * 7, () => rotateTkt(s)); // 7d
+  const rottm = util.repeat(86400000 * 7, () => rotateTkt(id, s)); // 7d
   s.on("close", () => clearInterval(rottm));
 
   s.on("error", (err) => {
-    log.e("tls: stop! server error; " + err.message, err);
+    log.e("tls: stop!", id, "server err; " + err.message, err);
     stopAfter(0);
   });
 
@@ -745,10 +745,12 @@ function trapSecureServerEvents(id, s) {
 }
 
 /**
+ * Rotates TLS session tickets.
+ * @param {string} id
  * @param {tls.Server?} s
  * @returns {void}
  */
-function rotateTkt(s) {
+function rotateTkt(id, s) {
   if (envutil.isCleartext()) return; // tls offload
   if (envutil.isBun()) return;
   if (!s || !s.listening) return;
@@ -761,16 +763,14 @@ function rotateTkt(s) {
   const d = new Date();
   const cur = d.getUTCFullYear() + " " + d.getUTCMonth(); // 2023 7
   const ctx = cur + envutil.imageRef(); // may be empty str
-
-  log.i("tls: rotating psk seed & tkts", bufutil.len(seed), "ctx", ctx);
-  psk.newSession(seed, ctx);
-
   // tls session resumption with tickets (or ids) reduce the 3.5kb to 6.5kb
   // overhead associated with tls handshake: netsekure.org/2010/03/tls-overhead
   nodecrypto
     .tkt48(seed, ctx)
     .then((k) => s.setTicketKeys(k)) // not supported on bun
-    .catch((err) => log.e("tls: ticket rotation failed:", err));
+    .catch((err) => log.e("tls:", id, "tkt rotation err", err));
+
+  log.i("tls:", id, "tkt rotation", bufutil.len(seed), "ctx", ctx);
 }
 
 function down(addr) {

@@ -5,8 +5,6 @@ import * as envutil from "../commons/envutil.js";
 import * as system from "../system.js";
 import { log } from "./log.js";
 
-// increases overhead on clients to fetch new dynamic PSK creds every month.
-export const rotateEveryMonth = false;
 export const minkeyentropy = 32; // bytes; www.rfc-editor.org/rfc/rfc9257.html#name-provisioning-examples
 const minidlen = 32; // bytes; sufficiently large to avoid collisions
 const pskcachesize = 1000; // entries
