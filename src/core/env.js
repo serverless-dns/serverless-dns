@@ -245,6 +245,11 @@ const defaults = new Map(
       type: "string",
       default: "",
     },
+    // port for HTTP to HTTPS redirect server (0 = disabled)
+    HTTP_REDIRECT_PORT: {
+      type: "number",
+      default: 0,
+    },
   })
 );
 
