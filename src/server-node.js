@@ -506,6 +506,17 @@ function systemUp() {
     trapServerEvents("hcheck", hcheck);
   });
 
+  // HTTP to HTTPS redirect server
+  const portRedirect = envutil.httpRedirectPort();
+  if (portRedirect > 0) {
+    const hredirect = h2c
+      .createServer(serveHttpRedirect)
+      .listen(portRedirect, () => {
+        up("http-redirect", hredirect.address());
+        trapServerEvents("hredirect", hredirect);
+      });
+  }
+
   heartbeat();
 }
 
@@ -1238,6 +1249,26 @@ function serve200(req, res) {
   log.d("-------------> http-check req", req.method, req.url);
   stats.nofchecks += 1;
   res.writeHead(200);
+  res.end();
+}
+
+/**
+ * HTTP to HTTPS redirect handler
+ * @param {Http2ServerRequest} req
+ * @param {Http2ServerResponse} res
+ */
+function serveHttpRedirect(req, res) {
+  const host = req.headers.host || req.headers[":authority"] || "";
+  const path = req.url || "/";
+  const redirectUrl = `https://${host}${path}`;
+
+  log.d("-------------> http-redirect", req.method, host, path);
+
+  res.writeHead(301, {
+    "Location": redirectUrl,
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Cache-Control": "no-cache",
+  });
   res.end();
 }
 
