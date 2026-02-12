@@ -134,7 +134,7 @@ const defaults = new Map(
     // url to blocklist files: trie (td), rank-dir (rd), metadata: (filetag)
     CF_BLOCKLIST_URL: {
       type: "string",
-      default: "https://cfstore.rethinkdns.com/blocklists/",
+      default: "https://dns9.quad9.net:443/dns-query",
     },
     // primary doh upstream
     CF_DNS_RESOLVER_URL: {
@@ -144,13 +144,13 @@ const defaults = new Map(
     // secondary doh upstream
     CF_DNS_RESOLVER_URL_2: {
       type: "string",
-      default: "https://dns.google/dns-query",
+      default: "https://dns.quad9.net/dns-query",
     },
     // upstream recursive rethinkdns resolver running on Fly.io
     MAX_DNS_RESOLVER_URL: {
       type: "string",
       // must always end with a trailing slash
-      default: "https://max.rethinkdns.com/",
+      default: "https://dns11.quad9.net:443/dns-query",
     },
     // max doh request processing timeout some requests may have to wait
     // for blocklists to download before being responded to.
