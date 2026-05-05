@@ -510,12 +510,34 @@ function systemUp() {
 }
 
 /**
+ * Schedules the next cert-update attempt after a backoff delay.
+ * The delay decreases as attempts are exhausted, and is clamped so that
+ * the retry fires no later than one minute before the cert expires.
+ * @param {tls.TlsOptions} secopts
+ * @param {tls.Server} s
+ * @param {int} n - already-incremented attempt count
+ * @param {number} validUntil - ms until the current cert expires (may be ≤ 0)
+ * @returns {number} scheduled delay in ms
+ */
+function scheduleCertBackoff(secopts, s, n, validUntil) {
+  const oneMinMs = 1 * 60 * 1000;
+  const sixMinMs = 6 * 60 * 1000;
+  const attemptsLeft = Math.max(1, maxCertUpdateAttempts - n);
+  let when = validUntil <= oneMinMs ? oneMinMs : sixMinMs * attemptsLeft;
+  if (validUntil > oneMinMs && when > validUntil) {
+    when = Math.max(oneMinMs, validUntil - oneMinMs);
+  }
+  util.timeout(when, () => certUpdateForever(secopts, s, n));
+  return when;
+}
+
+/**
  * @param {tls.TlsOptions} secopts
  * @param {tls.Server} s
  * @param {int} n
  */
 async function certUpdateForever(secopts, s, n = 0) {
-  if (n > maxCertUpdateAttempts) {
+  if (n >= maxCertUpdateAttempts) {
     log2.e("crt: max update attempts reached", n);
     return false;
   }
@@ -527,10 +549,18 @@ async function certUpdateForever(secopts, s, n = 0) {
 
   // nodejs.org/api/tls.html#tlsgetcertificates
   // nodejs.org/api/tls.html#certificate-object
-  const crt = new X509Certificate(crtpem);
-
-  if (!crt) return false;
-  else logCertInfo(crt);
+  // X509Certificate throws on invalid input; it never returns null
+  let crt = null;
+  try {
+    crt = new X509Certificate(crtpem);
+  } catch (ex) {
+    log2.e("crt: #", n, "update: invalid cert pem", ex.message);
+    n = n + 1;
+    const when = scheduleCertBackoff(secopts, s, n, 0);
+    log2.e("crt: #", n, "update: next", when);
+    return false;
+  }
+  logCertInfo(crt);
 
   const oneDayMs = 24 * 60 * 60 * 1000; // in ms
   const validUntil = new Date(crt.validTo).getTime() - Date.now();
@@ -540,25 +570,34 @@ async function certUpdateForever(secopts, s, n = 0) {
     return false;
   }
 
-  const oneMinMs = 1 * 60 * 1000; // in ms
-  const sixMinMs = 6 * 60 * 1000; // in ms
   const [latestKey, latestCert] = await nodeutil.replaceKeyCert(crt);
   if (bufutil.emptyBuf(latestKey) || bufutil.emptyBuf(latestCert)) {
     n = n + 1;
-    const attemptsLeft = Math.max(1, maxCertUpdateAttempts - n);
-    let when = validUntil <= oneMinMs ? oneMinMs : sixMinMs * attemptsLeft;
-    if (validUntil > oneMinMs && when > validUntil) {
-      when = Math.max(oneMinMs, validUntil - oneMinMs);
-    }
+    const when = scheduleCertBackoff(secopts, s, n, validUntil);
     log2.e("crt: #", n, "update: no key/cert fetched; next", when);
-    util.timeout(when, () => certUpdateForever(secopts, s, n));
     return false;
   }
 
-  const latestcrt = new X509Certificate(latestCert);
+  // X509Certificate throws on invalid input; it never returns null
+  let latestcrt = null;
+  try {
+    latestcrt = new X509Certificate(latestCert);
+  } catch (ex) {
+    log2.e("crt: #", n, "update: invalid fetched cert", ex.message);
+    n = n + 1;
+    const when = scheduleCertBackoff(secopts, s, n, validUntil);
+    log2.e("crt: #", n, "update: next", when);
+    return false;
+  }
+  logCertInfo(latestcrt);
 
-  if (!latestcrt) return false;
-  else logCertInfo(latestcrt);
+  // same serial: remote cert not yet rotated; backoff and retry
+  if (latestcrt.serialNumber === crt.serialNumber) {
+    n = n + 1;
+    const when = scheduleCertBackoff(secopts, s, n, validUntil);
+    log2.i("crt: #", n, "update: same cert; backoff", when);
+    return false;
+  }
 
   secopts.cert = latestCert;
   secopts.key = latestKey;
