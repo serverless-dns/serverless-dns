@@ -16,6 +16,6 @@
     }
   },
   "tasks": {
-    "prepare": "./src/build/pre.sh"
+    "prepare": "deno run --allow-read --allow-write --allow-net src/build/pre.ts"
   }
 }
