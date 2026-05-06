@@ -80,7 +80,7 @@ export async function hkdfhmac(skmac, usectx, salt = new Uint8Array(0)) {
   return await crypto.subtle.deriveKey(
     hkdf256(salt, usectx),
     dk,
-    hmac256opts(),
+    hmac256opts(512),
     true, // extractable? can be true for sign, verify
     ["sign", "verify"] // usage
   );
@@ -143,13 +143,14 @@ async function hkdf(sk) {
 }
 
 /**
- *
- * @param {int} len
+ * HMAC-SHA-256 algorithm options.
+ * @param {number} [len] - Key length in bits; omit to infer from key data.
  * @returns {HmacKeyGenParams}
  */
-function hmac256opts(len = 512) {
-  // length: 512 (bits) default for HMAC-SHA-256
-  return { name: "HMAC", hash: "SHA-256", length: len };
+function hmac256opts(len) {
+  const opts = { name: "HMAC", hash: "SHA-256" };
+  if (len) opts.length = len;
+  return opts;
 }
 
 /**
@@ -245,8 +246,8 @@ export async function decryptAesGcm(aeskey, iv, taggedciphertext, aad) {
  * @returns {Promise<Uint8Array>} - The HMAC signature
  * @throws {Error} - If the key is not valid or signing fails
  */
-export function hmacsign(ck, m) {
-  const ab = crypto.subtle.sign("HMAC", ck, m);
+export async function hmacsign(ck, m) {
+  const ab = await crypto.subtle.sign("HMAC", ck, m);
   return normalize8(ab);
 }
 
