@@ -313,6 +313,11 @@ export function httpCheckPort() {
   return 8888;
 }
 
+export function httpRedirectPort() {
+  if (!envManager) return 0;
+  return envManager.get("HTTP_REDIRECT_PORT") || 0;
+}
+
 export function profileDnsResolves() {
   if (!envManager) return false;
 
