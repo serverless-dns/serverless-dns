@@ -11,7 +11,7 @@ import { log } from "../../core/log.js";
 import * as pres from "../plugin-response.js";
 
 // eslint-disable-next-line max-len
-// from: github.com/DNSCrypt/dnscrypt-proxy/blob/10ded3d9f/dnscrypt-proxy/plugin_block_undelegated.go
+// from: https://github.com/DNSCrypt/dnscrypt-proxy/blob/140587c79df3c1edb7fe11fa2f9c135e122e584b/dnscrypt-proxy/plugin_block_undelegated.go
 const undelegated = new Set([
   // eslint-disable-next-line max-len
   "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa",
@@ -128,9 +128,11 @@ const undelegated = new Set([
   "envoy",
   "example",
   "f.f.ip6.arpa",
+  "fritz.box",
   "grp",
   "gw==",
   "home",
+  "home.arpa",
   "hub",
   "internal",
   "intra",
@@ -143,6 +145,7 @@ const undelegated = new Set([
   "localdomain",
   "localhost",
   "localnet",
+  "mail",
   "modem",
   "mynet",
   "myrouter",

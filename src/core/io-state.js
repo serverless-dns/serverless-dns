@@ -305,7 +305,7 @@ export default class IOState {
   }
 
   // builds nxdomain response only for undelegated domains
-  // like .internal / .local .lan
+  // like .internal / .lan / .local (rfc6762) / .home.arpa (rfc8375)
   assignNxDomainResponse() {
     if (util.emptyObj(this.decodedDnsPacket.questions)) {
       this.log.e("decoded dns-packet missing question");
